@@ -211,6 +211,10 @@ ID3D12Resource *CreateBufferResource(ID3D12Device *device, size_t sizeInBytes) {
   return bufferResource;
 }
 
+/// <summary>
+/// 単位行列作成
+/// </summary>
+/// <returns>単位行列</returns>
 Matrix4x4 MakeIdentity4x4() {
   Matrix4x4 matrix;
 
@@ -227,6 +231,12 @@ Matrix4x4 MakeIdentity4x4() {
   return matrix;
 }
 
+/// <summary>
+/// 行列の積を求める
+/// </summary>
+/// <param name="matrix1">行列</param>
+/// <param name="matrix2">行列</param>
+/// <returns>積</returns>
 Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2) {
 
   Matrix4x4 result;
@@ -298,6 +308,13 @@ Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2) {
   return result;
 }
 
+/// <summary>
+/// アフィン行列作成
+/// </summary>
+/// <param name="scale">拡縮</param>
+/// <param name="rotate">回転</param>
+/// <param name="translate">平行移動</param>
+/// <returns>アフィン行列</returns>
 Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
   Matrix4x4 scaleMatrix;
 
@@ -398,6 +415,14 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
   return worldMatrix;
 }
 
+/// <summary>
+/// 透視投影行列作成
+/// </summary>
+/// <param name="fovY">画角</param>
+/// <param name="aspectRatio">アスペクト比</param>
+/// <param name="nearClip">近平面</param>
+/// <param name="farClip">遠平面</param>
+/// <returns>透視投影行列</returns>
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
                                    float nearClip, float farClip) {
   Matrix4x4 matrix;
@@ -418,6 +443,40 @@ Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
   matrix.m[3][1] = 0.0f;
   matrix.m[3][2] = (-nearClip * farClip) / (farClip - nearClip);
   matrix.m[3][3] = 0.0f;
+
+  return matrix;
+}
+
+/// <summary>
+/// 正射影行列(平行投影行列)作成
+/// </summary>
+/// <param name="left">左端</param>
+/// <param name="top">上端</param>
+/// <param name="right">右端</param>
+/// <param name="bottom">下端</param>
+/// <param name="nearClip">近平面</param>
+/// <param name="farClip">遠平面</param>
+/// <returns>正射影行列</returns>
+Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
+                                 float bottom, float nearClip, float farClip) {
+  Matrix4x4 matrix;
+
+  matrix.m[0][0] = 2.0f / (right - left);
+  matrix.m[0][1] = 0.0f;
+  matrix.m[0][2] = 0.0f;
+  matrix.m[0][3] = 0.0f;
+  matrix.m[1][0] = 0.0f;
+  matrix.m[1][1] = 2.0f / (top - bottom);
+  matrix.m[1][2] = 0.0f;
+  matrix.m[1][3] = 0.0f;
+  matrix.m[2][0] = 0.0f;
+  matrix.m[2][1] = 0.0f;
+  matrix.m[2][2] = 1.0f / (farClip - nearClip);
+  matrix.m[2][3] = 0.0f;
+  matrix.m[3][0] = (left + right) / (left - right);
+  matrix.m[3][1] = (top + bottom) / (bottom - top);
+  matrix.m[3][2] = nearClip / (nearClip - farClip);
+  matrix.m[3][3] = 1.0f;
 
   return matrix;
 }
@@ -1299,6 +1358,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 1頂点あたりのサイズ
   vertexBufferView.StrideInBytes = sizeof(VertexData);
 
+  // Sprite用のリソースを作成する
+  ID3D12Resource *vertexResoureSprite =
+      CreateBufferResource(device, sizeof(VertexData) * 6);
+
+  // 頂点バッファビューを作成する
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite{};
+
+  // リソースの先頭アドレスから使う
+  vertexBufferViewSprite.BufferLocation =
+      vertexResoureSprite->GetGPUVirtualAddress();
+
+  // 使用するリソースサイズは頂点六つ分のサイズ
+  vertexBufferViewSprite.SizeInBytes = sizeof(VertexData) * 6;
+
+  // 1頂点あたりのサイズ
+  vertexBufferViewSprite.StrideInBytes = sizeof(VertexData);
+
+  // Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
+  ID3D12Resource *transformationMatrixResourceSprite =
+      CreateBufferResource(device, sizeof(Matrix4x4));
+
+  // データを書き込む
+  Matrix4x4 *transformationMatrixDataSprite = nullptr;
+
+  // 書き込むためのアドレスを取得
+  transformationMatrixResourceSprite->Map(
+      0, nullptr, reinterpret_cast<void **>(&transformationMatrixDataSprite));
+
+  // 単位行列を書き込んでおく
+  *transformationMatrixDataSprite = MakeIdentity4x4();
+
   // 頂点リソースにデータを書き込む
   VertexData *vertexData = nullptr;
 
@@ -1328,6 +1418,28 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 右下2
   vertexData[5].position = {0.5f, -0.5f, -0.5f, 1.0f};
   vertexData[5].texcoord = {1.0f, 1.0f};
+
+  // 頂点データ設定
+  VertexData *vertexDataSprite = nullptr;
+
+  vertexResoureSprite->Map(0, nullptr,
+                           reinterpret_cast<void **>(&vertexDataSprite));
+
+  // 一枚目の三角形
+  vertexDataSprite[0].position = {0.0f, 360.0f, 0.0f, 1.0f}; // 左下
+  vertexDataSprite[0].texcoord = {0.0f, 1.0f};
+  vertexDataSprite[1].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
+  vertexDataSprite[1].texcoord = {0.0f, 0.0f};
+  vertexDataSprite[2].position = {640.0f, 360.0f, 0.0f, 1.0f}; // 右下
+  vertexDataSprite[2].texcoord = {1.0f, 1.0f};
+
+  // 二枚目
+  vertexDataSprite[3].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
+  vertexDataSprite[3].texcoord = {0.0f, 0.0f};
+  vertexDataSprite[4].position = {640.0f, 0.0f, 0.0f, 1.0f}; // 右上
+  vertexDataSprite[4].texcoord = {1.0f, 0.0f};
+  vertexDataSprite[5].position = {640.0f, 360.0f, 0.0f, 1.0f}; // 右下
+  vertexDataSprite[5].texcoord = {1.0f, 1.0f};
 
   // ビューポート
   D3D12_VIEWPORT viewport{};
@@ -1365,6 +1477,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {0.0f, 0.0f, -5.0f},
   };
 
+  // Sprite用のTransform
+  Transform transformSprite{
+      {1.0f, 1.0f, 1.0},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
+
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -1394,7 +1513,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       transform.rotate.y += 0.03f;
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
-      ImGui::ShowDemoWindow();
+      // ImGui::ShowDemoWindow();
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
@@ -1411,6 +1530,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 
       *transformationMatrixData = worldViewProjectionMatrix;
+
+      // Sprite用のWorldViewProjectionMatrixを作る
+      Matrix4x4 worldMatrixSprite =
+          MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
+                           transformSprite.translate);
+      Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+      Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(
+          0.0f, 0.0f, float(kClientWidth), float(kClientHeight), 0.0f, 100.0f);
+      Matrix4x4 worldViewProjectionMatrixSprite =
+          Multiply(worldMatrixSprite,
+                   Multiply(viewMatrixSprite, projectionMatrixSprite));
+      *transformationMatrixDataSprite = worldViewProjectionMatrixSprite;
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -1477,6 +1608,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
       // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
+      commandList->DrawInstanced(6, 1, 0, 0);
+
+      // Spriteの描画
+      commandList->IASetVertexBuffers(0, 1,
+                                      &vertexBufferViewSprite); // VBVを設定
+
+      // TransformationMatrixCBufferの場所を設定
+      commandList->SetGraphicsRootConstantBufferView(
+          1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
+
+      // ドローコール
       commandList->DrawInstanced(6, 1, 0, 0);
 
       // 実際のcommandListのImGuiの描画コマンドを積む
@@ -1565,6 +1707,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   depthStencilResource->Release();
 
   dsvDescriptorHeap->Release();
+
+  vertexResoureSprite->Release();
+
+  transformationMatrixResourceSprite->Release();
 
   CoUninitialize();
 
