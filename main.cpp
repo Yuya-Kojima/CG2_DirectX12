@@ -798,6 +798,40 @@ ID3D12Resource *CreateDepthStencilTextureResource(ID3D12Device *device,
   return resource;
 }
 
+/// <summary>
+/// CPUHandleの取得
+/// </summary>
+/// <param name="descriptorHeap">DescriptorHandle</param>
+/// <param name="descriptorSize">DescriptorSize</param>
+/// <param name="index">index</param>
+/// <returns></returns>
+D3D12_CPU_DESCRIPTOR_HANDLE
+GetCPUDescriptorHandle(ID3D12DescriptorHeap *descriptorHeap,
+                       uint32_t descriptorSize, uint32_t index) {
+
+  D3D12_CPU_DESCRIPTOR_HANDLE handleCPU =
+      descriptorHeap->GetCPUDescriptorHandleForHeapStart();
+  handleCPU.ptr += (descriptorSize * index);
+  return handleCPU;
+}
+
+/// <summary>
+/// GPUHandleの取得
+/// </summary>
+/// <param name="descriptorHeap">descriptorHeap</param>
+/// <param name="descriptorSize">descriptorSize</param>
+/// <param name="index">index</param>
+/// <returns></returns>
+D3D12_GPU_DESCRIPTOR_HANDLE
+GetGPUDescriptorHandle(ID3D12DescriptorHeap *descriptorHeap,
+                       uint32_t descriptorSize, uint32_t index) {
+
+  D3D12_GPU_DESCRIPTOR_HANDLE handleGPU =
+      descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+  handleGPU.ptr += (descriptorSize * index);
+  return handleGPU;
+}
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
@@ -1016,7 +1050,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   ID3D12Resource *depthStencilResource =
       CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
 
+  //===========================
   // ディスクリプタヒープの生成
+  //===========================
+
+  // DescriptorSizeの取得
+  const uint32_t descriptorSizeSRV = device->GetDescriptorHandleIncrementSize(
+      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+  const uint32_t descriptorSizeRTV =
+      device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+  const uint32_t descriptorSizeDSV =
+      device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
   // RTV用のヒープでディスクリプタの数は2。RTVはShader内で触るものではないので、ShaderVisibleはfalse
   ID3D12DescriptorHeap *rtvDescriptorHeap =
@@ -1047,6 +1093,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   ID3D12Resource *textureResource = CreateTextureResource(device, metadata);
   UploadTextureData(textureResource, mipImages);
 
+  // 二枚目のTextureを読んで転送
+  DirectX::ScratchImage mipImages2 = LoadTexture("resources/monsterBall.png");
+  const DirectX::TexMetadata &metadata2 = mipImages2.GetMetadata();
+  ID3D12Resource *textureResource2 = CreateTextureResource(device, metadata2);
+  UploadTextureData(textureResource2, mipImages2);
+
   // metadataを基にSRVの設定
   D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
   srvDesc.Format = metadata.format;
@@ -1054,21 +1106,35 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
   srvDesc.Texture2D.MipLevels = UINT(metadata.mipLevels);
 
+  D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc2{};
+  srvDesc2.Format = metadata2.format;
+  srvDesc2.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  srvDesc2.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
+  srvDesc2.Texture2D.MipLevels = UINT(metadata2.mipLevels);
+
   // SRVを作成するDescriptorHeapの場所を決める
   D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU =
-      srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+      GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 1);
   D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
-      srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+      GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 1);
+
+  D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU2 =
+      GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 2);
+  D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 =
+      GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 2);
 
   // 先頭はImGuiが使っているのでそれの次を使う
-  textureSrvHandleCPU.ptr += device->GetDescriptorHandleIncrementSize(
-      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-  textureSrvHandleGPU.ptr += device->GetDescriptorHandleIncrementSize(
-      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+  /* textureSrvHandleCPU.ptr += device->GetDescriptorHandleIncrementSize(
+       D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+   textureSrvHandleGPU.ptr += device->GetDescriptorHandleIncrementSize(
+       D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);*/
 
   // SRVの生成
   device->CreateShaderResourceView(textureResource, &srvDesc,
                                    textureSrvHandleCPU);
+
+  device->CreateShaderResourceView(textureResource2, &srvDesc2,
+                                   textureSrvHandleCPU2);
 
   // ディスクリプタヒープが作れなかったので起動できない
   assert(SUCCEEDED(hr));
@@ -1094,7 +1160,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // ディスクリプタの先頭を取得する
   D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle =
-      rtvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+      GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, 0);
 
   // RTVを二つ作るのでディスクリプタを二つ用意
   D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2];
@@ -1582,6 +1648,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {0.0f, 0.0f, 0.0f},
   };
 
+  // texture切り替え用
+  bool useMonsterBall = true;
+
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -1612,7 +1681,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit3("materialColor", &materialData->x);
-      ImGui::DragFloat3("tarnslate", &transform.translate.x, 0.01f);
+      ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
+      ImGui::Checkbox("useMonsterBall", &useMonsterBall);
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
@@ -1668,7 +1738,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // 描画先のRTVとDSVを設定する
       D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle =
-          dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+          GetCPUDescriptorHandle(dsvDescriptorHeap, descriptorSizeDSV, 0);
       commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false,
                                       &dsvHandle);
 
@@ -1704,7 +1774,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           1, transformationMatrixResource->GetGPUVirtualAddress());
 
       // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
-      commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+      commandList->SetGraphicsRootDescriptorTable(
+          2, useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
 
       // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
       commandList->DrawInstanced(1536, 1, 0, 0);
@@ -1717,8 +1788,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       commandList->SetGraphicsRootConstantBufferView(
           1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 
+      // Spriteは常に"uvChecker"にする
+      commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+
       // ドローコール
-      //  commandList->DrawInstanced(6, 1, 0, 0);
+      commandList->DrawInstanced(6, 1, 0, 0);
 
       // 実際のcommandListのImGuiの描画コマンドを積む
       ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
@@ -1802,6 +1876,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   transformationMatrixResource->Release();
 
   textureResource->Release();
+  textureResource2->Release();
 
   depthStencilResource->Release();
 
