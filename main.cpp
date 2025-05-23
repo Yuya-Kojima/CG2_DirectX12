@@ -1141,12 +1141,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 =
       GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 2);
 
-  // 先頭はImGuiが使っているのでそれの次を使う
-  /* textureSrvHandleCPU.ptr += device->GetDescriptorHandleIncrementSize(
-       D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-   textureSrvHandleGPU.ptr += device->GetDescriptorHandleIncrementSize(
-       D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);*/
-
   // SRVの生成
   device->CreateShaderResourceView(textureResource, &srvDesc,
                                    textureSrvHandleCPU);
@@ -1542,29 +1536,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 書き込むためのアドレスを取得
   vertexResource->Map(0, nullptr, reinterpret_cast<void **>(&vertexData));
 
-  //// 左下
-  // vertexData[0].position = {-0.5f, -0.5f, 0.0f, 1.0f};
-  // vertexData[0].texcoord = {0.0f, 1.0f};
+  //=============================
+  // 頂点インデックス(球)
+  //=============================
+  ID3D12Resource *indexResource =
+      CreateBufferResource(device, sizeof(uint32_t) * 1536);
 
-  //// 上
-  // vertexData[1].position = {0.0f, 0.5f, 0.0f, 1.0f};
-  // vertexData[1].texcoord = {0.5f, 0.0f};
+  // インデックスバッファビュー
+  D3D12_INDEX_BUFFER_VIEW indexBufferView{};
 
-  //// 右下
-  // vertexData[2].position = {0.5f, -0.5f, 0.0f, 1.0f};
-  // vertexData[2].texcoord = {1.0f, 1.0f};
+  // リソースの先頭アドレスから使う
+  indexBufferView.BufferLocation = indexResource->GetGPUVirtualAddress();
 
-  //// 左下2
-  // vertexData[3].position = {-0.5f, -0.5f, 0.5f, 1.0f};
-  // vertexData[3].texcoord = {0.0f, 1.0f};
+  // 使用するリソース
+  indexBufferView.SizeInBytes = sizeof(uint32_t) * 1536;
 
-  //// 上2
-  // vertexData[4].position = {0.0f, 0.0f, 0.0f, 1.0f};
-  // vertexData[4].texcoord = {0.5f, 0.0f};
+  // インデックスはuint32_t
+  indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 
-  //// 右下2
-  // vertexData[5].position = {0.5f, -0.5f, -0.5f, 1.0f};
-  // vertexData[5].texcoord = {1.0f, 1.0f};
+  uint32_t *indexData = nullptr;
+
+  indexResource->Map(0, nullptr, reinterpret_cast<void **>(&indexData));
 
   //=============================
   // 球
@@ -1640,37 +1632,45 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       vertexData[start + 2].normal.y = vertexData[start + 2].position.y;
       vertexData[start + 2].normal.z = vertexData[start + 2].position.z;
 
-      // c 右下
-      vertexData[start + 3].position.x = cosf(lat) * cosf(lon + kLonEvery);
-      vertexData[start + 3].position.y = sinf(lat);
-      vertexData[start + 3].position.z = cosf(lat) * sinf(lon + kLonEvery);
+      //// c 右下
+      // vertexData[start + 3].position.x = cosf(lat) * cosf(lon + kLonEvery);
+      // vertexData[start + 3].position.y = sinf(lat);
+      // vertexData[start + 3].position.z = cosf(lat) * sinf(lon + kLonEvery);
+      // vertexData[start + 3].position.w = 1.0f;
+      // vertexData[start + 3].texcoord = {u1, v0};
+      // vertexData[start + 3].normal.x = vertexData[start + 3].position.x;
+      // vertexData[start + 3].normal.y = vertexData[start + 3].position.y;
+      // vertexData[start + 3].normal.z = vertexData[start + 3].position.z;
+
+      // d 右上
+      vertexData[start + 3].position.x =
+          cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
+      vertexData[start + 3].position.y = sinf(lat + kLatEvery);
+      vertexData[start + 3].position.z =
+          cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
       vertexData[start + 3].position.w = 1.0f;
-      vertexData[start + 3].texcoord = {u1, v0};
+      vertexData[start + 3].texcoord = {u1, v1};
       vertexData[start + 3].normal.x = vertexData[start + 3].position.x;
       vertexData[start + 3].normal.y = vertexData[start + 3].position.y;
       vertexData[start + 3].normal.z = vertexData[start + 3].position.z;
 
-      // d 右上
-      vertexData[start + 4].position.x =
-          cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
-      vertexData[start + 4].position.y = sinf(lat + kLatEvery);
-      vertexData[start + 4].position.z =
-          cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
-      vertexData[start + 4].position.w = 1.0f;
-      vertexData[start + 4].texcoord = {u1, v1};
-      vertexData[start + 4].normal.x = vertexData[start + 4].position.x;
-      vertexData[start + 4].normal.y = vertexData[start + 4].position.y;
-      vertexData[start + 4].normal.z = vertexData[start + 4].position.z;
+      // 頂点インデックスデータに入力
+      indexData[start] = start + 0;
+      indexData[start + 1] = start + 1;
+      indexData[start + 2] = start + 2;
+      indexData[start + 3] = start + 1;
+      indexData[start + 4] = start + 3;
+      indexData[start + 5] = start + 2;
 
-      // b 左上
-      vertexData[start + 5].position.x = cosf(lat + kLatEvery) * cosf(lon);
-      vertexData[start + 5].position.y = sinf(lat + kLatEvery);
-      vertexData[start + 5].position.z = cosf(lat + kLatEvery) * sinf(lon);
-      vertexData[start + 5].position.w = 1.0f;
-      vertexData[start + 5].texcoord = {u0, v1};
-      vertexData[start + 5].normal.x = vertexData[start + 5].position.x;
-      vertexData[start + 5].normal.y = vertexData[start + 5].position.y;
-      vertexData[start + 5].normal.z = vertexData[start + 5].position.z;
+      //// b 左上
+      // vertexData[start + 5].position.x = cosf(lat + kLatEvery) * cosf(lon);
+      // vertexData[start + 5].position.y = sinf(lat + kLatEvery);
+      // vertexData[start + 5].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      // vertexData[start + 5].position.w = 1.0f;
+      // vertexData[start + 5].texcoord = {u0, v1};
+      // vertexData[start + 5].normal.x = vertexData[start + 5].position.x;
+      // vertexData[start + 5].normal.y = vertexData[start + 5].position.y;
+      // vertexData[start + 5].normal.z = vertexData[start + 5].position.z;
     }
   }
 
@@ -1696,15 +1696,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   vertexDataSprite[2].normal = {0.0f, 0.0f, -1.0f};
 
   // 二枚目
-  vertexDataSprite[3].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
-  vertexDataSprite[3].texcoord = {0.0f, 0.0f};
+  vertexDataSprite[3].position = {640.0f, 0.0f, 0.0f, 1.0f}; // 右上
+  vertexDataSprite[3].texcoord = {1.0f, 0.0f};
   vertexDataSprite[3].normal = {0.0f, 0.0f, -1.0f};
-  vertexDataSprite[4].position = {640.0f, 0.0f, 0.0f, 1.0f}; // 右上
-  vertexDataSprite[4].texcoord = {1.0f, 0.0f};
-  vertexDataSprite[4].normal = {0.0f, 0.0f, -1.0f};
-  vertexDataSprite[5].position = {640.0f, 360.0f, 0.0f, 1.0f}; // 右下
-  vertexDataSprite[5].texcoord = {1.0f, 1.0f};
-  vertexDataSprite[5].normal = {0.0f, 0.0f, -1.0f};
 
   //=============================
   // 頂点インデックス(スプライト)
@@ -1917,6 +1911,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
       commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+      commandList->IASetIndexBuffer(&indexBufferView);
+
       // マテリアルCBufferの場所を設定
       commandList->SetGraphicsRootConstantBufferView(
           0, materialResource->GetGPUVirtualAddress());
@@ -1934,7 +1930,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           3, directionalLightResource->GetGPUVirtualAddress());
 
       // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
-      commandList->DrawInstanced(1536, 1, 0, 0);
+      /*commandList->DrawInstanced(1536, 1, 0, 0);*/
+      commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
 
       // Spriteの描画
       commandList->IASetVertexBuffers(0, 1,
@@ -2053,6 +2050,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   directionalLightResource->Release();
 
   indexResourceSprite->Release();
+
+  indexResource->Release();
 
   CoUninitialize();
 
