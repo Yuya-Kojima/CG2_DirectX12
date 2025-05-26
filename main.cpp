@@ -363,6 +363,67 @@ Matrix4x4 MakeScaleMatrix(const Vector3 &scale) {
   return result;
 }
 
+/// <summary>
+/// X軸回転行列作成
+/// </summary>
+/// <param name="rotateX"></param>
+/// <returns></returns>
+Matrix4x4 MakeRotateXMatrix(const float &rotateX) {
+
+  Matrix4x4 result;
+  result.m[0][0] = 1.0f;
+  result.m[0][1] = 0.0f;
+  result.m[0][2] = 0.0f;
+  result.m[0][3] = 0.0f;
+  result.m[1][0] = 0.0f;
+  result.m[1][1] = cosf(rotateX);
+  result.m[1][2] = sinf(rotateX);
+  result.m[1][3] = 0.0f;
+  result.m[2][0] = 0.0f;
+  result.m[2][1] = -sinf(rotateX);
+  result.m[2][2] = cosf(rotateX);
+  result.m[2][3] = 0.0f;
+  result.m[3][0] = 0.0f;
+  result.m[3][1] = 0.0f;
+  result.m[3][2] = 0.0f;
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+/// <summary>
+/// Y軸回転行列作成
+/// </summary>
+/// <param name="rotateY"></param>
+/// <returns></returns>
+Matrix4x4 MakeRotateYMatrix(const float &rotateY) {
+
+  Matrix4x4 result;
+  result.m[0][0] = cosf(rotateY);
+  result.m[0][1] = 0.0f;
+  result.m[0][2] = -sinf(rotateY);
+  result.m[0][3] = 0.0f;
+  result.m[1][0] = 0.0f;
+  result.m[1][1] = 1.0f;
+  result.m[1][2] = 0.0f;
+  result.m[1][3] = 0.0f;
+  result.m[2][0] = sinf(rotateY);
+  result.m[2][1] = 0.0f;
+  result.m[2][2] = cosf(rotateY);
+  result.m[2][3] = 0.0f;
+  result.m[3][0] = 0.0f;
+  result.m[3][1] = 0.0f;
+  result.m[3][2] = 0.0f;
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+/// <summary>
+/// Z軸回転行列作成
+/// </summary>
+/// <param name="rotateZ"></param>
+/// <returns></returns>
 Matrix4x4 MakeRotateZMatrix(const float &rotateZ) {
 
   Matrix4x4 result;
@@ -386,60 +447,18 @@ Matrix4x4 MakeRotateZMatrix(const float &rotateZ) {
   return result;
 }
 
+/// <summary>
+/// 回転行列生成
+/// </summary>
+/// <param name="rotate"></param>
+/// <returns></returns>
 Matrix4x4 MakeRotateMatrix(const Vector3 &rotate) {
-  Matrix4x4 rotateX;
-  rotateX.m[0][0] = 1.0f;
-  rotateX.m[0][1] = 0.0f;
-  rotateX.m[0][2] = 0.0f;
-  rotateX.m[0][3] = 0.0f;
-  rotateX.m[1][0] = 0.0f;
-  rotateX.m[1][1] = cosf(rotate.x);
-  rotateX.m[1][2] = sinf(rotate.x);
-  rotateX.m[1][3] = 0.0f;
-  rotateX.m[2][0] = 0.0f;
-  rotateX.m[2][1] = -sinf(rotate.x);
-  rotateX.m[2][2] = cosf(rotate.x);
-  rotateX.m[2][3] = 0.0f;
-  rotateX.m[3][0] = 0.0f;
-  rotateX.m[3][1] = 0.0f;
-  rotateX.m[3][2] = 0.0f;
-  rotateX.m[3][3] = 1.0f;
 
-  Matrix4x4 rotateY;
-  rotateY.m[0][0] = cosf(rotate.y);
-  rotateY.m[0][1] = 0.0f;
-  rotateY.m[0][2] = -sinf(rotate.y);
-  rotateY.m[0][3] = 0.0f;
-  rotateY.m[1][0] = 0.0f;
-  rotateY.m[1][1] = 1.0f;
-  rotateY.m[1][2] = 0.0f;
-  rotateY.m[1][3] = 0.0f;
-  rotateY.m[2][0] = sinf(rotate.y);
-  rotateY.m[2][1] = 0.0f;
-  rotateY.m[2][2] = cosf(rotate.y);
-  rotateY.m[2][3] = 0.0f;
-  rotateY.m[3][0] = 0.0f;
-  rotateY.m[3][1] = 0.0f;
-  rotateY.m[3][2] = 0.0f;
-  rotateY.m[3][3] = 1.0f;
+  Matrix4x4 rotateX = MakeRotateXMatrix(rotate.x);
 
-  Matrix4x4 rotateZ;
-  rotateZ.m[0][0] = cosf(rotate.z);
-  rotateZ.m[0][1] = sinf(rotate.z);
-  rotateZ.m[0][2] = 0.0f;
-  rotateZ.m[0][3] = 0.0f;
-  rotateZ.m[1][0] = -sinf(rotate.z);
-  rotateZ.m[1][1] = cosf(rotate.z);
-  rotateZ.m[1][2] = 0.0f;
-  rotateZ.m[1][3] = 0.0f;
-  rotateZ.m[2][0] = 0.0f;
-  rotateZ.m[2][1] = 0.0f;
-  rotateZ.m[2][2] = 1.0f;
-  rotateZ.m[2][3] = 0.0f;
-  rotateZ.m[3][0] = 0.0f;
-  rotateZ.m[3][1] = 0.0f;
-  rotateZ.m[3][2] = 0.0f;
-  rotateZ.m[3][3] = 1.0f;
+  Matrix4x4 rotateY = MakeRotateYMatrix(rotate.y);
+
+  Matrix4x4 rotateZ = MakeRotateZMatrix(rotate.z);
 
   Matrix4x4 result = Multiply(rotateX, Multiply(rotateY, rotateZ));
 
@@ -454,98 +473,11 @@ Matrix4x4 MakeRotateMatrix(const Vector3 &rotate) {
 /// <param name="translate">平行移動</param>
 /// <returns>アフィン行列</returns>
 Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
-  Matrix4x4 scaleMatrix;
+  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
 
-  scaleMatrix.m[0][0] = scale.x;
-  scaleMatrix.m[0][1] = 0.0f;
-  scaleMatrix.m[0][2] = 0.0f;
-  scaleMatrix.m[0][3] = 0.0f;
-  scaleMatrix.m[1][0] = 0.0f;
-  scaleMatrix.m[1][1] = scale.y;
-  scaleMatrix.m[1][2] = 0.0f;
-  scaleMatrix.m[1][3] = 0.0f;
-  scaleMatrix.m[2][0] = 0.0f;
-  scaleMatrix.m[2][1] = 0.0f;
-  scaleMatrix.m[2][2] = scale.z;
-  scaleMatrix.m[2][3] = 0.0f;
-  scaleMatrix.m[3][0] = 0.0f;
-  scaleMatrix.m[3][1] = 0.0f;
-  scaleMatrix.m[3][2] = 0.0f;
-  scaleMatrix.m[3][3] = 1.0f;
+  Matrix4x4 rotateMatrix = MakeRotateMatrix(rotate);
 
-  Matrix4x4 rotateX;
-  rotateX.m[0][0] = 1.0f;
-  rotateX.m[0][1] = 0.0f;
-  rotateX.m[0][2] = 0.0f;
-  rotateX.m[0][3] = 0.0f;
-  rotateX.m[1][0] = 0.0f;
-  rotateX.m[1][1] = cosf(rotate.x);
-  rotateX.m[1][2] = sinf(rotate.x);
-  rotateX.m[1][3] = 0.0f;
-  rotateX.m[2][0] = 0.0f;
-  rotateX.m[2][1] = -sinf(rotate.x);
-  rotateX.m[2][2] = cosf(rotate.x);
-  rotateX.m[2][3] = 0.0f;
-  rotateX.m[3][0] = 0.0f;
-  rotateX.m[3][1] = 0.0f;
-  rotateX.m[3][2] = 0.0f;
-  rotateX.m[3][3] = 1.0f;
-
-  Matrix4x4 rotateY;
-  rotateY.m[0][0] = cosf(rotate.y);
-  rotateY.m[0][1] = 0.0f;
-  rotateY.m[0][2] = -sinf(rotate.y);
-  rotateY.m[0][3] = 0.0f;
-  rotateY.m[1][0] = 0.0f;
-  rotateY.m[1][1] = 1.0f;
-  rotateY.m[1][2] = 0.0f;
-  rotateY.m[1][3] = 0.0f;
-  rotateY.m[2][0] = sinf(rotate.y);
-  rotateY.m[2][1] = 0.0f;
-  rotateY.m[2][2] = cosf(rotate.y);
-  rotateY.m[2][3] = 0.0f;
-  rotateY.m[3][0] = 0.0f;
-  rotateY.m[3][1] = 0.0f;
-  rotateY.m[3][2] = 0.0f;
-  rotateY.m[3][3] = 1.0f;
-
-  Matrix4x4 rotateZ;
-  rotateZ.m[0][0] = cosf(rotate.z);
-  rotateZ.m[0][1] = sinf(rotate.z);
-  rotateZ.m[0][2] = 0.0f;
-  rotateZ.m[0][3] = 0.0f;
-  rotateZ.m[1][0] = -sinf(rotate.z);
-  rotateZ.m[1][1] = cosf(rotate.z);
-  rotateZ.m[1][2] = 0.0f;
-  rotateZ.m[1][3] = 0.0f;
-  rotateZ.m[2][0] = 0.0f;
-  rotateZ.m[2][1] = 0.0f;
-  rotateZ.m[2][2] = 1.0f;
-  rotateZ.m[2][3] = 0.0f;
-  rotateZ.m[3][0] = 0.0f;
-  rotateZ.m[3][1] = 0.0f;
-  rotateZ.m[3][2] = 0.0f;
-  rotateZ.m[3][3] = 1.0f;
-
-  Matrix4x4 rotateMatrix = Multiply(rotateX, Multiply(rotateY, rotateZ));
-
-  Matrix4x4 translateMatrix;
-  translateMatrix.m[0][0] = 1.0f;
-  translateMatrix.m[0][1] = 0.0f;
-  translateMatrix.m[0][2] = 0.0f;
-  translateMatrix.m[0][3] = 0.0f;
-  translateMatrix.m[1][0] = 0.0f;
-  translateMatrix.m[1][1] = 1.0f;
-  translateMatrix.m[1][2] = 0.0f;
-  translateMatrix.m[1][3] = 0.0f;
-  translateMatrix.m[2][0] = 0.0f;
-  translateMatrix.m[2][1] = 0.0f;
-  translateMatrix.m[2][2] = 1.0f;
-  translateMatrix.m[2][3] = 0.0f;
-  translateMatrix.m[3][0] = translate.x;
-  translateMatrix.m[3][1] = translate.y;
-  translateMatrix.m[3][2] = translate.z;
-  translateMatrix.m[3][3] = 1.0f;
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
 
   Matrix4x4 worldMatrix;
   worldMatrix = Multiply(scaleMatrix, Multiply(rotateMatrix, translateMatrix));
