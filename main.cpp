@@ -313,6 +313,139 @@ Matrix4x4 Multiply(Matrix4x4 matrix1, Matrix4x4 matrix2) {
   return result;
 }
 
+// 平行移動行列
+Matrix4x4 MakeTranslateMatrix(const Vector3 &translate) {
+
+  Matrix4x4 result;
+
+  result.m[0][0] = 1.0f;
+  result.m[0][1] = 0.0f;
+  result.m[0][2] = 0.0f;
+  result.m[0][3] = 0.0f;
+  result.m[1][0] = 0.0f;
+  result.m[1][1] = 1.0f;
+  result.m[1][2] = 0.0f;
+  result.m[1][3] = 0.0f;
+  result.m[2][0] = 0.0f;
+  result.m[2][1] = 0.0f;
+  result.m[2][2] = 1.0f;
+  result.m[2][3] = 0.0f;
+  result.m[3][0] = translate.x;
+  result.m[3][1] = translate.y;
+  result.m[3][2] = translate.z;
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+// 拡縮行列
+Matrix4x4 MakeScaleMatrix(const Vector3 &scale) {
+
+  Matrix4x4 result;
+
+  result.m[0][0] = scale.x;
+  result.m[0][1] = 0.0f;
+  result.m[0][2] = 0.0f;
+  result.m[0][3] = 0.0f;
+  result.m[1][0] = 0.0f;
+  result.m[1][1] = scale.y;
+  result.m[1][2] = 0.0f;
+  result.m[1][3] = 0.0f;
+  result.m[2][0] = 0.0f;
+  result.m[2][1] = 0.0f;
+  result.m[2][2] = scale.z;
+  result.m[2][3] = 0.0f;
+  result.m[3][0] = 0.0f;
+  result.m[3][1] = 0.0f;
+  result.m[3][2] = 0.0f;
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+Matrix4x4 MakeRotateZMatrix(const float &rotateZ) {
+
+  Matrix4x4 result;
+  result.m[0][0] = cosf(rotateZ);
+  result.m[0][1] = sinf(rotateZ);
+  result.m[0][2] = 0.0f;
+  result.m[0][3] = 0.0f;
+  result.m[1][0] = -sinf(rotateZ);
+  result.m[1][1] = cosf(rotateZ);
+  result.m[1][2] = 0.0f;
+  result.m[1][3] = 0.0f;
+  result.m[2][0] = 0.0f;
+  result.m[2][1] = 0.0f;
+  result.m[2][2] = 1.0f;
+  result.m[2][3] = 0.0f;
+  result.m[3][0] = 0.0f;
+  result.m[3][1] = 0.0f;
+  result.m[3][2] = 0.0f;
+  result.m[3][3] = 1.0f;
+
+  return result;
+}
+
+Matrix4x4 MakeRotateMatrix(const Vector3 &rotate) {
+  Matrix4x4 rotateX;
+  rotateX.m[0][0] = 1.0f;
+  rotateX.m[0][1] = 0.0f;
+  rotateX.m[0][2] = 0.0f;
+  rotateX.m[0][3] = 0.0f;
+  rotateX.m[1][0] = 0.0f;
+  rotateX.m[1][1] = cosf(rotate.x);
+  rotateX.m[1][2] = sinf(rotate.x);
+  rotateX.m[1][3] = 0.0f;
+  rotateX.m[2][0] = 0.0f;
+  rotateX.m[2][1] = -sinf(rotate.x);
+  rotateX.m[2][2] = cosf(rotate.x);
+  rotateX.m[2][3] = 0.0f;
+  rotateX.m[3][0] = 0.0f;
+  rotateX.m[3][1] = 0.0f;
+  rotateX.m[3][2] = 0.0f;
+  rotateX.m[3][3] = 1.0f;
+
+  Matrix4x4 rotateY;
+  rotateY.m[0][0] = cosf(rotate.y);
+  rotateY.m[0][1] = 0.0f;
+  rotateY.m[0][2] = -sinf(rotate.y);
+  rotateY.m[0][3] = 0.0f;
+  rotateY.m[1][0] = 0.0f;
+  rotateY.m[1][1] = 1.0f;
+  rotateY.m[1][2] = 0.0f;
+  rotateY.m[1][3] = 0.0f;
+  rotateY.m[2][0] = sinf(rotate.y);
+  rotateY.m[2][1] = 0.0f;
+  rotateY.m[2][2] = cosf(rotate.y);
+  rotateY.m[2][3] = 0.0f;
+  rotateY.m[3][0] = 0.0f;
+  rotateY.m[3][1] = 0.0f;
+  rotateY.m[3][2] = 0.0f;
+  rotateY.m[3][3] = 1.0f;
+
+  Matrix4x4 rotateZ;
+  rotateZ.m[0][0] = cosf(rotate.z);
+  rotateZ.m[0][1] = sinf(rotate.z);
+  rotateZ.m[0][2] = 0.0f;
+  rotateZ.m[0][3] = 0.0f;
+  rotateZ.m[1][0] = -sinf(rotate.z);
+  rotateZ.m[1][1] = cosf(rotate.z);
+  rotateZ.m[1][2] = 0.0f;
+  rotateZ.m[1][3] = 0.0f;
+  rotateZ.m[2][0] = 0.0f;
+  rotateZ.m[2][1] = 0.0f;
+  rotateZ.m[2][2] = 1.0f;
+  rotateZ.m[2][3] = 0.0f;
+  rotateZ.m[3][0] = 0.0f;
+  rotateZ.m[3][1] = 0.0f;
+  rotateZ.m[3][2] = 0.0f;
+  rotateZ.m[3][3] = 1.0f;
+
+  Matrix4x4 result = Multiply(rotateX, Multiply(rotateY, rotateZ));
+
+  return result;
+}
+
 /// <summary>
 /// アフィン行列作成
 /// </summary>
@@ -1290,6 +1423,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   // Lightingさせるか
   materialData->enableLighting = true;
+  // UVTransform 単位行列を入れておく
+  materialData->uvTransform = MakeIdentity4x4();
 
   /*Sprite用のマテリアルリソースを作る
   -----------------------------------*/
@@ -1309,6 +1444,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   materialDataSprite->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   // Lightingさせるか
   materialDataSprite->enableLighting = false;
+  // UVTransform　単位行列を入れておく
+  materialDataSprite->uvTransform = MakeIdentity4x4();
 
   /*WVP用のリソースを作る。
   --------------------------------------------------*/
@@ -1775,6 +1912,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {0.0f, 0.0f, 0.0f},
   };
 
+  // UVTransfotm用
+  Transform uvTransformSprite{
+      {1.0f, 1.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
+
   // texture切り替え用
   bool useMonsterBall = true;
 
@@ -1825,6 +1969,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::DragFloat3("cameraTranslate", &cameraTransform.translate.x, 0.01f);
       ImGui::DragFloat3("cameraRotate", &cameraTransform.rotate.x, 0.001f);
 
+      ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
+                        -10.0f, 10.0f);
+      ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
+                        10.0f);
+      ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
+
       materialData->enableLighting = enableLighting;
       directionalLightData->direction = Normalize(tempDirection);
 
@@ -1855,6 +2005,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       Matrix4x4 worldViewProjectionMatrixSprite =
           Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
                    projectionMatrixSprite);
+
+      Matrix4x4 uvTransformMatrix = MakeScaleMatrix(uvTransformSprite.scale);
+      uvTransformMatrix = Multiply(
+          uvTransformMatrix, MakeRotateZMatrix(uvTransformSprite.rotate.z));
+      uvTransformMatrix = Multiply(
+          uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
+      materialDataSprite->uvTransform = uvTransformMatrix;
+
       transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
       transformationMatrixDataSprite->World = worldMatrixSprite;
 
