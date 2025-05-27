@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include <fstream>
+#include <sstream>
 #include <string>
 
 struct MaterialData {
@@ -22,7 +23,7 @@ MaterialData LoadMaterialTemplateFile(const std::string &directoryPath,
   while (std::getline(file, line)) {
 
     std::string identifier;
-    std::ifstream s(line);
+    std::istringstream s(line);
 
     s >> identifier;
 
@@ -30,12 +31,11 @@ MaterialData LoadMaterialTemplateFile(const std::string &directoryPath,
     if (identifier == "map_Kd") {
       std::string textureFilename;
       s >> textureFilename;
-
       // 連結してファイルパスにする
       materialData.textureFilePath = directoryPath + "/" + textureFilename;
     }
   }
 
   // 4. MaterialDataを返す
-  return materialData; // 30pまで
+  return materialData;
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "MaterialData.h"
 #include "VertexData.h"
 #include <cassert>
 #include <fstream>
@@ -8,6 +9,7 @@
 
 struct ModelData {
   std::vector<VertexData> vertices;
+  MaterialData material;
 };
 
 /// <summary>
@@ -82,8 +84,9 @@ ModelData LoadModelFile(const std::string &directoryPath,
         Vector3 normal = normals[elementIndices[2] - 1];
 
         // 右手座標なので反転
-        position.y *= -1.0f;
-        normal.y *= -1.0f;
+        position.x *= -1.0f;
+        normal.x *= -1.0f;
+        texcoord.y = 1.0f - texcoord.y;
 
         triangle[faceVertex] = {position, texcoord, normal};
       }
@@ -92,6 +95,16 @@ ModelData LoadModelFile(const std::string &directoryPath,
       modelData.vertices.push_back(triangle[2]);
       modelData.vertices.push_back(triangle[1]);
       modelData.vertices.push_back(triangle[0]);
+    } else if (identifier == "mtllib") {
+
+      // materialTemplateLibraryファイルの名前を取得
+      std::string materialFilename;
+
+      s >> materialFilename;
+
+      // 基本的にobjファイルと同一階層にmtlは存在させるので、ディレクトリ名とファイル名を渡す
+      modelData.material =
+          LoadMaterialTemplateFile(directoryPath, materialFilename);
     }
   }
 

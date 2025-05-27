@@ -1171,6 +1171,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       depthStencilResource, &dsvDesc,
       dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
+  // モデル読み込み
+  ModelData modelData = LoadModelFile("resources", "axis.obj");
+  Log("Loading texture path: " + modelData.material.textureFilePath + "\n");
+
   // Textureを読んで転送
   DirectX::ScratchImage mipImages = LoadTexture("resources/uvChecker.png");
   const DirectX::TexMetadata &metadata = mipImages.GetMetadata();
@@ -1178,7 +1182,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   UploadTextureData(textureResource, mipImages);
 
   // 二枚目のTextureを読んで転送
-  DirectX::ScratchImage mipImages2 = LoadTexture("resources/monsterBall.png");
+  DirectX::ScratchImage mipImages2 =
+      LoadTexture(modelData.material.textureFilePath);
   const DirectX::TexMetadata &metadata2 = mipImages2.GetMetadata();
   ID3D12Resource *textureResource2 = CreateTextureResource(device, metadata2);
   UploadTextureData(textureResource2, mipImages2);
@@ -1571,8 +1576,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // モデルの頂点
   //=============================
 
-  // モデル読み込み
-  ModelData modelData = LoadModelFile("resources", "plane.obj");
+  //// モデル読み込み
+  // ModelData modelData = LoadModelFile("resources", "plane.obj");
 
   // 頂点リソースを作る
   ID3D12Resource *vertexResource = CreateBufferResource(
