@@ -485,7 +485,7 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
   Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
 
   Matrix4x4 worldMatrix;
-  worldMatrix = Multiply(scaleMatrix, Multiply(rotateMatrix, translateMatrix));
+  worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
 
   return worldMatrix;
 }
@@ -1678,7 +1678,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 球
   //=============================
 
-  // const uint32_t kSubdivision = 15; // 分割数
+  // const uint32_t kSubdivision = 16; // 分割数
 
   // uint32_t latIndex;
   // uint32_t lonIndex;
@@ -1695,7 +1695,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // for (latIndex = 0; latIndex < kSubdivision; ++latIndex) {
 
   //  // 現在の緯度
-  //  float lat = static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
+  // float lat = -static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
 
   //  // 経度の方向に分割
   //  for (lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
