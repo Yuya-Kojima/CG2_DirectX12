@@ -1444,7 +1444,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   for (latIndex = 0; latIndex < kSubdivision; ++latIndex) {
 
     // 現在の緯度
-    float lat = static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
+    float lat = static_cast<float>(-M_PI) / 2.0f + kLatEvery * latIndex;
 
     // 経度の方向に分割
     for (lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
@@ -1459,11 +1459,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       float u0 =
           static_cast<float>(lonIndex) / static_cast<float>(kSubdivision);
 
-      float v0 =
-          static_cast<float>(latIndex) / static_cast<float>(kSubdivision);
+      float v0 = 1.0f - static_cast<float>(latIndex) /
+                            static_cast<float>(kSubdivision);
 
       float u1 = float(lonIndex + 1) / kSubdivision;
-      float v1 = float(latIndex + 1) / kSubdivision;
+      float v1 = 1.0f - float(latIndex + 1) / kSubdivision;
 
       // 頂点データ入力
 
@@ -1474,19 +1474,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       vertexData[start].position.w = 1.0f;
       vertexData[start].texcoord = {u0, v0};
 
-      // c 右下
-      vertexData[start + 1].position.x = cosf(lat) * cosf(lon + kLonEvery);
-      vertexData[start + 1].position.y = sinf(lat);
-      vertexData[start + 1].position.z = cosf(lat) * sinf(lon + kLonEvery);
-      vertexData[start + 1].position.w = 1.0f;
-      vertexData[start + 1].texcoord = {u1, v0};
-
       // b 左上
-      vertexData[start + 2].position.x = cosf(lat + kLatEvery) * cosf(lon);
-      vertexData[start + 2].position.y = sinf(lat + kLatEvery);
-      vertexData[start + 2].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      vertexData[start + 1].position.x = cosf(lat + kLatEvery) * cosf(lon);
+      vertexData[start + 1].position.y = sinf(lat + kLatEvery);
+      vertexData[start + 1].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      vertexData[start + 1].position.w = 1.0f;
+      vertexData[start + 1].texcoord = {u0, v1};
+
+      // c 右下
+      vertexData[start + 2].position.x = cosf(lat) * cosf(lon + kLonEvery);
+      vertexData[start + 2].position.y = sinf(lat);
+      vertexData[start + 2].position.z = cosf(lat) * sinf(lon + kLonEvery);
       vertexData[start + 2].position.w = 1.0f;
-      vertexData[start + 2].texcoord = {u0, v1};
+      vertexData[start + 2].texcoord = {u1, v0};
 
       // c 右下
       vertexData[start + 3].position.x = cosf(lat) * cosf(lon + kLonEvery);
@@ -1495,21 +1495,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       vertexData[start + 3].position.w = 1.0f;
       vertexData[start + 3].texcoord = {u1, v0};
 
-      // d 右上
-      vertexData[start + 4].position.x =
-          cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
-      vertexData[start + 4].position.y = sinf(lat + kLatEvery);
-      vertexData[start + 4].position.z =
-          cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
-      vertexData[start + 4].position.w = 1.0f;
-      vertexData[start + 4].texcoord = {u1, v1};
-
       // b 左上
-      vertexData[start + 5].position.x = cosf(lat + kLatEvery) * cosf(lon);
+      vertexData[start + 4].position.x = cosf(lat + kLatEvery) * cosf(lon);
+      vertexData[start + 4].position.y = sinf(lat + kLatEvery);
+      vertexData[start + 4].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      vertexData[start + 4].position.w = 1.0f;
+      vertexData[start + 4].texcoord = {u0, v1};
+
+      // d 右上
+      vertexData[start + 5].position.x =
+          cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
       vertexData[start + 5].position.y = sinf(lat + kLatEvery);
-      vertexData[start + 5].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      vertexData[start + 5].position.z =
+          cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
       vertexData[start + 5].position.w = 1.0f;
-      vertexData[start + 5].texcoord = {u0, v1};
+      vertexData[start + 5].texcoord = {u1, v1};
     }
   }
 
@@ -1612,7 +1612,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit3("materialColor", &materialData->x);
-      ImGui::DragFloat3("tarnslate", &transform.translate.x, 0.01f);
+      ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
