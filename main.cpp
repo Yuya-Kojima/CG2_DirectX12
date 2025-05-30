@@ -1914,8 +1914,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // ゲームの処理
 
-      // transform.rotate.y += 0.03f;
-
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit3("materialColor", &materialData->color.x);
       ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
