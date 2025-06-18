@@ -19,16 +19,24 @@ struct DirectionalLight {
 
 ConstantBuffer<DirectionalLight> gDirectionalLight : register(b1);
 
+ConstantBuffer<float> gTime : register(b2);
+
 struct PixelShaderOutput {
 	float4 color : SV_TARGET0;
 };
 
 PixelShaderOutput main(
 VertexShaderOutput input) {
+	
+	//float2 uv = input.texcoord;
+	//uv.x += sin(uv.y * 30.0f + gTime * 2.0f) * 0.02f;
+	//uv = saturate(uv);
+	
+    // UV行列で変換（回転/スケーリングなど）
 	float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
 	float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
+	textureColor.a = 1.0f;
 	PixelShaderOutput output;
-	output.color = gMaterial.color * textureColor;
 	
 	
 	if (gMaterial.enableLighting != 0) {
