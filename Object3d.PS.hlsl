@@ -19,46 +19,43 @@ struct DirectionalLight {
 
 ConstantBuffer<DirectionalLight> gDirectionalLight : register(b1);
 
-ConstantBuffer<float> gTime : register(b2);
+cbuffer TimeBC : register(b2) {
+	float4 gTime;
+}
 
 struct PixelShaderOutput {
 	float4 color : SV_TARGET0;
 };
 
-PixelShaderOutput main(
-VertexShaderOutput input) {
+PixelShaderOutput main(VertexShaderOutput input) {
+	float2 uv = input.texcoord;
 	
-	//float2 uv = input.texcoord;
-	//uv.x += sin(uv.y * 30.0f + gTime * 2.0f) * 0.02f;
-	//uv = saturate(uv);
+	// UVにゆらぎを追加（例：炎風）
+	float time = gTime.x; // float4からx成分だけ使う
+	uv.x += sin(uv.y * 10.0f + gTime.x * 8.0f) * 0.08f;
+	uv.y += cos(uv.x * 8.0f + gTime.x * 4.0f) * 0.05f;
+	uv = saturate(uv);
 	
-    // UV行列で変換（回転/スケーリングなど）
-	float4 transformedUV = mul(float4(input.texcoord, 0.0f, 1.0f), gMaterial.uvTransform);
+	float4 transformedUV = mul(float4(uv, 0.0f, 1.0f), gMaterial.uvTransform);
+	
 	float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
 	textureColor.a = 1.0f;
+	
 	PixelShaderOutput output;
 	
-	
 	if (gMaterial.enableLighting != 0) {
-		//Lightingする場合
-	//harf lambert
+		// half-lambert 簡易ライティング
 		float NdotL = dot(normalize(input.normal), -gDirectionalLight.direction);
 		float cos = pow(NdotL * 0.5f + 0.5f, 2.0f);
-
-	//	float cos = saturate(dot(normalize(input.normal), -gDirectionalLight.direction));
 		output.color = gMaterial.color * textureColor * gDirectionalLight.color * cos * gDirectionalLight.intensity;
 	} else {
-		//Lightingしない場合
 		output.color = gMaterial.color * textureColor;
 	}
 	
 	return output;
+	
+	//PixelShaderOutput output;
+	//float t = gTime.x;
+	//output.color = float4(sin(t), 0.0f, 0.0f, 1.0f); // 時間経過で赤が変わる
+	//return output;
 }
-
-
-
-
-//float4 main() : SV_TARGET
-//{
-//	return float4(1.0f, 1.0f, 1.0f, 1.0f);
-//}
