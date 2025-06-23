@@ -19,7 +19,10 @@ public:
 
 private:
   // X,Y,X軸回りのローカル回転角
-  Vector3 rotation_ = {0.0f, 0.0f, 0.0f};
+  // Vector3 rotation_ = {0.0f, 0.0f, 0.0f};
+
+  // 累積回転行列
+  Matrix4x4 matRot_ = MakeIdentity4x4();
 
   // ローカル座標
   Vector3 translation_ = {0.0f, 0.0f, -50.0f};

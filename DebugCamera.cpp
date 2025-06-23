@@ -14,9 +14,7 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {0, 0, speed};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
@@ -32,9 +30,7 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {0, 0, speed};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
@@ -50,9 +46,7 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {speed, 0, 0};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
@@ -68,9 +62,7 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {speed, 0, 0};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
@@ -86,9 +78,7 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {0, speed, 0};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
@@ -104,30 +94,36 @@ void DebugCamera::Update(const InputKeyState &input) {
     Vector3 move = {0, speed, 0};
 
     // 移動ベクトルを角度分だけ回転させる
-    Matrix4x4 rotate = MakeRotateMatrix(rotation_);
-
-    move = TransformNormal(move, rotate);
+    move = TransformNormal(move, matRot_);
 
     // 移動ベクトル分だけ座標を加算する
     translation_ = Add(translation_, move);
   }
 
+  // 追加回転分の回転行列を生成
+  Matrix4x4 matRotDelta = MakeIdentity4x4();
   const float rotateSpeed = 0.05f;
 
   if (input.IsPressKey(DIK_C)) {
-    rotation_.x += rotateSpeed;
+    matRotDelta = Multiply(MakeRotateXMatrix(rotateSpeed), matRotDelta);
   }
 
   if (input.IsPressKey(DIK_X)) {
-    rotation_.y += rotateSpeed;
+    matRotDelta = Multiply(MakeRotateYMatrix(rotateSpeed), matRotDelta);
   }
 
   if (input.IsPressKey(DIK_Z)) {
-    rotation_.z += rotateSpeed;
+    matRotDelta = Multiply(MakeRotateZMatrix(rotateSpeed), matRotDelta);
   }
 
+  // 累積の回転行列を合成
+  matRot_ = Multiply(matRotDelta, matRot_);
+  translation_ = TransformNormal(translation_, matRotDelta);
+
   // 行列の更新
-  Matrix4x4 worldMatrix =
-      MakeAffineMatrix({1.0f, 1.0f, 1.0f}, rotation_, translation_);
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(translation_);
+
+  Matrix4x4 worldMatrix = Multiply(matRot_, translateMatrix);
+
   viewMatrix_ = Inverse(worldMatrix);
 }
