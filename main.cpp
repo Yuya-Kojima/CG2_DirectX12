@@ -25,6 +25,8 @@
 #include <math.h>
 #include <wrl.h>
 #include <xaudio2.h>
+#define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
+#include <dinput.h>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
                                                              UINT msg,
@@ -36,6 +38,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "dxcompiler.lib")
 #pragma comment(lib, "xaudio2.lib")
+#pragma comment(lib, "dinput8.lib")
+#pragma comment(lib, "dxguid.lib")
 
 // チャンクヘッダ
 struct ChunkHeader {
@@ -1323,6 +1327,30 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // DepthStencilTextureをウィンドウサイズで作成
   Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilResource =
       CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
+
+  // DirectInputの初期化
+  IDirectInput8 *directInput = nullptr;
+  HRESULT result =
+      DirectInput8Create(wc.hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8,
+                         (void **)&directInput, nullptr);
+  assert(SUCCEEDED(result));
+
+  // キーボードデバイスの生成
+  IDirectInputDevice8 *keyboard = nullptr;
+  result = directInput->CreateDevice(GUID_SysKeyboard, &keyboard, NULL);
+  assert(SUCCEEDED(result));
+
+  // 入力データ形式のセット
+  result = keyboard->SetDataFormat(&c_dfDIKeyboard); // 標準形式
+  assert(SUCCEEDED(result));
+
+  // 排他制御レベルのセット
+  result = keyboard->SetCooperativeLevel(
+      hwnd, DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
+                | DISCL_NONEXCLUSIVE // デバイスをこのｎアプリだけで専有しない
+                | DISCL_NOWINKEY // Windowsキーを無効化
+  );
+  assert(SUCCEEDED(result));
 
   //=============================
   // サウンド用
