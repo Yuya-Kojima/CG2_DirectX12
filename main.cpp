@@ -21,8 +21,10 @@
 #include "ModelData.h"
 #include "ResourceObject.h"
 #include "TransformationMatrix.h"
+#include <fstream>
 #include <math.h>
 #include <wrl.h>
+#include <xaudio2.h>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
                                                              UINT msg,
@@ -33,6 +35,168 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "dxcompiler.lib")
+#pragma comment(lib, "xaudio2.lib")
+
+// チャンクヘッダ
+struct ChunkHeader {
+  char id[4];   // チャンク毎のID
+  int32_t size; // チャンクサイズ
+};
+
+// RIFFヘッダチャンク
+struct RiffHeader {
+  ChunkHeader chunk; //"RIFF"
+  char type[4];      //"WAVE"
+};
+
+// FMTチャンク
+struct FormatChunk {
+  ChunkHeader chunk; //"fmt"
+  WAVEFORMATEX fmt;  // 波形フォーマット
+};
+
+// 音声データ
+struct SoundData {
+  // 波形フォーマット
+  WAVEFORMATEX wfex;
+
+  // バッファの先頭アドレス
+  BYTE *pBuffer;
+
+  // バッファサイズ
+  unsigned int bufferSize;
+};
+
+/// <summary>
+/// waveファイルを読み込む
+/// </summary>
+/// <param name="filename">ファイル名</param>
+/// <returns></returns>
+SoundData SoundLoadWave(const char *filename) {
+
+  HRESULT result;
+
+  /* ファイルオープン
+  ----------------------*/
+
+  // ファイル入力ストリームのインスタンス
+  std::ifstream file;
+
+  //.wavファイルをバイナリモードで開く
+  file.open(filename, std::ios_base::binary);
+
+  // ファイルが開けなかったら
+  assert(file.is_open());
+
+  /* .wavデータ読み込み
+  ----------------------*/
+
+  // RIFFヘッダーの読み込み
+  RiffHeader riff;
+
+  file.read((char *)&riff, sizeof(riff));
+
+  // 開いたファイルがRIFFであるかを確認する
+  if (strncmp(riff.chunk.id, "RIFF", 4) != 0) {
+    assert(0);
+  }
+
+  // タイプがWAVEか確認
+  if (strncmp(riff.type, "WAVE", 4) != 0) {
+    assert(0);
+  }
+
+  // formatチャンクの読み込み
+  FormatChunk format = {};
+
+  // チャンクヘッダーの確認
+  file.read((char *)&format, sizeof(ChunkHeader));
+
+  if (strncmp(format.chunk.id, "fmt", 4) != 0) {
+    assert(0);
+  }
+
+  // チャンク本体の読み込み
+  assert(format.chunk.size <= sizeof(format.fmt));
+  file.read((char *)&format.fmt, format.chunk.size);
+
+  // Dataチャンクの読み込み
+  ChunkHeader data;
+
+  file.read((char *)&data, sizeof(data));
+
+  // Junkチャンク(パディング？)を検出した場合
+  if (strncmp(data.id, "JUNK", 4) == 0) {
+
+    // 読み取り位置をJunkチャンクの終わりまで進める
+    file.seekg(data.size, std::ios_base::cur);
+
+    // 飛ばした後に再度読み込み
+    file.read((char *)&data, sizeof(data));
+  }
+
+  if (strncmp(data.id, "data", 4) != 0) {
+    assert(0);
+  }
+
+  // Dataチャンクのデータ部(波形データ)の読み込み
+  char *pBuffer = new char[data.size];
+  file.read(pBuffer, data.size);
+
+  // Waveファイルを閉じる
+  file.close();
+
+  /* 読み込んだ音声データをreturn
+  -------------------------------*/
+
+  // returnするための音声データ
+  SoundData soundData = {};
+
+  soundData.wfex = format.fmt;
+  soundData.pBuffer = reinterpret_cast<BYTE *>(pBuffer);
+  soundData.bufferSize = data.size;
+
+  return soundData;
+}
+
+/// <summary>
+/// 音声データの解放
+/// </summary>
+/// <param name="soundData"></param>
+void SoundUnload(SoundData *soundData) {
+
+  // バッファのメモリを解放
+  delete[] soundData->pBuffer;
+
+  soundData->pBuffer = 0;
+  soundData->bufferSize = 0;
+  soundData->wfex = {};
+}
+
+/// <summary>
+/// サウンド再生
+/// </summary>
+/// <param name="xAudio2">再生するためのxAudio2</param>
+/// <param name="soundData">音声データ(波形データ、サイズ、フォーマット)</param>
+void SoundPlayerWave(IXAudio2 *xAudio2, const SoundData &soundData) {
+
+  HRESULT result;
+
+  // 波形フォーマットを元にSourceVoiceの生成
+  IXAudio2SourceVoice *pSourceVoice = nullptr;
+  result = xAudio2->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
+  assert(SUCCEEDED(result));
+
+  // 再生する波形データの設定
+  XAUDIO2_BUFFER buf{};
+  buf.pAudioData = soundData.pBuffer;
+  buf.AudioBytes = soundData.bufferSize;
+  buf.Flags = XAUDIO2_END_OF_STREAM;
+
+  // 波形データの再生
+  result = pSourceVoice->SubmitSourceBuffer(&buf);
+  result = pSourceVoice->Start();
+}
 
 // ウィンドウプロシージャ
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -1160,6 +1324,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilResource =
       CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
 
+  //=============================
+  // サウンド用
+  //=============================
+
+  Microsoft::WRL::ComPtr<IXAudio2> xAudio2;
+  IXAudio2MasteringVoice
+      *masterVoice; // xAudio2が解放されると同時に無効化されるのでdeleteしない。
+
+  HRESULT result = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
+  result = xAudio2->CreateMasteringVoice(&masterVoice);
+
   //===========================
   // ディスクリプタヒープの生成
   //===========================
@@ -1829,6 +2004,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   indexDataSprite[4] = 3; // 右上
   indexDataSprite[5] = 2;
 
+  //========================
+  // 音声読み込み
+  //========================
+
+  SoundData soundData1 = SoundLoadWave("resources/fanfare.wav");
+  // SoundData soundData1 = SoundLoadWave("resources/Alarm01.wav");
+
+  SoundPlayerWave(xAudio2.Get(), soundData1);
+
   // ビューポート
   D3D12_VIEWPORT viewport{};
 
@@ -2132,6 +2316,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   }
   pixelShaderBlob->Release();
   vertexShaderBlob->Release();
+
+  xAudio2.Reset();
+
+  SoundUnload(&soundData1);
 
   CoUninitialize();
 
