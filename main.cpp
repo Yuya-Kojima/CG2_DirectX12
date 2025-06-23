@@ -26,6 +26,7 @@
 #include <wrl.h>
 #include <xaudio2.h>
 #define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
+#include "InputKeyState.h"
 #include <dinput.h>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
@@ -77,8 +78,6 @@ struct SoundData {
 /// <param name="filename">ファイル名</param>
 /// <returns></returns>
 SoundData SoundLoadWave(const char *filename) {
-
-  HRESULT result;
 
   /* ファイルオープン
   ----------------------*/
@@ -1360,7 +1359,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   IXAudio2MasteringVoice
       *masterVoice; // xAudio2が解放されると同時に無効化されるのでdeleteしない。
 
-  HRESULT result = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
+  result = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
   result = xAudio2->CreateMasteringVoice(&masterVoice);
 
   //===========================
@@ -2100,6 +2099,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // LightingDirection用
   Vector3 tempDirection = directionalLightData->direction;
 
+  // キー入力用
+  InputKeyState inputKeyState;
+
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -2125,6 +2127,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::NewFrame();
 
       // ゲームの処理
+
+      // キー入力
+      inputKeyState.Update(keyboard);
+
+      // 確認用
+      if (inputKeyState.IsTriggerKey(DIK_0)) {
+        OutputDebugStringA("Trigger 0\n");
+      }
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit3("materialColor", &materialData->color.x);
