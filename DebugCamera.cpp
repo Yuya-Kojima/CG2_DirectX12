@@ -118,10 +118,10 @@ void DebugCamera::Update(const InputKeyState &input) {
 
   // 累積の回転行列を合成
   matRot_ = Multiply(matRotDelta, matRot_);
-  translation_ = TransformNormal(translation_, matRotDelta);
+  Vector3 cameraPos = TransformNormal(translation_, matRot_);
 
   // 行列の更新
-  Matrix4x4 translateMatrix = MakeTranslateMatrix(translation_);
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(cameraPos);
 
   Matrix4x4 worldMatrix = Multiply(matRot_, translateMatrix);
 

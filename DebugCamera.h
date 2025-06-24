@@ -18,9 +18,6 @@ public:
   Matrix4x4 GetViewMatrix() { return viewMatrix_; }
 
 private:
-  // X,Y,X軸回りのローカル回転角
-  // Vector3 rotation_ = {0.0f, 0.0f, 0.0f};
-
   // 累積回転行列
   Matrix4x4 matRot_ = MakeIdentity4x4();
 
