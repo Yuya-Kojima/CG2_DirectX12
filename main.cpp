@@ -1602,7 +1602,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   InputKeyState inputKeyState;
 
   // デバッグカメラ
-  DebugCamera debugCamera;
+  DebugCamera *debugCamera = new DebugCamera();
+  debugCamera->Initialize();
 
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
@@ -1638,7 +1639,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         OutputDebugStringA("Trigger 0\n");
       }
 
-      debugCamera.Update(inputKeyState);
+      debugCamera->Update(inputKeyState);
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit3("materialColor", &materialData->color.x);
@@ -1674,7 +1675,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate,
                            cameraTransform.translate);
       // Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-      Matrix4x4 viewMatrix = debugCamera.GetViewMatrix();
+      Matrix4x4 viewMatrix = debugCamera->GetViewMatrix();
       Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
           0.45f, float(kClientWidth) / float(kClientHeight), 0.1f, 100.0f);
       Matrix4x4 worldViewProjectionMatrix =
@@ -1861,6 +1862,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   vertexShaderBlob->Release();
 
   xAudio2.Reset();
+
+  delete debugCamera;
 
   SoundUnload(&soundData1);
 

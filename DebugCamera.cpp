@@ -1,5 +1,11 @@
 #include "DebugCamera.h"
 
+void DebugCamera::Initialize() {
+  matRot_ = MakeIdentity4x4();
+  translation_ = {0.0f, 0.0f, -50.0f};
+  viewMatrix_ = MakeIdentity4x4();
+}
+
 void DebugCamera::Update(const InputKeyState &input) {
 
   if (input.IsPressKey(DIK_E)) {
@@ -105,15 +111,27 @@ void DebugCamera::Update(const InputKeyState &input) {
   const float rotateSpeed = 0.05f;
 
   if (input.IsPressKey(DIK_C)) {
-    matRotDelta = Multiply(MakeRotateXMatrix(rotateSpeed), matRotDelta);
-  }
-
-  if (input.IsPressKey(DIK_X)) {
     matRotDelta = Multiply(MakeRotateYMatrix(rotateSpeed), matRotDelta);
   }
 
   if (input.IsPressKey(DIK_Z)) {
+    matRotDelta = Multiply(MakeRotateYMatrix(-rotateSpeed), matRotDelta);
+  }
+
+  if (input.IsPressKey(DIK_UP)) {
+    matRotDelta = Multiply(MakeRotateXMatrix(-rotateSpeed), matRotDelta);
+  }
+
+  if (input.IsPressKey(DIK_DOWN)) {
+    matRotDelta = Multiply(MakeRotateXMatrix(rotateSpeed), matRotDelta);
+  }
+
+  if (input.IsPressKey(DIK_RIGHT)) {
     matRotDelta = Multiply(MakeRotateZMatrix(rotateSpeed), matRotDelta);
+  }
+
+  if (input.IsPressKey(DIK_LEFT)) {
+    matRotDelta = Multiply(MakeRotateZMatrix(-rotateSpeed), matRotDelta);
   }
 
   // 累積の回転行列を合成

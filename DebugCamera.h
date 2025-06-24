@@ -11,6 +11,11 @@ class DebugCamera {
 
 public:
   /// <summary>
+  /// 初期化
+  /// </summary>
+  void Initialize();
+
+  /// <summary>
   /// 更新処理
   /// </summary>
   void Update(const InputKeyState &input);
@@ -28,9 +33,9 @@ private:
   Matrix4x4 viewMatrix_ = MakeIdentity4x4();
 
   // 射影行列
-  Matrix4x4 projectionMatrix_ = MakeIdentity4x4();
+  // Matrix4x4 projectionMatrix_ = MakeIdentity4x4();
 
   // マウス用
-  int prevMouseX_ = 0;
-  int prevMouseY_ = 0;
+  // int prevMouseX_ = 0;
+  // int prevMouseY_ = 0;
 };
