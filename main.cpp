@@ -1764,6 +1764,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {0.0f, 0.0f, 0.0f},
   };
 
+  // 透明度
+  float alpha[3] = {0.4f, 0.6f, 1.0f};
+
+  // スケール
+  float scale[3] = {0.6f, 0.8f, 1.0f};
+
+  // offset
+  Vector3 offset[3] = {
+      {-5.0f, -5.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+      {5.0f, 5.0f, 0.0f},
+  };
+
   int frameCount = 0;
 
   // ImGuiの初期化
@@ -1801,30 +1814,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
 
-      transformSprite.translate = {0.0f, 0.0f, 0.0f};
-      transformSprite.scale = {1.0f, 1.0f, 1.0f};
-      transformSprite.rotate = {0.0f, 0.0f, 0.0f};
+      for (int i = 0; i < 3; i++) {
 
-      // Sprite用のWorldViewProjectionMatrixを作る
-      Matrix4x4 worldMatrixSprite =
-          MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
-                           transformSprite.translate);
-      Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
-      Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(
-          0.0f, 0.0f, float(kClientWidth), float(kClientHeight), 0.0f, 100.0f);
-      Matrix4x4 worldViewProjectionMatrixSprite =
-          Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
-                   projectionMatrixSprite);
+        transformSprite.translate = offset[i];
+        transformSprite.scale = {scale[i], scale[i], 1.0f};
+        transformSprite.rotate = {0.0f, 0.0f, 0.0f};
 
-      Matrix4x4 uvTransformMatrix = MakeScaleMatrix(uvTransformSprite.scale);
-      uvTransformMatrix = Multiply(
-          uvTransformMatrix, MakeRotateZMatrix(uvTransformSprite.rotate.z));
-      uvTransformMatrix = Multiply(
-          uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
-      materialDataSprite->uvTransform = uvTransformMatrix;
+        // Sprite用のWorldViewProjectionMatrixを作る
+        Matrix4x4 worldMatrixSprite =
+            MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
+                             transformSprite.translate);
+        Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+        Matrix4x4 projectionMatrixSprite =
+            MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
+                                   float(kClientHeight), 0.0f, 100.0f);
+        Matrix4x4 worldViewProjectionMatrixSprite =
+            Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
+                     projectionMatrixSprite);
 
-      transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
-      transformationMatrixDataSprite->World = worldMatrixSprite;
+        // Matrix4x4 uvTransformMatrix =
+        // MakeScaleMatrix(uvTransformSprite.scale); uvTransformMatrix =
+        // Multiply(
+        //     uvTransformMatrix,
+        //     MakeRotateZMatrix(uvTransformSprite.rotate.z));
+        // uvTransformMatrix =
+        //     Multiply(uvTransformMatrix,
+        //              MakeTranslateMatrix(uvTransformSprite.translate));
+        // materialDataSprite->uvTransform = uvTransformMatrix;
+
+        materialDataSprite->uvTransform = MakeIdentity4x4();
+
+        materialDataSprite->color.w = alpha[i];
+
+        transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
+        transformationMatrixDataSprite->World = worldMatrixSprite;
+      }
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -1878,27 +1902,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 
       // Spriteの描画
-      commandList->IASetVertexBuffers(0, 1,
-                                      &vertexBufferViewSprite); // VBVを設定
+      for (int i = 0; i < 3; i++) {
+        commandList->IASetVertexBuffers(0, 1,
+                                        &vertexBufferViewSprite); // VBVを設定
 
-      commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
+        commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
 
-      // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
-      commandList->SetGraphicsRootConstantBufferView(
-          0, materialResourceSprite->GetGPUVirtualAddress());
+        // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
+        commandList->SetGraphicsRootConstantBufferView(
+            0, materialResourceSprite->GetGPUVirtualAddress());
 
-      // TransformationMatrixCBufferの場所を設定
-      commandList->SetGraphicsRootConstantBufferView(
-          1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
+        // TransformationMatrixCBufferの場所を設定
+        commandList->SetGraphicsRootConstantBufferView(
+            1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 
-      // Spriteは常に"uvChecker"にする
-      commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+        // Spriteは常に"uvChecker"にする
+        commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
-      commandList->SetGraphicsRootConstantBufferView(
-          4, timeResource->GetGPUVirtualAddress());
+        commandList->SetGraphicsRootConstantBufferView(
+            4, timeResource->GetGPUVirtualAddress());
 
-      // ドローコール
-      commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+        // ドローコール
+        commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+      }
 
       // 実際のcommandListのImGuiの描画コマンドを積む
       ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());
