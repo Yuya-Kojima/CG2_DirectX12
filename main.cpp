@@ -1534,9 +1534,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   blendDesc.RenderTarget[0].DestBlend =
       D3D12_BLEND_INV_SRC_ALPHA; // 透明部分は背景(スクリーン)が映るように
   blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
-  blendDesc.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;   //
-  blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO; //
-  blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD; //
+  blendDesc.RenderTarget[0].SrcBlendAlpha =
+      D3D12_BLEND_ONE; // 元画像の透明度をブレンドに反映
+  blendDesc.RenderTarget[0].DestBlendAlpha =
+      D3D12_BLEND_ZERO; // 背景の透明度は無視
+  blendDesc.RenderTarget[0].BlendOpAlpha =
+      D3D12_BLEND_OP_ADD; // 上二つを合成(加算)
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL; // すべてのチャンネル(RGBA)に書き込む
 
@@ -1854,7 +1857,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                                       &dsvHandle);
 
       // 指定した色で画面全体をクリアする
-      float clearColor[] = {0.1f, 0.25f, 0.5f, 1.0f}; // 青っぽい色、RGBAの順
+      // float clearColor[] = {0.1f, 0.25f, 0.5f, 1.0f}; // 青っぽい色、RGBAの順
+      float clearColor[] = {0.0f, 0.0f, 0.0f, 1.0f}; // 背景を黒に
       commandList->ClearRenderTargetView(rtvHandles[backBufferIndex],
                                          clearColor, 0, nullptr);
 
