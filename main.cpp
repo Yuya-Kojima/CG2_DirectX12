@@ -1217,6 +1217,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL;
 
+  blendDesc.RenderTarget[0].BlendEnable = true; // ブレンドを有効化
+
+  blendDesc.RenderTarget[0].SrcBlend =
+      D3D12_BLEND_SRC_ALPHA; // 元画像の透明度を使う
+
+  blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
+
+  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+
+  blendDesc.RenderTarget[0].SrcBlendAlpha =
+      D3D12_BLEND_ONE; // 元画像の透明度をブレンドに反映
+
+  blendDesc.RenderTarget[0].BlendOpAlpha =
+      D3D12_BLEND_OP_ADD; // 上二つを合成(加算)
+
+  blendDesc.RenderTarget[0].DestBlendAlpha =
+      D3D12_BLEND_ZERO; // 背景の透明度は無視
+
   // RasiterzerStateの設定
   D3D12_RASTERIZER_DESC rasterizerDesc{};
 
@@ -1642,7 +1660,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       debugCamera->Update(inputKeyState);
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
-      ImGui::ColorEdit3("materialColor", &materialData->color.x);
+      ImGui::ColorEdit4("materialColor", &materialData->color.x);
       ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
       ImGui::SliderAngle("rotateX", &transform.rotate.x);
       ImGui::SliderAngle("rotateY", &transform.rotate.y);
@@ -1652,8 +1670,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
       ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
                         1.0f);
-      ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.001f,
-                       0.0f, 1.0f);
+      ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.01f,
+                       0.0f, 10.0f);
       ImGui::DragFloat3("cameraTranslate", &cameraTransform.translate.x, 0.01f);
       ImGui::DragFloat3("cameraRotate", &cameraTransform.rotate.x, 0.001f);
 

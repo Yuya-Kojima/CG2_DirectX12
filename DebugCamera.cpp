@@ -2,7 +2,7 @@
 
 void DebugCamera::Initialize() {
   matRot_ = MakeIdentity4x4();
-  translation_ = {0.0f, 0.0f, -50.0f};
+  translation_ = {0.0f, 0.0f, -10.0f};
   viewMatrix_ = MakeIdentity4x4();
 }
 
