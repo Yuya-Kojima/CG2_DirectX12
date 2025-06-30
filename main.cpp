@@ -1219,12 +1219,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   blendDesc.RenderTarget[0].BlendEnable = true; // ブレンドを有効化
 
-  blendDesc.RenderTarget[0].SrcBlend =
-      D3D12_BLEND_SRC_ALPHA; // 元画像の透明度を使う
+  blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_ZERO; // 元画像の透明度を使う
 
   blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
 
-  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_SRC_COLOR;
 
   blendDesc.RenderTarget[0].SrcBlendAlpha =
       D3D12_BLEND_ONE; // 元画像の透明度をブレンドに反映
