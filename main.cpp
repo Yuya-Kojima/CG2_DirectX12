@@ -1398,24 +1398,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   /*Sprite用のマテリアルリソースを作る
   -----------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprite =
-      CreateBufferResource(device, sizeof(Material));
+  // Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprite =
+  //     CreateBufferResource(device, sizeof(Material));
 
-  // データを書き込む
-  Material *materialDataSprite = nullptr;
+  //// データを書き込む
+  // Material *materialDataSprite = nullptr;
 
-  // 書き込むためのアドレスを取得
-  materialResourceSprite->Map(0, nullptr,
-                              reinterpret_cast<void **>(&materialDataSprite));
+  //// 書き込むためのアドレスを取得
+  // materialResourceSprite->Map(0, nullptr,
+  //                             reinterpret_cast<void
+  //                             **>(&materialDataSprite));
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprites[2];
+  Material *materialDataSprites[2];
+
+  for (int i = 0; i < 2; i++) {
+    materialResourceSprites[i] = CreateBufferResource(device, sizeof(Material));
+    materialResourceSprites[i]->Map(
+        0, nullptr, reinterpret_cast<void **>(&materialDataSprites[i]));
+
+    materialDataSprites[i]->color = Vector4(1.0f, 1.0f, 1.0f, 0.0f);
+    materialDataSprites[i]->enableLighting = false;
+    materialDataSprites[i]->uvTransform = MakeIdentity4x4();
+  }
 
   assert(SUCCEEDED(hr));
-
-  // 色の指定
-  materialDataSprite->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // Lightingさせるか
-  materialDataSprite->enableLighting = false;
-  // UVTransform　単位行列を入れておく
-  materialDataSprite->uvTransform = MakeIdentity4x4();
 
   Microsoft::WRL::ComPtr<ID3D12Resource> timeResource =
       CreateBufferResource(device, 256);
@@ -1448,19 +1455,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
   ----------------------------------------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceSprite =
-      CreateBufferResource(device, transformationMatrixSize);
+  // Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceSprite =
+  //     CreateBufferResource(device, transformationMatrixSize);
 
-  // データを書き込む
-  TransformationMatrix *transformationMatrixDataSprite = nullptr;
+  //// データを書き込む
+  // TransformationMatrix *transformationMatrixDataSprite = nullptr;
 
-  // 書き込むためのアドレスを取得
-  transformationMatrixResourceSprite->Map(
-      0, nullptr, reinterpret_cast<void **>(&transformationMatrixDataSprite));
+  //// 書き込むためのアドレスを取得
+  // transformationMatrixResourceSprite->Map(
+  //     0, nullptr, reinterpret_cast<void
+  //     **>(&transformationMatrixDataSprite));
 
-  // 単位行列を書き込んでおく
-  transformationMatrixDataSprite->World = MakeIdentity4x4();
-  transformationMatrixDataSprite->WVP = MakeIdentity4x4();
+  //// 単位行列を書き込んでおく
+  // transformationMatrixDataSprite->World = MakeIdentity4x4();
+  // transformationMatrixDataSprite->WVP = MakeIdentity4x4();
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceSprites[2];
+  TransformationMatrix *transformationMatrixDataSprites[2];
+
+  for (int i = 0; i < 2; i++) {
+    transformationMatrixResourceSprites[i] =
+        CreateBufferResource(device, transformationMatrixSize);
+    transformationMatrixResourceSprites[i]->Map(
+        0, nullptr,
+        reinterpret_cast<void **>(&transformationMatrixDataSprites[i]));
+  }
 
   /* 平行光源用のリソースを作る
   ------------------------------------*/
@@ -1529,17 +1548,25 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // blendDesc.RenderTarget[0].BlendEnable=true;
 
   blendDesc.RenderTarget[0].BlendEnable = true; // ブレンドを有効化
+
   blendDesc.RenderTarget[0].SrcBlend =
       D3D12_BLEND_SRC_ALPHA; // 元画像の透明度を使う
-  blendDesc.RenderTarget[0].DestBlend =
-      D3D12_BLEND_INV_SRC_ALPHA; // 透明部分は背景(スクリーン)が映るように
+
+  // blendDesc.RenderTarget[0].DestBlend =
+  //     D3D12_BLEND_INV_SRC_ALPHA; // 透明部分は背景(スクリーン)が映るように
+  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+
   blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
+
   blendDesc.RenderTarget[0].SrcBlendAlpha =
       D3D12_BLEND_ONE; // 元画像の透明度をブレンドに反映
+
   blendDesc.RenderTarget[0].DestBlendAlpha =
       D3D12_BLEND_ZERO; // 背景の透明度は無視
+
   blendDesc.RenderTarget[0].BlendOpAlpha =
       D3D12_BLEND_OP_ADD; // 上二つを合成(加算)
+
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL; // すべてのチャンネル(RGBA)に書き込む
 
@@ -1667,18 +1694,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                             reinterpret_cast<void **>(&vertexDataSprite));
 
   // 一枚目の三角形
-  vertexDataSprite[0].position = {0.0f, 256.0f, 0.0f, 1.0f}; // 左下
+  vertexDataSprite[0].position = {-128.0f, 128.0f, 0.0f, 1.0f}; // 左下
   vertexDataSprite[0].texcoord = {0.0f, 1.0f};
   vertexDataSprite[0].normal = {0.0f, 0.0f, -1.0f};
-  vertexDataSprite[1].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
+  vertexDataSprite[1].position = {-128.0f, -128.0f, 0.0f, 1.0f}; // 左上
   vertexDataSprite[1].texcoord = {0.0f, 0.0f};
   vertexDataSprite[1].normal = {0.0f, 0.0f, -1.0f};
-  vertexDataSprite[2].position = {256.0f, 256.0f, 0.0f, 1.0f}; // 右下
+  vertexDataSprite[2].position = {128.0f, 128.0f, 0.0f, 1.0f}; // 右下
   vertexDataSprite[2].texcoord = {1.0f, 1.0f};
   vertexDataSprite[2].normal = {0.0f, 0.0f, -1.0f};
 
   // 二枚目
-  vertexDataSprite[3].position = {256.0f, 0.0f, 0.0f, 1.0f}; // 右上
+  vertexDataSprite[3].position = {128.0f, -128.0f, 0.0f, 1.0f}; // 右上
   vertexDataSprite[3].texcoord = {1.0f, 0.0f};
   vertexDataSprite[3].normal = {0.0f, 0.0f, -1.0f};
 
@@ -1754,7 +1781,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Transform transformSprite{
       {1.0f, 1.0f, 1.0},
       {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
+      {300.0f, 300.0f, 0.0f},
   };
 
   // UVTransfotm用
@@ -1765,10 +1792,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   // 透明度
-  float alpha[3] = {0.4f, 0.6f, 1.0f};
+  //  float alpha[3] = {0.2f, 0.4f, 1.0f};
+  float alpha[2] = {1.0f, 1.0f};
 
   // スケール
-  float scale[3] = {0.6f, 0.8f, 1.0f};
+  // float scale[3] = {1.0f, 0.95f, 0.9f};
+  float scale[2] = {0.5f, 0.5f};
 
   // offset
   Vector3 offset[3] = {
@@ -1808,15 +1837,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       frameCount++;
 
+      transformSprite.translate = {900.0f, 80.0f, 0.0f};
+
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::Text("gTime = %.3f", *timePtr);
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
 
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 2; i++) {
 
-        transformSprite.translate = offset[i];
+        /*    transformSprite.translate.x += offset[i].x;
+            transformSprite.translate.y += offset[i].y;
+            transformSprite.translate.z += offset[i].z;*/
         transformSprite.scale = {scale[i], scale[i], 1.0f};
         transformSprite.rotate = {0.0f, 0.0f, 0.0f};
 
@@ -1842,13 +1875,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         //              MakeTranslateMatrix(uvTransformSprite.translate));
         // materialDataSprite->uvTransform = uvTransformMatrix;
 
-        materialDataSprite->uvTransform = MakeIdentity4x4();
+        materialDataSprites[i]->uvTransform = MakeIdentity4x4();
 
-        materialDataSprite->color.w = alpha[i];
+        materialDataSprites[i]->color.w = alpha[i];
 
-        transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
-        transformationMatrixDataSprite->World = worldMatrixSprite;
+        transformationMatrixDataSprites[i]->WVP =
+            worldViewProjectionMatrixSprite;
+        transformationMatrixDataSprites[i]->World = worldMatrixSprite;
       }
+
+      materialDataSprites[0]->color =
+          Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
+      materialDataSprites[1]->color =
+          Vector4(1.0f, 1.0f, 1.0f, 1.0f); // 通常カラー演出
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -1902,7 +1941,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 
       // Spriteの描画
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 2; i++) {
         commandList->IASetVertexBuffers(0, 1,
                                         &vertexBufferViewSprite); // VBVを設定
 
@@ -1910,11 +1949,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
         commandList->SetGraphicsRootConstantBufferView(
-            0, materialResourceSprite->GetGPUVirtualAddress());
+            0, materialResourceSprites[i]->GetGPUVirtualAddress());
 
         // TransformationMatrixCBufferの場所を設定
         commandList->SetGraphicsRootConstantBufferView(
-            1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
+            1, transformationMatrixResourceSprites[i]->GetGPUVirtualAddress());
 
         // Spriteは常に"uvChecker"にする
         commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);

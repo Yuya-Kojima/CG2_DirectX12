@@ -48,8 +48,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	// UVにゆらぎを追加（例：炎風）
 	float time = gTime.x; // float4からx成分だけ使う
 	float n = noise(uv * 10.0f + time * 0.5f);
-	uv.x += (n - 0.5f) * 0.05f;
-	uv.y += (n - 0.5f) * 0.05f;
+	uv.x += (n - 0.5f) * 0.02f;
+	uv.y += (n - 0.5f) * 0.04f;
 	//uv.x += sin(uv.y * 10.0f + gTime.x * 8.0f) * 0.08f;
 	//uv.y += cos(uv.x * 8.0f + gTime.x * 4.0f) * 0.05f;
 	uv = saturate(uv);
@@ -60,13 +60,65 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	//textureColor.a = 1.0f;
 	
 	
-	float fireColorRate = sin(gTime.x * 5.0f + uv.y * 5.0f) * 0.5f + 0.5f;
-	float3 fireColor = lerp(float3(1.0, 0.4, 0.0), float3(1.0, 1.0, 0.0), fireColorRate); // 赤→黄
+	//float fireColorRate = sin(gTime.x * 5.0f + uv.y * 5.0f) * 0.5f + 0.5f;
+	//float3 fireColor = lerp(float3(1.0, 0.4, 0.0), float3(1.0, 1.0, 0.0), fireColorRate); // 赤→黄
+	
+	float fireShift = saturate(sin(gTime.x * 3.0 + uv.y * 10.0) * 0.5f + 0.5f);
+	float3 color1 = float3(1.0, 0.1, 0.0); // 赤
+	float3 color2 = float3(1.0, 1.0, 0.0); // 黄
+	float3 color3 = float3(1.0, 1.0, 1.0); // 白
+
+// 2段階Lerp
+	float3 midColor = lerp(color1, color2, fireShift);
+	float3 fireColor = lerp(midColor, color3, fireShift * 0.5f); // 白は軽めに
 	
 	textureColor.rgb *= fireColor;
+	textureColor.a = pow(textureColor.a, 1.5f);
 	//textureColor.a *= 0.6 + 0.4 * sin(gTime.x * 6.0f + uv.y * 10.0f);
 	
+	//円形に描画
+	//float2 center = float2(0.5f, 0.5f);
+	//float dist = distance(uv, center);
+	//float fade = saturate(1.0f - dist * 2.0f); // 端にいくほど透明
+	//textureColor.a *= fade;
+	
+	//float fireShift = 0.5f; // ← 一旦固定
+	//float3 fireColor = lerp(float3(1.0, 0.5, 0.0), float3(1.0, 1.0, 0.0), fireShift);
+	//textureColor.rgb *= fireColor;
+	
+	float2 center = float2(0.5f, 0.5f);
+	float dist = distance(uv, center);
+	//float fade = smoothstep(0.4f, 0.5f, 1.0f - dist); // エッジのぼけを滑らかに
+	//textureColor.a *= fade;
+	
+	
 	PixelShaderOutput output;
+	
+	if (gMaterial.color.w < 0.5f) {
+		float2 texelSize = float2(1.0 / 256.0, 1.0 / 256.0);
+		float alpha = gTexture.Sample(gSampler, uv).a;
+
+    // 周囲のα値を合計して光の強さにする（放射っぽく）
+		float glowSum = 0.0f;
+		for (int x = -3; x <= 3; ++x) {
+			for (int y = -3; y <= 3; ++y) {
+				float2 offset = texelSize * float2(x, y);
+				glowSum += gTexture.Sample(gSampler, uv + offset).a;
+			}
+		}
+
+		glowSum /= 49.0f; // 7x7 = 49サンプル
+
+    // 元のαが小さい（透明）なら、周囲から漏れる光として描く
+		float glow = glowSum * (1.0 - alpha);
+
+		//float3 glowColor = float3(1.0, 0.8, 0.2); // やわらかい光色
+		//output.color = float4(glowColor, glow * 0.6f); // αも弱めに
+		
+		float3 glowColor = float3(1.2, 1.0, 0.4); // ちょっと強めの黄
+		output.color = float4(glowColor, glow * 0.9f);
+		return output;
+	}
 	
 	if (gMaterial.enableLighting != 0) {
 		// half-lambert 簡易ライティング
