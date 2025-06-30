@@ -900,7 +900,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       dsvDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
   // モデル読み込み
-  ModelData modelData = LoadModelFile("resources", "axis.obj");
+  ModelData modelData = LoadModelFile("resources", "fence.obj");
   Log("Loading texture path: " + modelData.material.textureFilePath + "\n");
 
   // Textureを読んで転送
@@ -1219,11 +1219,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   blendDesc.RenderTarget[0].BlendEnable = true; // ブレンドを有効化
 
-  blendDesc.RenderTarget[0].SrcBlend = D3D12_BLEND_ZERO; // 元画像の透明度を使う
+  blendDesc.RenderTarget[0].SrcBlend =
+      D3D12_BLEND_SRC_ALPHA; // 元画像の透明度を使う
 
   blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
 
-  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_SRC_COLOR;
+  blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 
   blendDesc.RenderTarget[0].SrcBlendAlpha =
       D3D12_BLEND_ONE; // 元画像の透明度をブレンドに反映
@@ -1238,7 +1239,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   D3D12_RASTERIZER_DESC rasterizerDesc{};
 
   // 裏面(時計回り)を表示しない
-  rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
+  rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
 
   // 三角形の中を塗りつぶす
   rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;

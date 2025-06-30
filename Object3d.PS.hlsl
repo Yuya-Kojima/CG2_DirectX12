@@ -29,6 +29,17 @@ VertexShaderOutput input) {
 	float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
 	PixelShaderOutput output;
 	
+	if (textureColor.a <= 0.5) {
+		discard;
+	}
+	
+	if (textureColor.a == 0.0) {
+		discard;
+	}
+	
+	if (output.color.a == 0.0) {
+		discard;
+	}
 	
 	if (gMaterial.enableLighting != 0) {
 		//Lightingする場合
