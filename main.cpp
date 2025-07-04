@@ -29,7 +29,9 @@
 #include "DebugCamera.h"
 #include "InputKeyState.h"
 #include "MatrixUtility.h"
+#include "Particle.h"
 #include <dinput.h>
+#include <random>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
                                                              UINT msg,
@@ -1771,15 +1773,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   MSG msg{};
 
+  // 乱数生成器
+  std::random_device seedGenerator;
+  std::mt19937 randomEngine(seedGenerator());
+
+  std::uniform_real_distribution<float> distribution(-1.0f,
+                                                     1.0f); //-1.0f~1.0f
+
   // Transform変数を作る
-  Transform transforms[kNumInstance];
+  Particle particles[kNumInstance];
 
   for (uint32_t index = 0; index < kNumInstance; ++index) {
-    transforms[index] = {
-        {1.0f, 1.0f, 1.0f},
-        {0.0f, 0.0f, 0.0f},
-        {index * 0.1f, index * 0.1f, index * 0.5f},
-    };
+    particles[index] = MakeNewParticle(randomEngine);
   }
 
   // カメラ行列
@@ -1819,8 +1824,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   DebugCamera *debugCamera = new DebugCamera();
   debugCamera->Initialize();
 
-  // 描画ループ
-  const uint32_t instanceCount = 10;
+  // デルタタイム 一旦60fpsで固定
+  const float kDeltaTime = 1.0f / 60.0f;
 
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
@@ -1847,6 +1852,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::NewFrame();
 
       // ゲームの処理
+
+      for (uint32_t index = 0; index < kNumInstance; ++index) {
+        particles[index].transform.translate +=
+            particles[index].velocity * kDeltaTime;
+      }
 
       // キー入力
       inputKeyState.Update(keyboard);
@@ -1905,9 +1915,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       for (uint32_t index = 0; index < kNumInstance; ++index) {
 
-        Matrix4x4 worldMatrix =
-            MakeAffineMatrix(transforms[index].scale, transforms[index].rotate,
-                             transforms[index].translate);
+        Matrix4x4 worldMatrix = MakeAffineMatrix(
+            particles[index].transform.scale, particles[index].transform.rotate,
+            particles[index].transform.translate);
 
         Matrix4x4 worldViewProjectionMatrix =
             Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);

@@ -5,7 +5,14 @@ struct TransformationMatrix {
 	float4x4 World;
 };
 
+struct ParticleForGPU {
+	float4x4 WVP;
+	float4x4 World;
+	float4 color;
+};
+
 StructuredBuffer<TransformationMatrix> gTransformationMatrices : register(t0);
+//StructuredBuffer<ParticleForGPU> gParticle : register(t0);
 
 struct VertexShaderInput {
 	float4 position : POSITION0;

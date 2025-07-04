@@ -448,12 +448,3 @@ Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m) {
   result.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2];
   return result;
 }
-
-Vector3 Add(const Vector3 &v1, const Vector3 &v2) {
-
-  Vector3 result;
-
-  result = {v1.x + v2.x, v1.y + v2.y, v1.z + v2.z};
-
-  return result;
-}
