@@ -1721,7 +1721,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // Instancing用リソース
   //=============================
 
-  const uint32_t kNumMaxInstance = 10; // インスタンス数
+  const uint32_t kNumMaxInstance = 100; // インスタンス数
   // Instancing用のTransformationMatrixリソースを作る
   Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource =
       CreateBufferResource(device, sizeof(ParticleForGPU) * kNumMaxInstance);
@@ -1791,11 +1791,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                                                      1.0f); //-1.0f~1.0f
 
   // Transform変数を作る
-  Particle particles[kNumMaxInstance];
+  // Particle particles[kNumMaxInstance];
 
-  for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
-    particles[index] = MakeNewParticle(randomEngine);
-  }
+  // for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
+  //   particles[index] = MakeNewParticle(randomEngine);
+  // }
+
+  // パーティクルエミッタ
+  Emitter emitter{};
+  emitter.transform.translate = {0.0f, 0.0f, 0.0f};
+  emitter.transform.rotate = {0.0f, 0.0f, 0.0f};
+  emitter.transform.scale = {1.0f, 1.0f, 1.0f};
+  emitter.count = 3;
+  emitter.frequency = 0.5f;
+  emitter.frequencyTime = 0.0f;
+
+  std::list<Particle> particles;
+
+  particles.push_back(
+      MakeNewParticle(randomEngine, emitter.transform.translate));
+  particles.push_back(
+      MakeNewParticle(randomEngine, emitter.transform.translate));
+  particles.push_back(
+      MakeNewParticle(randomEngine, emitter.transform.translate));
 
   // カメラ行列
   // Transform cameraTransform{
@@ -1807,7 +1825,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Transform cameraTransform{
       {1.0f, 1.0f, 1.0f},
       {std::numbers::pi_v<float> / 3.0f, std::numbers::pi_v<float>, 0.0f},
-      {0.0f, 23.0f, 10.0f},
+      {0.0f, 18.0f, 10.0f},
   };
 
   // Sprite用のTransform
@@ -1876,12 +1894,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // ゲームの処理
 
-      if (isUpdate) {
-        for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
-          particles[index].transform.translate +=
-              particles[index].velocity * kDeltaTime;
-          particles[index].currentTime += kDeltaTime; // 経過時間を足す
-        }
+      for (std::list<Particle>::iterator particleIterator = particles.begin();
+           particleIterator != particles.end(); ++particleIterator) {
+        // partic.transform.translate += particles.velocity * kDeltaTime;
+        // particles.currentTime += kDeltaTime; // 経過時間を足す
+
+        particleIterator->transform.translate +=
+            particleIterator->velocity * kDeltaTime;
+        particleIterator->currentTime += kDeltaTime;
+      }
+
+      emitter.frequencyTime += kDeltaTime;
+
+      if (emitter.frequency <= emitter.frequencyTime) {
+        particles.splice(particles.end(), Emit(emitter, randomEngine));
+        emitter.frequencyTime -= emitter.frequency;
       }
 
       // キー入力
@@ -1904,6 +1931,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::Checkbox("enableLighting", &enableLighting);
       ImGui::Checkbox("Update", &isUpdate);
       ImGui::Checkbox("useBillboard", &useBillboard);
+
+      if (ImGui::Button("Add Particle")) {
+        particles.splice(particles.end(), Emit(emitter, randomEngine));
+      }
+
+      ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x,
+                        0.01f, -100.0f, 100.0f);
+
       ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
       ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
                         1.0f);
@@ -1947,43 +1982,50 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       billboardMatrix.m[3][2] = 0.0f;
 
       uint32_t numInstance = 0; // 描画すべきインスタンス数
-      for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
+      for (std::list<Particle>::iterator particleIterator = particles.begin();
+           particleIterator != particles.end();) {
 
-        if (particles[index].lifeTime <= particles[index].currentTime) {
-          // 生存期間を過ぎていたら更新せず描画対象にしない
+        if ((*particleIterator).lifeTime <= (*particleIterator).currentTime) {
+          particleIterator = particles.erase(
+              particleIterator); // 生存期間が過ぎたParticleはListから消す。戻り値が次のイテレータとなる
           continue;
         }
 
         float alpha =
-            1.0f - (particles[index].currentTime / particles[index].lifeTime);
+            1.0f - (particleIterator->currentTime / particleIterator->lifeTime);
 
         Matrix4x4 worldMatrix = MakeIdentity4x4();
 
         if (useBillboard) {
 
           Matrix4x4 scaleMatrix =
-              MakeScaleMatrix(particles[index].transform.scale);
+              MakeScaleMatrix(particleIterator->transform.scale);
 
           Matrix4x4 translateMatrix =
-              MakeTranslateMatrix(particles[index].transform.translate);
+              MakeTranslateMatrix(particleIterator->transform.translate);
 
           worldMatrix =
               Multiply(Multiply(scaleMatrix, billboardMatrix), translateMatrix);
         } else {
-          worldMatrix = MakeAffineMatrix(particles[index].transform.scale,
-                                         particles[index].transform.rotate,
-                                         particles[index].transform.translate);
+          worldMatrix = MakeAffineMatrix(particleIterator->transform.scale,
+                                         particleIterator->transform.rotate,
+                                         particleIterator->transform.translate);
         }
 
         Matrix4x4 worldViewProjectionMatrix =
             Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
 
-        instancingData[index].WVP = worldViewProjectionMatrix;
-        instancingData[index].World = worldMatrix;
-        instancingData[index].color = particles[index].color;
-        instancingData[index].color.w = alpha;
+        if (numInstance < kNumMaxInstance) {
 
-        ++numInstance; // 生きているParticleの数を1つカウントする
+          instancingData[numInstance].WVP = worldViewProjectionMatrix;
+          instancingData[numInstance].World = worldMatrix;
+          instancingData[numInstance].color = (*particleIterator).color;
+          instancingData[numInstance].color.w = alpha;
+
+          ++numInstance;
+        }
+
+        ++particleIterator; // 生きているParticleの数を1つカウントする
       }
 
       // Sprite用のWorldViewProjectionMatrixを作る
