@@ -31,6 +31,7 @@
 #include "MatrixUtility.h"
 #include "Particle.h"
 #include <dinput.h>
+#include <numbers>
 #include <random>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
@@ -1797,10 +1798,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   }
 
   // カメラ行列
+  // Transform cameraTransform{
+  //    {1.0f, 1.0f, 1.0f},
+  //    {0.0f, 0.0f, 0.0f},
+  //    {0.0f, 0.0f, -10.0f},
+  //};
+
   Transform cameraTransform{
       {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, -10.0f},
+      {std::numbers::pi_v<float> / 3.0f, std::numbers::pi_v<float>, 0.0f},
+      {0.0f, 23.0f, 10.0f},
   };
 
   // Sprite用のTransform
@@ -1837,6 +1844,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   const float kDeltaTime = 1.0f / 60.0f;
 
   bool isUpdate = false;
+
+  bool useBillboard = true;
+
+  // 板ポリをカメラに向ける回転行列
+  Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
 
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
@@ -1891,6 +1903,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::Checkbox("useMonsterBall", &useMonsterBall);
       ImGui::Checkbox("enableLighting", &enableLighting);
       ImGui::Checkbox("Update", &isUpdate);
+      ImGui::Checkbox("useBillboard", &useBillboard);
       ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
       ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
                         1.0f);
@@ -1928,6 +1941,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         transformationMatrixData[i]->World = worldMatrix;
       }*/
 
+      Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+      billboardMatrix.m[3][0] = 0.0f; // 平行移動成分は無し
+      billboardMatrix.m[3][1] = 0.0f;
+      billboardMatrix.m[3][2] = 0.0f;
+
       uint32_t numInstance = 0; // 描画すべきインスタンス数
       for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
 
@@ -1939,9 +1957,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         float alpha =
             1.0f - (particles[index].currentTime / particles[index].lifeTime);
 
-        Matrix4x4 worldMatrix = MakeAffineMatrix(
-            particles[index].transform.scale, particles[index].transform.rotate,
-            particles[index].transform.translate);
+        Matrix4x4 worldMatrix = MakeIdentity4x4();
+
+        if (useBillboard) {
+
+          Matrix4x4 scaleMatrix =
+              MakeScaleMatrix(particles[index].transform.scale);
+
+          Matrix4x4 translateMatrix =
+              MakeTranslateMatrix(particles[index].transform.translate);
+
+          worldMatrix =
+              Multiply(Multiply(scaleMatrix, billboardMatrix), translateMatrix);
+        } else {
+          worldMatrix = MakeAffineMatrix(particles[index].transform.scale,
+                                         particles[index].transform.rotate,
+                                         particles[index].transform.translate);
+        }
 
         Matrix4x4 worldViewProjectionMatrix =
             Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
