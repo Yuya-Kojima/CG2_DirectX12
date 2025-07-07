@@ -1939,6 +1939,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       commandList->SetGraphicsRootSignature(rootSignature.Get());
       commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
       // commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
+      // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
+      commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
       // Spriteの描画
       for (int i = 0; i < 2; i++) {
