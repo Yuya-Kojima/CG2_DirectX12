@@ -27,6 +27,7 @@
 #include <xaudio2.h>
 #define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
 #include "DebugCamera.h"
+#include "Field.h"
 #include "InputKeyState.h"
 #include "MatrixUtility.h"
 #include "Particle.h"
@@ -1868,6 +1869,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 板ポリをカメラに向ける回転行列
   Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
 
+  // 風を出す範囲
+  AccelerationField accelerationField;
+  accelerationField.acceleration = {15.0f, 0.0f, 0.0f};
+  accelerationField.area.min = {-1.0f, -1.0f, -1.0f};
+  accelerationField.area.max = {1.0f, 1.0f, 1.0f};
+
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -1899,9 +1906,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         // partic.transform.translate += particles.velocity * kDeltaTime;
         // particles.currentTime += kDeltaTime; // 経過時間を足す
 
-        particleIterator->transform.translate +=
-            particleIterator->velocity * kDeltaTime;
-        particleIterator->currentTime += kDeltaTime;
+        if (isUpdate) {
+          if (IsCollision(accelerationField.area,
+                          (*particleIterator).transform.translate)) {
+            (*particleIterator).velocity +=
+                accelerationField.acceleration * kDeltaTime;
+          }
+        }
+
+        (*particleIterator).transform.translate +=
+            (*particleIterator).velocity * kDeltaTime;
+        (*particleIterator).currentTime += kDeltaTime;
       }
 
       emitter.frequencyTime += kDeltaTime;
