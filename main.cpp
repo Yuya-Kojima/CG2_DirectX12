@@ -1322,7 +1322,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // RootParameter作成。複数設定できるので配列。今回は結果一つだけなので長さ1の配列
-  D3D12_ROOT_PARAMETER rootParameters[5] = {};
+  D3D12_ROOT_PARAMETER rootParameters[4] = {};
   rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameters[0].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;               // PixelShaderで使う
@@ -1332,9 +1332,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameters[1].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_VERTEX;              // VertexShaderで使う
   rootParameters[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
-  descroptionRootSignature.pParameters =
-      rootParameters; // ルートパラメータ配列へのポインタ
-  descroptionRootSignature.NumParameters = 5; // 配列の長さ
 
   D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
   descriptorRange[0].BaseShaderRegister = 0; // ０から始まる
@@ -1352,14 +1349,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameters[2].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRange); // Tableで利用する数
 
-  rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameters[3].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;               // PSで使う
-  rootParameters[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
+  // rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; //
+  // CBVを使う rootParameters[3].ShaderVisibility =
+  //     D3D12_SHADER_VISIBILITY_PIXEL;               // PSで使う
+  // rootParameters[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
 
-  rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-  rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-  rootParameters[4].Descriptor.ShaderRegister = 2;
+  rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameters[3].Descriptor.ShaderRegister = 1;
+
+  descroptionRootSignature.pParameters =
+      rootParameters; // ルートパラメータ配列へのポインタ
+  descroptionRootSignature.NumParameters = 4; // 配列の長さ
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -1961,7 +1962,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
         commandList->SetGraphicsRootConstantBufferView(
-            4, timeResource->GetGPUVirtualAddress());
+            3, timeResource->GetGPUVirtualAddress());
 
         // ドローコール
         commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
