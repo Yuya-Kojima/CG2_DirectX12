@@ -1349,11 +1349,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameters[2].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRange); // Tableで利用する数
 
-  // rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; //
-  // CBVを使う rootParameters[3].ShaderVisibility =
-  //     D3D12_SHADER_VISIBILITY_PIXEL;               // PSで使う
-  // rootParameters[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
-
   rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
   rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
   rootParameters[3].Descriptor.ShaderRegister = 1;
@@ -1377,28 +1372,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   descroptionRootSignature.pStaticSamplers = staticSamplers;
   descroptionRootSignature.NumStaticSamplers = _countof(staticSamplers);
 
-  /*マテリアル用のリソースを作る。
-  --------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource =
-      CreateBufferResource(device, sizeof(Material));
-
-  // マテリアルにデータを書き込む
-  Material *materialData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  materialResource->Map(0, nullptr, reinterpret_cast<void **>(&materialData));
-
-  assert(SUCCEEDED(hr));
-
-  // 色の指定
-  materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // Lightingさせるか
-  materialData->enableLighting = true;
-  // UVTransform 単位行列を入れておく
-  materialData->uvTransform = MakeIdentity4x4();
-
-  /*Sprite用のマテリアルリソースを作る
-  -----------------------------------*/
   // Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprite =
   //     CreateBufferResource(device, sizeof(Material));
 
@@ -1409,95 +1382,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // materialResourceSprite->Map(0, nullptr,
   //                             reinterpret_cast<void
   //                             **>(&materialDataSprite));
-
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprites[2];
-  Material *materialDataSprites[2];
-
-  for (int i = 0; i < 2; i++) {
-    materialResourceSprites[i] = CreateBufferResource(device, sizeof(Material));
-    materialResourceSprites[i]->Map(
-        0, nullptr, reinterpret_cast<void **>(&materialDataSprites[i]));
-
-    materialDataSprites[i]->color = Vector4(1.0f, 1.0f, 1.0f, 0.0f);
-    materialDataSprites[i]->enableLighting = false;
-    materialDataSprites[i]->uvTransform = MakeIdentity4x4();
-  }
-
-  assert(SUCCEEDED(hr));
-
-  Microsoft::WRL::ComPtr<ID3D12Resource> timeResource =
-      CreateBufferResource(device, 256);
-
-  float *timePtr = nullptr;
-  HRESULT hrTime =
-      timeResource->Map(0, nullptr, reinterpret_cast<void **>(&timePtr));
-  assert(SUCCEEDED(hrTime));
-  /*WVP用のリソースを作る。
-  --------------------------------------------------*/
-
-  // cbvのsizeは256バイト単位で確保する(GPT調べ)
-  UINT transformationMatrixSize = (sizeof(TransformationMatrix) + 255) & ~255;
-
-  assert(transformationMatrixSize % 256 == 0);
-
-  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource =
-      CreateBufferResource(device, transformationMatrixSize);
-
-  // データを書き込む
-  TransformationMatrix *transformationMatrixData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  transformationMatrixResource->Map(
-      0, nullptr, reinterpret_cast<void **>(&transformationMatrixData));
-
-  // 単位行列を書き込んでおく
-  transformationMatrixData->World = MakeIdentity4x4();
-  transformationMatrixData->WVP = MakeIdentity4x4();
-
-  /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
-  ----------------------------------------------------------------*/
-  // Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceSprite =
-  //     CreateBufferResource(device, transformationMatrixSize);
-
-  //// データを書き込む
-  // TransformationMatrix *transformationMatrixDataSprite = nullptr;
-
-  //// 書き込むためのアドレスを取得
-  // transformationMatrixResourceSprite->Map(
-  //     0, nullptr, reinterpret_cast<void
-  //     **>(&transformationMatrixDataSprite));
-
-  //// 単位行列を書き込んでおく
-  // transformationMatrixDataSprite->World = MakeIdentity4x4();
-  // transformationMatrixDataSprite->WVP = MakeIdentity4x4();
-
-  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourceSprites[2];
-  TransformationMatrix *transformationMatrixDataSprites[2];
-
-  for (int i = 0; i < 2; i++) {
-    transformationMatrixResourceSprites[i] =
-        CreateBufferResource(device, transformationMatrixSize);
-    transformationMatrixResourceSprites[i]->Map(
-        0, nullptr,
-        reinterpret_cast<void **>(&transformationMatrixDataSprites[i]));
-  }
-
-  /* 平行光源用のリソースを作る
-  ------------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource =
-      CreateBufferResource(device, sizeof(DirectionalLight));
-
-  // データを書き込む
-  DirectionalLight *directionalLightData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  directionalLightResource->Map(
-      0, nullptr, reinterpret_cast<void **>(&directionalLightData));
-
-  // Lightingの色
-  directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData->intensity = 1.0f;
 
   // シリアライズしてバイナリにする
   ID3DBlob *signatureBlob = nullptr;
@@ -1684,6 +1568,110 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   std::memcpy(vertexData, modelData.vertices.data(),
               sizeof(VertexData) * modelData.vertices.size());
 
+  /*マテリアル用のリソースを作る。
+--------------------------------*/
+  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource =
+      CreateBufferResource(device, sizeof(Material));
+
+  // マテリアルにデータを書き込む
+  Material *materialData = nullptr;
+
+  // 書き込むためのアドレスを取得
+  materialResource->Map(0, nullptr, reinterpret_cast<void **>(&materialData));
+
+  assert(SUCCEEDED(hr));
+
+  // 色の指定
+  materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  // Lightingさせるか
+  materialData->enableLighting = true;
+  // UVTransform 単位行列を入れておく
+  materialData->uvTransform = MakeIdentity4x4();
+
+  /*Sprite用のマテリアルリソースを作る
+  -----------------------------------*/
+  const int kSpriteCount = 3;
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprites[kSpriteCount];
+  Material *materialDataSprites[kSpriteCount];
+
+  for (int i = 0; i < kSpriteCount; i++) {
+    materialResourceSprites[i] = CreateBufferResource(device, sizeof(Material));
+    materialResourceSprites[i]->Map(
+        0, nullptr, reinterpret_cast<void **>(&materialDataSprites[i]));
+
+    materialDataSprites[i]->color = Vector4(1.0f, 1.0f, 1.0f, 0.0f);
+    materialDataSprites[i]->enableLighting = false;
+    materialDataSprites[i]->uvTransform = MakeIdentity4x4();
+  }
+
+  materialDataSprites[0]->color =
+      Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
+  materialDataSprites[1]->color =
+      Vector4(1.0f, 1.0f, 1.0f, 0.5f); // 通常カラー演出
+  materialDataSprites[2]->color = Vector4(1.0f, 1.0f, 1.0f, 0.9f); // reveal演出
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> timeResource =
+      CreateBufferResource(device, 256);
+
+  float *timePtr = nullptr;
+  HRESULT hrTime =
+      timeResource->Map(0, nullptr, reinterpret_cast<void **>(&timePtr));
+  assert(SUCCEEDED(hrTime));
+  /*WVP用のリソースを作る。
+  --------------------------------------------------*/
+
+  // cbvのsizeは256バイト単位で確保する(GPT調べ)
+  UINT transformationMatrixSize = (sizeof(TransformationMatrix) + 255) & ~255;
+
+  assert(transformationMatrixSize % 256 == 0);
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource =
+      CreateBufferResource(device, transformationMatrixSize);
+
+  // データを書き込む
+  TransformationMatrix *transformationMatrixData = nullptr;
+
+  // 書き込むためのアドレスを取得
+  transformationMatrixResource->Map(
+      0, nullptr, reinterpret_cast<void **>(&transformationMatrixData));
+
+  // 単位行列を書き込んでおく
+  transformationMatrixData->World = MakeIdentity4x4();
+  transformationMatrixData->WVP = MakeIdentity4x4();
+
+  /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
+  ----------------------------------------------------------------*/
+
+  Microsoft::WRL::ComPtr<ID3D12Resource>
+      transformationMatrixResourceSprites[kSpriteCount];
+  TransformationMatrix *transformationMatrixDataSprites[kSpriteCount];
+
+  for (int i = 0; i < kSpriteCount; i++) {
+    transformationMatrixResourceSprites[i] =
+        CreateBufferResource(device, transformationMatrixSize);
+    transformationMatrixResourceSprites[i]->Map(
+        0, nullptr,
+        reinterpret_cast<void **>(&transformationMatrixDataSprites[i]));
+  }
+
+  ///* 平行光源用のリソースを作る
+  //------------------------------------*/
+  // Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource =
+  //    CreateBufferResource(device, sizeof(DirectionalLight));
+
+  //// データを書き込む
+  // DirectionalLight *directionalLightData = nullptr;
+
+  //// 書き込むためのアドレスを取得
+  // directionalLightResource->Map(
+  //     0, nullptr, reinterpret_cast<void **>(&directionalLightData));
+
+  //// Lightingの色
+  // directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  // directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
+  // directionalLightData->intensity = 1.0f;
+
   //=============================
   // スプライト
   //=============================
@@ -1779,11 +1767,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   // Sprite用のTransform
-  Transform transformSprite{
-      {1.0f, 1.0f, 1.0},
-      {0.0f, 0.0f, 0.0f},
-      {300.0f, 300.0f, 0.0f},
-  };
+  Transform transformSprite[kSpriteCount];
+
+  for (int i = 0; i < kSpriteCount; i++) {
+    transformSprite[i].scale = {0.5f, 0.5f, 0.5f};
+    transformSprite[i].rotate = {0.0f, 0.0f, 0.0f};
+    transformSprite[i].translate = {900.0f, 80.0f, 0.0f};
+  }
+
+  transformSprite[2].translate = {400.0f, 80.0f, 0.0f};
 
   // UVTransfotm用
   Transform uvTransformSprite{
@@ -1792,22 +1784,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       {0.0f, 0.0f, 0.0f},
   };
 
-  // 透明度
-  //  float alpha[3] = {0.2f, 0.4f, 1.0f};
-  float alpha[2] = {1.0f, 1.0f};
-
   // スケール
   // float scale[3] = {1.0f, 0.95f, 0.9f};
-  float scale[2] = {0.5f, 0.5f};
+  //  float scale[3] = {0.5f, 0.5f, 0.5f};
 
   // offset
-  Vector3 offset[3] = {
-      {-5.0f, -5.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-      {5.0f, 5.0f, 0.0f},
-  };
+  // Vector3 offset[3] = {
+  //    {-5.0f, -5.0f, 0.0f},
+  //    {0.0f, 0.0f, 0.0f},
+  //    {5.0f, 5.0f, 0.0f},
+  //};
 
   int frameCount = 0;
+
+  bool isUpdate = false;
 
   // ImGuiの初期化
   IMGUI_CHECKVERSION();
@@ -1836,59 +1826,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // ゲームの処理
       *timePtr = static_cast<float>(frameCount) * 0.016f;
 
-      frameCount++;
-
-      transformSprite.translate = {900.0f, 80.0f, 0.0f};
+      if (isUpdate) {
+        frameCount++;
+      }
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::Text("gTime = %.3f", *timePtr);
+      ImGui::Checkbox("Update", &isUpdate);
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
-
-      for (int i = 0; i < 2; i++) {
-
-        /*    transformSprite.translate.x += offset[i].x;
-            transformSprite.translate.y += offset[i].y;
-            transformSprite.translate.z += offset[i].z;*/
-        transformSprite.scale = {scale[i], scale[i], 1.0f};
-        transformSprite.rotate = {0.0f, 0.0f, 0.0f};
-
-        // Sprite用のWorldViewProjectionMatrixを作る
-        Matrix4x4 worldMatrixSprite =
-            MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
-                             transformSprite.translate);
-        Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
-        Matrix4x4 projectionMatrixSprite =
-            MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
-                                   float(kClientHeight), 0.0f, 100.0f);
-        Matrix4x4 worldViewProjectionMatrixSprite =
-            Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
-                     projectionMatrixSprite);
-
-        // Matrix4x4 uvTransformMatrix =
-        // MakeScaleMatrix(uvTransformSprite.scale); uvTransformMatrix =
-        // Multiply(
-        //     uvTransformMatrix,
-        //     MakeRotateZMatrix(uvTransformSprite.rotate.z));
-        // uvTransformMatrix =
-        //     Multiply(uvTransformMatrix,
-        //              MakeTranslateMatrix(uvTransformSprite.translate));
-        // materialDataSprite->uvTransform = uvTransformMatrix;
-
-        materialDataSprites[i]->uvTransform = MakeIdentity4x4();
-
-        materialDataSprites[i]->color.w = alpha[i];
-
-        transformationMatrixDataSprites[i]->WVP =
-            worldViewProjectionMatrixSprite;
-        transformationMatrixDataSprites[i]->World = worldMatrixSprite;
-      }
-
-      materialDataSprites[0]->color =
-          Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
-      materialDataSprites[1]->color =
-          Vector4(1.0f, 1.0f, 1.0f, 0.5f); // 通常カラー演出
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -1943,8 +1890,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
       commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-      // Spriteの描画
-      for (int i = 0; i < 2; i++) {
+      for (int i = 0; i < kSpriteCount; i++) {
+
+        // transformSprite.scale = {scale[i], scale[i], 1.0f};
+        // transformSprite.rotate = {0.0f, 0.0f, 0.0f};
+
+        // Sprite用のWorldViewProjectionMatrixを作る
+        Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
+            transformSprite[i].scale, transformSprite[i].rotate,
+            transformSprite[i].translate);
+        Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+        Matrix4x4 projectionMatrixSprite =
+            MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
+                                   float(kClientHeight), 0.0f, 100.0f);
+        Matrix4x4 worldViewProjectionMatrixSprite =
+            Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
+                     projectionMatrixSprite);
+
+        // Matrix4x4 uvTransformMatrix =
+        // MakeScaleMatrix(uvTransformSprite.scale); uvTransformMatrix =
+        // Multiply(
+        //     uvTransformMatrix,
+        //     MakeRotateZMatrix(uvTransformSprite.rotate.z));
+        // uvTransformMatrix =
+        //     Multiply(uvTransformMatrix,
+        //              MakeTranslateMatrix(uvTransformSprite.translate));
+        // materialDataSprite->uvTransform = uvTransformMatrix;
+
+        materialDataSprites[i]->uvTransform = MakeIdentity4x4();
+
+        transformationMatrixDataSprites[i]->WVP =
+            worldViewProjectionMatrixSprite;
+        transformationMatrixDataSprites[i]->World = worldMatrixSprite;
+
+        // Spriteの描画
         commandList->IASetVertexBuffers(0, 1,
                                         &vertexBufferViewSprite); // VBVを設定
 

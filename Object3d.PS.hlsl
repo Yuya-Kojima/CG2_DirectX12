@@ -93,12 +93,15 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	if (gMaterial.color.w >= 0.9) {
 		
 		//reveal値
-		float reveal = smoothstep(0.0, 1.0, uv.x * 2.0 + time * 0.5);
+      //float reveal = smoothstep(-1.0, 1.0, uv.x * 2.0 - 1.0 + time * 0.5);
+		//float reveal = saturate((uv.x - (1.0 - time * 0.5)) * 2.0);
+		float reveal = saturate((time * 0.5) - (1.0 - uv.x));
 		
 		float4 textureColor = gTexture.Sample(gSampler, uv);
 		textureColor.a *= reveal;
 		
 		output.color = textureColor;
+		output.color = float4(reveal, reveal, reveal, 1.0);
 		return output;
 	}
 	
