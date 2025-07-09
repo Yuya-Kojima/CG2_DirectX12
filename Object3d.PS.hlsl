@@ -39,34 +39,36 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	
 	// UVにゆらぎを追加（例：炎風）
 	float time = gTime.x; // float4からx成分だけ使う
-	float n = noise(uv * 10.0f + time * 0.5f);
-	uv.x += (n - 0.5f) * 0.02f;
-	uv.y += (n - 0.5f) * 0.04f;
+	PixelShaderOutput output;
+	
+	//float n = noise(uv * 10.0f + time * 0.5f);
+	//uv.x += (n - 0.5f) * 0.02f;
+	//uv.y += (n - 0.5f) * 0.04f;
 	//uv.x += sin(uv.y * 10.0f + gTime.x * 8.0f) * 0.08f;
 	//uv.y += cos(uv.x * 8.0f + gTime.x * 4.0f) * 0.05f;
-	uv = saturate(uv);
+	//uv = saturate(uv);
 	
-	float4 transformedUV = mul(float4(uv, 0.0f, 1.0f), gMaterial.uvTransform);
+	//float4 transformedUV = mul(float4(uv, 0.0f, 1.0f), gMaterial.uvTransform);
 	
 	//textureColor.a = 1.0f;
 	//float4 textureColor = gTexture.Sample(gSampler, transformedUV.xy);
 	
-	float4 textureColor = gTexture.Sample(gSampler, uv);
+	//float4 textureColor = gTexture.Sample(gSampler, uv);
 	
 	//float fireColorRate = sin(gTime.x * 5.0f + uv.y * 5.0f) * 0.5f + 0.5f;
 	//float3 fireColor = lerp(float3(1.0, 0.4, 0.0), float3(1.0, 1.0, 0.0), fireColorRate); // 赤→黄
 	
-	float fireShift = saturate(sin(gTime.x * 3.0 + uv.y * 10.0) * 0.5f + 0.5f);
-	float3 color1 = float3(1.0, 0.1, 0.0); // 赤
-	float3 color2 = float3(1.0, 1.0, 0.0); // 黄
-	float3 color3 = float3(1.0, 1.0, 1.0); // 白
+	//float fireShift = saturate(sin(gTime.x * 3.0 + uv.y * 10.0) * 0.5f + 0.5f);
+	//float3 color1 = float3(1.0, 0.1, 0.0); // 赤
+	//float3 color2 = float3(1.0, 1.0, 0.0); // 黄
+	//float3 color3 = float3(1.0, 1.0, 1.0); // 白
 
 // 2段階Lerp
-	float3 midColor = lerp(color1, color2, fireShift);
-	float3 fireColor = lerp(midColor, color3, fireShift * 0.5f); // 白は軽めに
+//	float3 midColor = lerp(color1, color2, fireShift);
+//	float3 fireColor = lerp(midColor, color3, fireShift * 0.5f); // 白は軽めに
 	
-	textureColor.rgb *= fireColor;
-	textureColor.a = pow(textureColor.a, 1.5f);
+//	textureColor.rgb *= fireColor;
+//	textureColor.a = pow(textureColor.a, 1.5f);
 	//textureColor.a *= 0.6 + 0.4 * sin(gTime.x * 6.0f + uv.y * 10.0f);
 	
 	//円形に描画
@@ -79,15 +81,62 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	//float3 fireColor = lerp(float3(1.0, 0.5, 0.0), float3(1.0, 1.0, 0.0), fireShift);
 	//textureColor.rgb *= fireColor;
 	
-	float2 center = float2(0.5f, 0.5f);
-	float dist = distance(uv, center);
+	//float2 center = float2(0.5f, 0.5f);
+	//float dist = distance(uv, center);
 	//float fade = smoothstep(0.4f, 0.5f, 1.0f - dist); // エッジのぼけを滑らかに
 	//textureColor.a *= fade;
 	
 	
-	PixelShaderOutput output;
 	
+	/* 浮かび上がる演出
+	----------------------------*/
+	if (gMaterial.color.w >= 0.9) {
+		
+		//reveal値
+		float reveal = smoothstep(0.0, 1.0, uv.x * 2.0 + time * 0.5);
+		
+		float4 textureColor = gTexture.Sample(gSampler, uv);
+		textureColor.a *= reveal;
+		
+		output.color = textureColor;
+		return output;
+	}
+	
+	/* テキストエフェクト
+	-------------------------*/
+	if (gMaterial.color.w >= 0.5 && gMaterial.color.w < 0.9) {
+		
+		float n = noise(uv * 10.0f + time * 0.5f);
+		uv.x += (n - 0.5f) * 0.02f;
+		uv.y += (n - 0.5f) * 0.04f;
+		uv = saturate(uv);
+		
+		float4 textureColor = gTexture.Sample(gSampler, uv);
+		
+		float fireShift = saturate(sin(gTime.x * 3.0 + uv.y * 10.0) * 0.5f + 0.5f);
+		float3 color1 = float3(1.0, 0.1, 0.0); // 赤
+		float3 color2 = float3(1.0, 1.0, 0.0); // 黄
+		float3 color3 = float3(1.0, 1.0, 1.0); // 白
+		
+		// 2段階Lerp
+		float3 midColor = lerp(color1, color2, fireShift);
+		float3 fireColor = lerp(midColor, color3, fireShift * 0.5f); // 白は軽めに
+	
+		textureColor.rgb *= fireColor;
+		textureColor.a = pow(textureColor.a, 1.5f);
+		
+		output.color = textureColor;
+		return output;
+	}
+	
+	/* グロー
+	---------------------------*/
 	if (gMaterial.color.w < 0.5f) {
+		float n = noise(uv * 10.0f + time * 0.5f);
+		uv.x += (n - 0.5f) * 0.02f;
+		uv.y += (n - 0.5f) * 0.04f;
+		uv = saturate(uv);
+		
 		float2 texelSize = float2(1.0 / 256.0, 1.0 / 256.0);
 		float alpha = gTexture.Sample(gSampler, uv).a;
 
@@ -113,8 +162,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		return output;
 	}
 	
-	output.color = gMaterial.color * textureColor;
-	output.color = textureColor;
+	output.color = gTexture.Sample(gSampler, uv);
 	return output;
 	
 	//PixelShaderOutput output;

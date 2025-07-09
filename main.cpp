@@ -1888,7 +1888,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       materialDataSprites[0]->color =
           Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
       materialDataSprites[1]->color =
-          Vector4(1.0f, 1.0f, 1.0f, 1.0f); // 通常カラー演出
+          Vector4(1.0f, 1.0f, 1.0f, 0.5f); // 通常カラー演出
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
