@@ -17,6 +17,7 @@
 #include <string>
 #define _USE_MATH_DEFINES
 #include "DirectionalLight.h"
+#include "FXParameters.h"
 #include "Material.h"
 #include "ModelData.h"
 #include "ResourceObject.h"
@@ -1568,34 +1569,78 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   std::memcpy(vertexData, modelData.vertices.data(),
               sizeof(VertexData) * modelData.vertices.size());
 
+  // それぞれのレイヤーでの .w 値
+  constexpr float gamePhase[] = {0.5f, 0.25f}; // 炎, グロー
+  constexpr float titlePhase[] = {0.75f, 0.85f,
+                                  0.65f}; // Reveal文字, Reveal炎, Revealグロー
+
+  struct DrawEntry {
+    int spriteIndex;  // 配列数
+    float phaseValue; //  gamePhase or titlePhaseから選ぶ
+    int charIndex;    // 文字数
+  };
+
+  std::string fireText = "AA";
+  std::string titleText = "A";
+
+  std::vector<DrawEntry> drawList;
+
+  int nextIndex = 0;
+
+  //  炎+グロー
+  for (int charIndex = 0; charIndex < static_cast<int>(fireText.size());
+       ++charIndex) {
+    for (int layer = 0; layer < std::size(gamePhase); ++layer) {
+      drawList.push_back({nextIndex++, gamePhase[layer], charIndex});
+    }
+  }
+
+  // Reveal+炎+グロー
+  for (int charIndex = 0; charIndex < static_cast<int>(titleText.size());
+       ++charIndex) {
+    for (int layer = 0; layer < std::size(titlePhase); ++layer) {
+      drawList.push_back({nextIndex++, titlePhase[layer], charIndex});
+    }
+  }
+
+  int totalSprites = static_cast<int>(drawList.size());
+
   /*マテリアル用のリソースを作る。
 --------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource =
-      CreateBufferResource(device, sizeof(Material));
+  // Microsoft::WRL::ComPtr<ID3D12Resource> materialResource =
+  //     CreateBufferResource(device, sizeof(Material));
 
-  // マテリアルにデータを書き込む
-  Material *materialData = nullptr;
+  //// マテリアルにデータを書き込む
+  // Material *materialData = nullptr;
 
-  // 書き込むためのアドレスを取得
-  materialResource->Map(0, nullptr, reinterpret_cast<void **>(&materialData));
+  //// 書き込むためのアドレスを取得
+  // materialResource->Map(0, nullptr, reinterpret_cast<void
+  // **>(&materialData));
 
-  assert(SUCCEEDED(hr));
+  // assert(SUCCEEDED(hr));
 
-  // 色の指定
-  materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // Lightingさせるか
-  materialData->enableLighting = true;
-  // UVTransform 単位行列を入れておく
-  materialData->uvTransform = MakeIdentity4x4();
+  //// 色の指定
+  // materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  //// Lightingさせるか
+  // materialData->enableLighting = true;
+  //// UVTransform 単位行列を入れておく
+  // materialData->uvTransform = MakeIdentity4x4();
 
   /*Sprite用のマテリアルリソースを作る
   -----------------------------------*/
-  const int kSpriteCount = 3;
+  // const int kSpriteCount = 3;
 
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceSprites[kSpriteCount];
-  Material *materialDataSprites[kSpriteCount];
+  std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> materialResourceSprites;
+  std::vector<Material *> materialDataSprites;
 
-  for (int i = 0; i < kSpriteCount; i++) {
+  materialResourceSprites.resize(totalSprites);
+  materialDataSprites.resize(totalSprites);
+
+  // Microsoft::WRL::ComPtr<ID3D12Resource>
+  // materialResourceSprites[kSpriteCount]; Material
+  // *materialDataSprites[kSpriteCount];
+
+  for (int i = 0; i < totalSprites; i++) {
     materialResourceSprites[i] = CreateBufferResource(device, sizeof(Material));
     materialResourceSprites[i]->Map(
         0, nullptr, reinterpret_cast<void **>(&materialDataSprites[i]));
@@ -1605,11 +1650,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     materialDataSprites[i]->uvTransform = MakeIdentity4x4();
   }
 
-  materialDataSprites[0]->color =
-      Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
-  materialDataSprites[1]->color =
-      Vector4(1.0f, 1.0f, 1.0f, 0.5f); // 通常カラー演出
-  materialDataSprites[2]->color = Vector4(1.0f, 1.0f, 1.0f, 0.9f); // reveal演出
+  for (auto &entry : drawList) {
+    int index = entry.spriteIndex;
+    materialDataSprites[index]->color.w = entry.phaseValue;
+  }
+
+  // materialDataSprites[0]->color =
+  //     Vector4(1.0f, 1.0f, 1.0f, 0.0f); // アウトライン判定
+  // materialDataSprites[1]->color =
+  //     Vector4(1.0f, 1.0f, 1.0f, 0.5f); // 通常カラー演出
+  // materialDataSprites[2]->color = Vector4(1.0f, 1.0f, 1.0f, 0.9f); //
+  // reveal演出
 
   Microsoft::WRL::ComPtr<ID3D12Resource> timeResource =
       CreateBufferResource(device, 256);
@@ -1643,17 +1694,43 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
   ----------------------------------------------------------------*/
 
-  Microsoft::WRL::ComPtr<ID3D12Resource>
-      transformationMatrixResourceSprites[kSpriteCount];
-  TransformationMatrix *transformationMatrixDataSprites[kSpriteCount];
+  std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>>
+      transformationMatrixResourceSprites;
+  std::vector<TransformationMatrix *> transformationMatrixDataSprites;
 
-  for (int i = 0; i < kSpriteCount; i++) {
+  transformationMatrixResourceSprites.resize(totalSprites);
+  transformationMatrixDataSprites.resize(totalSprites);
+
+  // Microsoft::WRL::ComPtr<ID3D12Resource>
+  //     transformationMatrixResourceSprites[kSpriteCount];
+  // TransformationMatrix *transformationMatrixDataSprites[kSpriteCount];
+
+  for (int i = 0; i < totalSprites; i++) {
     transformationMatrixResourceSprites[i] =
         CreateBufferResource(device, transformationMatrixSize);
     transformationMatrixResourceSprites[i]->Map(
         0, nullptr,
         reinterpret_cast<void **>(&transformationMatrixDataSprites[i]));
+
+    transformationMatrixDataSprites[i]->World = MakeIdentity4x4();
+    transformationMatrixDataSprites[i]->WVP = MakeIdentity4x4();
   }
+
+  /* テキストエフェクト用のリソース
+  --------------------------------*/
+  Microsoft::WRL::ComPtr<ID3D12Resource> fxResource =
+      CreateBufferResource(device, sizeof(FXParams));
+
+  FXParams *fxData = nullptr;
+
+  fxResource->Map(0, nullptr, reinterpret_cast<void **>(&fxData));
+
+  fxData->flameSpeed = 200.0f;
+  fxData->flameNoiseScale = 10.0f;
+  fxData->flameIntensity = 1.0f;
+  fxData->revealSpeed = 0.5f;
+  fxData->revealWidth = 1.0f;
+  fxData->flameDuration = 1.5f;
 
   ///* 平行光源用のリソースを作る
   //------------------------------------*/
@@ -1767,15 +1844,83 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   // Sprite用のTransform
-  Transform transformSprite[kSpriteCount];
+  // Transform transformSprite[kSpriteCount];
+  std::vector<Transform> transformSprite;
+  transformSprite.resize(totalSprites);
 
-  for (int i = 0; i < kSpriteCount; i++) {
+  for (int i = 0; i < totalSprites; i++) {
     transformSprite[i].scale = {0.5f, 0.5f, 0.5f};
     transformSprite[i].rotate = {0.0f, 0.0f, 0.0f};
-    transformSprite[i].translate = {900.0f, 80.0f, 0.0f};
   }
 
-  transformSprite[2].translate = {400.0f, 80.0f, 0.0f};
+  float fireBaseX = 100.0f;
+  float fireBaseY = 100.0f;
+  float fireCharacterSpacing = 110.0f;
+
+  float titleBaseX = 900.0f;
+  float titleBaseY = 500.0f;
+  float titleCharacterSpacing = 0.0f;
+
+  // ゲーム中用スプライトは drawList の最初 2*2 枚
+  int gameEntryCount = (int)fireText.size() * (int)std::size(gamePhase);
+
+  for (auto const &drawEntry : drawList) {
+
+    int spriteIndex = drawEntry.spriteIndex;
+    int characterIndex = drawEntry.charIndex;
+    float phaseValue = drawEntry.phaseValue;
+
+    bool isFireEffect =
+        (phaseValue == gamePhase[0] || phaseValue == gamePhase[1]);
+
+    if (isFireEffect) {
+
+      transformSprite[spriteIndex].translate = {
+          fireBaseX + characterIndex * fireCharacterSpacing, fireBaseY, 0.0f};
+
+      // for (int c = 0; c < (int)fireText.size(); ++c) {
+      //   for (int layer = 0; layer < (int)std::size(gamePhase); ++layer) {
+      //     // spriteIndex を計算
+      //     int spriteIndex = c * (int)std::size(gamePhase) + layer;
+      //     // 左上に並べる
+      //     transformSprite[spriteIndex].translate = {
+      //         100.0f + c * fireCharSpacing, 80.0f, 0.0f};
+      //   }
+      // }
+    } else {
+
+      transformSprite[spriteIndex].translate = {
+          titleBaseX - characterIndex * titleCharacterSpacing, titleBaseY,
+          0.0f};
+    }
+
+    // for (int c = 0; c < (int)titleText.size(); ++c) {
+    //   for (int layer = 0; layer < (int)std::size(titlePhase); ++layer) {
+    //     // spriteIndex は offset + charIndex*layers + layer
+    //     int spriteIndex =
+    //         gameEntryCount + c * (int)std::size(titlePhase) + layer;
+    //     // 右下に重ねる
+    //     transformSprite[spriteIndex].translate = {
+    //         900.0f - c * titleCharacterSpacing,
+    //                                               500.0f, 0.0f};
+    //   }
+    // }
+  }
+
+  // float baseX = 400.0f;       // 先頭文字の X 座標
+  // float charSpacing = 100.0f; // 文字間隔
+
+  // for (auto const &entry : drawList) {
+  //   int index = entry.spriteIndex;
+  //   int cIndex = entry.charIndex;
+
+  //  // 文字インデックスに応じて translate.x を決定
+  //  transformSprite[index].translate = {
+  //      baseX + cIndex * charSpacing,
+  //      80.0f, // Y 座標は固定
+  //      0.0f   // Z はそのまま
+  //  };
+  //}
 
   // UVTransfotm用
   Transform uvTransformSprite{
@@ -1834,6 +1979,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::Text("gTime = %.3f", *timePtr);
       ImGui::Checkbox("Update", &isUpdate);
 
+      ImGui::SliderFloat("Flame Speed", &fxData->flameSpeed, 50, 500);
+      ImGui::SliderFloat("Flame Noise Scale", &fxData->flameNoiseScale, 1, 20);
+      ImGui::SliderFloat("Flame Intensity", &fxData->flameIntensity, 0, 2);
+      ImGui::SliderFloat("Reveal Speed", &fxData->revealSpeed, 0.1f, 2.0f);
+      ImGui::SliderFloat("Reveal Width", &fxData->revealWidth, 0.5f, 5.0f);
+      ImGui::SliderFloat("Flame Duration", &fxData->flameDuration, 0.5f, 3.0f);
+
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
 
@@ -1890,15 +2042,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
       commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-      for (int i = 0; i < kSpriteCount; i++) {
+      for (auto const &entry : drawList) {
 
-        // transformSprite.scale = {scale[i], scale[i], 1.0f};
-        // transformSprite.rotate = {0.0f, 0.0f, 0.0f};
+        int entryIndex = entry.spriteIndex;
 
         // Sprite用のWorldViewProjectionMatrixを作る
-        Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
-            transformSprite[i].scale, transformSprite[i].rotate,
-            transformSprite[i].translate);
+        Matrix4x4 worldMatrixSprite =
+            MakeAffineMatrix(transformSprite[entryIndex].scale,
+                             transformSprite[entryIndex].rotate,
+                             transformSprite[entryIndex].translate);
         Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
         Matrix4x4 projectionMatrixSprite =
             MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
@@ -1917,11 +2069,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         //              MakeTranslateMatrix(uvTransformSprite.translate));
         // materialDataSprite->uvTransform = uvTransformMatrix;
 
-        materialDataSprites[i]->uvTransform = MakeIdentity4x4();
+        materialDataSprites[entryIndex]->uvTransform = MakeIdentity4x4();
 
-        transformationMatrixDataSprites[i]->WVP =
+        transformationMatrixDataSprites[entryIndex]->WVP =
             worldViewProjectionMatrixSprite;
-        transformationMatrixDataSprites[i]->World = worldMatrixSprite;
+        transformationMatrixDataSprites[entryIndex]->World = worldMatrixSprite;
 
         // Spriteの描画
         commandList->IASetVertexBuffers(0, 1,
@@ -1931,11 +2083,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
         commandList->SetGraphicsRootConstantBufferView(
-            0, materialResourceSprites[i]->GetGPUVirtualAddress());
+            0, materialResourceSprites[entryIndex]->GetGPUVirtualAddress());
 
         // TransformationMatrixCBufferの場所を設定
         commandList->SetGraphicsRootConstantBufferView(
-            1, transformationMatrixResourceSprites[i]->GetGPUVirtualAddress());
+            1, transformationMatrixResourceSprites[entryIndex]
+                   ->GetGPUVirtualAddress());
 
         // Spriteは常に"uvChecker"にする
         commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
@@ -1946,6 +2099,64 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         // ドローコール
         commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
       }
+
+      // for (int i = 0; i < kSpriteCount; i++) {
+
+      //  // transformSprite.scale = {scale[i], scale[i], 1.0f};
+      //  // transformSprite.rotate = {0.0f, 0.0f, 0.0f};
+
+      //  // Sprite用のWorldViewProjectionMatrixを作る
+      //  Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
+      //      transformSprite[i].scale, transformSprite[i].rotate,
+      //      transformSprite[i].translate);
+      //  Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+      //  Matrix4x4 projectionMatrixSprite =
+      //      MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
+      //                             float(kClientHeight), 0.0f, 100.0f);
+      //  Matrix4x4 worldViewProjectionMatrixSprite =
+      //      Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
+      //               projectionMatrixSprite);
+
+      //  // Matrix4x4 uvTransformMatrix =
+      //  // MakeScaleMatrix(uvTransformSprite.scale); uvTransformMatrix =
+      //  // Multiply(
+      //  //     uvTransformMatrix,
+      //  //     MakeRotateZMatrix(uvTransformSprite.rotate.z));
+      //  // uvTransformMatrix =
+      //  //     Multiply(uvTransformMatrix,
+      //  //              MakeTranslateMatrix(uvTransformSprite.translate));
+      //  // materialDataSprite->uvTransform = uvTransformMatrix;
+
+      //  materialDataSprites[i]->uvTransform = MakeIdentity4x4();
+
+      //  transformationMatrixDataSprites[i]->WVP =
+      //      worldViewProjectionMatrixSprite;
+      //  transformationMatrixDataSprites[i]->World = worldMatrixSprite;
+
+      //  // Spriteの描画
+      //  commandList->IASetVertexBuffers(0, 1,
+      //                                  &vertexBufferViewSprite); // VBVを設定
+
+      //  commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
+
+      //  // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
+      //  commandList->SetGraphicsRootConstantBufferView(
+      //      0, materialResourceSprites[i]->GetGPUVirtualAddress());
+
+      //  // TransformationMatrixCBufferの場所を設定
+      //  commandList->SetGraphicsRootConstantBufferView(
+      //      1,
+      //      transformationMatrixResourceSprites[i]->GetGPUVirtualAddress());
+
+      //  // Spriteは常に"uvChecker"にする
+      //  commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+
+      //  commandList->SetGraphicsRootConstantBufferView(
+      //      3, timeResource->GetGPUVirtualAddress());
+
+      //  // ドローコール
+      //  commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+      //}
 
       // 実際のcommandListのImGuiの描画コマンドを積む
       ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());

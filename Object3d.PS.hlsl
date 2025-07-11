@@ -15,6 +15,15 @@ cbuffer TimeBC : register(b1) {
 	float4 gTime;
 }
 
+cbuffer FXParamsCB : register(b2) {
+	float flameSpeed;
+	float flameNoiseScale;
+	float flameIntensity;
+	float revealSpeed;
+	float revealWidth;
+	float flameDuration;
+};
+
 struct PixelShaderOutput {
 	float4 color : SV_TARGET0;
 };
@@ -86,28 +95,56 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	//float fade = smoothstep(0.4f, 0.5f, 1.0f - dist); // エッジのぼけを滑らかに
 	//textureColor.a *= fade;
 	
-	
-	
-	/* 浮かび上がる演出
-	----------------------------*/
-	if (gMaterial.color.w >= 0.9) {
+	if (time < flameDuration) {
 		
-		//reveal値
+	}
+	
+	if (gMaterial.color.w >= 0.85) {
+				//reveal値
       //float reveal = smoothstep(-1.0, 1.0, uv.x * 2.0 - 1.0 + time * 0.5);
 		//float reveal = saturate((uv.x - (1.0 - time * 0.5)) * 2.0);
-		float reveal = saturate((time * 0.5) - (1.0 - uv.x));
+		//float reveal = saturate((time * 0.5) - ( 1.0 -uv.x));
+		float reveal = saturate((time * 0.5) - (uv.x));
+		
 		
 		float4 textureColor = gTexture.Sample(gSampler, uv);
 		textureColor.a *= reveal;
 		
 		output.color = textureColor;
-		output.color = float4(reveal, reveal, reveal, 1.0);
+		//output.color = float4(reveal, reveal, reveal, 1.0);
+		return output;
+	}
+	
+	/* 浮かび上がる演出
+	----------------------------*/
+	if (gMaterial.color.w >= 0.75 && gMaterial.color.w < 0.85) {
+		
+		//reveal値
+		float reveal = saturate((time * 0.5) - (uv.x));
+		
+		
+		float4 textureColor = gTexture.Sample(gSampler, uv);
+		textureColor.a *= reveal;
+		
+		output.color = textureColor;
+		return output;
+	}
+	
+	if (gMaterial.color.w >= 0.65 && gMaterial.color.w < 0.75) {
+			//reveal値
+		float reveal = saturate((time * 0.5) - (uv.x));
+		
+		
+		float4 textureColor = gTexture.Sample(gSampler, uv);
+		textureColor.a *= reveal;
+		
+		output.color = textureColor;
 		return output;
 	}
 	
 	/* テキストエフェクト
 	-------------------------*/
-	if (gMaterial.color.w >= 0.5 && gMaterial.color.w < 0.9) {
+	if (gMaterial.color.w >= 0.5 && gMaterial.color.w < 0.65) {
 		
 		float n = noise(uv * 10.0f + time * 0.5f);
 		uv.x += (n - 0.5f) * 0.02f;
