@@ -22,6 +22,7 @@
 #include "ModelData.h"
 #include "ResourceObject.h"
 #include "TransformationMatrix.h"
+#include <iterator>
 #include <math.h>
 #include <wrl.h>
 
@@ -1323,7 +1324,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // RootParameter作成。複数設定できるので配列。今回は結果一つだけなので長さ1の配列
-  D3D12_ROOT_PARAMETER rootParameters[4] = {};
+  D3D12_ROOT_PARAMETER rootParameters[5] = {};
   rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameters[0].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;               // PixelShaderで使う
@@ -1354,9 +1355,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
   rootParameters[3].Descriptor.ShaderRegister = 1;
 
+  rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameters[4].Descriptor.ShaderRegister = 2;
+
   descroptionRootSignature.pParameters =
       rootParameters; // ルートパラメータ配列へのポインタ
-  descroptionRootSignature.NumParameters = 4; // 配列の長さ
+  descroptionRootSignature.NumParameters =
+      _countof(rootParameters); // 配列の長さ
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -1578,28 +1584,62 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     int spriteIndex;  // 配列数
     float phaseValue; //  gamePhase or titlePhaseから選ぶ
     int charIndex;    // 文字数
+    Vector2 position; // スプライトの座標
   };
 
-  std::string fireText = "AA";
-  std::string titleText = "A";
+  struct TextConfig {
+    std::string text;    // 文字列
+    const float *phases; // エフェクトのタイプ
+    std::size_t phaseCount;
+    Vector2 basePosition;
+    float spacing;
+  };
+
+  std::vector<TextConfig> textConfigs = {
+      {"AA", gamePhase, std::size(gamePhase), {100.0f, 100.0f}, 110.0f},
+      {"A", titlePhase, std::size(titlePhase), {900.0f, 500.0f}, 110.0f},
+      {"A", gamePhase, std::size(gamePhase), {900.0f, 100.0f}, 110.0f},
+  };
+
+  // std::string fireText = "AA";
+  // std::string titleText = "A";
 
   std::vector<DrawEntry> drawList;
 
   int nextIndex = 0;
 
-  //  炎+グロー
-  for (int charIndex = 0; charIndex < static_cast<int>(fireText.size());
-       ++charIndex) {
-    for (int layer = 0; layer < std::size(gamePhase); ++layer) {
-      drawList.push_back({nextIndex++, gamePhase[layer], charIndex});
-    }
-  }
+  ////  炎+グロー
+  // for (int charIndex = 0; charIndex < static_cast<int>(fireText.size());
+  //      ++charIndex) {
+  //   for (int layer = 0; layer < std::size(gamePhase); ++layer) {
+  //     drawList.push_back({nextIndex++, gamePhase[layer], charIndex});
+  //   }
+  // }
 
-  // Reveal+炎+グロー
-  for (int charIndex = 0; charIndex < static_cast<int>(titleText.size());
-       ++charIndex) {
-    for (int layer = 0; layer < std::size(titlePhase); ++layer) {
-      drawList.push_back({nextIndex++, titlePhase[layer], charIndex});
+  //// Reveal+炎+グロー
+  // for (int charIndex = 0; charIndex < static_cast<int>(titleText.size());
+  //      ++charIndex) {
+  //   for (int layer = 0; layer < std::size(titlePhase); ++layer) {
+  //     drawList.push_back({nextIndex++, titlePhase[layer], charIndex});
+  //   }
+  // }
+
+  for (auto const &cfg : textConfigs) {
+    //  炎+グロー
+    for (int charIndex = 0; charIndex < static_cast<int>(cfg.text.size());
+         ++charIndex) {
+      for (size_t i = 0; i < cfg.phaseCount; ++i) {
+
+        DrawEntry entry;
+        entry.spriteIndex = nextIndex++;
+        entry.phaseValue = cfg.phases[i];
+        entry.charIndex = charIndex;
+
+        entry.position = Vector2(cfg.basePosition.x + charIndex * cfg.spacing,
+                                 cfg.basePosition.y);
+
+        drawList.push_back(entry);
+      }
     }
   }
 
@@ -1851,61 +1891,62 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   for (int i = 0; i < totalSprites; i++) {
     transformSprite[i].scale = {0.5f, 0.5f, 0.5f};
     transformSprite[i].rotate = {0.0f, 0.0f, 0.0f};
+    transformSprite[i].translate = {0.0f, 0.0f, 0.0f};
   }
 
-  float fireBaseX = 100.0f;
-  float fireBaseY = 100.0f;
-  float fireCharacterSpacing = 110.0f;
+  // float fireBaseX = 100.0f;
+  // float fireBaseY = 100.0f;
+  // float fireCharacterSpacing = 110.0f;
 
-  float titleBaseX = 900.0f;
-  float titleBaseY = 500.0f;
-  float titleCharacterSpacing = 0.0f;
+  // float titleBaseX = 900.0f;
+  // float titleBaseY = 500.0f;
+  // float titleCharacterSpacing = 0.0f;
 
-  // ゲーム中用スプライトは drawList の最初 2*2 枚
-  int gameEntryCount = (int)fireText.size() * (int)std::size(gamePhase);
+  //// ゲーム中用スプライトは drawList の最初 2*2 枚
+  // int gameEntryCount = (int)fireText.size() * (int)std::size(gamePhase);
 
-  for (auto const &drawEntry : drawList) {
+  // for (auto const &drawEntry : drawList) {
 
-    int spriteIndex = drawEntry.spriteIndex;
-    int characterIndex = drawEntry.charIndex;
-    float phaseValue = drawEntry.phaseValue;
+  //  int spriteIndex = drawEntry.spriteIndex;
+  //  int characterIndex = drawEntry.charIndex;
+  //  float phaseValue = drawEntry.phaseValue;
 
-    bool isFireEffect =
-        (phaseValue == gamePhase[0] || phaseValue == gamePhase[1]);
+  //  bool isFireEffect =
+  //      (phaseValue == gamePhase[0] || phaseValue == gamePhase[1]);
 
-    if (isFireEffect) {
+  //  if (isFireEffect) {
 
-      transformSprite[spriteIndex].translate = {
-          fireBaseX + characterIndex * fireCharacterSpacing, fireBaseY, 0.0f};
+  //    transformSprite[spriteIndex].translate = {
+  //        fireBaseX + characterIndex * fireCharacterSpacing, fireBaseY, 0.0f};
 
-      // for (int c = 0; c < (int)fireText.size(); ++c) {
-      //   for (int layer = 0; layer < (int)std::size(gamePhase); ++layer) {
-      //     // spriteIndex を計算
-      //     int spriteIndex = c * (int)std::size(gamePhase) + layer;
-      //     // 左上に並べる
-      //     transformSprite[spriteIndex].translate = {
-      //         100.0f + c * fireCharSpacing, 80.0f, 0.0f};
-      //   }
-      // }
-    } else {
+  //    // for (int c = 0; c < (int)fireText.size(); ++c) {
+  //    //   for (int layer = 0; layer < (int)std::size(gamePhase); ++layer) {
+  //    //     // spriteIndex を計算
+  //    //     int spriteIndex = c * (int)std::size(gamePhase) + layer;
+  //    //     // 左上に並べる
+  //    //     transformSprite[spriteIndex].translate = {
+  //    //         100.0f + c * fireCharSpacing, 80.0f, 0.0f};
+  //    //   }
+  //    // }
+  //  } else {
 
-      transformSprite[spriteIndex].translate = {
-          titleBaseX - characterIndex * titleCharacterSpacing, titleBaseY,
-          0.0f};
-    }
+  //    transformSprite[spriteIndex].translate = {
+  //        titleBaseX - characterIndex * titleCharacterSpacing, titleBaseY,
+  //        0.0f};
+  //  }
 
-    // for (int c = 0; c < (int)titleText.size(); ++c) {
-    //   for (int layer = 0; layer < (int)std::size(titlePhase); ++layer) {
-    //     // spriteIndex は offset + charIndex*layers + layer
-    //     int spriteIndex =
-    //         gameEntryCount + c * (int)std::size(titlePhase) + layer;
-    //     // 右下に重ねる
-    //     transformSprite[spriteIndex].translate = {
-    //         900.0f - c * titleCharacterSpacing,
-    //                                               500.0f, 0.0f};
-    //   }
-    // }
-  }
+  // for (int c = 0; c < (int)titleText.size(); ++c) {
+  //   for (int layer = 0; layer < (int)std::size(titlePhase); ++layer) {
+  //     // spriteIndex は offset + charIndex*layers + layer
+  //     int spriteIndex =
+  //         gameEntryCount + c * (int)std::size(titlePhase) + layer;
+  //     // 右下に重ねる
+  //     transformSprite[spriteIndex].translate = {
+  //         900.0f - c * titleCharacterSpacing,
+  //                                               500.0f, 0.0f};
+  //   }
+  // }
+  //}
 
   // float baseX = 400.0f;       // 先頭文字の X 座標
   // float charSpacing = 100.0f; // 文字間隔
@@ -2044,13 +2085,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       for (auto const &entry : drawList) {
 
-        int entryIndex = entry.spriteIndex;
+        int index = entry.spriteIndex;
+        float w = entry.phaseValue;
+        Vector2 pos = entry.position;
+        int charIndex = entry.charIndex;
+
+        transformSprite[index].translate = {pos.x, pos.y, 0.0f};
+
+        materialDataSprites[index]->color.w = w;
 
         // Sprite用のWorldViewProjectionMatrixを作る
-        Matrix4x4 worldMatrixSprite =
-            MakeAffineMatrix(transformSprite[entryIndex].scale,
-                             transformSprite[entryIndex].rotate,
-                             transformSprite[entryIndex].translate);
+        Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
+            transformSprite[index].scale, transformSprite[index].rotate,
+            transformSprite[index].translate);
         Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
         Matrix4x4 projectionMatrixSprite =
             MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
@@ -2069,11 +2116,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         //              MakeTranslateMatrix(uvTransformSprite.translate));
         // materialDataSprite->uvTransform = uvTransformMatrix;
 
-        materialDataSprites[entryIndex]->uvTransform = MakeIdentity4x4();
+        materialDataSprites[index]->uvTransform = MakeIdentity4x4();
 
-        transformationMatrixDataSprites[entryIndex]->WVP =
+        transformationMatrixDataSprites[index]->WVP =
             worldViewProjectionMatrixSprite;
-        transformationMatrixDataSprites[entryIndex]->World = worldMatrixSprite;
+        transformationMatrixDataSprites[index]->World = worldMatrixSprite;
 
         // Spriteの描画
         commandList->IASetVertexBuffers(0, 1,
@@ -2083,18 +2130,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
         commandList->SetGraphicsRootConstantBufferView(
-            0, materialResourceSprites[entryIndex]->GetGPUVirtualAddress());
+            0, materialResourceSprites[index]->GetGPUVirtualAddress());
 
         // TransformationMatrixCBufferの場所を設定
         commandList->SetGraphicsRootConstantBufferView(
-            1, transformationMatrixResourceSprites[entryIndex]
-                   ->GetGPUVirtualAddress());
+            1,
+            transformationMatrixResourceSprites[index]->GetGPUVirtualAddress());
 
         // Spriteは常に"uvChecker"にする
         commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
         commandList->SetGraphicsRootConstantBufferView(
             3, timeResource->GetGPUVirtualAddress());
+
+        commandList->SetGraphicsRootConstantBufferView(
+            4, fxResource->GetGPUVirtualAddress());
 
         // ドローコール
         commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);

@@ -48,6 +48,17 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	
 	// UVにゆらぎを追加（例：炎風）
 	float time = gTime.x; // float4からx成分だけ使う
+	
+	    // 0) ベーステクスチャ読み込み
+	float4 tex = gTexture.Sample(gSampler, uv);
+
+    // 共通の「リビール量」
+	float reveal = smoothstep(0.0, revealWidth,
+                          time * revealSpeed - uv.y);
+	
+	   // レイヤー判定スイッチ
+	float w = gMaterial.color.w;
+	
 	PixelShaderOutput output;
 	
 	//float n = noise(uv * 10.0f + time * 0.5f);
@@ -95,50 +106,64 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	//float fade = smoothstep(0.4f, 0.5f, 1.0f - dist); // エッジのぼけを滑らかに
 	//textureColor.a *= fade;
 	
-	if (time < flameDuration) {
-		
-	}
 	
-	if (gMaterial.color.w >= 0.85) {
-				//reveal値
-      //float reveal = smoothstep(-1.0, 1.0, uv.x * 2.0 - 1.0 + time * 0.5);
-		//float reveal = saturate((uv.x - (1.0 - time * 0.5)) * 2.0);
-		//float reveal = saturate((time * 0.5) - ( 1.0 -uv.x));
-		float reveal = saturate((time * 0.5) - (uv.x));
-		
-		
-		float4 textureColor = gTexture.Sample(gSampler, uv);
-		textureColor.a *= reveal;
-		
-		output.color = textureColor;
-		//output.color = float4(reveal, reveal, reveal, 1.0);
+	
+	/* 浮かび上がる時の炎
+	----------------------------*/
+	if (w >= 0.85) {
+    // ノイズで揺らす
+		float n = noise(uv * flameNoiseScale + float2(0, time * flameSpeed));
+        // ノイズ強度で色を赤→黄に
+		float3 fireCol = lerp(float3(1, 0.4, 0), float3(1, 1, 0), n)
+                       * flameIntensity;
+		tex.rgb *= fireCol;
+
+        // リビールタイミングが来たら徐々にアルファを乗算
+		float flameFade = saturate((flameDuration - time) / flameDuration);
+		tex.a *= reveal * flameFade;
+
+		output.color = tex;
 		return output;
 	}
 	
-	/* 浮かび上がる演出
+	/* 浮かび上がる文字
 	----------------------------*/
 	if (gMaterial.color.w >= 0.75 && gMaterial.color.w < 0.85) {
 		
 		//reveal値
-		float reveal = saturate((time * 0.5) - (uv.x));
+		float reveal = saturate((time * 0.5) - (uv.y));
 		
 		
 		float4 textureColor = gTexture.Sample(gSampler, uv);
 		textureColor.a *= reveal;
 		
 		output.color = textureColor;
+		output.color.w = 0.0;
 		return output;
 	}
 	
+	/* 浮かび上がる時の炎のグロー
+	----------------------------*/
 	if (gMaterial.color.w >= 0.65 && gMaterial.color.w < 0.75) {
-			//reveal値
-		float reveal = saturate((time * 0.5) - (uv.x));
-		
-		
-		float4 textureColor = gTexture.Sample(gSampler, uv);
-		textureColor.a *= reveal;
-		
-		output.color = textureColor;
+	// リビール量
+		float reveal = smoothstep(0.0, revealWidth,
+                          time * revealSpeed - uv.y);
+
+    // テクセルサイズを固定 (256×256)
+		float2 texelSize = float2(1.0 / 256.0, 1.0 / 256.0);
+
+    // 周囲 5×5 サンプルでグローを作る
+		float sumA = 0.0f;
+		for (int oy = -2; oy <= 2; ++oy) {
+			for (int ox = -2; ox <= 2; ++ox) {
+				sumA += gTexture.Sample(gSampler, uv + float2(ox, oy) * texelSize).a;
+			}
+		}
+		float glow = (sumA / 25.0f) * reveal;
+
+		float3 glowColor = float3(1.2, 1.0, 0.4);
+		output.color = float4(glowColor, glow * flameIntensity);
+		output.color.w = 0.0;
 		return output;
 	}
 	
