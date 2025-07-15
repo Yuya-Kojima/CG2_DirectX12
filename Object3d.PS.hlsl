@@ -175,8 +175,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	if (gMaterial.color.w >= 0.5 && gMaterial.color.w < 0.65) {
 		
 		float n = noise(uv * 10.0f + time * 0.5f);
-		uv.x += (n - 0.5f) * 0.05f;
-		uv.y += (n - 0.5f) * 0.06f;
+		uv.x += (n - 0.5f) * 0.02f;
+		uv.y += (n - 0.5f) * 0.04f;
 		uv = saturate(uv);
 		
 		float4 textureColor = gTexture.Sample(gSampler, uv);
@@ -201,8 +201,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	---------------------------*/
 	if (gMaterial.color.w < 0.5f) {
 		float n = noise(uv * 10.0f + time * 0.5f);
-		uv.x += (n - 0.5f) * 0.05f;
-		uv.y += (n - 0.5f) * 0.06f;
+		uv.x += (n - 0.5f) * 0.02f;
+		uv.y += (n - 0.5f) * 0.04f;
 		uv = saturate(uv);
 		
 		float2 texelSize = float2(1.0 / 256.0, 1.0 / 256.0);
