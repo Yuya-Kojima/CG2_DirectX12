@@ -123,6 +123,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		tex.a *= reveal * flameFade;
 
 		output.color = tex;
+		output.color.w = 0.0;
 		return output;
 	}
 	
@@ -138,7 +139,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		textureColor.a *= reveal;
 		
 		output.color = textureColor;
-		output.color.w = 0.0;
+		//output.color.w = 0.0;
 		return output;
 	}
 	

@@ -1490,19 +1490,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   inputLayoutDesc.pInputElementDescs = inputElementDescs;
   inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
-  //D3D12_INPUT_ELEMENT_DESC particleInputElements[] = {
-  //    {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-  //     D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-  //     0},
-  //    {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
-  //     D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-  //    {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
-  //     D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-  //     0},
-  //};
+  // D3D12_INPUT_ELEMENT_DESC particleInputElements[] = {
+  //     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
+  //      D3D12_APPEND_ALIGNED_ELEMENT,
+  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+  //     {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0,
+  //     D3D12_APPEND_ALIGNED_ELEMENT,
+  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+  //     {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
+  //      D3D12_APPEND_ALIGNED_ELEMENT,
+  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
+  // };
 
-  //D3D12_INPUT_LAYOUT_DESC particleInputLayoutDesc = {
-  //    particleInputElements, _countof(particleInputElements)};
+  // D3D12_INPUT_LAYOUT_DESC particleInputLayoutDesc = {
+  //     particleInputElements, _countof(particleInputElements)};
 
   // BlendStateの設定
   D3D12_BLEND_DESC blendDesc{};
@@ -1699,9 +1700,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   std::vector<TextConfig> textConfigs = {
-      {"AA", gamePhase, std::size(gamePhase), {100.0f, 100.0f}, 110.0f},
+     // {"AA", gamePhase, std::size(gamePhase), {100.0f, 100.0f}, 110.0f},
       {"A", titlePhase, std::size(titlePhase), {900.0f, 500.0f}, 110.0f},
-      {"A", gamePhase, std::size(gamePhase), {900.0f, 100.0f}, 110.0f},
+     // {"A", gamePhase, std::size(gamePhase), {900.0f, 100.0f}, 110.0f},
   };
 
   std::vector<DrawEntry> drawList;
@@ -1962,7 +1963,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   transformSprite.resize(totalSprites);
 
   for (int i = 0; i < totalSprites; i++) {
-    transformSprite[i].scale = {0.5f, 0.5f, 0.5f};
+    transformSprite[i].scale = {1.0f, 1.0f, 1.0f};
     transformSprite[i].rotate = {0.0f, 0.0f, 0.0f};
     transformSprite[i].translate = {0.0f, 0.0f, 0.0f};
   }
@@ -2103,62 +2104,62 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
       commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-      // for (auto const &entry : drawList) {
+      for (auto const &entry : drawList) {
 
-      //  int index = entry.spriteIndex;
-      //  float w = entry.phaseValue;
-      //  Vector2 pos = entry.position;
-      //  int charIndex = entry.charIndex;
+        int index = entry.spriteIndex;
+        float w = entry.phaseValue;
+        Vector2 pos = entry.position;
+        int charIndex = entry.charIndex;
 
-      //  transformSprite[index].translate = {pos.x, pos.y, 0.0f};
+        transformSprite[index].translate = {pos.x, pos.y, 0.0f};
 
-      //  materialDataSprites[index]->color.w = w;
+        materialDataSprites[index]->color.w = w;
 
-      //  // Sprite用のWorldViewProjectionMatrixを作る
-      //  Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
-      //      transformSprite[index].scale, transformSprite[index].rotate,
-      //      transformSprite[index].translate);
-      //  Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
-      //  Matrix4x4 projectionMatrixSprite =
-      //      MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
-      //                             float(kClientHeight), 0.0f, 100.0f);
-      //  Matrix4x4 worldViewProjectionMatrixSprite =
-      //      Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
-      //               projectionMatrixSprite);
+        // Sprite用のWorldViewProjectionMatrixを作る
+        Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
+            transformSprite[index].scale, transformSprite[index].rotate,
+            transformSprite[index].translate);
+        Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+        Matrix4x4 projectionMatrixSprite =
+            MakeOrthographicMatrix(0.0f, 0.0f, float(kClientWidth),
+                                   float(kClientHeight), 0.0f, 100.0f);
+        Matrix4x4 worldViewProjectionMatrixSprite =
+            Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
+                     projectionMatrixSprite);
 
-      //  materialDataSprites[index]->uvTransform = MakeIdentity4x4();
+        materialDataSprites[index]->uvTransform = MakeIdentity4x4();
 
-      //  transformationMatrixDataSprites[index]->WVP =
-      //      worldViewProjectionMatrixSprite;
-      //  transformationMatrixDataSprites[index]->World = worldMatrixSprite;
+        transformationMatrixDataSprites[index]->WVP =
+            worldViewProjectionMatrixSprite;
+        transformationMatrixDataSprites[index]->World = worldMatrixSprite;
 
-      //  // Spriteの描画
-      //  commandList->IASetVertexBuffers(0, 1,
-      //                                  &vertexBufferViewSprite); // VBVを設定
+        // Spriteの描画
+        commandList->IASetVertexBuffers(0, 1,
+                                        &vertexBufferViewSprite); // VBVを設定
 
-      //  commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
+        commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
 
-      //  // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
-      //  commandList->SetGraphicsRootConstantBufferView(
-      //      0, materialResourceSprites[index]->GetGPUVirtualAddress());
+        // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
+        commandList->SetGraphicsRootConstantBufferView(
+            0, materialResourceSprites[index]->GetGPUVirtualAddress());
 
-      //  // TransformationMatrixCBufferの場所を設定
-      //  commandList->SetGraphicsRootConstantBufferView(
-      //      1,
-      //      transformationMatrixResourceSprites[index]->GetGPUVirtualAddress());
+        // TransformationMatrixCBufferの場所を設定
+        commandList->SetGraphicsRootConstantBufferView(
+            1,
+            transformationMatrixResourceSprites[index]->GetGPUVirtualAddress());
 
-      //  // Spriteは常に"uvChecker"にする
-      //  commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+        // Spriteは常に"uvChecker"にする
+        commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
-      //  commandList->SetGraphicsRootConstantBufferView(
-      //      3, timeResource->GetGPUVirtualAddress());
+        commandList->SetGraphicsRootConstantBufferView(
+            3, timeResource->GetGPUVirtualAddress());
 
-      //  commandList->SetGraphicsRootConstantBufferView(
-      //      4, fxResource->GetGPUVirtualAddress());
+        commandList->SetGraphicsRootConstantBufferView(
+            4, fxResource->GetGPUVirtualAddress());
 
-      //  // ドローコール
-      //  commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-      //}
+        // ドローコール
+        commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+      }
 
       Matrix4x4 viewMatrix = MakeIdentity4x4();
       Matrix4x4 projectionMatrix = MakeOrthographicMatrix(
@@ -2167,7 +2168,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       for (uint32_t i = 0; i < numInstances; ++i) {
         auto const &p = particles[i];
         // ワールド行列（拡縮・回転は不要ならアイデンティティ）
-        Matrix4x4 world = MakeTranslateMatrix(Vector3{600.0f, 300.0f, 0});
+        Matrix4x4 world = MakeTranslateMatrix(Vector3{600.0f, 300.0f-1.0f*i, 0});
 
         // WVP 行列
         instancingData[i].World = world;
@@ -2176,7 +2177,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // 色。たとえば残り寿命で徐々にフェードアウト
         float alpha = 1.0f - (p.age / p.life);
-        instancingData[i].color = Vector4{1, 1, 1, alpha};
+        instancingData[i].color = Vector4{0.7f, 0.2f, 0, alpha};
       }
 
       commandList->SetGraphicsRootSignature(rootSignatureParticle.Get());
@@ -2191,7 +2192,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
       commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
-       commandList->DrawIndexedInstanced(6, numInstances, 0, 0, 0);
+      commandList->DrawIndexedInstanced(6, numInstances, 0, 0, 0);
 
       // 実際のcommandListのImGuiの描画コマンドを積む
       ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());
