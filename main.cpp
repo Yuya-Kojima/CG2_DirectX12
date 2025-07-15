@@ -6,6 +6,7 @@
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_dx12.h"
 #include "externals/imgui/imgui_impl_win32.h"
+#define NOMINMAX
 #include <Windows.h>
 #include <cassert>
 #include <cstdint>
@@ -23,6 +24,8 @@
 #include "Particle.h"
 #include "ResourceObject.h"
 #include "TransformationMatrix.h"
+#include <algorithm>
+#undef max
 #include <iterator>
 #include <math.h>
 #include <wrl.h>
@@ -1365,7 +1368,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   descroptionRootSignature.NumParameters =
       _countof(rootParameters); // 配列の長さ
 
-  D3D12_ROOT_PARAMETER rootParametersParticle[3] = {};
+  D3D12_ROOT_PARAMETER rootParametersParticle[4] = {};
 
   // FXParamsCB
   rootParametersParticle[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -1406,6 +1409,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       &descriptorRange1;
   rootParametersParticle[2].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL; // PS で参照
+
+  // time
+  rootParametersParticle[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParametersParticle[3].Descriptor.ShaderRegister = 1; // register(b1)
+  rootParametersParticle[3].Descriptor.RegisterSpace = 0;
+  rootParametersParticle[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
   D3D12_ROOT_SIGNATURE_DESC descriptionRootSignatureParticle = {};
   descriptionRootSignatureParticle.NumParameters =
@@ -1700,9 +1709,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   std::vector<TextConfig> textConfigs = {
-     // {"AA", gamePhase, std::size(gamePhase), {100.0f, 100.0f}, 110.0f},
-      {"A", titlePhase, std::size(titlePhase), {900.0f, 500.0f}, 110.0f},
-     // {"A", gamePhase, std::size(gamePhase), {900.0f, 100.0f}, 110.0f},
+    //   {"AA", gamePhase, std::size(gamePhase), {120.0f, 120.0f}, 220.0f},
+      {"A", titlePhase, std::size(titlePhase), {600, 300.0f}, 230.0f},
+       {"A", gamePhase, std::size(gamePhase), {900.0f, 120.0f}, 220.0f},
   };
 
   std::vector<DrawEntry> drawList;
@@ -1981,6 +1990,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   const float kDeltaTime = 1.0f / 60.0f;
 
+  bool revealFinished = false;
+
   uint32_t numInstances;
 
   // ImGuiの初期化
@@ -2013,8 +2024,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       if (isUpdate) {
         frameCount++;
 
-        EmitParticles(1);
+        if (frameCount >= 100) {
+          revealFinished = true;
+        }
+
+        // ─── 完了前だけパーティクル生成 ───
+        if (!revealFinished) {
+          EmitParticles(1, {600.0f, 300.0f});
+        }
+
         UpdateParticles(kDeltaTime);
+        ImGui::Text("revealFinished = %s", revealFinished ? "true" : "false");
       }
 
       numInstances = static_cast<uint32_t>(particles.size());
@@ -2168,7 +2188,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       for (uint32_t i = 0; i < numInstances; ++i) {
         auto const &p = particles[i];
         // ワールド行列（拡縮・回転は不要ならアイデンティティ）
-        Matrix4x4 world = MakeTranslateMatrix(Vector3{600.0f, 300.0f-1.0f*i, 0});
+        /* Matrix4x4 world =
+              MakeTranslateMatrix(Vector3{600.0f, 300.0f - 1.0f * i, 0});*/
+        Matrix4x4 world = MakeTranslateMatrix({p.pos.x, p.pos.y, 0});
 
         // WVP 行列
         instancingData[i].World = world;
@@ -2191,6 +2213,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           0, materialResourceSprites[0]->GetGPUVirtualAddress());
       commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
       commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+      commandList->SetGraphicsRootConstantBufferView(
+          3, timeResource->GetGPUVirtualAddress());
 
       commandList->DrawIndexedInstanced(6, numInstances, 0, 0, 0);
 
