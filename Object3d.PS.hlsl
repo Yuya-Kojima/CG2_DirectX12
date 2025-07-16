@@ -19,19 +19,40 @@ struct PixelShaderOutput {
 	float4 color : SV_TARGET0;
 };
 
+//擬似乱数を生成
 float hash(float2 p) {
-	return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
+	
+	//入力された座標をシード値に変換
+	float seed = dot(p, float2(12.9898, 78.233));
+	
+	//sinを使用して非線形変換で擬似乱数に
+	float warped = sin(seed);
+	
+	//振れ幅を拡大
+	float scaled = warped * 43758.5453;
+	
+	//小数部分だけ取り出す
+	float result = frac(scaled);
+	
+	return result;
 }
 
+//バリューノイズ
 float Noise(float2 uv) {
-	float2 i = floor(uv);
-	float2 f = frac(uv);
-	float a = hash(i);
-	float b = hash(i + float2(1.0, 0.0));
-	float c = hash(i + float2(0.0, 1.0));
-	float d = hash(i + float2(1.0, 1.0));
-	float2 u = f * f * (3.0 - 2.0 * f);
-	return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+	float2 cellCorrds = floor(uv); //セルの位置
+	float2 cellFrac = frac(uv); //セル内での位置
+	
+	float value00 = hash(cellCorrds); //(i,j)
+	float value01 = hash(cellCorrds + float2(1.0, 0.0)); //(i+1,j  )
+	float value10 = hash(cellCorrds + float2(0.0, 1.0)); //(i  ,j+1)
+	float value11 = hash(cellCorrds + float2(1.0, 1.0)); //(i+1,j+1)
+	
+	//セル内の補間係数をイージングで滑らかにする
+	//境界のつなぎ目を滑らかにする
+	float2 fade = cellFrac * cellFrac * (3.0 - 2.0 * cellFrac);
+	
+	
+	return lerp(lerp(value00, value01, fade.x), lerp(value10, value11, fade.x), fade.y);
 }
 
 PixelShaderOutput main(VertexShaderOutput input) {
