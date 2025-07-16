@@ -21,6 +21,6 @@ VertexShaderOutput main(VertexShaderInput input) {
 	output.position = mul(input.position, p.WVP);
 	output.texcoord = input.texcoord;
 	output.color = p.color;
-	
+
 	return output;
 }

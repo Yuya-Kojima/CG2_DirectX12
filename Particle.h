@@ -1,13 +1,12 @@
 #pragma once
-#include <DirectXMath.h>
+#include <numbers>
 #include <random>
-using namespace DirectX;
 
 struct Particle {
   Vector2 pos;
   Vector2 vel;
-  float age;
-  float life;
+  float currentTime;
+  float lifeTime;
 };
 
 struct ParticleForGPU {
@@ -17,53 +16,47 @@ struct ParticleForGPU {
 };
 
 std::vector<Particle> particles;
-std::mt19937 rng{std::random_device{}()};
+std::mt19937 randomEngine{std::random_device{}()};
 
-void UpdateParticles(float dt) {
-  // まず既存を更新
-  for (auto &p : particles) {
-    p.age += dt;
-    p.pos += p.vel * dt;
+void UpdateParticles(float deltaTime) {
+  for (auto &particle : particles) {
+    particle.currentTime += deltaTime;
+    particle.pos += particle.vel * deltaTime;
   }
+
   // 寿命切れを消す
-  particles.erase(std::remove_if(particles.begin(), particles.end(),
-                                 [](auto const &p) { return p.age >= p.life; }),
-                  particles.end());
+  std::erase_if(particles,
+                [](auto const &p) { return p.currentTime >= p.lifeTime; });
 }
 
-void EmitParticles(int count, Vector2 origin) {
-  // std::uniform_real_distribution<float> ud(0.0f, 1.0f);
-  // std::uniform_real_distribution<float> lifeDist(1.0f, 2.0f);
-  // for (int i = 0; i < count; ++i) {
-  //   Particle p;
-  //   p.pos = {900.0f + (ud(rng) - 0.5f) * 20.0f,
-  //            500.0f}; // 右下文字位置の少しばらつき
-  //   float ang =
-  //       3.1415f * (0.5f + (ud(rng) - 0.5f) * 0.2f); // 上向き＋少しノイズ
-  //   float speed = 50.0f + ud(rng) * 50.0f;
-  //   p.vel = {cosf(ang) * speed, sinf(ang) * speed};
-  //   p.age = 0.0f;
-  //   p.life = lifeDist(rng);
-  //   particles.push_back(p);
-  // }
+/// <summary>
+/// パーティクル生成
+/// </summary>
+/// <param name="count">一回で生成する数</param>
+/// <param name="origin">発生座標</param>
+void EmitParticles(int count, Vector2 origin, const int &kNumMaxInstance) {
 
-  std::uniform_real_distribution<float> udA(-0.2f, +0.2f);
-  std::uniform_real_distribution<float> udX(-10.0f, +10.0f);
-  std::uniform_real_distribution<float> lifeDist(0.5f, 1.5f);
-  for (int i = 0; i < count; ++i) {
-    Particle p;
-    // 発生位置にも少し水平ブレを入れると自然
-    p.pos = {origin.x + udX(rng), origin.y};
+  std::uniform_real_distribution<float> distAngle(-0.2f, 0.2f);
+  std::uniform_real_distribution<float> distOffset(-10.0f, 10.0f);
+  std::uniform_real_distribution<float> distSpeed(-20.0f, 20.0f);
+  std::uniform_real_distribution<float> distTime(0.3f, 2.0f);
 
-    // 画面座標系で「上向き」は –π/2
-    float ang = -XM_PIDIV2 + udA(rng);
+  for (int i = 0; i < count && particles.size() < kNumMaxInstance; ++i) {
+    Particle particle;
+    // 発生位置にも少し乱数を＋する
+    particle.pos = {origin.x + distOffset(randomEngine), origin.y};
 
-    float speed = 90.0f + udX(rng) * 2.0f; // 少しだけ速度をバラつかせ
-    p.vel.x = cosf(ang) * speed;
-    p.vel.y = sinf(ang) * speed; // sin(-π/2) = -1 → 上向き
+    // 上向き+ランダム
+    float angle = -std::numbers::pi_v<float> / 2.0f + distAngle(randomEngine);
 
-    p.age = 0.0f;
-    p.life = lifeDist(rng);
-    particles.push_back(p);
+    // 基本速度+乱数 少しだけ速度をバラつかせる
+    float speed = 100.0f + distSpeed(randomEngine) * 2.0f;
+
+    particle.vel.x = cosf(angle) * speed;
+    particle.vel.y = sinf(angle) * speed;
+
+    particle.currentTime = 0.0f;
+    particle.lifeTime = distTime(randomEngine);
+    particles.push_back(particle);
   }
 }

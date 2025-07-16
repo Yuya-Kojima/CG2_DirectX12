@@ -1328,7 +1328,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // RootParameter作成。複数設定できるので配列。今回は結果一つだけなので長さ1の配列
-  D3D12_ROOT_PARAMETER rootParameters[5] = {};
+  D3D12_ROOT_PARAMETER rootParameters[4] = {};
   rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameters[0].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;               // PixelShaderで使う
@@ -1359,10 +1359,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
   rootParameters[3].Descriptor.ShaderRegister = 1;
 
-  rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-  rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-  rootParameters[4].Descriptor.ShaderRegister = 2;
-
   descroptionRootSignature.pParameters =
       rootParameters; // ルートパラメータ配列へのポインタ
   descroptionRootSignature.NumParameters =
@@ -1370,15 +1366,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   D3D12_ROOT_PARAMETER rootParametersParticle[4] = {};
 
-  // FXParamsCB
-  rootParametersParticle[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParametersParticle[0].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV;                       // CBV
   rootParametersParticle[0].Descriptor.ShaderRegister = 0; // register(b0)
   rootParametersParticle[0].Descriptor.RegisterSpace = 0;
-  rootParametersParticle[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParametersParticle[0].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL; // PS
 
-  // インスタンスバッファSRV
   D3D12_DESCRIPTOR_RANGE descriptorRange0 = {};
-  descriptorRange0.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRange0.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV
   descriptorRange0.NumDescriptors = 1;
   descriptorRange0.BaseShaderRegister = 0; // register(t0)
   descriptorRange0.RegisterSpace = 0;
@@ -1393,9 +1389,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParametersParticle[1].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_VERTEX; // VS で参照
 
-  // パーティクルテクスチャ SRV
   D3D12_DESCRIPTOR_RANGE descriptorRange1 = {};
-  descriptorRange1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRange1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRV
   descriptorRange1.NumDescriptors = 1;
   descriptorRange1.BaseShaderRegister = 1; // register(t1)
   descriptorRange1.RegisterSpace = 0;
@@ -1410,11 +1405,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParametersParticle[2].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL; // PS で参照
 
-  // time
-  rootParametersParticle[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParametersParticle[3].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV;                       // CBV
   rootParametersParticle[3].Descriptor.ShaderRegister = 1; // register(b1)
   rootParametersParticle[3].Descriptor.RegisterSpace = 0;
-  rootParametersParticle[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParametersParticle[3].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL; // PS
 
   D3D12_ROOT_SIGNATURE_DESC descriptionRootSignatureParticle = {};
   descriptionRootSignatureParticle.NumParameters =
@@ -1499,21 +1495,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   inputLayoutDesc.pInputElementDescs = inputElementDescs;
   inputLayoutDesc.NumElements = _countof(inputElementDescs);
 
-  // D3D12_INPUT_ELEMENT_DESC particleInputElements[] = {
-  //     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,
-  //      D3D12_APPEND_ALIGNED_ELEMENT,
-  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-  //     {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0,
-  //     D3D12_APPEND_ALIGNED_ELEMENT,
-  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-  //     {"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0,
-  //      D3D12_APPEND_ALIGNED_ELEMENT,
-  //      D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-  // };
-
-  // D3D12_INPUT_LAYOUT_DESC particleInputLayoutDesc = {
-  //     particleInputElements, _countof(particleInputElements)};
-
   // BlendStateの設定
   D3D12_BLEND_DESC blendDesc{};
 
@@ -1524,8 +1505,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   blendDesc.RenderTarget[0].SrcBlend =
       D3D12_BLEND_SRC_ALPHA; // 元画像の透明度を使う
 
-  // blendDesc.RenderTarget[0].DestBlend =
-  //     D3D12_BLEND_INV_SRC_ALPHA; // 透明部分は背景(スクリーン)が映るように
   blendDesc.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
 
   blendDesc.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // 合成方法　(加算)
@@ -1612,6 +1591,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipeLineState));
   assert(SUCCEEDED(hr));
 
+  // Particle用のPSO作成
+
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineStateParticle;
 
   D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipeLineStateDescParticle{};
@@ -1621,9 +1602,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                                           vsBlobPart->GetBufferSize()};
   graphicsPipeLineStateDescParticle.PS = {psBlobPart->GetBufferPointer(),
                                           psBlobPart->GetBufferSize()};
-  graphicsPipeLineStateDescParticle.BlendState =
-      blendDesc; // 同じブレンド設定を使うならこちらを流用
-  graphicsPipeLineStateDescParticle.RasterizerState = rasterizerDesc; // 同上
+  graphicsPipeLineStateDescParticle.BlendState = blendDesc;
+  graphicsPipeLineStateDescParticle.RasterizerState = rasterizerDesc;
   graphicsPipeLineStateDescParticle.DepthStencilState = depthStencilDesc;
   graphicsPipeLineStateDescParticle.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
   graphicsPipeLineStateDescParticle.NumRenderTargets = 1;
@@ -1709,9 +1689,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   std::vector<TextConfig> textConfigs = {
-    //   {"AA", gamePhase, std::size(gamePhase), {120.0f, 120.0f}, 220.0f},
+      //   {"AA", gamePhase, std::size(gamePhase), {120.0f, 120.0f}, 220.0f},
       {"A", titlePhase, std::size(titlePhase), {600, 300.0f}, 230.0f},
-       {"A", gamePhase, std::size(gamePhase), {900.0f, 120.0f}, 220.0f},
+      //   {"A", gamePhase, std::size(gamePhase), {900.0f, 120.0f}, 220.0f},
   };
 
   std::vector<DrawEntry> drawList;
@@ -1890,7 +1870,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   //=============================
   // パーティクルリソース
   //=============================
-  constexpr uint32_t kNumMaxInstance = 200;
+  constexpr uint32_t kNumMaxInstance = 300;
 
   Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
   instancingResource =
@@ -2024,19 +2004,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       if (isUpdate) {
         frameCount++;
 
+        // 経過時間でパーティクルの発生を止める
         if (frameCount >= 100) {
           revealFinished = true;
         }
 
-        // ─── 完了前だけパーティクル生成 ───
+        // テキストがすべて出るまでパーティクルを生成
         if (!revealFinished) {
-          EmitParticles(1, {600.0f, 300.0f});
+          EmitParticles(5, {600.0f, 300.0f}, kNumMaxInstance);
         }
 
+        // パーティクルの更新
         UpdateParticles(kDeltaTime);
-        ImGui::Text("revealFinished = %s", revealFinished ? "true" : "false");
       }
 
+      // パーティクル数を取得
       numInstances = static_cast<uint32_t>(particles.size());
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
@@ -2050,21 +2032,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::SliderFloat("Reveal Width", &fxData->revealWidth, 0.5f, 5.0f);
       ImGui::SliderFloat("Flame Duration", &fxData->flameDuration, 0.5f, 3.0f);
       ImGui::Text("particles = %zu", particles.size());
-      auto &first = instancingData[0];
-      // World行列の一部を表示（m のアクセス方法は Matrix4x4
-      // の実装に合わせてください）
-      ImGui::Text("instancingData[0].World[0][3] = %.1f", first.World.m[0][3]);
-      // WVP行列の左上成分
-      ImGui::Text("instancingData[0].WVP[0][0]   = %.3f", first.WVP.m[0][0]);
-      // 色も
-      ImGui::Text("instancingData[0].color       = (%.2f, %.2f, %.2f, %.2f)",
-                  first.color.x, first.color.y, first.color.z, first.color.w);
-
-      ImGui::Text("World translation = (%.1f, %.1f)", first.World.m[3][0],
-                  first.World.m[3][1]);
-      // 列優先なら：
-      ImGui::Text("World translation = (%.1f, %.1f)", first.World.m[0][3],
-                  first.World.m[1][3]);
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
@@ -2100,7 +2067,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                                       &dsvHandle);
 
       // 指定した色で画面全体をクリアする
-      // float clearColor[] = {0.1f, 0.25f, 0.5f, 1.0f}; // 青っぽい色、RGBAの順
       float clearColor[] = {0.0f, 0.0f, 0.0f, 1.0f}; // 背景を黒に
       commandList->ClearRenderTargetView(rtvHandles[backBufferIndex],
                                          clearColor, 0, nullptr);
@@ -2119,8 +2085,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       commandList->SetGraphicsRootSignature(rootSignature.Get());
       commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
 
-      //  commandList->IASetVertexBuffers(0, 1, &vertexBufferView); ///
-      //  VBVを設定
       // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
       commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -2133,9 +2097,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         transformSprite[index].translate = {pos.x, pos.y, 0.0f};
 
-        materialDataSprites[index]->color.w = w;
+        materialDataSprites[index]->color.w = w; // PSの条件用
 
-        // Sprite用のWorldViewProjectionMatrixを作る
+        // WorldViewProjectionMatrixを作る
         Matrix4x4 worldMatrixSprite = MakeAffineMatrix(
             transformSprite[index].scale, transformSprite[index].rotate,
             transformSprite[index].translate);
@@ -2147,8 +2111,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             Multiply(Multiply(worldMatrixSprite, viewMatrixSprite),
                      projectionMatrixSprite);
 
-        materialDataSprites[index]->uvTransform = MakeIdentity4x4();
-
         transformationMatrixDataSprites[index]->WVP =
             worldViewProjectionMatrixSprite;
         transformationMatrixDataSprites[index]->World = worldMatrixSprite;
@@ -2159,7 +2121,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
 
-        // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
+        // マテリアルCBufferの場所を設定。
         commandList->SetGraphicsRootConstantBufferView(
             0, materialResourceSprites[index]->GetGPUVirtualAddress());
 
@@ -2168,14 +2130,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
             1,
             transformationMatrixResourceSprites[index]->GetGPUVirtualAddress());
 
-        // Spriteは常に"uvChecker"にする
         commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
         commandList->SetGraphicsRootConstantBufferView(
             3, timeResource->GetGPUVirtualAddress());
-
-        commandList->SetGraphicsRootConstantBufferView(
-            4, fxResource->GetGPUVirtualAddress());
 
         // ドローコール
         commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
@@ -2197,8 +2155,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         instancingData[i].WVP =
             Multiply(Multiply(world, viewMatrix), projectionMatrix);
 
-        // 色。たとえば残り寿命で徐々にフェードアウト
-        float alpha = 1.0f - (p.age / p.life);
+        // 色 残り寿命で徐々にフェードアウト
+        float alpha = 1.0f - (p.currentTime / p.lifeTime);
         instancingData[i].color = Vector4{0.7f, 0.2f, 0, alpha};
       }
 
