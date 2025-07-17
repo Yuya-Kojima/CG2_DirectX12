@@ -51,7 +51,7 @@ float Noise(float2 uv) {
 	//境界のつなぎ目を滑らかにする
 	float2 fade = cellFrac * cellFrac * (3.0 - 2.0 * cellFrac);
 	
-	
+	//セルの四隅を使って滑らかに補完する
 	return lerp(lerp(value00, value01, fade.x), lerp(value10, value11, fade.x), fade.y);
 }
 
@@ -116,16 +116,21 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		//炎の色
 		//縦方向に波打つグラデーション
-		float fireShift = saturate(sin(gTime.x * 3.0 + uv.y * 10.0) * 0.5f + 0.5f);
+		float fireShift = saturate(
+		sin(gTime.x * 3.0 //時間によって波を動かす
+		+ uv.y * 10.0 //テクスチャのY座標に応じて波の位置を変える
+		) * 0.5f + 0.5f //0~1の範囲に変換
+		);
+		
 		float3 color1 = float3(1.0, 0.1, 0.0); // 赤
 		float3 color2 = float3(1.0, 1.0, 0.0); // 黄
 		float3 color3 = float3(1.0, 1.0, 1.0); // 白
 		
 		// 2段階で色を補間
-		float3 midColor = lerp(color1, color2, fireShift);
-		float3 fireColor = lerp(midColor, color3, fireShift * 0.5f);
+		float3 midColor = lerp(color1, color2, fireShift * 0.5f); //赤と黄色で補間
+		float3 fireColor = lerp(midColor, color3, fireShift * 0.2f); //↑と白で補間
 	
-		//テクスチャに炎の色を乗算
+		//テクスチャのRGBにに炎の色を乗算
 		textureColor.rgb *= fireColor;
 		
 		//輪郭をはっきりさせる
@@ -133,6 +138,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		//出力
 		output.color = textureColor;
+		//output.color.w = 0.0;
 		return output;
 	}
 	
@@ -150,16 +156,16 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		float alpha = gTexture.Sample(gSampler, uv).a;
 
         // 周囲のα値を合計して光の強さにする
- 	    // 7x7
+ 	    // 11x11
 		float glowSum = 0.0f;
-		for (int x = -3; x <= 3; ++x) {
-			for (int y = -3; y <= 3; ++y) {
+		for (int x = -5; x <= 5; ++x) {
+			for (int y = -5; y <= 5; ++y) {
 				float2 offset = texelSize * float2(x, y);
 				glowSum += gTexture.Sample(gSampler, uv + offset).a;
 			}
 		}
 
-		glowSum /= 49.0f; // 7x7 = 49サンプルの平均を取る
+		glowSum /= 121.0f; // 11x11 = 121サンプルの平均を取る
 
         // 元のαが小さい(透明)なら、周囲の光を描く
 		float glow = glowSum * (1.0 - alpha);
@@ -168,7 +174,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		float3 glowColor = float3(1.2, 1.0, 0.4);
 		
 		//出力
-		output.color = float4(glowColor, glow /** 0.9f*/);
+		output.color = float4(glowColor, glow);
 		return output;
 	}
 	

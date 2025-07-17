@@ -1690,8 +1690,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   std::vector<TextConfig> textConfigs = {
       //   {"AA", gamePhase, std::size(gamePhase), {120.0f, 120.0f}, 220.0f},
-      {"A", titlePhase, std::size(titlePhase), {600, 300.0f}, 230.0f},
-      //   {"A", gamePhase, std::size(gamePhase), {900.0f, 120.0f}, 220.0f},
+      {"A", titlePhase, std::size(titlePhase), {600, 400.0f}, 230.0f},
+     // {"A", gamePhase, std::size(gamePhase), {900.0f, 180.0f}, 220.0f},
   };
 
   std::vector<DrawEntry> drawList;
@@ -1870,7 +1870,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   //=============================
   // パーティクルリソース
   //=============================
-  constexpr uint32_t kNumMaxInstance = 300;
+  constexpr uint32_t kNumMaxInstance = 200;
 
   Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
   instancingResource =
@@ -2011,7 +2011,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // テキストがすべて出るまでパーティクルを生成
         if (!revealFinished) {
-          EmitParticles(5, {600.0f, 300.0f}, kNumMaxInstance);
+          EmitParticles(10, {600.0f, 400.0f}, kNumMaxInstance);
         }
 
         // パーティクルの更新
@@ -2025,12 +2025,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui::Text("gTime = %.3f", *timePtr);
       ImGui::Checkbox("Update", &isUpdate);
 
-      ImGui::SliderFloat("Flame Speed", &fxData->flameSpeed, 50, 500);
-      ImGui::SliderFloat("Flame Noise Scale", &fxData->flameNoiseScale, 1, 20);
-      ImGui::SliderFloat("Flame Intensity", &fxData->flameIntensity, 0, 2);
-      ImGui::SliderFloat("Reveal Speed", &fxData->revealSpeed, 0.1f, 2.0f);
-      ImGui::SliderFloat("Reveal Width", &fxData->revealWidth, 0.5f, 5.0f);
-      ImGui::SliderFloat("Flame Duration", &fxData->flameDuration, 0.5f, 3.0f);
+      // ImGui::SliderFloat("Flame Speed", &fxData->flameSpeed, 50, 500);
+      // ImGui::SliderFloat("Flame Noise Scale", &fxData->flameNoiseScale, 1,
+      // 20); ImGui::SliderFloat("Flame Intensity", &fxData->flameIntensity, 0,
+      // 2); ImGui::SliderFloat("Reveal Speed", &fxData->revealSpeed,
+      // 0.1f, 2.0f); ImGui::SliderFloat("Reveal Width", &fxData->revealWidth,
+      // 0.5f, 5.0f); ImGui::SliderFloat("Flame Duration",
+      // &fxData->flameDuration, 0.5f, 3.0f);
       ImGui::Text("particles = %zu", particles.size());
 
       // ImGuiの内部コマンドを生成する
