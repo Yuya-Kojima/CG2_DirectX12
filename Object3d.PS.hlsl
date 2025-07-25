@@ -79,7 +79,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		//reveal進行度
 		//上から下へフェードインする
-		float reveal = saturate((time * 0.5) - (uv.y));
+		float reveal = saturate(time * 0.5 - uv.y);
 		
 		// テクスチャ読み込み
 		float4 textureColor = gTexture.Sample(gSampler, uv);

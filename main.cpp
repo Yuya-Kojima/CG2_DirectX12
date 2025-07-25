@@ -1691,7 +1691,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   std::vector<TextConfig> textConfigs = {
       //   {"AA", gamePhase, std::size(gamePhase), {120.0f, 120.0f}, 220.0f},
       {"A", titlePhase, std::size(titlePhase), {600, 400.0f}, 230.0f},
-     // {"A", gamePhase, std::size(gamePhase), {900.0f, 180.0f}, 220.0f},
+      {"A", gamePhase, std::size(gamePhase), {900.0f, 180.0f}, 220.0f},
   };
 
   std::vector<DrawEntry> drawList;
