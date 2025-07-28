@@ -108,7 +108,7 @@ void DebugCamera::Update(const InputKeyState &input) {
 
   // 追加回転分の回転行列を生成
   Matrix4x4 matRotDelta = MakeIdentity4x4();
-  const float rotateSpeed = 0.05f;
+  const float rotateSpeed = 0.02f;
 
   if (input.IsPressKey(DIK_C)) {
     matRotDelta = Multiply(MakeRotateYMatrix(rotateSpeed), matRotDelta);
@@ -136,7 +136,7 @@ void DebugCamera::Update(const InputKeyState &input) {
 
   // 累積の回転行列を合成
   matRot_ = Multiply(matRotDelta, matRot_);
-  Vector3 cameraPos = TransformNormal(translation_, matRot_);
+  Vector3 cameraPos = translation_;
 
   // 行列の更新
   Matrix4x4 translateMatrix = MakeTranslateMatrix(cameraPos);

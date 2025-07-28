@@ -117,7 +117,7 @@ SoundData SoundLoadWave(const char *filename) {
   // チャンクヘッダーの確認
   file.read((char *)&format, sizeof(ChunkHeader));
 
-  if (strncmp(format.chunk.id, "fmt", 4) != 0) {
+  if (strncmp(format.chunk.id, "fmt ", 4) != 0) {
     assert(0);
   }
 
@@ -918,6 +918,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       CreateTextureResource(device, metadata2);
   UploadTextureData(textureResource2, mipImages2);
 
+  // 三枚目
+  DirectX::ScratchImage mipImages3 = LoadTexture("resources/monsterBall.png");
+  const DirectX::TexMetadata &metadata3 = mipImages3.GetMetadata();
+  Microsoft::WRL::ComPtr<ID3D12Resource> textureResource3 =
+      CreateTextureResource(device, metadata3);
+  UploadTextureData(textureResource3, mipImages3);
+
   // metadataを基にSRVの設定
   D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
   srvDesc.Format = metadata.format;
@@ -931,6 +938,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   srvDesc2.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
   srvDesc2.Texture2D.MipLevels = UINT(metadata2.mipLevels);
 
+  D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc3{};
+  srvDesc3.Format = metadata3.format;
+  srvDesc3.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  srvDesc3.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
+  srvDesc3.Texture2D.MipLevels = UINT(metadata3.mipLevels);
+
   // SRVを作成するDescriptorHeapの場所を決める
   D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU =
       GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 1);
@@ -942,12 +955,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 =
       GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 2);
 
+  D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU3 =
+      GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 3);
+  D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU3 =
+      GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 3);
+
   // SRVの生成
   device->CreateShaderResourceView(textureResource.Get(), &srvDesc,
                                    textureSrvHandleCPU);
 
   device->CreateShaderResourceView(textureResource2.Get(), &srvDesc2,
                                    textureSrvHandleCPU2);
+
+  device->CreateShaderResourceView(textureResource3.Get(), &srvDesc3,
+                                   textureSrvHandleCPU3);
 
   // ディスクリプタヒープが作れなかったので起動できない
   assert(SUCCEEDED(hr));
@@ -1089,8 +1110,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // 色の指定
   materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // Lightingさせるか
-  materialData->enableLighting = true;
+  // lightingMode
+  materialData->lightingMode = HarfLambert;
   // UVTransform 単位行列を入れておく
   materialData->uvTransform = MakeIdentity4x4();
 
@@ -1110,8 +1131,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // 色の指定
   materialDataSprite->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // Lightingさせるか
-  materialDataSprite->enableLighting = false;
+  // lightingMode
+  materialDataSprite->lightingMode = None;
   // UVTransform　単位行列を入れておく
   materialDataSprite->uvTransform = MakeIdentity4x4();
 
@@ -1311,8 +1332,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // ModelData modelData = LoadModelFile("resources", "plane.obj");
 
   // 頂点リソースを作る
-  Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = CreateBufferResource(
-      device, sizeof(VertexData) * modelData.vertices.size());
+  Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource =
+      CreateBufferResource(device, sizeof(VertexData) * 1536);
 
   // 頂点バッファビューを作成する
   D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
@@ -1321,8 +1342,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
 
   // 使用するリソースのサイズは頂点のサイズ
-  vertexBufferView.SizeInBytes =
-      UINT(sizeof(VertexData) * modelData.vertices.size());
+  vertexBufferView.SizeInBytes = UINT(sizeof(VertexData) * 1536);
 
   // 1頂点あたりのサイズ
   vertexBufferView.StrideInBytes = sizeof(VertexData);
@@ -1380,97 +1400,97 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 球
   //=============================
 
-  // const uint32_t kSubdivision = 16; // 分割数
+  const uint32_t kSubdivision = 16; // 分割数
 
-  // uint32_t latIndex;
-  // uint32_t lonIndex;
+  uint32_t latIndex;
+  uint32_t lonIndex;
 
-  //// 経度分割一つ分の角度
-  // const float kLonEvery =
-  //     static_cast<float>(M_PI) * 2.0f / static_cast<float>(kSubdivision);
+  // 経度分割一つ分の角度
+  const float kLonEvery =
+      static_cast<float>(M_PI) * 2.0f / static_cast<float>(kSubdivision);
 
-  //// 緯度
-  // const float kLatEvery =
-  //     static_cast<float>(M_PI) / static_cast<float>(kSubdivision);
+  // 緯度
+  const float kLatEvery =
+      static_cast<float>(M_PI) / static_cast<float>(kSubdivision);
 
-  //// 緯度の方向に分割
-  // for (latIndex = 0; latIndex < kSubdivision; ++latIndex) {
+  // 緯度の方向に分割
+  for (latIndex = 0; latIndex < kSubdivision; ++latIndex) {
 
-  //  // 現在の緯度
-  // float lat = -static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
+    // 現在の緯度
+    float lat = static_cast<float>(M_PI) / 2.0f + kLatEvery * latIndex;
 
-  //  // 経度の方向に分割
-  //  for (lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
+    // 経度の方向に分割
+    for (lonIndex = 0; lonIndex < kSubdivision; ++lonIndex) {
 
-  //    // 現在の経度
-  //    float lon = lonIndex * kLonEvery;
+      // 現在の経度
+      float lon = lonIndex * kLonEvery;
 
-  //    // 最初に書き込む場所(a)
-  //    uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
+      // 最初に書き込む場所(a)
+      uint32_t start = (latIndex * kSubdivision + lonIndex) * 6;
 
-  //    // texcoord
-  //    float u0 =
-  //        static_cast<float>(lonIndex) / static_cast<float>(kSubdivision);
+      // texcoord
+      float u0 =
+          static_cast<float>(lonIndex) / static_cast<float>(kSubdivision);
 
-  //    float v0 =
-  //        static_cast<float>(latIndex) / static_cast<float>(kSubdivision);
+      float v0 =
+          static_cast<float>(latIndex) / static_cast<float>(kSubdivision);
 
-  //    float u1 = float(lonIndex + 1) / kSubdivision;
-  //    float v1 = float(latIndex + 1) / kSubdivision;
+      float u1 = float(lonIndex + 1) / kSubdivision;
+      float v1 = float(latIndex + 1) / kSubdivision;
 
-  //    // 頂点データ入力
+      // 頂点データ入力
 
-  //    // a 左下
-  //    vertexData[start].position.x = cosf(lat) * cosf(lon);
-  //    vertexData[start].position.y = sinf(lat);
-  //    vertexData[start].position.z = cosf(lat) * sinf(lon);
-  //    vertexData[start].position.w = 1.0f;
-  //    vertexData[start].texcoord = {u0, v0};
-  //    vertexData[start].normal.x = vertexData[start].position.x;
-  //    vertexData[start].normal.y = vertexData[start].position.y;
-  //    vertexData[start].normal.z = vertexData[start].position.z;
+      // a 左下
+      vertexData[start].position.x = cosf(lat) * cosf(lon);
+      vertexData[start].position.y = sinf(lat);
+      vertexData[start].position.z = cosf(lat) * sinf(lon);
+      vertexData[start].position.w = 1.0f;
+      vertexData[start].texcoord = {u0, v0};
+      vertexData[start].normal.x = vertexData[start].position.x;
+      vertexData[start].normal.y = vertexData[start].position.y;
+      vertexData[start].normal.z = vertexData[start].position.z;
 
-  //    // c 右下
-  //    vertexData[start + 1].position.x = cosf(lat) * cosf(lon + kLonEvery);
-  //    vertexData[start + 1].position.y = sinf(lat);
-  //    vertexData[start + 1].position.z = cosf(lat) * sinf(lon + kLonEvery);
-  //    vertexData[start + 1].position.w = 1.0f;
-  //    vertexData[start + 1].texcoord = {u1, v0};
-  //    vertexData[start + 1].normal.x = vertexData[start + 1].position.x;
-  //    vertexData[start + 1].normal.y = vertexData[start + 1].position.y;
-  //    vertexData[start + 1].normal.z = vertexData[start + 1].position.z;
+      // c 右下
+      vertexData[start + 1].position.x = cosf(lat) * cosf(lon + kLonEvery);
+      vertexData[start + 1].position.y = sinf(lat);
+      vertexData[start + 1].position.z = cosf(lat) * sinf(lon + kLonEvery);
+      vertexData[start + 1].position.w = 1.0f;
+      vertexData[start + 1].texcoord = {u1, v0};
+      vertexData[start + 1].normal.x = vertexData[start + 1].position.x;
+      vertexData[start + 1].normal.y = vertexData[start + 1].position.y;
+      vertexData[start + 1].normal.z = vertexData[start + 1].position.z;
 
-  //    // b 左上
-  //    vertexData[start + 2].position.x = cosf(lat + kLatEvery) * cosf(lon);
-  //    vertexData[start + 2].position.y = sinf(lat + kLatEvery);
-  //    vertexData[start + 2].position.z = cosf(lat + kLatEvery) * sinf(lon);
-  //    vertexData[start + 2].position.w = 1.0f;
-  //    vertexData[start + 2].texcoord = {u0, v1};
-  //    vertexData[start + 2].normal.x = vertexData[start + 2].position.x;
-  //    vertexData[start + 2].normal.y = vertexData[start + 2].position.y;
-  //    vertexData[start + 2].normal.z = vertexData[start + 2].position.z;
+      // b 左上
+      vertexData[start + 2].position.x = cosf(lat + kLatEvery) * cosf(lon);
+      vertexData[start + 2].position.y = sinf(lat + kLatEvery);
+      vertexData[start + 2].position.z = cosf(lat + kLatEvery) * sinf(lon);
+      vertexData[start + 2].position.w = 1.0f;
+      vertexData[start + 2].texcoord = {u0, v1};
+      vertexData[start + 2].normal.x = vertexData[start + 2].position.x;
+      vertexData[start + 2].normal.y = vertexData[start + 2].position.y;
+      vertexData[start + 2].normal.z = vertexData[start + 2].position.z;
 
-  //    // d 右上
-  //    vertexData[start + 3].position.x =
-  //        cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
-  //    vertexData[start + 3].position.y = sinf(lat + kLatEvery);
-  //    vertexData[start + 3].position.z =
-  //        cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
-  //    vertexData[start + 3].position.w = 1.0f;
-  //    vertexData[start + 3].texcoord = {u1, v1};
-  //    vertexData[start + 3].normal.x = vertexData[start + 3].position.x;
-  //    vertexData[start + 3].normal.y = vertexData[start + 3].position.y;
-  //    vertexData[start + 3].normal.z = vertexData[start + 3].position.z;
+      // d 右上
+      vertexData[start + 3].position.x =
+          cosf(lat + kLatEvery) * cosf(lon + kLonEvery);
+      vertexData[start + 3].position.y = sinf(lat + kLatEvery);
+      vertexData[start + 3].position.z =
+          cosf(lat + kLatEvery) * sinf(lon + kLonEvery);
+      vertexData[start + 3].position.w = 1.0f;
+      vertexData[start + 3].texcoord = {u1, v1};
+      vertexData[start + 3].normal.x = vertexData[start + 3].position.x;
+      vertexData[start + 3].normal.y = vertexData[start + 3].position.y;
+      vertexData[start + 3].normal.z = vertexData[start + 3].position.z;
 
-  //    // 頂点インデックスデータに入力
-  //    indexData[start] = start + 0;
-  //    indexData[start + 1] = start + 1;
-  //    indexData[start + 2] = start + 2;
-  //    indexData[start + 3] = start + 1;
-  //    indexData[start + 4] = start + 3;
-  //    indexData[start + 5] = start + 2;
-  //  }
-  //}
+      // 頂点インデックスデータに入力
+      indexData[start] = start + 0;
+      indexData[start + 1] = start + 1;
+      indexData[start + 2] = start + 2;
+      indexData[start + 3] = start + 1;
+      indexData[start + 4] = start + 3;
+      indexData[start + 5] = start + 2;
+    }
+  }
 
   //=============================
   // スプライト
@@ -1593,13 +1613,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   bool useMonsterBall = true;
 
   // Lighting
-  bool enableLighting = true;
+  static int lightingMode = HarfLambert;
+
+  const char *lightingOptions[] = {"None", "Lambert", "Half Lambert"};
 
   // LightingDirection用
   Vector3 tempDirection = directionalLightData->direction;
 
   // キー入力用
   InputKeyState inputKeyState;
+
+  // デバッグカメラ切り替え
+  bool useDebugCamera = false;
 
   // デバッグカメラ
   DebugCamera *debugCamera = new DebugCamera();
@@ -1639,32 +1664,84 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         OutputDebugStringA("Trigger 0\n");
       }
 
-      debugCamera->Update(inputKeyState);
+      if (useDebugCamera) {
+        debugCamera->Update(inputKeyState);
+      }
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
-      ImGui::ColorEdit3("materialColor", &materialData->color.x);
-      ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
-      ImGui::SliderAngle("rotateX", &transform.rotate.x);
-      ImGui::SliderAngle("rotateY", &transform.rotate.y);
-      ImGui::SliderAngle("rotateZ", &transform.rotate.z);
-      ImGui::Checkbox("useMonsterBall", &useMonsterBall);
-      ImGui::Checkbox("enableLighting", &enableLighting);
-      ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
-      ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
-                        1.0f);
-      ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.001f,
-                       0.0f, 1.0f);
-      ImGui::DragFloat3("cameraTranslate", &cameraTransform.translate.x, 0.01f);
-      ImGui::DragFloat3("cameraRotate", &cameraTransform.rotate.x, 0.001f);
+      // object
 
-      ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
-                        -10.0f, 10.0f);
-      ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
-                        10.0f);
-      ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
+      if (ImGui::CollapsingHeader("Object", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Transform");
+        ImGui::DragFloat3("Translate##object", &transform.translate.x, 0.01f);
+        ImGui::SliderAngle("Rotate X##object", &transform.rotate.x);
+        ImGui::SliderAngle("Rotate Y##object", &transform.rotate.y);
+        ImGui::SliderAngle("Rotate Z##object", &transform.rotate.z);
+        ImGui::DragFloat3("Scale##object", &transform.scale.x, 0.01f);
+        ImGui::ColorEdit3("MaterialColor##object", &materialData->color.x);
+        ImGui::Checkbox("UseMonsterBall", &useMonsterBall);
+      }
 
-      materialData->enableLighting = enableLighting;
+      // スプライト
+      if (ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Transform");
+        ImGui::DragFloat3("Translate##sprite", &transformSprite.translate.x,
+                          1.0f);
+        ImGui::SliderAngle("Rotate X##sprite", &transformSprite.rotate.x);
+        ImGui::SliderAngle("Rotate Y##sprite", &transformSprite.rotate.y);
+        ImGui::SliderAngle("Rotate Z##sprite", &transformSprite.rotate.z);
+        ImGui::DragFloat3("Scale##sprite", &transformSprite.scale.x, 0.01f);
+
+        ImGui::Text("UV Transform");
+        ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
+                          -10.0f, 10.0f);
+        ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
+                          10.0f);
+        ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
+      }
+
+      // lighting
+      if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Combo("Lighting Mode", &lightingMode, lightingOptions,
+                     IM_ARRAYSIZE(lightingOptions));
+        ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
+        if (ImGui::SliderFloat3("Lighting Direction", &tempDirection.x, -1.0f,
+                                1.0f)) {
+          tempDirection = Normalize(tempDirection);
+        }
+        ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.001f,
+                         0.0f, 1.0f);
+      }
+
+      // カメラ
+      if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::DragFloat3("cameraTranslate", &cameraTransform.translate.x,
+                          0.01f);
+        ImGui::DragFloat3("cameraRotate", &cameraTransform.rotate.x, 0.001f);
+
+        ImGui::Checkbox("UseDebugCamera", &useDebugCamera);
+      }
+
+      materialData->lightingMode = lightingMode;
       directionalLightData->direction = Normalize(tempDirection);
+
+      if (useDebugCamera) {
+        ImGui::SetNextWindowBgAlpha(0.6f); // 半透明にする（好みで）
+        ImGui::Begin("Debug Camera Help", nullptr,
+                     ImGuiWindowFlags_AlwaysAutoResize |
+                         ImGuiWindowFlags_NoCollapse |
+                         ImGuiWindowFlags_NoSavedSettings);
+
+        ImGui::Text("Debug Camera Controls:");
+        ImGui::Separator();
+        ImGui::Text("W/A/S/D : Move");
+        ImGui::Text("Q/E     : ZoomOut / In");
+        ImGui::Text("Z/C : Rotate Y-axis");
+        ImGui::Text("Up/Down : Rotate X-axis");
+        ImGui::Text("Left/Right : Rotate Z-axis");
+
+        ImGui::End();
+      }
 
       // ImGuiの内部コマンドを生成する
       ImGui::Render();
@@ -1674,8 +1751,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       Matrix4x4 cameraMatrix =
           MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate,
                            cameraTransform.translate);
-      // Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-      Matrix4x4 viewMatrix = debugCamera->GetViewMatrix();
+      Matrix4x4 viewMatrix = MakeIdentity4x4();
+
+      if (useDebugCamera) {
+        viewMatrix = debugCamera->GetViewMatrix();
+      } else {
+        viewMatrix = Inverse(cameraMatrix);
+      }
+
       Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
           0.45f, float(kClientWidth) / float(kClientHeight), 0.1f, 100.0f);
       Matrix4x4 worldViewProjectionMatrix =
@@ -1770,15 +1853,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
       commandList->SetGraphicsRootDescriptorTable(
-          2, useMonsterBall ? textureSrvHandleGPU2 : textureSrvHandleGPU);
+          2, useMonsterBall ? textureSrvHandleGPU3 : textureSrvHandleGPU);
 
       // Lighting
       commandList->SetGraphicsRootConstantBufferView(
           3, directionalLightResource->GetGPUVirtualAddress());
 
       // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
-      commandList->DrawInstanced(UINT(modelData.vertices.size()), 1, 0, 0);
-      // commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
+      // commandList->DrawInstanced(UINT(modelData.vertices.size()), 1, 0, 0);
+      commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
 
       // Spriteの描画
       commandList->IASetVertexBuffers(0, 1,
@@ -1798,7 +1881,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           0, materialResourceSprite->GetGPUVirtualAddress());
 
       // ドローコール
-      // commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+      commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
       // 実際のcommandListのImGuiの描画コマンドを積む
       ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());

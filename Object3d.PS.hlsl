@@ -5,7 +5,7 @@ SamplerState gSampler : register(s0);
 
 struct Material {
 	float4 color;
-	int enableLighting;
+	int lightingMode;
 	float4x4 uvTransform;
 };
 
@@ -30,14 +30,16 @@ VertexShaderOutput input) {
 	PixelShaderOutput output;
 	output.color = gMaterial.color * textureColor;
 	
-	
-	if (gMaterial.enableLighting != 0) {
-		//Lightingする場合
+	if (gMaterial.lightingMode == 1) {
+		//lambert
+		float cos = saturate(dot(normalize(input.normal), -gDirectionalLight.direction));
+		output.color = gMaterial.color * textureColor * gDirectionalLight.color * cos * gDirectionalLight.intensity;
+		
+	} else if (gMaterial.lightingMode == 2) {
 	//harf lambert
 		float NdotL = dot(normalize(input.normal), -gDirectionalLight.direction);
 		float cos = pow(NdotL * 0.5f + 0.5f, 2.0f);
-
-	//	float cos = saturate(dot(normalize(input.normal), -gDirectionalLight.direction));
+		
 		output.color = gMaterial.color * textureColor * gDirectionalLight.color * cos * gDirectionalLight.intensity;
 	} else {
 		//Lightingしない場合
@@ -46,11 +48,3 @@ VertexShaderOutput input) {
 	
 	return output;
 }
-
-
-
-
-//float4 main() : SV_TARGET
-//{
-//	return float4(1.0f, 1.0f, 1.0f, 1.0f);
-//}
