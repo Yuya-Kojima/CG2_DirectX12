@@ -1551,18 +1551,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                             reinterpret_cast<void **>(&vertexDataSprite));
 
   // 一枚目の三角形
-  vertexDataSprite[0].position = {0.0f, 256.0f, 0.0f, 1.0f}; // 左下
+  vertexDataSprite[0].position = {0.0f, 360.0f, 0.0f, 1.0f}; // 左下
   vertexDataSprite[0].texcoord = {0.0f, 1.0f};
   vertexDataSprite[0].normal = {0.0f, 0.0f, -1.0f};
   vertexDataSprite[1].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
   vertexDataSprite[1].texcoord = {0.0f, 0.0f};
   vertexDataSprite[1].normal = {0.0f, 0.0f, -1.0f};
-  vertexDataSprite[2].position = {256.0f, 256.0f, 0.0f, 1.0f}; // 右下
+  vertexDataSprite[2].position = {640.0f, 360.0f, 0.0f, 1.0f}; // 右下
   vertexDataSprite[2].texcoord = {1.0f, 1.0f};
   vertexDataSprite[2].normal = {0.0f, 0.0f, -1.0f};
 
   // 二枚目
-  vertexDataSprite[3].position = {256.0f, 0.0f, 0.0f, 1.0f}; // 右上
+  vertexDataSprite[3].position = {640.0f, 0.0f, 0.0f, 1.0f}; // 右上
   vertexDataSprite[3].texcoord = {1.0f, 0.0f};
   vertexDataSprite[3].normal = {0.0f, 0.0f, -1.0f};
 
