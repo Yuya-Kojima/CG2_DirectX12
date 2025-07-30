@@ -1,4 +1,5 @@
 #pragma once
+#include "Gamepad.h"
 #include "InputKeyState.h"
 #include "InputMouseState.h"
 #include "Matrix4x4.h"

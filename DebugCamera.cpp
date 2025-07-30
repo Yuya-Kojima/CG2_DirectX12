@@ -8,6 +8,8 @@ void DebugCamera::Initialize() {
 
 void DebugCamera::Update(const InputKeyState &input) {
 
+  Gamepad::Update();
+
   if (input.IsPressKey(DIK_E)) {
 
     //==================
@@ -108,7 +110,7 @@ void DebugCamera::Update(const InputKeyState &input) {
 
   // 追加回転分の回転行列を生成
   Matrix4x4 matRotDelta = MakeIdentity4x4();
-  const float rotateSpeed = 0.02f;
+  const float rotateSpeed = 0.01f;
 
   if (input.IsPressKey(DIK_C)) {
     matRotDelta = Multiply(MakeRotateYMatrix(rotateSpeed), matRotDelta);
@@ -132,6 +134,69 @@ void DebugCamera::Update(const InputKeyState &input) {
 
   if (input.IsPressKey(DIK_LEFT)) {
     matRotDelta = Multiply(MakeRotateZMatrix(-rotateSpeed), matRotDelta);
+  }
+
+  // -------------------------
+  // ゲームパッドによる移動処理
+  // -------------------------
+
+  const float moveSpeed = 0.3f;
+  Gamepad::Stick left = Gamepad::GetNormalizedLeftStick();
+
+  // 左スティックで上下左右に移動
+  Vector3 move = {
+      left.x * moveSpeed,
+      left.y * moveSpeed,
+      0.0f,
+  };
+
+  // 移動方向を回転
+  move = TransformNormal(move, matRot_);
+  translation_ = Add(translation_, move);
+
+  // RT:前進
+  float rt = Gamepad::GetRightTriggerStrength();
+  if (rt > 0.1f) {
+    const float speed = 0.3f * rt;
+    Vector3 move = {0, 0, speed};
+    move = TransformNormal(move, matRot_);
+    translation_ = Add(translation_, move);
+  }
+
+  // LT:後退
+  float lt = Gamepad::GetLeftTriggerStrength();
+  if (lt > 0.1f) {
+    const float speed = -0.3f * lt;
+    Vector3 move = {0, 0, speed};
+    move = TransformNormal(move, matRot_);
+    translation_ = Add(translation_, move);
+  }
+
+  // -------------------------
+  // ゲームパッドによる回転処理
+  // -------------------------
+
+  Gamepad::Stick right = Gamepad::GetNormalizedRightStick();
+
+  // Pitch (X軸) : 上下
+  if (abs(right.y) > 0.1f) {
+    matRotDelta =
+        Multiply(MakeRotateXMatrix(-right.y * rotateSpeed), matRotDelta);
+  }
+
+  // Yaw (Y軸) : 左右
+  if (abs(right.x) > 0.1f) {
+    matRotDelta =
+        Multiply(MakeRotateYMatrix(right.x * rotateSpeed), matRotDelta);
+  }
+
+  // Z軸回転：LB / RB
+  if (Gamepad::IsButtonPressed(XINPUT_GAMEPAD_LEFT_SHOULDER)) {
+    matRotDelta = Multiply(MakeRotateZMatrix(-rotateSpeed), matRotDelta);
+  }
+
+  if (Gamepad::IsButtonPressed(XINPUT_GAMEPAD_RIGHT_SHOULDER)) {
+    matRotDelta = Multiply(MakeRotateZMatrix(rotateSpeed), matRotDelta);
   }
 
   // 累積の回転行列を合成
