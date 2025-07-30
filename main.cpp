@@ -183,14 +183,25 @@ void SoundUnload(SoundData *soundData) {
 /// </summary>
 /// <param name="xAudio2">再生するためのxAudio2</param>
 /// <param name="soundData">音声データ(波形データ、サイズ、フォーマット)</param>
-void SoundPlayerWave(IXAudio2 *xAudio2, const SoundData &soundData) {
+void SoundPlayWave(IXAudio2 *xAudio2, const SoundData &soundData,
+                   IXAudio2SourceVoice *&pSourceVoice) {
 
   HRESULT result;
 
   // 波形フォーマットを元にSourceVoiceの生成
-  IXAudio2SourceVoice *pSourceVoice = nullptr;
-  result = xAudio2->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
-  assert(SUCCEEDED(result));
+  if (pSourceVoice == nullptr) {
+    result = xAudio2->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
+    assert(SUCCEEDED(result));
+  }
+
+  // 現在の状態を取得
+  XAUDIO2_VOICE_STATE state{};
+  pSourceVoice->GetState(&state);
+
+  // まだ再生中なら再生しない
+  if (state.BuffersQueued > 0) {
+    return;
+  }
 
   // 再生する波形データの設定
   XAUDIO2_BUFFER buf{};
@@ -865,6 +876,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   result = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
   result = xAudio2->CreateMasteringVoice(&masterVoice);
+
+  IXAudio2SourceVoice *pSourceVoice = nullptr;
 
   //===========================
   // ディスクリプタヒープの生成
@@ -1777,7 +1790,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
         if (ImGui::Button("Play Sound")) {
-          SoundPlayerWave(xAudio2.Get(), soundData1);
+          SoundPlayWave(xAudio2.Get(), soundData1, pSourceVoice);
         }
       }
 
