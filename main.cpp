@@ -587,6 +587,11 @@ Vector3 Normalize(Vector3 vector) {
   length =
       sqrtf(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
 
+  // ゼロ除算
+  if (length < 0.00001f) {
+    return {0.0f, -1.0f, 0.0f};
+  }
+
   return {vector.x / length, vector.y / length, vector.z / length};
 }
 
@@ -1097,23 +1102,30 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   /*マテリアル用のリソースを作る。
   --------------------------------*/
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource =
-      CreateBufferResource(device, sizeof(Material));
+
+  const int kNumObjects = 2;
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource[kNumObjects];
 
   // マテリアルにデータを書き込む
-  Material *materialData = nullptr;
+  Material *materialData[kNumObjects];
 
-  // 書き込むためのアドレスを取得
-  materialResource->Map(0, nullptr, reinterpret_cast<void **>(&materialData));
+  for (uint32_t i = 0; i < kNumObjects; ++i) {
+    materialResource[i] = CreateBufferResource(device, sizeof(Material));
 
-  assert(SUCCEEDED(hr));
+    // 書き込むためのアドレスを取得
+    materialResource[i]->Map(0, nullptr,
+                             reinterpret_cast<void **>(&materialData[i]));
 
-  // 色の指定
-  materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  // lightingMode
-  materialData->lightingMode = HarfLambert;
-  // UVTransform 単位行列を入れておく
-  materialData->uvTransform = MakeIdentity4x4();
+    assert(SUCCEEDED(hr));
+
+    // 色の指定
+    materialData[i]->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    // lightingMode
+    materialData[i]->lightingMode = HarfLambert;
+    // UVTransform 単位行列を入れておく
+    materialData[i]->uvTransform = MakeIdentity4x4();
+  }
 
   /*Sprite用のマテリアルリソースを作る
   -----------------------------------*/
@@ -1144,19 +1156,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   assert(transformationMatrixSize % 256 == 0);
 
-  Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource =
-      CreateBufferResource(device, transformationMatrixSize);
+  Microsoft::WRL::ComPtr<ID3D12Resource>
+      transformationMatrixResource[kNumObjects];
 
   // データを書き込む
-  TransformationMatrix *transformationMatrixData = nullptr;
+  TransformationMatrix *transformationMatrixData[kNumObjects];
 
-  // 書き込むためのアドレスを取得
-  transformationMatrixResource->Map(
-      0, nullptr, reinterpret_cast<void **>(&transformationMatrixData));
+  for (uint32_t i = 0; i < kNumObjects; ++i) {
+    transformationMatrixResource[i] =
+        CreateBufferResource(device, transformationMatrixSize);
 
-  // 単位行列を書き込んでおく
-  transformationMatrixData->World = MakeIdentity4x4();
-  transformationMatrixData->WVP = MakeIdentity4x4();
+    // 書き込むためのアドレスを取得
+    transformationMatrixResource[i]->Map(
+        0, nullptr, reinterpret_cast<void **>(&transformationMatrixData[i]));
+
+    // 単位行列を書き込んでおく
+    transformationMatrixData[i]->World = MakeIdentity4x4();
+    transformationMatrixData[i]->WVP = MakeIdentity4x4();
+  }
 
   /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
   ----------------------------------------------------------------*/
@@ -1374,6 +1391,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   std::memcpy(vertexData, modelData.vertices.data(),
               sizeof(VertexData) * modelData.vertices.size());
 
+  const size_t axisVertexCount = modelData.vertices.size();
+
+  auto vertexResourceAxis =
+      CreateBufferResource(device, sizeof(VertexData) * axisVertexCount);
+
+  VertexData *vertexDataAxis = nullptr;
+  vertexResourceAxis->Map(0, nullptr,
+                          reinterpret_cast<void **>(&vertexDataAxis));
+  std::memcpy(vertexDataAxis, modelData.vertices.data(),
+              sizeof(VertexData) * axisVertexCount);
+
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferViewAxis{};
+  vertexBufferViewAxis.BufferLocation =
+      vertexResourceAxis->GetGPUVirtualAddress();
+  vertexBufferViewAxis.SizeInBytes =
+      static_cast<UINT>(sizeof(VertexData) * axisVertexCount);
+  vertexBufferViewAxis.StrideInBytes = sizeof(VertexData);
+
   //=============================
   // 頂点インデックス(球)
   //=============================
@@ -1557,7 +1592,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   SoundData soundData1 = SoundLoadWave("resources/fanfare.wav");
   // SoundData soundData1 = SoundLoadWave("resources/Alarm01.wav");
 
-  SoundPlayerWave(xAudio2.Get(), soundData1);
+  // SoundPlayerWave(xAudio2.Get(), soundData1);
 
   // ビューポート
   D3D12_VIEWPORT viewport{};
@@ -1585,7 +1620,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Transform transform{
       {1.0f, 1.0f, 1.0f},
       {0.0f, 0.0f, 0.0f},
+      {1.0f, 0.0f, 0.0f},
+  };
+
+  Transform axisTransform{
+      {1.0f, 1.0f, 1.0f},
       {0.0f, 0.0f, 0.0f},
+      {-1.0f, 0.0f, 0.0f},
   };
 
   // カメラ行列
@@ -1610,7 +1651,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   };
 
   // texture切り替え用
-  bool useMonsterBall = true;
+  bool useMonsterBall = false;
 
   // Lighting
   static int lightingMode = HarfLambert;
@@ -1642,6 +1683,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   );
 
+  ImGuiStyle &style = ImGui::GetStyle();
+  style.ItemSpacing.y = 6.0f;
+
   // ウィンドウのxボタンが押されるまでループ
   while (msg.message != WM_QUIT) {
     // Windowにメッセージが来てたら最優先で処理させる
@@ -1671,15 +1715,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       // object
 
-      if (ImGui::CollapsingHeader("Object", ImGuiTreeNodeFlags_DefaultOpen)) {
+      if (ImGui::CollapsingHeader("Object1", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("Transform");
-        ImGui::DragFloat3("Translate##object", &transform.translate.x, 0.01f);
-        ImGui::SliderAngle("Rotate X##object", &transform.rotate.x);
-        ImGui::SliderAngle("Rotate Y##object", &transform.rotate.y);
-        ImGui::SliderAngle("Rotate Z##object", &transform.rotate.z);
-        ImGui::DragFloat3("Scale##object", &transform.scale.x, 0.01f);
-        ImGui::ColorEdit3("MaterialColor##object", &materialData->color.x);
+        ImGui::DragFloat3("Translate##object1", &transform.translate.x, 0.01f);
+        ImGui::SliderAngle("Rotate X##object1", &transform.rotate.x);
+        ImGui::SliderAngle("Rotate Y##object1", &transform.rotate.y);
+        ImGui::SliderAngle("Rotate Z##object1", &transform.rotate.z);
+        ImGui::DragFloat3("Scale##objec1t", &transform.scale.x, 0.01f);
+        ImGui::ColorEdit3("MaterialColor##object1", &materialData[0]->color.x);
         ImGui::Checkbox("UseMonsterBall", &useMonsterBall);
+      }
+
+      if (ImGui::CollapsingHeader("Object2", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::Text("Transform");
+        ImGui::DragFloat3("Translate##object2", &axisTransform.translate.x,
+                          0.01f);
+        ImGui::SliderAngle("Rotate X##object2", &axisTransform.rotate.x);
+        ImGui::SliderAngle("Rotate Y##object2", &axisTransform.rotate.y);
+        ImGui::SliderAngle("Rotate Z##object2", &axisTransform.rotate.z);
+        ImGui::DragFloat3("Scale##object2", &axisTransform.scale.x, 0.01f);
+        ImGui::ColorEdit3("MaterialColor##object2", &materialData[1]->color.x);
       }
 
       // スプライト
@@ -1705,10 +1760,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         ImGui::Combo("Lighting Mode", &lightingMode, lightingOptions,
                      IM_ARRAYSIZE(lightingOptions));
         ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
-        if (ImGui::SliderFloat3("Lighting Direction", &tempDirection.x, -1.0f,
-                                1.0f)) {
-          tempDirection = Normalize(tempDirection);
-        }
+        ImGui::SliderFloat3("Lighting Direction", &tempDirection.x, -1.0f,
+                            1.0f);
         ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.001f,
                          0.0f, 1.0f);
       }
@@ -1722,11 +1775,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         ImGui::Checkbox("UseDebugCamera", &useDebugCamera);
       }
 
-      materialData->lightingMode = lightingMode;
+      if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::Button("Play Sound")) {
+          SoundPlayerWave(xAudio2.Get(), soundData1);
+        }
+      }
+
+      materialData[0]->lightingMode = lightingMode;
+      materialData[1]->lightingMode = lightingMode;
       directionalLightData->direction = Normalize(tempDirection);
 
+      // デバックカメラ説明
       if (useDebugCamera) {
-        ImGui::SetNextWindowBgAlpha(0.6f); // 半透明にする（好みで）
+        ImGui::SetNextWindowPos(ImVec2(680, 50), ImGuiCond_Once);
+        ImGui::SetNextWindowBgAlpha(0.6f);
         ImGui::Begin("Debug Camera Help", nullptr,
                      ImGuiWindowFlags_AlwaysAutoResize |
                          ImGuiWindowFlags_NoCollapse |
@@ -1753,6 +1815,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                            cameraTransform.translate);
       Matrix4x4 viewMatrix = MakeIdentity4x4();
 
+      // デバッグカメラ切り替え
       if (useDebugCamera) {
         viewMatrix = debugCamera->GetViewMatrix();
       } else {
@@ -1764,8 +1827,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       Matrix4x4 worldViewProjectionMatrix =
           Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
 
-      transformationMatrixData->WVP = worldViewProjectionMatrix;
-      transformationMatrixData->World = worldMatrix;
+      transformationMatrixData[0]->WVP = worldViewProjectionMatrix;
+      transformationMatrixData[0]->World = worldMatrix;
 
       // Sprite用のWorldViewProjectionMatrixを作る
       Matrix4x4 worldMatrixSprite =
@@ -1845,11 +1908,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // マテリアルCBufferの場所を設定
       commandList->SetGraphicsRootConstantBufferView(
-          0, materialResource->GetGPUVirtualAddress());
+          0, materialResource[0]->GetGPUVirtualAddress());
 
       // wvp用のCBufferの場所を設定
       commandList->SetGraphicsRootConstantBufferView(
-          1, transformationMatrixResource->GetGPUVirtualAddress());
+          1, transformationMatrixResource[0]->GetGPUVirtualAddress());
 
       // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
       commandList->SetGraphicsRootDescriptorTable(
@@ -1860,8 +1923,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
           3, directionalLightResource->GetGPUVirtualAddress());
 
       // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
-      // commandList->DrawInstanced(UINT(modelData.vertices.size()), 1, 0, 0);
       commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
+
+      // axis描画
+
+      Matrix4x4 axisWorld = MakeAffineMatrix(
+          axisTransform.scale, axisTransform.rotate, axisTransform.translate);
+
+      Matrix4x4 axisWorldViewProjectionMatrix =
+          Multiply(Multiply(axisWorld, viewMatrix), projectionMatrix);
+
+      transformationMatrixData[1]->WVP = axisWorldViewProjectionMatrix;
+      transformationMatrixData[1]->World = axisWorld;
+
+      commandList->IASetVertexBuffers(0, 1, &vertexBufferViewAxis); // VBVを設定
+
+      commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+      commandList->IASetIndexBuffer(&indexBufferView);
+
+      // マテリアルCBufferの場所を設定
+      commandList->SetGraphicsRootConstantBufferView(
+          0, materialResource[1]->GetGPUVirtualAddress());
+
+      // wvp用のCBufferの場所を設定
+      commandList->SetGraphicsRootConstantBufferView(
+          1, transformationMatrixResource[1]->GetGPUVirtualAddress());
+
+      // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
+      commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU2);
+
+      // Lighting
+      commandList->SetGraphicsRootConstantBufferView(
+          3, directionalLightResource->GetGPUVirtualAddress());
+
+      commandList->DrawInstanced(UINT(modelData.vertices.size()), 1, 0, 0);
 
       // Spriteの描画
       commandList->IASetVertexBuffers(0, 1,
