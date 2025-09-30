@@ -16,23 +16,24 @@
 #include <format>
 #include <string>
 #define _USE_MATH_DEFINES
-#include "DebugCamera.h"
 #include "DirectionalLight.h"
-#include "Field.h"
-#include "InputKeyState.h"
 #include "Material.h"
-#include "MatrixUtility.h"
 #include "ModelData.h"
-#include "Particle.h"
 #include "ResourceObject.h"
 #include "TransformationMatrix.h"
-#include <dinput.h>
 #include <fstream>
 #include <math.h>
-#include <numbers>
-#include <random>
 #include <wrl.h>
 #include <xaudio2.h>
+#define DIRECTINPUT_VERSION 0x0800 // DirectInputのバージョン指定
+#include "DebugCamera.h"
+#include "Field.h"
+#include "InputKeyState.h"
+#include "MatrixUtility.h"
+#include "Particle.h"
+#include <dinput.h>
+#include <numbers>
+#include <random>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
                                                              UINT msg,
@@ -838,35 +839,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Microsoft::WRL::ComPtr<ID3D12Resource> depthStencilResource =
       CreateDepthStencilTextureResource(device, kClientWidth, kClientHeight);
 
-  //// DirectInputの初期化
-  // IDirectInput8 *directInput = nullptr;
-  // HRESULT result =
-  //     DirectInput8Create(wc.hInstance, DIRECTINPUT_VERSION,
-  //     IID_IDirectInput8,
-  //                        (void **)&directInput, nullptr);
-  // assert(SUCCEEDED(result));
+  // DirectInputの初期化
+  IDirectInput8 *directInput = nullptr;
+  HRESULT result =
+      DirectInput8Create(wc.hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8,
+                         (void **)&directInput, nullptr);
+  assert(SUCCEEDED(result));
 
-  //// キーボードデバイスの生成
-  // IDirectInputDevice8 *keyboard = nullptr;
-  // result = directInput->CreateDevice(GUID_SysKeyboard, &keyboard, NULL);
-  // assert(SUCCEEDED(result));
+  // キーボードデバイスの生成
+  IDirectInputDevice8 *keyboard = nullptr;
+  result = directInput->CreateDevice(GUID_SysKeyboard, &keyboard, NULL);
+  assert(SUCCEEDED(result));
 
-  //// 入力データ形式のセット
-  // result = keyboard->SetDataFormat(&c_dfDIKeyboard); // 標準形式
-  // assert(SUCCEEDED(result));
+  // 入力データ形式のセット
+  result = keyboard->SetDataFormat(&c_dfDIKeyboard); // 標準形式
+  assert(SUCCEEDED(result));
 
-  //// 排他制御レベルのセット
-  // result = keyboard->SetCooperativeLevel(
-  //     hwnd, DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
-  //               | DISCL_NONEXCLUSIVE //
-  //               デバイスをこのｎアプリだけで専有しない | DISCL_NOWINKEY //
-  //               Windowsキーを無効化
-  //);
-  // assert(SUCCEEDED(result));
-
-  InputKeyState *input = nullptr;
-  input = new InputKeyState();
-  input->Initialize(wc.hInstance, hwnd);
+  // 排他制御レベルのセット
+  result = keyboard->SetCooperativeLevel(
+      hwnd, DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
+                | DISCL_NONEXCLUSIVE // デバイスをこのｎアプリだけで専有しない
+                | DISCL_NOWINKEY // Windowsキーを無効化
+  );
+  assert(SUCCEEDED(result));
 
   //=============================
   // サウンド用
@@ -876,9 +871,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   IXAudio2MasteringVoice
       *masterVoice; // xAudio2が解放されると同時に無効化されるのでdeleteしない。
 
-  hr = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
-  hr = xAudio2->CreateMasteringVoice(&masterVoice);
-  assert(SUCCEEDED(hr));
+  result = XAudio2Create(&xAudio2, 0, XAUDIO2_DEFAULT_PROCESSOR);
+  result = xAudio2->CreateMasteringVoice(&masterVoice);
 
   //===========================
   // ディスクリプタヒープの生成
@@ -1858,6 +1852,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // LightingDirection用
   Vector3 tempDirection = directionalLightData->direction;
 
+  // キー入力用
+  InputKeyState inputKeyState;
+
   // デバッグカメラ
   DebugCamera *debugCamera = new DebugCamera();
   debugCamera->Initialize();
@@ -1902,14 +1899,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       ImGui_ImplWin32_NewFrame();
       ImGui::NewFrame();
 
-      // キー入力
-      input->Update();
-
-      // 確認用
-      if (input->IsTriggerKey(DIK_0)) {
-        OutputDebugStringA("Trigger 0\n");
-      }
-
       // ゲームの処理
 
       for (std::list<Particle>::iterator particleIterator = particles.begin();
@@ -1937,7 +1926,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         emitter.frequencyTime -= emitter.frequency;
       }
 
-      debugCamera->Update(*input);
+      // キー入力
+      inputKeyState.Update(keyboard);
+
+      // 確認用
+      if (inputKeyState.IsTriggerKey(DIK_0)) {
+        OutputDebugStringA("Trigger 0\n");
+      }
+
+      debugCamera->Update(inputKeyState);
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit4("materialColor", &materialData->color.x);
@@ -2238,8 +2235,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   xAudio2.Reset();
 
   delete debugCamera;
-
-  delete input;
 
   SoundUnload(&soundData1);
 

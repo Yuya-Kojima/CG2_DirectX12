@@ -2,12 +2,8 @@
 #include <Windows.h>
 #include <cstring>
 #include <dinput.h>
-#include <wrl.h>
 
 class InputKeyState {
-
-public:
-  template <class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
 private:
   BYTE key_[256] = {};
@@ -21,19 +17,12 @@ private:
   int prevMouseX_ = 0;
   int prevMouseY_ = 0;
 
-  ComPtr<IDirectInputDevice8> keyboard;
-
 public:
-  /// <summary>
-  /// 初期化
-  /// </summary>
-  void Initialize(HINSTANCE hInstance, HWND hwnd);
-
   /// <summary>
   /// 更新処理
   /// </summary>
   /// <param name="keyboard"></param>
-  void Update();
+  void Update(IDirectInputDevice8 *keyboard);
 
   /// <summary>
   /// プレス
