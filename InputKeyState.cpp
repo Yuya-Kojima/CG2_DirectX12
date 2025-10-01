@@ -4,14 +4,17 @@
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
-void InputKeyState::Initialize(HINSTANCE hInstance, HWND hwnd) {
+void InputKeyState::Initialize(WindowSystem *windowSystem) {
+
+  this->windowSystem = windowSystem;
 
   HRESULT result;
 
   // DirectInputの初期化
   ComPtr<IDirectInput8> directInput = nullptr;
-  result = DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8,
-                              (void **)&directInput, nullptr);
+  result =
+      DirectInput8Create(windowSystem->GetHInstance(), DIRECTINPUT_VERSION,
+                         IID_IDirectInput8, (void **)&directInput, nullptr);
   assert(SUCCEEDED(result));
 
   // キーボードデバイスの生成
@@ -25,9 +28,10 @@ void InputKeyState::Initialize(HINSTANCE hInstance, HWND hwnd) {
 
   // 排他制御レベルのセット
   result = keyboard->SetCooperativeLevel(
-      hwnd, DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
-                | DISCL_NONEXCLUSIVE // デバイスをこのｎアプリだけで専有しない
-                | DISCL_NOWINKEY // Windowsキーを無効化
+      windowSystem->GetHwnd(),
+      DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
+          | DISCL_NONEXCLUSIVE // デバイスをこのｎアプリだけで専有しない
+          | DISCL_NOWINKEY // Windowsキーを無効化
   );
   assert(SUCCEEDED(result));
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "windowSystem.h"
 #include <Windows.h>
 #include <cstring>
 #include <dinput.h>
@@ -23,11 +24,13 @@ private:
 
   ComPtr<IDirectInputDevice8> keyboard;
 
+  WindowSystem *windowSystem = nullptr;
+
 public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(HINSTANCE hInstance, HWND hwnd);
+  void Initialize(WindowSystem *windowSystem);
 
   /// <summary>
   /// 更新処理
