@@ -132,7 +132,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="D3DResourceLeakChacker.cpp" />
     <ClCompile Include="DebugCamera.cpp" />
+    <ClCompile Include="Dx12Core.cpp" />
     <ClCompile Include="externals\imgui\imgui.cpp" />
     <ClCompile Include="externals\imgui\imgui_demo.cpp" />
     <ClCompile Include="externals\imgui\imgui_draw.cpp" />
@@ -142,12 +144,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="InputKeyState.cpp" />
     <ClCompile Include="InputMouseState.cpp" />
+    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="MatrixUtility.cpp" />
     <ClCompile Include="ResourceObject.cpp" />
+    <ClCompile Include="StringUtil.cpp" />
     <ClCompile Include="WindowSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -169,8 +173,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="D3DResourceLeakChacker.h" />
     <ClInclude Include="DebugCamera.h" />
     <ClInclude Include="DirectionalLight.h" />
+    <ClInclude Include="Dx12Core.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
     <ClInclude Include="externals\imgui\imgui_impl_dx12.h" />
@@ -182,6 +188,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Field.h" />
     <ClInclude Include="InputKeyState.h" />
     <ClInclude Include="InputMouseState.h" />
+    <ClInclude Include="Logger.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="MaterialData.h" />
     <ClInclude Include="Matrix3x3.h" />
@@ -190,6 +197,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="ModelData.h" />
     <ClInclude Include="Particle.h" />
     <ClInclude Include="ResourceObject.h" />
+    <ClInclude Include="StringUtil.h" />
     <ClInclude Include="Transform.h" />
     <ClInclude Include="TransformationMatrix.h" />
     <ClInclude Include="Vector2.h" />
