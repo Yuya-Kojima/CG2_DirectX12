@@ -71,6 +71,9 @@ void WindowSystem::Initialize() {
 
   // ウィンドウを表示する
   ShowWindow(hwnd, SW_SHOW);
+
+  // システムタイマーの分解能を上げる
+  timeBeginPeriod(1);
 }
 
 void WindowSystem::Update() {}

@@ -8,6 +8,7 @@
 #include "externals/imgui/imgui_impl_win32.h"
 // #include <Windows.h>
 #include "D3DResourceLeakChacker.h"
+#include "TextureManager.h"
 #include <cassert>
 #include <cstdint>
 #include <d3d12.h>
@@ -28,6 +29,8 @@
 #include "ModelData.h"
 #include "Particle.h"
 #include "ResourceObject.h"
+#include "Sprite.h"
+#include "SpriteRenderer.h"
 #include "StringUtil.h"
 #include "TransformationMatrix.h"
 #include "WindowSystem.h"
@@ -254,10 +257,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   ID3D12Device *device = dx12Core->GetDevice();
   ID3D12GraphicsCommandList *commandList = dx12Core->GetCommandList();
 
-  //// DirectInputの初期化
+  // スプライトの共通部分
+  SpriteRenderer *spriteRenderer = nullptr;
+  spriteRenderer = new SpriteRenderer();
+  spriteRenderer->Initialize(dx12Core);
+
+  // DirectInputの初期化
   InputKeyState *input = nullptr;
   input = new InputKeyState();
   input->Initialize(windowSystem);
+
+  // テクスチャマネージャーの初期化
+  // TextureManager::GetInstance()->Initialize(dx12Core);
 
   //=============================
   // サウンド用
@@ -341,6 +352,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // ディスクリプタヒープが作れなかったので起動できない
   assert(SUCCEEDED(hr));
+
+  // Sprite *sprite = nullptr;
+  // sprite = new Sprite();
+  // sprite->Initialize(spriteRenderer, dx12Core, textureSrvHandleGPU);
+
+  std::vector<Sprite *> sprites;
+  const int kSpriteCount = 5;
+  for (int i = 0; i < kSpriteCount; ++i) {
+    Sprite *sprite = new Sprite();
+    sprite->Initialize(spriteRenderer, dx12Core, textureSrvHandleGPU);
+    sprites.push_back(sprite);
+  }
 
   // RootSignatureを作成
   D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
@@ -1138,6 +1161,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   bool set60FPS = false;
 
+  // スプライトのTransform
+  // Vector2 spritePosition{
+  //    0.0f,
+  //    0.0f,
+  //};
+
+  // float spriteRotation = 0.0f;
+
+  // Vector4 spriteColor{1.0f, 1.0f, 1.0f, 1.0f};
+
+  // Vector2 spriteSize{640.0f, 360.0f};
+
+  Vector2 spritePosition[kSpriteCount];
+
+  Vector2 spriteSize[kSpriteCount];
+
+  for (uint32_t i = 0; i < kSpriteCount; ++i) {
+    spritePosition[i] = {i * 200.0f, 0.0f};
+    spriteSize[i] = {150.0f, 150.0f};
+  }
+
   // 板ポリをカメラに向ける回転行列
   Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
 
@@ -1207,7 +1251,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ImGui::Checkbox("useBillboard", &useBillboard);
     ImGui::Checkbox("set60FPS", &set60FPS);
 
+    // FPSをセット
     dx12Core->SetFPS(set60FPS);
+
+    // スプライトの情報を呼び出す
+    // spritePosition = sprite->GetPosition();
+    // spriteRotation = sprite->GetRotation();
+    // spriteColor = sprite->GetColor();
+    // spriteSize = sprite->GetSize();
 
     if (ImGui::Button("Add Particle")) {
       particles.splice(particles.end(), Emit(emitter, randomEngine));
@@ -1221,8 +1272,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                       1.0f);
     ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.01f, 0.0f,
                      10.0f);
-    ImGui::DragFloat3("cameraTranslate", &cameraTransform.translate.x, 0.01f);
-    ImGui::DragFloat3("cameraRotate", &cameraTransform.rotate.x, 0.001f);
+    ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x, 0.01f);
+    ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x, 0.001f);
+
+    // ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
+
+    // ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
+    // ImGui::DragFloat("SpriteRotation", &spriteRotation, 1.0f);
+    // ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
 
     ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
                       -10.0f, 10.0f);
@@ -1232,6 +1289,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     materialData->enableLighting = enableLighting;
     directionalLightData->direction = Normalize(tempDirection);
+
+    // スプライトに設定
+    // sprite->SetPosition(spritePosition);
+    // sprite->SetRotation(spriteRotation);
+    // sprite->SetColor(spriteColor);
+    // sprite->SetSize(spriteSize);
+
+    for (uint32_t i = 0; i < kSpriteCount; ++i) {
+      spritePosition[i].x++;
+      sprites[i]->SetPosition(spritePosition[i]);
+      sprites[i]->SetSize(spriteSize[i]);
+    }
 
     // ImGuiの内部コマンドを生成する
     ImGui::Render();
@@ -1308,38 +1377,41 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     }
 
     // Sprite用のWorldViewProjectionMatrixを作る
-    Matrix4x4 worldMatrixSprite =
-        MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
-                         transformSprite.translate);
-    Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
-    Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(
-        0.0f, 0.0f, float(WindowSystem::kClientWidth),
-        float(WindowSystem::kClientHeight), 0.0f, 100.0f);
-    Matrix4x4 worldViewProjectionMatrixSprite = Multiply(
-        Multiply(worldMatrixSprite, viewMatrixSprite), projectionMatrixSprite);
+    // Matrix4x4 worldMatrixSprite =
+    //    MakeAffineMatrix(transformSprite.scale, transformSprite.rotate,
+    //                     transformSprite.translate);
+    // Matrix4x4 viewMatrixSprite = MakeIdentity4x4();
+    // Matrix4x4 projectionMatrixSprite = MakeOrthographicMatrix(
+    //    0.0f, 0.0f, float(WindowSystem::kClientWidth),
+    //    float(WindowSystem::kClientHeight), 0.0f, 100.0f);
+    // Matrix4x4 worldViewProjectionMatrixSprite = Multiply(
+    //    Multiply(worldMatrixSprite, viewMatrixSprite),
+    //    projectionMatrixSprite);
 
-    Matrix4x4 uvTransformMatrix = MakeScaleMatrix(uvTransformSprite.scale);
-    uvTransformMatrix = Multiply(uvTransformMatrix,
-                                 MakeRotateZMatrix(uvTransformSprite.rotate.z));
-    uvTransformMatrix = Multiply(
-        uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
-    materialDataSprite->uvTransform = uvTransformMatrix;
+    // Matrix4x4 uvTransformMatrix = MakeScaleMatrix(uvTransformSprite.scale);
+    // uvTransformMatrix = Multiply(uvTransformMatrix,
+    //                              MakeRotateZMatrix(uvTransformSprite.rotate.z));
+    // uvTransformMatrix = Multiply(
+    //     uvTransformMatrix, MakeTranslateMatrix(uvTransformSprite.translate));
+    // materialDataSprite->uvTransform = uvTransformMatrix;
 
-    transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
-    transformationMatrixDataSprite->World = worldMatrixSprite;
+    // transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
+    // transformationMatrixDataSprite->World = worldMatrixSprite;
 
-    // 描画前処理
+    // sprite->Update(uvTransformSprite);
+
+    for (uint32_t i = 0; i < kSpriteCount; ++i) {
+      sprites[i]->Update(uvTransformSprite);
+    }
+
+    // DirectXの描画準備。すべてに共通のグラフィックスコマンドを積む
     dx12Core->BeginFrame();
 
     // RootSignatureを設定。PSOに設定しているけど別途設定が必要
     commandList->SetGraphicsRootSignature(rootSignatureParticle.Get());
-    commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
-    commandList->IASetVertexBuffers(0, 1, &vertexBufferView);   // VBVを設定
-
-    commandList->SetGraphicsRootSignature(rootSignatureParticle.Get());
-    commandList->SetPipelineState(graphicsPipeLineStateParticle.Get());
-
-    // for (int i = 0; i < 10; i++) {
+    commandList->SetPipelineState(
+        graphicsPipeLineStateParticle.Get());                 // PSOを設定
+    commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 
     // 形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -1366,30 +1438,40 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
                                0);
     // commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
 
-    commandList->SetGraphicsRootSignature(rootSignature.Get());
-    commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
+    // commandList->SetGraphicsRootSignature(rootSignature.Get());
+    // commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
 
-    // Spriteの描画
-    commandList->IASetVertexBuffers(0, 1,
-                                    &vertexBufferViewSprite); // VBVを設定
+    ////// Spriteの描画
+    // commandList->IASetVertexBuffers(0, 1,
+    //                                 &vertexBufferViewSprite); // VBVを設定
 
-    commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
+    // commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
 
-    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    // commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-    // マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
-    commandList->SetGraphicsRootConstantBufferView(
-        0, materialResourceSprite->GetGPUVirtualAddress());
+    ////// マテリアルCBufferの場所を設定。球とは別のマテリアルを使う
+    // commandList->SetGraphicsRootConstantBufferView(
+    //     0, materialResourceSprite->GetGPUVirtualAddress());
 
-    // TransformationMatrixCBufferの場所を設定
-    commandList->SetGraphicsRootConstantBufferView(
-        1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
+    ////// TransformationMatrixCBufferの場所を設定
+    // commandList->SetGraphicsRootConstantBufferView(
+    //     1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 
-    // Spriteは常に"uvChecker"にする
-    commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+    ////// Spriteは常に"uvChecker"にする
+    // commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
-    // ドローコール
+    //// ドローコール
     // commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+
+    // Spriteの描画準備。Spriteの描画に共通のグラフィックスコマンドを積む
+    spriteRenderer->Begin();
+
+    // スプライトの描画
+    // sprite->Draw();
+
+    for (uint32_t i = 0; i < kSpriteCount; ++i) {
+      sprites[i]->Draw();
+    }
 
     // 実際のcommandListのImGuiの描画コマンドを積む
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
@@ -1422,7 +1504,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   delete debugCamera;
 
+  // TextureManager::GetInstance()->Finalize();
+
   delete input;
+
+  // delete sprite;
+
+  for (uint32_t i = 0; i < kSpriteCount; ++i) {
+    delete sprites[i];
+  }
+
+  delete spriteRenderer;
 
   delete dx12Core;
 

@@ -17,6 +17,8 @@
 
 using namespace Microsoft::WRL;
 
+const uint32_t Dx12Core::kMaxSRVCount = 512;
+
 Microsoft::WRL::ComPtr<ID3D12Resource>
 CreateDepthStencilTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> &device,
                                   int32_t width, int32_t height) {
@@ -243,7 +245,7 @@ void Dx12Core::EndFrame() {
 
   // FPS固定
   if (set60FPS) {
-  UpdateFixFPS();
+    UpdateFixFPS();
   }
 
   // 次のフレーム用のコマンドリストを準備
@@ -456,7 +458,7 @@ void Dx12Core::InitializeDescriptorHeap() {
 
   // SRV用のヒープでディスクリプタの数は128。STVはShader内で触るものなので、ShaderVisibleはtrue
   srvDescriptorHeap =
-      CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+      CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kMaxSRVCount, true);
 
   // DSV用のヒープのでディスクリプタの数は1。DSVはShader内で触るものではないので、shaderVisibleはfalse
   dsvDescriptorHeap =
@@ -777,26 +779,6 @@ void Dx12Core::UploadTextureData(Microsoft::WRL::ComPtr<ID3D12Resource> texture,
   }
 }
 
-DirectX::ScratchImage Dx12Core::LoadTexture(const std::string &filePath) {
-
-  // テクスチャファイルを読んでプログラムで扱えるようにする
-  DirectX::ScratchImage image{};
-  std::wstring filePathW = StringUtil::ConvertString(filePath);
-  HRESULT hr = DirectX::LoadFromWICFile(
-      filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
-  assert(SUCCEEDED(hr));
-
-  // ミニマップの作成
-  DirectX::ScratchImage mipImages{};
-  hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
-                                image.GetMetadata(), DirectX::TEX_FILTER_SRGB,
-                                0, mipImages);
-  assert(SUCCEEDED(hr));
-
-  // ミニマップ付きのデータを返す
-  return mipImages;
-}
-
 void Dx12Core::InitializeFixFPS() {
 
   // 現在時間を記録する
@@ -819,7 +801,7 @@ void Dx12Core::UpdateFixFPS() {
       std::chrono::duration_cast<std::chrono::microseconds>(now - reference_);
 
   // 1/60秒（よりわずかに短い時間）経っていない場合
-  if (elapsed < kMinTime) {
+  if (elapsed < kMinCheckTime) {
     // 1/60秒経過するまで微小なスリープを繰り返す
     while (std::chrono::steady_clock::now() - reference_ < kMinTime) {
       // 1マイクロ秒スリープ
@@ -829,4 +811,24 @@ void Dx12Core::UpdateFixFPS() {
 
   // 現在の時間を記録する
   reference_ = std::chrono::steady_clock::now();
+}
+
+DirectX::ScratchImage Dx12Core::LoadTexture(const std::string &filePath) {
+
+  // テクスチャファイルを読んでプログラムで扱えるようにする
+  DirectX::ScratchImage image{};
+  std::wstring filePathW = StringUtil::ConvertString(filePath);
+  HRESULT hr = DirectX::LoadFromWICFile(
+      filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+  assert(SUCCEEDED(hr));
+
+  // ミニマップの作成
+  DirectX::ScratchImage mipImages{};
+  hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
+                                image.GetMetadata(), DirectX::TEX_FILTER_SRGB,
+                                0, mipImages);
+  assert(SUCCEEDED(hr));
+
+  // ミニマップ付きのデータを返す
+  return mipImages;
 }

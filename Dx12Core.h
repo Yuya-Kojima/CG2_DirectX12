@@ -241,7 +241,7 @@ public:
   void UploadTextureData(Microsoft::WRL::ComPtr<ID3D12Resource> texture,
                          const DirectX::ScratchImage &mipImages);
 
-  /// <summary>
+    /// <summary>
   /// テクスチャファイルの読み込み
   /// </summary>
   /// <param name="filePath">テクスチャファイルパス</param>
@@ -271,4 +271,8 @@ private:
   std::chrono::steady_clock::time_point reference_;
 
   bool set60FPS = false;
+
+public:
+  // 最大SRV数(最大テクスチャ枚数)
+  static const uint32_t kMaxSRVCount;
 };
