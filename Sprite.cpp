@@ -1,23 +1,25 @@
 #include "Sprite.h"
 #include "MatrixUtility.h"
 #include "SpriteRenderer.h"
-#include"TextureManager.h"
+#include "TextureManager.h"
 
 void Sprite::Initialize(SpriteRenderer *spriteRenderer, Dx12Core *dx12Core,
-                        D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU) {
+                        std::string textureFilePath) {
 
   spriteRenderer_ = spriteRenderer;
 
   dx12Core_ = dx12Core;
 
-  textureSrvHandleGPU_ = textureSrvHandleGPU;
+  textureIndex_ =
+      TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+
+  // textureSrvHandleGPU_ = textureSrvHandleGPU;
 
   CreateVertexData();
 
   CreateMaterialData();
 
   CreateTransformationMatrixData();
-
 }
 
 void Sprite::Update(Transform uvTransform) {
@@ -112,7 +114,8 @@ void Sprite::Draw() {
       1, transformationMatrixResource->GetGPUVirtualAddress());
 
   // SRVのDiscriptorTableの先頭を設定(描画に使うテクスチャの設定)
-  commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU_);
+  commandList_->SetGraphicsRootDescriptorTable(
+      2, TextureManager::GetInstance()->GetSrvHandleGPU(textureIndex_));
 
   // 描画(ドローコール)
   commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);

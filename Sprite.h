@@ -38,7 +38,7 @@ public:
   /// 初期化
   /// </summary>
   void Initialize(SpriteRenderer *spriteRenderer, Dx12Core *dx12Core,
-                  D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU);
+                  std::string textureFilePath);
 
   /// <summary>
   /// 更新処理
@@ -55,7 +55,10 @@ private:
 
   Dx12Core *dx12Core_ = nullptr;
 
-  D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU_{};
+  // テクスチャ番号
+  uint32_t textureIndex_ = 0;
+
+  // D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU_{};
 
 private:
   /* 頂点データ
@@ -164,8 +167,4 @@ public:
   /// </summary>
   /// <param name="position"></param>
   void SetSize(const Vector2 &size) { this->size = size; }
-
-private:
-  // テクスチャ番号
-  uint32_t textureIndex = 0;
 };
