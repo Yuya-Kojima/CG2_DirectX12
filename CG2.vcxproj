@@ -150,6 +150,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</WholeProgramOptimization>
     </ClCompile>
     <ClCompile Include="MatrixUtility.cpp" />
+    <ClCompile Include="Object3d.cpp" />
+    <ClCompile Include="Object3dRenderer.cpp" />
     <ClCompile Include="ResourceObject.cpp" />
     <ClCompile Include="Sprite.cpp" />
     <ClCompile Include="SpriteRenderer.cpp" />
@@ -198,6 +200,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Matrix4x4.h" />
     <ClInclude Include="MatrixUtility.h" />
     <ClInclude Include="ModelData.h" />
+    <ClInclude Include="Object3d.h" />
+    <ClInclude Include="Object3dRenderer.h" />
     <ClInclude Include="Particle.h" />
     <ClInclude Include="ResourceObject.h" />
     <ClInclude Include="Sprite.h" />

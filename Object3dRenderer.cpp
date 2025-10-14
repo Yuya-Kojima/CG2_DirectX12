@@ -1,20 +1,20 @@
-#include "SpriteRenderer.h"
+#include "Object3dRenderer.h"
 #include "Logger.h"
+#include "StringUtil.h"
 
-void SpriteRenderer::Initialize(Dx12Core *dx12Core) {
-
+void Object3dRenderer::Initialize(Dx12Core *dx12Core) {
   dx12Core_ = dx12Core;
 
-  device_ = dx12Core_->GetDevice();
+  CreateRootSignature();
 
-  commandList_ = dx12Core_->GetCommandList();
-
-  CreateSpritePSO();
+  CreatePSO();
 }
 
-void SpriteRenderer::CreateSpriteRootSignature() {
+void Object3dRenderer::CreateRootSignature() {
 
   HRESULT hr;
+
+  ID3D12Device *device = dx12Core_->GetDevice();
 
   // RootSignatureを作成
   D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
@@ -94,17 +94,18 @@ void SpriteRenderer::CreateSpriteRootSignature() {
 
   // バイナリを元に生成
   rootSignature_ = nullptr;
-  hr = device_->CreateRootSignature(0, signatureBlob->GetBufferPointer(),
-                                    signatureBlob->GetBufferSize(),
-                                    IID_PPV_ARGS(&rootSignature_));
+  hr = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(),
+                                   signatureBlob->GetBufferSize(),
+                                   IID_PPV_ARGS(&rootSignature_));
   assert(SUCCEEDED(hr));
 }
 
-void SpriteRenderer::CreateSpritePSO() {
-
+void Object3dRenderer::CreatePSO() {
   HRESULT hr;
 
-  CreateSpriteRootSignature();
+  ID3D12Device *device = dx12Core_->GetDevice();
+
+  CreateRootSignature();
 
   // inputLayout
   D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
@@ -213,19 +214,21 @@ void SpriteRenderer::CreateSpritePSO() {
 
   // 実際に生成
   graphicsPipeLineState_ = nullptr;
-  hr = device_->CreateGraphicsPipelineState(
+  hr = device->CreateGraphicsPipelineState(
       &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipeLineState_));
   assert(SUCCEEDED(hr));
 }
 
-void SpriteRenderer::Begin() {
+void Object3dRenderer::Begin() {
+  Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
+      dx12Core_->GetCommandList();
 
   // RootSignatureをセット
-  commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+  commandList->SetGraphicsRootSignature(rootSignature_.Get());
 
   // PSOをセット
-  commandList_->SetPipelineState(graphicsPipeLineState_.Get());
+  commandList->SetPipelineState(graphicsPipeLineState_.Get());
 
   // プリミティブトポロジー(形状）をセット
-  commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }

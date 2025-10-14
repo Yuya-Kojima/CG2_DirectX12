@@ -1,27 +1,22 @@
 #pragma once
 #include "Dx12Core.h"
 
-class SpriteRenderer {
+class Object3dRenderer {
 
 public:
   /// <summary>
   /// 初期化
   /// </summary>
+  /// <param name="dx12Core"></param>
   void Initialize(Dx12Core *dx12Core);
 
- // Dx12Core *GetDx12Core() const { return dx12Core_; }
-
   /// <summary>
-  /// 共通描画設定
+  /// 描画前共通部分処理
   /// </summary>
   void Begin();
 
 private:
   Dx12Core *dx12Core_ = nullptr;
-
-  ID3D12Device *device_ = nullptr;
-
-  ID3D12GraphicsCommandList *commandList_ = nullptr;
 
   // ルートシグネチャ
   Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
@@ -30,12 +25,12 @@ private:
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
 
   /// <summary>
-  /// ルートシグネチャの生成
+  /// ルートシグネチャを作成
   /// </summary>
-  void CreateSpriteRootSignature();
+  void CreateRootSignature();
 
   /// <summary>
-  /// PSOの生成
+  /// オブジェクト用のPSOを作成
   /// </summary>
-  void CreateSpritePSO();
+  void CreatePSO();
 };
