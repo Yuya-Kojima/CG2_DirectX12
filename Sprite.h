@@ -119,6 +119,9 @@ private:
   // size
   Vector2 size{640.0f, 360.0f};
 
+  // アンカーポイント
+  Vector2 anchorPoint = {0.0f, 0.0f};
+
 public:
   /// <summary>
   /// positionのゲッター
@@ -167,6 +170,10 @@ public:
   /// </summary>
   /// <param name="position"></param>
   void SetSize(const Vector2 &size) { this->size = size; }
+
+  Vector2 GetAnchorPoint() const { return anchorPoint; }
+
+  void SetAnchorPoint(Vector2 anchorPoint) { this->anchorPoint = anchorPoint; }
 
   /// <summary>
   /// 任意のタイミングでテクスチャを変更する

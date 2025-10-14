@@ -374,6 +374,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     sprites.push_back(sprite);
   }
 
+  Sprite *sprite = new Sprite();
+  sprite->Initialize(spriteRenderer, dx12Core, "resources/uvChecker.png");
+
   // RootSignatureを作成
   D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
   descriptionRootSignature.Flags =
@@ -1171,25 +1174,35 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   bool set60FPS = false;
 
   // スプライトのTransform
-  // Vector2 spritePosition{
-  //    0.0f,
-  //    0.0f,
-  //};
+  Vector2 spritePosition{
+      640.0f,
+      360.0f,
+  };
 
-  // float spriteRotation = 0.0f;
+  float spriteRotation = 0.0f;
 
-  // Vector4 spriteColor{1.0f, 1.0f, 1.0f, 1.0f};
+  Vector4 spriteColor{1.0f, 1.0f, 1.0f, 1.0f};
 
-  // Vector2 spriteSize{640.0f, 360.0f};
+  Vector2 spriteSize{640.0f, 360.0f};
 
-  Vector2 spritePosition[kSpriteCount];
+  Vector2 spriteAnchorPoint{0.5f, 0.5f};
 
-  Vector2 spriteSize[kSpriteCount];
+  sprite->SetPosition(spritePosition);
+  sprite->SetRotation(spriteRotation);
+  sprite->SetColor(spriteColor);
+  sprite->SetSize(spriteSize);
+  sprite->SetAnchorPoint(spriteAnchorPoint);
 
-  for (uint32_t i = 0; i < kSpriteCount; ++i) {
-    spritePosition[i] = {i * 200.0f, 0.0f};
-    spriteSize[i] = {150.0f, 150.0f};
-  }
+  // Vector2 spritePositions[kSpriteCount];
+
+  // Vector2 spriteSizes[kSpriteCount];
+
+  // Vector2 spriteAnchorPoints[kSpriteCount];
+
+  // for (uint32_t i = 0; i < kSpriteCount; ++i) {
+  //   spritePositions[i] = {i * 200.0f, 0.0f};
+  //   spriteSizes[i] = {150.0f, 150.0f};
+  // }
 
   // 板ポリをカメラに向ける回転行列
   Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
@@ -1264,10 +1277,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     dx12Core->SetFPS(set60FPS);
 
     // スプライトの情報を呼び出す
-    // spritePosition = sprite->GetPosition();
-    // spriteRotation = sprite->GetRotation();
-    // spriteColor = sprite->GetColor();
-    // spriteSize = sprite->GetSize();
+    spritePosition = sprite->GetPosition();
+    spriteRotation = sprite->GetRotation();
+    spriteColor = sprite->GetColor();
+    spriteSize = sprite->GetSize();
+    spriteAnchorPoint = sprite->GetAnchorPoint();
 
     if (ImGui::Button("Add Particle")) {
       particles.splice(particles.end(), Emit(emitter, randomEngine));
@@ -1284,11 +1298,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x, 0.01f);
     ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x, 0.001f);
 
-    // ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
+    ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
 
-    // ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
-    // ImGui::DragFloat("SpriteRotation", &spriteRotation, 1.0f);
-    // ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
+    ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
+    ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
+    ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
+    ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
 
     ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
                       -10.0f, 10.0f);
@@ -1300,21 +1315,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     directionalLightData->direction = Normalize(tempDirection);
 
     // スプライトに設定
-    // sprite->SetPosition(spritePosition);
-    // sprite->SetRotation(spriteRotation);
-    // sprite->SetColor(spriteColor);
-    // sprite->SetSize(spriteSize);
+    sprite->SetPosition(spritePosition);
+    sprite->SetRotation(spriteRotation);
+    sprite->SetColor(spriteColor);
+    sprite->SetSize(spriteSize);
+    sprite->SetAnchorPoint(spriteAnchorPoint);
 
     // テクスチャ差し替え
     if (input->IsTriggerKey(DIK_SPACE)) {
       sprites[0]->ChangeTexture("resources/uvChecker.png");
     }
 
-    for (uint32_t i = 0; i < kSpriteCount; ++i) {
-      // spritePosition[i].x++;
-      sprites[i]->SetPosition(spritePosition[i]);
-      sprites[i]->SetSize(spriteSize[i]);
-    }
+    // for (uint32_t i = 0; i < kSpriteCount; ++i) {
+    //   // spritePosition[i].x++;
+    //   sprites[i]->SetPosition(spritePositions[i]);
+    //   sprites[i]->SetSize(spriteSizes[i]);
+    // }
 
     // ImGuiの内部コマンドを生成する
     ImGui::Render();
@@ -1412,7 +1428,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
     // transformationMatrixDataSprite->World = worldMatrixSprite;
 
-    // sprite->Update(uvTransformSprite);
+    sprite->Update(uvTransformSprite);
 
     for (uint32_t i = 0; i < kSpriteCount; ++i) {
       sprites[i]->Update(uvTransformSprite);
@@ -1482,11 +1498,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     spriteRenderer->Begin();
 
     // スプライトの描画
-    // sprite->Draw();
+    sprite->Draw();
 
-    for (uint32_t i = 0; i < kSpriteCount; ++i) {
-      sprites[i]->Draw();
-    }
+    // for (uint32_t i = 0; i < kSpriteCount; ++i) {
+    //   sprites[i]->Draw();
+    // }
 
     // 実際のcommandListのImGuiの描画コマンドを積む
     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
@@ -1523,7 +1539,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   delete input;
 
-  // delete sprite;
+  delete sprite;
 
   for (uint32_t i = 0; i < kSpriteCount; ++i) {
     delete sprites[i];
