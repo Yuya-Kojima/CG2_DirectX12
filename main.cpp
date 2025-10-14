@@ -1187,11 +1187,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   Vector2 spriteAnchorPoint{0.5f, 0.5f};
 
+  bool isFlipX = false;
+  bool isFlipY = false;
+
   sprite->SetPosition(spritePosition);
   sprite->SetRotation(spriteRotation);
   sprite->SetColor(spriteColor);
   sprite->SetSize(spriteSize);
   sprite->SetAnchorPoint(spriteAnchorPoint);
+  sprite->SetIsFlipX(isFlipX);
+  sprite->SetIsFlipY(isFlipY);
 
   // Vector2 spritePositions[kSpriteCount];
 
@@ -1304,6 +1309,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
     ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
     ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
+    ImGui::Checkbox("isFlipX", &isFlipX);
+    ImGui::Checkbox("isFlipY", &isFlipY);
 
     ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
                       -10.0f, 10.0f);
@@ -1320,6 +1327,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     sprite->SetColor(spriteColor);
     sprite->SetSize(spriteSize);
     sprite->SetAnchorPoint(spriteAnchorPoint);
+    sprite->SetIsFlipX(isFlipX);
+    sprite->SetIsFlipY(isFlipY);
 
     // テクスチャ差し替え
     if (input->IsTriggerKey(DIK_SPACE)) {

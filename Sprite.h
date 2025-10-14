@@ -171,8 +171,16 @@ public:
   /// <param name="position"></param>
   void SetSize(const Vector2 &size) { this->size = size; }
 
+  /// <summary>
+  /// アンカーポイントのゲッター
+  /// </summary>
+  /// <returns></returns>
   Vector2 GetAnchorPoint() const { return anchorPoint; }
 
+  /// <summary>
+  /// アンカーポイントのセッター
+  /// </summary>
+  /// <param name="anchorPoint"></param>
   void SetAnchorPoint(Vector2 anchorPoint) { this->anchorPoint = anchorPoint; }
 
   /// <summary>
@@ -180,4 +188,55 @@ public:
   /// </summary>
   /// <param name="textureFilePath"></param>
   void ChangeTexture(std::string textureFilePath);
+
+  // フリップのゲッター
+  bool GetIsFlipX() const { return isFlipX; }
+  bool GetIsFlipY() const { return isFlipY; }
+
+  // フリップのセッター
+  void SetIsFlipX(const bool isFlipX) { this->isFlipX = isFlipX; }
+  void SetIsFlipY(const bool isFlipY) { this->isFlipY = isFlipY; }
+
+  /// <summary>
+  /// テクスチャ左上座標ゲッター
+  /// </summary>
+  /// <returns></returns>
+  Vector2 GetTextureLeftTop() const { return textureLeftTop; }
+
+  /// <summary>
+  /// テクスチャ左上座標セッター
+  /// </summary>
+  /// <param name="textureLeftTop"></param>
+  void SetTextureLeftTop(Vector2 textureLeftTop) {
+    this->textureLeftTop = textureLeftTop;
+  }
+
+  /// <summary>
+  /// テクスチャ切り出しサイズゲッター
+  /// </summary>
+  /// <returns></returns>
+  Vector2 GetTextureSize() const { return textureSize; }
+
+  /// <summary>
+  /// テクスチャ切り出しサイズセッター
+  /// </summary>
+  /// <param name="textureSize"></param>
+  void SetTextureSize(Vector2 textureSize) { this->textureSize = textureSize; }
+
+private:
+  // 左右フリップ
+  bool isFlipX = false;
+
+  // 上下フリップ
+  bool isFlipY = false;
+
+private:
+  // テクスチャ左上座標
+  Vector2 textureLeftTop{0.0f, 0.0f};
+
+  // テクスチャ切り出しサイズ
+  Vector2 textureSize{100.0f, 100.0f};
+
+  // テクスチャサイズをイメージに合わせる
+  void AdjustTextureSize();
 };
