@@ -1305,8 +1305,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // sprite->SetColor(spriteColor);
     // sprite->SetSize(spriteSize);
 
+    // テクスチャ差し替え
+    if (input->IsTriggerKey(DIK_SPACE)) {
+      sprites[0]->ChangeTexture("resources/uvChecker.png");
+    }
+
     for (uint32_t i = 0; i < kSpriteCount; ++i) {
-      spritePosition[i].x++;
+      // spritePosition[i].x++;
       sprites[i]->SetPosition(spritePosition[i]);
       sprites[i]->SetSize(spriteSize[i]);
     }

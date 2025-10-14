@@ -196,3 +196,13 @@ void Sprite::CreateTransformationMatrixData() {
   transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
 }
+
+void Sprite::ChangeTexture(std::string textureFilePath) {
+
+  // まだ読み込まれていないテクスチャであれば読み込む
+  TextureManager::GetInstance()->LoadTexture(textureFilePath);
+
+  // テクスチャ番号を取得して差し替える
+  textureIndex_ =
+      TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+}

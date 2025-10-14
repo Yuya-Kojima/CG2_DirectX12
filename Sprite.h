@@ -167,4 +167,10 @@ public:
   /// </summary>
   /// <param name="position"></param>
   void SetSize(const Vector2 &size) { this->size = size; }
+
+  /// <summary>
+  /// 任意のタイミングでテクスチャを変更する
+  /// </summary>
+  /// <param name="textureFilePath"></param>
+  void ChangeTexture(std::string textureFilePath);
 };
