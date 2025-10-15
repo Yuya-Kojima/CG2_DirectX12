@@ -1,8 +1,8 @@
 #pragma once
 #include "InputKeyState.h"
 #include "InputMouseState.h"
+#include "MathUtil.h"
 #include "Matrix4x4.h"
-#include "MatrixUtility.h"
 #include "Vector3.h"
 #include <Windows.h>
 #include <cassert>

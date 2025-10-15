@@ -3,6 +3,48 @@
 #include "Vector3.h"
 #include <cmath>
 
+//=========================
+// Vector3
+//=========================
+
+inline float LengthSq(const Vector3 &v) {
+  return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+inline float Length(const Vector3 &v) { return std::sqrt(LengthSq(v)); }
+
+inline float Dot(const Vector3 &a, const Vector3 &b) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+inline Vector3 Cross(const Vector3 &a, const Vector3 &b) {
+  return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
+}
+
+// ゼロ除算に安全な正規化（長さが極小なら {0,0,0} を返す）
+inline Vector3 SafeNormalize(const Vector3 &v, float eps = 1e-6f) {
+  float lsq = LengthSq(v);
+  if (lsq <= eps * eps)
+    return {0.0f, 0.0f, 0.0f};
+  float invLen = 1.0f / std::sqrt(lsq);
+  return {v.x * invLen, v.y * invLen, v.z * invLen};
+}
+
+// そのまま正規化（ゼロに厳密でない場合）
+inline Vector3 Normalize(const Vector3 &v) {
+  float len = Length(v);
+  return (len > 0.0f) ? Vector3{v.x / len, v.y / len, v.z / len}
+                      : Vector3{0.0f, 0.0f, 0.0f};
+}
+
+inline Vector3 Lerp(const Vector3 &a, const Vector3 &b, float t) {
+  return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
+}
+
+//=========================
+// Matrix4x4
+//=========================
+
 /// <summary>
 /// 単位行列作成
 /// </summary>
@@ -91,4 +133,5 @@ Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
 /// <returns>逆行列</returns>
 Matrix4x4 Inverse(Matrix4x4 matrix);
 
+// 法線の変換（回転・スケールのみ適用／平行移動は無視）
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);

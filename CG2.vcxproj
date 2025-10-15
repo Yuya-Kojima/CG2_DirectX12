@@ -149,7 +149,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</WholeProgramOptimization>
     </ClCompile>
-    <ClCompile Include="MatrixUtility.cpp" />
+    <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="Object3d.cpp" />
     <ClCompile Include="Object3dRenderer.cpp" />
     <ClCompile Include="ResourceObject.cpp" />
@@ -196,9 +196,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Logger.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="MaterialData.h" />
+    <ClInclude Include="MathUtil.h" />
     <ClInclude Include="Matrix3x3.h" />
     <ClInclude Include="Matrix4x4.h" />
-    <ClInclude Include="MatrixUtility.h" />
     <ClInclude Include="ModelData.h" />
     <ClInclude Include="Object3d.h" />
     <ClInclude Include="Object3dRenderer.h" />

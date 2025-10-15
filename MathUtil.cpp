@@ -1,4 +1,4 @@
-#include "MatrixUtility.h"
+#include "MathUtil.h"
 
 Matrix4x4 MakeIdentity4x4() {
   Matrix4x4 matrix;

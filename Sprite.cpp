@@ -1,5 +1,5 @@
 #include "Sprite.h"
-#include "MatrixUtility.h"
+#include "MathUtil.h"
 #include "SpriteRenderer.h"
 #include "TextureManager.h"
 
