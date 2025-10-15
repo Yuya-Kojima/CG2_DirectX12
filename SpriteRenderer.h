@@ -9,7 +9,7 @@ public:
   /// </summary>
   void Initialize(Dx12Core *dx12Core);
 
- // Dx12Core *GetDx12Core() const { return dx12Core_; }
+  // Dx12Core *GetDx12Core() const { return dx12Core_; }
 
   /// <summary>
   /// 共通描画設定
@@ -19,6 +19,10 @@ public:
 private:
   Dx12Core *dx12Core_ = nullptr;
 
+public:
+  Dx12Core *GetDx12Core() const { return dx12Core_; }
+
+private:
   ID3D12Device *device_ = nullptr;
 
   ID3D12GraphicsCommandList *commandList_ = nullptr;

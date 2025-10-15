@@ -18,6 +18,10 @@ public:
 private:
   Dx12Core *dx12Core_ = nullptr;
 
+public:
+  Dx12Core *GetDx12Core() const { return dx12Core_; }
+
+private:
   // ルートシグネチャ
   Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 

@@ -3,12 +3,12 @@
 #include "SpriteRenderer.h"
 #include "TextureManager.h"
 
-void Sprite::Initialize(SpriteRenderer *spriteRenderer, Dx12Core *dx12Core,
+void Sprite::Initialize(SpriteRenderer *spriteRenderer,
                         std::string textureFilePath) {
 
   spriteRenderer_ = spriteRenderer;
 
-  dx12Core_ = dx12Core;
+  dx12Core_ = spriteRenderer->GetDx12Core();
 
   textureIndex_ =
       TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);

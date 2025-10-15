@@ -321,19 +321,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   for (int i = 0; i < kSpriteCount; ++i) {
     Sprite *sprite = new Sprite();
     if (i % 2 == 1) {
-      sprite->Initialize(spriteRenderer, dx12Core, "resources/uvChecker.png");
+      sprite->Initialize(spriteRenderer, "resources/uvChecker.png");
     } else {
-      sprite->Initialize(spriteRenderer, dx12Core, "resources/monsterball.png");
+      sprite->Initialize(spriteRenderer, "resources/monsterball.png");
     }
     sprites.push_back(sprite);
   }
 
   Sprite *sprite = new Sprite();
-  sprite->Initialize(spriteRenderer, dx12Core, "resources/uvChecker.png");
+  sprite->Initialize(spriteRenderer, "resources/uvChecker.png");
 
   // オブジェクトの生成と初期化
   Object3d *object3d = new Object3d();
-  object3d->Initialize(object3dRenderer, dx12Core);
+  object3d->Initialize(object3dRenderer);
 
   // RootSignatureを作成
   // D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};

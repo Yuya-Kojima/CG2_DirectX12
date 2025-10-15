@@ -37,8 +37,7 @@ public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(SpriteRenderer *spriteRenderer, Dx12Core *dx12Core,
-                  std::string textureFilePath);
+  void Initialize(SpriteRenderer *spriteRenderer, std::string textureFilePath);
 
   /// <summary>
   /// 更新処理

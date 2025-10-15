@@ -1,35 +1,21 @@
 #include "Object3d.h"
 #include "MathUtil.h"
+#include "Model.h"
+#include "Object3dRenderer.h"
 #include "TextureManager.h"
 #include <cassert>
 #include <fstream>
 #include <numbers>
 
-void Object3d::Initialize(Object3dRenderer *object3dRenderer,
-                          Dx12Core *dx12Core) {
+void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   object3dRenderer_ = object3dRenderer;
 
-  dx12Core_ = dx12Core;
-
-  LoadModelFile("resources", "plane.obj");
-
-  // objデータが参照しているテクスチャ読み込み
-  TextureManager::GetInstance()->LoadTexture(
-      modelData_.material.textureFilePath);
-
-  // 読み込んだテクスチャの番号を取得
-  modelData_.material.textureIndex =
-      TextureManager::GetInstance()->GetTextureIndexByFilePath(
-          modelData_.material.textureFilePath);
-
-  CreateMaterialData();
+  dx12Core_ = object3dRenderer_->GetDx12Core();
 
   CreateTransformationMatrixData();
 
   CreateDirectionalLightData();
-
-  CreateVertexData();
 
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
   cameraTransform_ = {
@@ -60,26 +46,18 @@ void Object3d::Draw() {
   Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
       dx12Core_->GetCommandList();
 
-  commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
-
-  // マテリアルCBufferの場所を設定
-  commandList->SetGraphicsRootConstantBufferView(
-      0, materialResource->GetGPUVirtualAddress());
-
   // wvp用のCBufferの場所を設定
   commandList->SetGraphicsRootConstantBufferView(
       1, transformationMatrixResource->GetGPUVirtualAddress());
-
-  // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
-  commandList->SetGraphicsRootDescriptorTable(
-      2, TextureManager::GetInstance()->GetSrvHandleGPU(1));
 
   // Lighting
   commandList->SetGraphicsRootConstantBufferView(
       3, directionalLightResource->GetGPUVirtualAddress());
 
-  // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
-  commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);
+  // 3Dモデルが割り当てられていれば描画する
+  if (model_) {
+    model_->Draw();
+  }
 }
 
 void Object3d::CreateMaterialData() {
