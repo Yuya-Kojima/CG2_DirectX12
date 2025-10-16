@@ -52,7 +52,7 @@ private:
   Model *model_;
 
 public:
-  void SetModel(Model *model) { model_ = model; }
+  void SetModel(const std::string &filePath);
 
 private:
   /* 座標変換行列データ
@@ -84,7 +84,7 @@ private:
   void CreateDirectionalLightData();
 
 private:
-  Vector3 scale_{1.0f,1.0f,1.0f};
+  Vector3 scale_{1.0f, 1.0f, 1.0f};
 
   Vector3 rotate_{};
 

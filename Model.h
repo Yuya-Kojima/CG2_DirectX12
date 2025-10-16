@@ -41,7 +41,9 @@ public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(ModelRenderer *modelRenderer);
+  void Initialize(ModelRenderer *modelRenderer,
+                  const std::string &directorypath,
+                  const std::string &filename);
 
   /// <summary>
   /// 描画
@@ -51,7 +53,7 @@ public:
 private:
   ModelRenderer *modelRenderer_;
 
-  Dx12Core *dx12Core_=nullptr;
+  Dx12Core *dx12Core_ = nullptr;
 
   // Objファイルのデータ
   ModelData modelData_;

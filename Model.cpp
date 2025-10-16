@@ -4,13 +4,15 @@
 #include "TextureManager.h"
 #include <fstream>
 
-void Model::Initialize(ModelRenderer *modelRenderer) {
+void Model::Initialize(ModelRenderer *modelRenderer,
+                       const std::string &directorypath,
+                       const std::string &filename) {
 
   modelRenderer_ = modelRenderer;
 
   dx12Core_ = modelRenderer_->GetDx12Core();
 
-  LoadModelFile("resources", "plane.obj");
+  LoadModelFile(directorypath, filename);
 
   CreateVertexData();
 
@@ -38,7 +40,7 @@ void Model::Draw() {
 
   // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
   commandList->SetGraphicsRootDescriptorTable(
-      2, TextureManager::GetInstance()->GetSrvHandleGPU(1));
+      2, TextureManager::GetInstance()->GetSrvHandleGPU(0));
 
   // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
   commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);
@@ -150,9 +152,9 @@ void Model::LoadModelFile(const std::string &directoryPath,
       }
 
       // 頂点を逆順で登録することで、回り順を逆にする
-      modelData.vertices.push_back(triangle[0]);
-      modelData.vertices.push_back(triangle[1]);
       modelData.vertices.push_back(triangle[2]);
+      modelData.vertices.push_back(triangle[1]);
+      modelData.vertices.push_back(triangle[0]);
     } else if (identifier == "mtllib") {
 
       // materialTemplateLibraryファイルの名前を取得

@@ -1,6 +1,7 @@
 #include "Object3d.h"
 #include "MathUtil.h"
 #include "Model.h"
+#include "ModelManager.h"
 #include "Object3dRenderer.h"
 #include "TextureManager.h"
 #include <cassert>
@@ -24,7 +25,7 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
 void Object3d::Update() {
 
-    transform_ = {scale_, rotate_, translate_};
+  transform_ = {scale_, rotate_, translate_};
 
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
@@ -60,6 +61,12 @@ void Object3d::Draw() {
   if (model_) {
     model_->Draw();
   }
+}
+
+void Object3d::SetModel(const std::string &filePath) {
+
+  // モデルを検索し、セット
+  model_ = ModelManager::GetInstance()->FindModel(filePath);
 }
 
 void Object3d::CreateTransformationMatrixData() {

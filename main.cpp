@@ -9,6 +9,7 @@
 #include "externals/imgui/imgui_impl_win32.h"
 // #include <Windows.h>
 #include "D3DResourceLeakChacker.h"
+#include "ModelManager.h"
 #include "TextureManager.h"
 #include <cassert>
 #include <cstdint>
@@ -272,9 +273,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   object3dRenderer->Initialize(dx12Core);
 
   // モデルの共通部分
-  ModelRenderer *modelRenderer = nullptr;
-  modelRenderer = new ModelRenderer();
-  modelRenderer->Initialize(dx12Core);
+  // ModelRenderer *modelRenderer = nullptr;
+  // modelRenderer = new ModelRenderer();
+  // modelRenderer->Initialize(dx12Core);
 
   // DirectInputの初期化
   InputKeyState *input = nullptr;
@@ -283,6 +284,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // テクスチャマネージャーの初期化
   TextureManager::GetInstance()->Initialize(dx12Core);
+
+  // モデルマネージャーの初期化
+  ModelManager::GetInstance()->Initialize(dx12Core);
 
   //=============================
   // サウンド用
@@ -322,6 +326,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
 
+  // モデルの読み込み
+  ModelManager::GetInstance()->LoadModel("plane.obj");
+
+  ModelManager::GetInstance()->LoadModel("axis.obj");
+
   // スプライトの生成と初期化
   std::vector<Sprite *> sprites;
   const int kSpriteCount = 5;
@@ -339,17 +348,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   sprite->Initialize(spriteRenderer, "resources/uvChecker.png");
 
   // モデルの生成と初期化
-  Model *model = new Model();
-  model->Initialize(modelRenderer);
+  // Model *model = new Model();
+  // model->Initialize(modelRenderer, "resources", "plane.obj");
 
   // オブジェクトの生成と初期化
   Object3d *object3d = new Object3d();
   object3d->Initialize(object3dRenderer);
-  object3d->SetModel(model);
+  object3d->SetModel("plane.obj");
 
   Object3d *object3dA = new Object3d();
   object3dA->Initialize(object3dRenderer);
-  object3dA->SetModel(model);
+  object3dA->SetModel("axis.obj");
 
   // RootSignatureを作成
   // D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
@@ -1255,7 +1264,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       sprites[0]->ChangeTexture("resources/uvChecker.png");
     }
 
-    rotate += 0.01f;
+    //rotate += 0.01f;
 
     object3dA->SetRotation({0.0f, rotate, 0.0f});
     object3dA->SetTranslation({1.0f, 1.0f, 0.0f});
@@ -1399,7 +1408,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     spriteRenderer->Begin();
 
     // スプライトの描画
-     sprite->Draw();
+    sprite->Draw();
 
     // for (uint32_t i = 0; i < kSpriteCount; ++i) {
     //   sprites[i]->Draw();
@@ -1436,6 +1445,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   delete debugCamera;
 
+  ModelManager::GetInstance()->Finalize();
+
   TextureManager::GetInstance()->Finalize();
 
   delete input;
@@ -1444,15 +1455,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   delete object3d;
 
-  delete model;
-
   delete sprite;
 
   for (uint32_t i = 0; i < kSpriteCount; ++i) {
     delete sprites[i];
   }
-
-  delete modelRenderer;
 
   delete object3dRenderer;
 
