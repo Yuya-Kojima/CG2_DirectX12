@@ -179,8 +179,7 @@ void Object3dRenderer::CreatePSO() {
   depthStencilDesc.DepthEnable = true;
 
   // 書き込み
-  depthStencilDesc.DepthWriteMask =
-      D3D12_DEPTH_WRITE_MASK_ZERO; // Depthの書き込みを行わない
+  depthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
 
   // 比較関数はLessEqual。近ければ描画される
   depthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

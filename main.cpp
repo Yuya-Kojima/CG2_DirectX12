@@ -26,7 +26,9 @@
 #include "InputKeyState.h"
 #include "Logger.h"
 #include "Material.h"
+#include "Model.h"
 #include "ModelData.h"
+#include "ModelRenderer.h"
 #include "Object3d.h"
 #include "Object3dRenderer.h"
 #include "Particle.h"
@@ -269,6 +271,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   object3dRenderer = new Object3dRenderer();
   object3dRenderer->Initialize(dx12Core);
 
+  // モデルの共通部分
+  ModelRenderer *modelRenderer = nullptr;
+  modelRenderer = new ModelRenderer();
+  modelRenderer->Initialize(dx12Core);
+
   // DirectInputの初期化
   InputKeyState *input = nullptr;
   input = new InputKeyState();
@@ -331,9 +338,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   Sprite *sprite = new Sprite();
   sprite->Initialize(spriteRenderer, "resources/uvChecker.png");
 
+  // モデルの生成と初期化
+  Model *model = new Model();
+  model->Initialize(modelRenderer);
+
   // オブジェクトの生成と初期化
   Object3d *object3d = new Object3d();
   object3d->Initialize(object3dRenderer);
+  object3d->SetModel(model);
+
+  Object3d *object3dA = new Object3d();
+  object3dA->Initialize(object3dRenderer);
+  object3dA->SetModel(model);
 
   // RootSignatureを作成
   // D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
@@ -1099,6 +1115,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   sprite->SetIsFlipX(isFlipX);
   sprite->SetIsFlipY(isFlipY);
 
+  float rotate = 0.0f;
+
   // Vector2 spritePositions[kSpriteCount];
 
   // Vector2 spriteSizes[kSpriteCount];
@@ -1237,6 +1255,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       sprites[0]->ChangeTexture("resources/uvChecker.png");
     }
 
+    rotate += 0.01f;
+
+    object3dA->SetRotation({0.0f, rotate, 0.0f});
+    object3dA->SetTranslation({1.0f, 1.0f, 0.0f});
+
     // for (uint32_t i = 0; i < kSpriteCount; ++i) {
     //   // spritePosition[i].x++;
     //   sprites[i]->SetPosition(spritePositions[i]);
@@ -1319,6 +1342,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     // ３Dオブジェクトの更新処理
     object3d->Update();
+    object3dA->Update();
 
     // スプライトの更新処理
     sprite->Update(uvTransformSprite);
@@ -1369,12 +1393,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
     // ３Dオブジェクトの描画
     object3d->Draw();
+    object3dA->Draw();
 
     // Spriteの描画準備。Spriteの描画に共通のグラフィックスコマンドを積む
     spriteRenderer->Begin();
 
     // スプライトの描画
-    // sprite->Draw();
+     sprite->Draw();
 
     // for (uint32_t i = 0; i < kSpriteCount; ++i) {
     //   sprites[i]->Draw();
@@ -1415,13 +1440,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   delete input;
 
+  delete object3dA;
+
   delete object3d;
+
+  delete model;
 
   delete sprite;
 
   for (uint32_t i = 0; i < kSpriteCount; ++i) {
     delete sprites[i];
   }
+
+  delete modelRenderer;
 
   delete object3dRenderer;
 

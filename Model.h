@@ -10,6 +10,8 @@
 
 class ModelRenderer;
 
+class Dx12Core;
+
 class Model {
 
   struct VertexData {
@@ -48,6 +50,8 @@ public:
 
 private:
   ModelRenderer *modelRenderer_;
+
+  Dx12Core *dx12Core_=nullptr;
 
   // Objファイルのデータ
   ModelData modelData_;

@@ -174,7 +174,7 @@ void SpriteRenderer::CreateSpritePSO() {
   D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 
   // Depthの機能を有効化する
-  depthStencilDesc.DepthEnable = true;
+  depthStencilDesc.DepthEnable = false;
 
   // 書き込み
   depthStencilDesc.DepthWriteMask =

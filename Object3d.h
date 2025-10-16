@@ -84,11 +84,11 @@ private:
   void CreateDirectionalLightData();
 
 private:
-  Vector3 scale_{};
+  Vector3 scale_{1.0f,1.0f,1.0f};
 
-  Vector3 rotation_{};
+  Vector3 rotate_{};
 
-  Vector3 translation_{};
+  Vector3 translate_{};
 
   Transform transform_{};
 
@@ -98,17 +98,17 @@ public:
   // scale
   Vector3 GetScale() const { return scale_; }
 
-  void SetScale(Vector3 scale) { scale_ = scale; }
+  void SetScale(const Vector3 &scale) { scale_ = scale; }
 
   // rotation
-  Vector3 GetRotation() const { return rotation_; }
+  Vector3 GetRotation() const { return rotate_; }
 
-  void SetRotation(Vector3 rotation) { rotation_ = rotation; }
+  void SetRotation(const Vector3 &rotate) { rotate_ = rotate; }
 
   // tranlation
-  Vector3 GetTranslatoin() const { return translation_; }
+  Vector3 GetTranslatoin() const { return translate_; }
 
-  void SetTranslation(Vector3 translation) { translation_ = translation; }
+  void SetTranslation(const Vector3 &translate) { translate_ = translate; }
 
   // カメラ
   void SetCameraMatrix(Transform cameraTransform) {
