@@ -1,6 +1,8 @@
 #pragma once
 #include "Dx12Core.h"
 
+class GameCamera;
+
 class Object3dRenderer {
 
 public:
@@ -37,4 +39,11 @@ private:
   /// オブジェクト用のPSOを作成
   /// </summary>
   void CreatePSO();
+
+private:
+  GameCamera *defaultCamera = nullptr;
+
+public:
+  void SetDefaultCamera(GameCamera *camera) { defaultCamera = camera; }
+  GameCamera *GetDefaultCamera() const { return defaultCamera; }
 };

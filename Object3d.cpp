@@ -1,4 +1,5 @@
 #include "Object3d.h"
+#include "GameCamera.h"
 #include "MathUtil.h"
 #include "Model.h"
 #include "ModelManager.h"
@@ -19,8 +20,10 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
   CreateDirectionalLightData();
 
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
-  cameraTransform_ = {
-      {1.0f, 1.0f, 1.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 4.0f, -10.0f}};
+  // cameraTransform_ = {
+  //     {1.0f, 1.0f, 1.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 4.0f, -10.0f}};
+
+  this->camera = object3dRenderer_->GetDefaultCamera();
 }
 
 void Object3d::Update() {
@@ -29,16 +32,23 @@ void Object3d::Update() {
 
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
-  Matrix4x4 cameraMatrix =
-      MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
-                       cameraTransform_.translate);
-  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-  Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-      0.45f,
-      float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
-      0.1f, 100.0f);
-  Matrix4x4 worldViewProjectionMatrix =
-      Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
+  Matrix4x4 worldViewProjectionMatrix;
+
+  // Matrix4x4 cameraMatrix =
+  //     MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
+  //                      cameraTransform_.translate);
+  //  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+  // Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
+  //    0.45f,
+  //    float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
+  //    0.1f, 100.0f);
+
+  if (camera) {
+    const Matrix4x4 &viewProjectionMatrix = camera->GetViewProjectionMatrix();
+    worldViewProjectionMatrix = Multiply(worldMatrix,viewProjectionMatrix);
+  } else {
+    worldViewProjectionMatrix = worldMatrix;
+  }
 
   transformationMatrixData->WVP = worldViewProjectionMatrix;
   transformationMatrixData->World = worldMatrix;

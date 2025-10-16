@@ -15,6 +15,8 @@ class Dx12Core;
 
 class Object3dRenderer;
 
+class GameCamera;
+
 class Object3d {
 
   struct TransformationMatrix {
@@ -92,7 +94,7 @@ private:
 
   Transform transform_{};
 
-  Transform cameraTransform_{};
+  // Transform cameraTransform_{};
 
 public:
   // scale
@@ -111,10 +113,16 @@ public:
   void SetTranslation(const Vector3 &translate) { translate_ = translate; }
 
   // カメラ
-  void SetCameraMatrix(Transform cameraTransform) {
-    cameraTransform_ = cameraTransform;
-  }
+  // void SetCameraMatrix(Transform cameraTransform) {
+  //  cameraTransform_ = cameraTransform;
+  //}
 
 private:
-  uint32_t numInstance_{};
+  // uint32_t numInstance_{};
+
+private:
+  GameCamera *camera = nullptr;
+
+public:
+  void SetCamera(GameCamera *camera) { this->camera = camera; }
 };
