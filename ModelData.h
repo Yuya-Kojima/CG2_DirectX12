@@ -1,11 +1,11 @@
 #pragma once
-#include "MaterialData.h"
-#include "VertexData.h"
-#include <cassert>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
+//#include "MaterialData.h"
+//#include "VertexData.h"
+//#include <cassert>
+//#include <fstream>
+//#include <sstream>
+//#include <string>
+//#include <vector>
 
 //struct ModelData {
 //  std::vector<VertexData> vertices;

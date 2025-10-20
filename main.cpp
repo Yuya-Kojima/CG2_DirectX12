@@ -1,17 +1,17 @@
-#include "MathUtil.h"
-#include "Matrix4x4.h"
-#include "Transform.h"
-#include "Vector4.h"
+#include "Math/MathUtil.h"
+#include "Math/Matrix4x4.h"
+#include "Math/Transform.h"
+#include "Math/Vector4.h"
 #include "VertexData.h"
 #include "externals/DirectXTex/DirectXTex.h"
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_dx12.h"
 #include "externals/imgui/imgui_impl_win32.h"
 // #include <Windows.h>
-#include "D3DResourceLeakChacker.h"
-#include "GameCamera.h"
-#include "ModelManager.h"
-#include "TextureManager.h"
+#include "Core/D3DResourceLeakChecker.h"
+#include "Camera/GameCamera.h"
+#include "Render/ModelManager.h"
+#include "Render/TextureManager.h"
 #include <cassert>
 #include <cstdint>
 #include <d3d12.h>
@@ -21,25 +21,25 @@
 #include <format>
 #include <string>
 #define _USE_MATH_DEFINES
-#include "DebugCamera.h"
+#include "Camera/DebugCamera.h"
 #include "DirectionalLight.h"
-#include "Dx12Core.h"
-#include "Field.h"
-#include "InputKeyState.h"
-#include "Logger.h"
+#include "Core/Dx12Core.h"
+#include "Math/Field.h"
+#include "Input/InputKeyState.h"
+#include "Core/Logger.h"
 #include "Material.h"
-#include "Model.h"
+#include "Render/Model.h"
 #include "ModelData.h"
-#include "ModelRenderer.h"
-#include "Object3d.h"
-#include "Object3dRenderer.h"
-#include "Particle.h"
-#include "ResourceObject.h"
-#include "Sprite.h"
-#include "SpriteRenderer.h"
-#include "StringUtil.h"
-#include "TransformationMatrix.h"
-#include "WindowSystem.h"
+#include "Render/ModelRenderer.h"
+#include "Render/Object3d.h"
+#include "Render/Object3dRenderer.h"
+#include "Render/Particle.h"
+#include "Render/ResourceObject.h"
+#include "Render/Sprite.h"
+#include "Render/SpriteRenderer.h"
+#include "Util/StringUtil.h"
+#include "Math/TransformationMatrix.h"
+#include "Core/WindowSystem.h"
 #include <dinput.h>
 #include <fstream>
 #include <math.h>
@@ -579,18 +579,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // shaderをcompileする
   IDxcBlob *vertexShaderBlob =
-      dx12Core->CompileShader(L"Object3D.VS.hlsl", L"vs_6_0");
+      dx12Core->CompileShader(L"resources/shaders/Object3D.VS.hlsl", L"vs_6_0");
   assert(vertexShaderBlob != nullptr);
 
   IDxcBlob *pixelShaderBlob =
-      dx12Core->CompileShader(L"Object3D.PS.hlsl", L"ps_6_0");
+      dx12Core->CompileShader(L"resources/shaders/Object3D.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   IDxcBlob *particleVertexShaderBlob =
-      dx12Core->CompileShader(L"Particle.VS.hlsl", L"vs_6_0");
+      dx12Core->CompileShader(L"resources/shaders/Particle.VS.hlsl", L"vs_6_0");
 
   IDxcBlob *particlePixelShaderBlob =
-      dx12Core->CompileShader(L"Particle.PS.hlsl", L"ps_6_0");
+      dx12Core->CompileShader(L"resources/shaders/Particle.PS.hlsl", L"ps_6_0");
 
   // DepthStencilStateの設定
   D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
