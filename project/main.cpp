@@ -8,8 +8,8 @@
 #include "externals/imgui/imgui_impl_dx12.h"
 #include "externals/imgui/imgui_impl_win32.h"
 // #include <Windows.h>
-#include "Core/D3DResourceLeakChecker.h"
 #include "Camera/GameCamera.h"
+#include "Core/D3DResourceLeakChecker.h"
 #include "Render/ModelManager.h"
 #include "Render/TextureManager.h"
 #include <cassert>
@@ -22,14 +22,17 @@
 #include <string>
 #define _USE_MATH_DEFINES
 #include "Camera/DebugCamera.h"
-#include "DirectionalLight.h"
 #include "Core/Dx12Core.h"
-#include "Math/Field.h"
-#include "Input/InputKeyState.h"
 #include "Core/Logger.h"
+#include "Core/SrvManager.h"
+#include "Core/WindowSystem.h"
+#include "DirectionalLight.h"
+#include "Input/InputKeyState.h"
 #include "Material.h"
-#include "Render/Model.h"
+#include "Math/Field.h"
+#include "Math/TransformationMatrix.h"
 #include "ModelData.h"
+#include "Render/Model.h"
 #include "Render/ModelRenderer.h"
 #include "Render/Object3d.h"
 #include "Render/Object3dRenderer.h"
@@ -38,8 +41,6 @@
 #include "Render/Sprite.h"
 #include "Render/SpriteRenderer.h"
 #include "Util/StringUtil.h"
-#include "Math/TransformationMatrix.h"
-#include "Core/WindowSystem.h"
 #include <dinput.h>
 #include <fstream>
 #include <math.h>
@@ -273,6 +274,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   object3dRenderer = new Object3dRenderer();
   object3dRenderer->Initialize(dx12Core);
 
+  SrvManager *srvManager = nullptr;
+  srvManager = new SrvManager();
+  srvManager->Initialize(dx12Core);
+
   // モデルの共通部分
   // ModelRenderer *modelRenderer = nullptr;
   // modelRenderer = new ModelRenderer();
@@ -284,7 +289,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   input->Initialize(windowSystem);
 
   // テクスチャマネージャーの初期化
-  TextureManager::GetInstance()->Initialize(dx12Core);
+  TextureManager::GetInstance()->Initialize(dx12Core,srvManager);
 
   // モデルマネージャーの初期化
   ModelManager::GetInstance()->Initialize(dx12Core);
@@ -1166,9 +1171,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       break;
     }
 
-    ImGui_ImplDX12_NewFrame();
-    ImGui_ImplWin32_NewFrame();
-    ImGui::NewFrame();
+   // ImGui_ImplDX12_NewFrame();
+   // ImGui_ImplWin32_NewFrame();
+    //ImGui::NewFrame();
 
     // キー入力
     input->Update();
@@ -1213,11 +1218,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // ImGui::SliderAngle("rotateX", &transform.rotate.x);
     // ImGui::SliderAngle("rotateY", &transform.rotate.y);
     // ImGui::SliderAngle("rotateZ", &transform.rotate.z);
-    ImGui::Checkbox("useMonsterBall", &useMonsterBall);
-    ImGui::Checkbox("enableLighting", &enableLighting);
-    ImGui::Checkbox("Update", &isUpdate);
-    ImGui::Checkbox("useBillboard", &useBillboard);
-    ImGui::Checkbox("set60FPS", &set60FPS);
+  //  ImGui::Checkbox("useMonsterBall", &useMonsterBall);
+   // ImGui::Checkbox("enableLighting", &enableLighting);
+  //  ImGui::Checkbox("Update", &isUpdate);
+  //  ImGui::Checkbox("useBillboard", &useBillboard);
+   // ImGui::Checkbox("set60FPS", &set60FPS);
 
     // FPSをセット
     dx12Core->SetFPS(set60FPS);
@@ -1229,12 +1234,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     spriteSize = sprite->GetSize();
     spriteAnchorPoint = sprite->GetAnchorPoint();
 
-    if (ImGui::Button("Add Particle")) {
-      particles.splice(particles.end(), Emit(emitter, randomEngine));
-    }
+   // if (ImGui::Button("Add Particle")) {
+   //   particles.splice(particles.end(), Emit(emitter, randomEngine));
+  //  }
 
-    ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f,
-                      -100.0f, 100.0f);
+   // ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f,
+          //            -100.0f, 100.0f);
 
     // ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
     // ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
@@ -1242,23 +1247,23 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.01f,
     // 0.0f,
     //    10.0f);
-    ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x, 0.01f);
-    ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x, 0.001f);
+    //ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x, 0.01f);
+    //ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x, 0.001f);
 
-    ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
+    //ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
 
-    ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
-    ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
-    ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
-    ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
-    ImGui::Checkbox("isFlipX", &isFlipX);
-    ImGui::Checkbox("isFlipY", &isFlipY);
+    //ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
+    //ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
+    //ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
+    //ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
+    //ImGui::Checkbox("isFlipX", &isFlipX);
+    //ImGui::Checkbox("isFlipY", &isFlipY);
 
-    ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
-                      -10.0f, 10.0f);
-    ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
-                      10.0f);
-    ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
+    //ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
+    //                  -10.0f, 10.0f);
+    //ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
+    //                  10.0f);
+    //ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
 
     // materialData->enableLighting = enableLighting;
     // directionalLightData->direction = Normalize(tempDirection);
@@ -1277,9 +1282,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       sprites[0]->ChangeTexture("resources/uvChecker.png");
     }
 
-     rotate += 0.01f;
+    rotate += 0.01f;
 
-     object3d->SetRotation({0.0f, rotate, 0.0f});
+    object3d->SetRotation({0.0f, rotate, 0.0f});
 
     object3dA->SetRotation({0.0f, rotate, 0.0f});
     object3dA->SetTranslation({1.0f, 1.0f, 0.0f});
@@ -1291,7 +1296,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // }
 
     // ImGuiの内部コマンドを生成する
-    ImGui::Render();
+    //ImGui::Render();
 
     // for (int i = 0; i < 10; i++) {
     /*Matrix4x4 worldMatrix = MakeAffineMatrix(
@@ -1441,16 +1446,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // }
 
     // 実際のcommandListのImGuiの描画コマンドを積む
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
-                                  dx12Core->GetCommandList());
+    //ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
+    //                              dx12Core->GetCommandList());
 
     dx12Core->EndFrame();
   }
 
   // ImGuiの終了処理
-  ImGui_ImplDX12_Shutdown();
-  ImGui_ImplWin32_Shutdown();
-  ImGui::DestroyContext();
+  //ImGui_ImplDX12_Shutdown();
+  //ImGui_ImplWin32_Shutdown();
+  //ImGui::DestroyContext();
 
   // 解放処理
   // CloseHandle(fenceEvent);
@@ -1486,6 +1491,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   for (uint32_t i = 0; i < kSpriteCount; ++i) {
     delete sprites[i];
   }
+
+  delete srvManager;
+  srvManager = nullptr;
 
   delete object3dRenderer;
 

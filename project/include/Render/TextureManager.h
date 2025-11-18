@@ -3,8 +3,11 @@
 #include "externals/DirectXTex/DirectXTex.h"
 #include <d3d12.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <wrl.h>
+
+class SrvManager;
 
 class TextureManager {
 
@@ -18,7 +21,7 @@ public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(Dx12Core *dx12Core);
+  void Initialize(Dx12Core *dx12Core, SrvManager *srvManager);
 
   /// <summary>
   /// 終了
@@ -42,15 +45,15 @@ private:
 
   // テクスチャ一枚分のデータ
   struct TextureData {
-    std::string filePath;
     DirectX::TexMetadata metadata;
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+    uint32_t srvIndex;
     D3D12_CPU_DESCRIPTOR_HANDLE srvHandleCPU;
     D3D12_GPU_DESCRIPTOR_HANDLE srvHandleGPU;
   };
 
   // テクスチャデータ
-  std::vector<TextureData> textureDatas;
+  // std::vector<TextureData> textureDatas;
 
   Dx12Core *dx12Core_ = nullptr;
 
@@ -73,4 +76,9 @@ public:
   D3D12_GPU_DESCRIPTOR_HANDLE GetSrvHandleGPU(uint32_t textureIndex);
 
   const DirectX::TexMetadata &GetMetaData(uint32_t textureIndex);
+
+private:
+  SrvManager *srvManager_ = nullptr;
+
+  std::unordered_map<std::string, TextureData> textureDatas;
 };

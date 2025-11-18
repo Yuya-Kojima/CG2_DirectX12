@@ -1,5 +1,6 @@
 #include "Render/TextureManager.h"
 // #include "Dx12Core.h"
+#include "Core/SrvManager.h"
 #include "Util/StringUtil.h"
 
 TextureManager *TextureManager::instance = nullptr;
@@ -16,9 +17,11 @@ TextureManager *TextureManager::GetInstance() {
   return instance;
 }
 
-void TextureManager::Initialize(Dx12Core *dx12Core) {
+void TextureManager::Initialize(Dx12Core *dx12Core, SrvManager *srvManager) {
 
   dx12Core_ = dx12Core;
+
+  srvManager_ = srvManager;
 
   // SRVの数と同数
   textureDatas.reserve(Dx12Core::kMaxSRVCount);
@@ -59,12 +62,11 @@ void TextureManager::LoadTexture(const std::string &filePath) {
   assert(SUCCEEDED(hr));
 
   // テクスチャデータを追加
-  textureDatas.resize(textureDatas.size() + 1);
+  //textureDatas.resize(textureDatas.size() + 1);
 
   // 追加したテクスチャデータの参照を取得する
-  TextureData &textureData = textureDatas.back();
+  TextureData &textureData = textureDatas[filePath];
 
-  textureData.filePath = filePath;
   textureData.metadata = mipImages.GetMetadata();
   textureData.resource = dx12Core_->CreateTextureResource(textureData.metadata);
 
@@ -76,8 +78,11 @@ void TextureManager::LoadTexture(const std::string &filePath) {
   uint32_t srvIndex =
       static_cast<uint32_t>(textureDatas.size() - 1) + kSRVIndexTop;
 
-  textureData.srvHandleCPU = dx12Core_->GetSRVCPUDescriptorHandle(srvIndex);
-  textureData.srvHandleGPU = dx12Core_->GetSRVGPUDescriptorHandle(srvIndex);
+  textureData.srvIndex = srvManager_->Allocate();
+  textureData.srvHandleCPU =
+      dx12Core_->GetSRVCPUDescriptorHandle(textureData.srvIndex);
+  textureData.srvHandleGPU =
+      dx12Core_->GetSRVGPUDescriptorHandle(textureData.srvIndex);
   //
   //   ID3D12Device *device = dx12Core_->GetDevice();
   //
