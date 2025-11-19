@@ -4,14 +4,19 @@
 #include "Render/TextureManager.h"
 
 void Sprite::Initialize(SpriteRenderer *spriteRenderer,
-                        std::string textureFilePath) {
+                        const std::string &textureFilePath) {
 
   spriteRenderer_ = spriteRenderer;
 
   dx12Core_ = spriteRenderer->GetDx12Core();
 
-  textureIndex_ =
-      TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+  // textureIndex_ =
+  //   TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+
+  // テクスチャをロードしてファイルパスを保持
+  TextureManager::GetInstance()->LoadTexture(textureFilePath);
+
+  textureFilePath_ = textureFilePath;
 
   // textureSrvHandleGPU_ = textureSrvHandleGPU;
 
@@ -45,7 +50,7 @@ void Sprite::Update(Transform uvTransform) {
   }
 
   const DirectX::TexMetadata &metadata =
-      TextureManager::GetInstance()->GetMetaData(textureIndex_);
+      TextureManager::GetInstance()->GetMetaData(textureFilePath_);
 
   float texLeft = textureLeftTop.x / metadata.width;
   float texRight = (textureLeftTop.x + textureSize.x) / metadata.width;
@@ -151,7 +156,7 @@ void Sprite::Draw() {
 
   // SRVのDiscriptorTableの先頭を設定(描画に使うテクスチャの設定)
   commandList_->SetGraphicsRootDescriptorTable(
-      2, TextureManager::GetInstance()->GetSrvHandleGPU(textureIndex_));
+      2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
 
   // 描画(ドローコール)
   commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);
@@ -233,21 +238,26 @@ void Sprite::CreateTransformationMatrixData() {
   transformationMatrixData->WVP = MakeIdentity4x4();
 }
 
-void Sprite::ChangeTexture(std::string textureFilePath) {
+void Sprite::ChangeTexture(const std::string &textureFilePath) {
 
   // まだ読み込まれていないテクスチャであれば読み込む
   TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
   // テクスチャ番号を取得して差し替える
-  textureIndex_ =
-      TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+  // textureIndex_ =
+  //    TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+
+  // テクスチャの差し替え
+  textureFilePath_ = textureFilePath;
+
+  AdjustTextureSize();
 }
 
 void Sprite::AdjustTextureSize() {
 
   // テクスチャデータを取得
   const DirectX::TexMetadata &metadata =
-      TextureManager::GetInstance()->GetMetaData(textureIndex_);
+      TextureManager::GetInstance()->GetMetaData(textureFilePath_);
 
   textureSize.x = static_cast<float>(metadata.width);
   textureSize.y = static_cast<float>(metadata.height);

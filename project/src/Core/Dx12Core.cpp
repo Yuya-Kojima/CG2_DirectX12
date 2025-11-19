@@ -17,7 +17,7 @@
 
 using namespace Microsoft::WRL;
 
-//const uint32_t Dx12Core::kMaxSRVCount = 512;
+// const uint32_t Dx12Core::kMaxSRVCount = 512;
 
 Microsoft::WRL::ComPtr<ID3D12Resource>
 CreateDepthStencilTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> &device,
@@ -189,8 +189,8 @@ void Dx12Core::BeginFrame() {
 
   // SRV用のディスクリプタヒープを指定する
   // 描画用のDescriptorHeapの設定
-  //ID3D12DescriptorHeap *descriptorHeaps[] = {srvDescriptorHeap.Get()};
-  //commandList->SetDescriptorHeaps(1, descriptorHeaps);
+  // ID3D12DescriptorHeap *descriptorHeaps[] = {srvDescriptorHeap.Get()};
+  // commandList->SetDescriptorHeaps(1, descriptorHeaps);
 
   // ビューポート領域の設定
   commandList->RSSetViewports(1, &viewport);
@@ -446,8 +446,8 @@ void Dx12Core::InitializeDescriptorHeap() {
   descriptorSizeRTV =
       device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-  //descriptorSizeSRV = device->GetDescriptorHandleIncrementSize(
-   //   D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+  // descriptorSizeSRV = device->GetDescriptorHandleIncrementSize(
+  //    D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
   descriptorSizeDSV =
       device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
@@ -457,8 +457,9 @@ void Dx12Core::InitializeDescriptorHeap() {
       CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 
   // SRV用のヒープでディスクリプタの数は128。STVはShader内で触るものなので、ShaderVisibleはtrue
- // srvDescriptorHeap =
-   //   CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kMaxSRVCount, true);
+  // srvDescriptorHeap =
+  //   CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+  //   kMaxSRVCount, true);
 
   // DSV用のヒープのでディスクリプタの数は1。DSVはShader内で触るものではないので、shaderVisibleはfalse
   dsvDescriptorHeap =
@@ -500,15 +501,15 @@ void Dx12Core::InitializeRenderTargetView() {
   }
 }
 
-//D3D12_CPU_DESCRIPTOR_HANDLE
-//Dx12Core::GetSRVCPUDescriptorHandle(uint32_t index) {
-//  return GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, index);
-//}
+// D3D12_CPU_DESCRIPTOR_HANDLE
+// Dx12Core::GetSRVCPUDescriptorHandle(uint32_t index) {
+//   return GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, index);
+// }
 
-//D3D12_GPU_DESCRIPTOR_HANDLE
-//Dx12Core::GetSRVGPUDescriptorHandle(uint32_t index) {
-//  return GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, index);
-//}
+// D3D12_GPU_DESCRIPTOR_HANDLE
+// Dx12Core::GetSRVGPUDescriptorHandle(uint32_t index) {
+//   return GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, index);
+// }
 
 void Dx12Core::InitializeDepthStencilView() {
 
@@ -590,7 +591,8 @@ void Dx12Core::InitializeImGui() {
   ImGui_ImplWin32_Init(windowSystem->GetHwnd());
 
   // DirectX12用の初期化
-  //ImGui_ImplDX12_Init(device.Get(), swapChainDesc.BufferCount, rtvDesc.Format,
+  // ImGui_ImplDX12_Init(device.Get(), swapChainDesc.BufferCount,
+  // rtvDesc.Format,
   //                    srvDescriptorHeap.Get(),
   //                    srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
   //                    srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart()

@@ -23,9 +23,9 @@ void Model::Initialize(ModelRenderer *modelRenderer,
       modelData_.material.textureFilePath);
 
   // 読み込んだテクスチャの番号を取得
-  modelData_.material.textureIndex =
-      TextureManager::GetInstance()->GetTextureIndexByFilePath(
-          modelData_.material.textureFilePath);
+  //modelData_.material.textureIndex =
+  //    TextureManager::GetInstance()->GetTextureIndexByFilePath(
+  //        modelData_.material.textureFilePath);
 }
 void Model::Draw() {
 
@@ -40,7 +40,7 @@ void Model::Draw() {
 
   // SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
   commandList->SetGraphicsRootDescriptorTable(
-      2, TextureManager::GetInstance()->GetSrvHandleGPU(0));
+      2, TextureManager::GetInstance()->GetSrvHandleGPU(modelData_.material.textureFilePath));
 
   // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
   commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);

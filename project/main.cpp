@@ -289,7 +289,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   input->Initialize(windowSystem);
 
   // テクスチャマネージャーの初期化
-  TextureManager::GetInstance()->Initialize(dx12Core,srvManager);
+  TextureManager::GetInstance()->Initialize(dx12Core, srvManager);
 
   // モデルマネージャーの初期化
   ModelManager::GetInstance()->Initialize(dx12Core);
@@ -1026,10 +1026,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
 
   D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
-      dx12Core->GetSRVCPUDescriptorHandle(
+      srvManager->GetCPUDescriptorHandle(
           3); // Heapの三番目に作成(空いているのであればどこでもOK)
   D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
-      dx12Core->GetSRVGPUDescriptorHandle(3);
+      srvManager->GetGPUDescriptorHandle(3);
 
   device->CreateShaderResourceView(instancingResource.Get(), &instancingSrvDesc,
                                    instancingSrvHandleCPU);
@@ -1171,9 +1171,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       break;
     }
 
-   // ImGui_ImplDX12_NewFrame();
-   // ImGui_ImplWin32_NewFrame();
-    //ImGui::NewFrame();
+    // ImGui_ImplDX12_NewFrame();
+    // ImGui_ImplWin32_NewFrame();
+    // ImGui::NewFrame();
 
     // キー入力
     input->Update();
@@ -1218,11 +1218,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // ImGui::SliderAngle("rotateX", &transform.rotate.x);
     // ImGui::SliderAngle("rotateY", &transform.rotate.y);
     // ImGui::SliderAngle("rotateZ", &transform.rotate.z);
-  //  ImGui::Checkbox("useMonsterBall", &useMonsterBall);
-   // ImGui::Checkbox("enableLighting", &enableLighting);
-  //  ImGui::Checkbox("Update", &isUpdate);
-  //  ImGui::Checkbox("useBillboard", &useBillboard);
-   // ImGui::Checkbox("set60FPS", &set60FPS);
+    //  ImGui::Checkbox("useMonsterBall", &useMonsterBall);
+    // ImGui::Checkbox("enableLighting", &enableLighting);
+    //  ImGui::Checkbox("Update", &isUpdate);
+    //  ImGui::Checkbox("useBillboard", &useBillboard);
+    // ImGui::Checkbox("set60FPS", &set60FPS);
 
     // FPSをセット
     dx12Core->SetFPS(set60FPS);
@@ -1234,12 +1234,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     spriteSize = sprite->GetSize();
     spriteAnchorPoint = sprite->GetAnchorPoint();
 
-   // if (ImGui::Button("Add Particle")) {
-   //   particles.splice(particles.end(), Emit(emitter, randomEngine));
-  //  }
+    // if (ImGui::Button("Add Particle")) {
+    //   particles.splice(particles.end(), Emit(emitter, randomEngine));
+    //  }
 
-   // ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f,
-          //            -100.0f, 100.0f);
+    // ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x,
+    // 0.01f,
+    //            -100.0f, 100.0f);
 
     // ImGui::ColorEdit3("LightingColor", &directionalLightData->color.x);
     // ImGui::DragFloat3("Lighting Direction", &tempDirection.x, 0.01f, -1.0f,
@@ -1247,23 +1248,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // ImGui::DragFloat("Intensity", &directionalLightData->intensity, 0.01f,
     // 0.0f,
     //    10.0f);
-    //ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x, 0.01f);
-    //ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x, 0.001f);
+    // ImGui::DragFloat3("CameraTranslate", &cameraTransform.translate.x,
+    // 0.01f); ImGui::DragFloat3("CameraRotate", &cameraTransform.rotate.x,
+    // 0.001f);
 
-    //ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
+    // ImGui::ColorEdit4("SpriteColor", &spriteColor.x);
 
-    //ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
-    //ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
-    //ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
-    //ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
-    //ImGui::Checkbox("isFlipX", &isFlipX);
-    //ImGui::Checkbox("isFlipY", &isFlipY);
+    // ImGui::DragFloat2("SpritePosition", &spritePosition.x, 1.0f);
+    // ImGui::DragFloat("SpriteRotation", &spriteRotation, 0.01f);
+    // ImGui::DragFloat2("SpriteSize", &spriteSize.x, 1.0f);
+    // ImGui::DragFloat2("SpriteAnchorPoint", &spriteAnchorPoint.x, 0.01f);
+    // ImGui::Checkbox("isFlipX", &isFlipX);
+    // ImGui::Checkbox("isFlipY", &isFlipY);
 
-    //ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
-    //                  -10.0f, 10.0f);
-    //ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
-    //                  10.0f);
-    //ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
+    // ImGui::DragFloat3("UVTranslate", &uvTransformSprite.translate.x, 0.01f,
+    //                   -10.0f, 10.0f);
+    // ImGui::DragFloat3("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f,
+    //                   10.0f);
+    // ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
 
     // materialData->enableLighting = enableLighting;
     // directionalLightData->direction = Normalize(tempDirection);
@@ -1296,7 +1298,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // }
 
     // ImGuiの内部コマンドを生成する
-    //ImGui::Render();
+    // ImGui::Render();
 
     // for (int i = 0; i < 10; i++) {
     /*Matrix4x4 worldMatrix = MakeAffineMatrix(
@@ -1394,6 +1396,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // DirectXの描画準備。すべてに共通のグラフィックスコマンドを積む
     dx12Core->BeginFrame();
 
+    // SRVをコマンドリストにセット
+    srvManager->PreDraw();
+
     // RootSignatureを設定。PSOに設定しているけど別途設定が必要
     // commandList->SetGraphicsRootSignature(rootSignatureParticle.Get());
     // commandList->SetPipelineState(
@@ -1446,16 +1451,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     // }
 
     // 実際のcommandListのImGuiの描画コマンドを積む
-    //ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
+    // ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
     //                              dx12Core->GetCommandList());
 
     dx12Core->EndFrame();
   }
 
   // ImGuiの終了処理
-  //ImGui_ImplDX12_Shutdown();
-  //ImGui_ImplWin32_Shutdown();
-  //ImGui::DestroyContext();
+  // ImGui_ImplDX12_Shutdown();
+  // ImGui_ImplWin32_Shutdown();
+  // ImGui::DestroyContext();
 
   // 解放処理
   // CloseHandle(fenceEvent);
