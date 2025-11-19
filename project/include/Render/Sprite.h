@@ -1,10 +1,10 @@
 #pragma once
+#include "Core/WindowSystem.h"
 #include "Math/Matrix4x4.h"
 #include "Math/Transform.h"
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 #include "Math/Vector4.h"
-#include "Core/WindowSystem.h"
 #include <d3d12.h>
 #include <string>
 #include <wrl.h>
@@ -37,7 +37,8 @@ public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(SpriteRenderer *spriteRenderer, std::string textureFilePath);
+  void Initialize(SpriteRenderer *spriteRenderer,
+                  const std::string &textureFilePath);
 
   /// <summary>
   /// 更新処理
@@ -55,7 +56,10 @@ private:
   Dx12Core *dx12Core_ = nullptr;
 
   // テクスチャ番号
-  uint32_t textureIndex_ = 0;
+  // uint32_t textureIndex_ = 0;
+
+  // テクスチャのファイルパス
+  std::string textureFilePath_;
 
   // D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU_{};
 
@@ -186,7 +190,7 @@ public:
   /// 任意のタイミングでテクスチャを変更する
   /// </summary>
   /// <param name="textureFilePath"></param>
-  void ChangeTexture(std::string textureFilePath);
+  void ChangeTexture(const std::string &textureFilePath);
 
   // フリップのゲッター
   bool GetIsFlipX() const { return isFlipX; }

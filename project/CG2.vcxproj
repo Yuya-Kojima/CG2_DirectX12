@@ -158,6 +158,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Camera\GameCamera.cpp" />
+    <ClCompile Include="src\Core\SrvManager.cpp" />
     <ClCompile Include="src\Input\InputKeyState.cpp" />
     <ClCompile Include="src\Input\InputMouseState.cpp" />
     <ClCompile Include="src\Core\Logger.cpp" />
@@ -209,6 +210,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="externals\imgui\imstb_rectpack.h" />
     <ClInclude Include="externals\imgui\imstb_textedit.h" />
     <ClInclude Include="externals\imgui\imstb_truetype.h" />
+    <ClInclude Include="include\Core\SrvManager.h" />
     <ClInclude Include="include\Math\Field.h" />
     <ClInclude Include="include\Camera\GameCamera.h" />
     <ClInclude Include="include\Input\InputKeyState.h" />
