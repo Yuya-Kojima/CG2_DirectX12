@@ -2,7 +2,7 @@
 #include "Math/Matrix4x4.h"
 #include "Math/Transform.h"
 #include "Math/Vector4.h"
-#include "VertexData.h"
+#include "Math/VertexData.h"
 #include "externals/DirectXTex/DirectXTex.h"
 #include "externals/imgui/imgui.h"
 #include "externals/imgui/imgui_impl_dx12.h"
