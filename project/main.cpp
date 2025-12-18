@@ -994,45 +994,46 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // Instancing用リソース
   //=============================
 
-  const uint32_t kNumMaxInstance = 100; // インスタンス数
-  // Instancing用のTransformationMatrixリソースを作る
-  Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource =
-      dx12Core->CreateBufferResource(sizeof(ParticleForGPU) * kNumMaxInstance);
+  // const uint32_t kNumMaxInstance = 100; // インスタンス数
+  //// Instancing用のTransformationMatrixリソースを作る
+  // Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource =
+  //     dx12Core->CreateBufferResource(sizeof(ParticleForGPU) *
+  //     kNumMaxInstance);
 
-  // 書き込むためのアドレスを取得
-  ParticleForGPU *instancingData = nullptr;
+  //// 書き込むためのアドレスを取得
+  // ParticleForGPU *instancingData = nullptr;
 
-  instancingResource->Map(0, nullptr,
-                          reinterpret_cast<void **>(&instancingData));
+  // instancingResource->Map(0, nullptr,
+  //                         reinterpret_cast<void **>(&instancingData));
 
-  for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
-    instancingData[index].WVP = MakeIdentity4x4();
-    instancingData[index].World = MakeIdentity4x4();
-    instancingData[index].color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  }
+  // for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
+  //   instancingData[index].WVP = MakeIdentity4x4();
+  //   instancingData[index].World = MakeIdentity4x4();
+  //   instancingData[index].color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  // }
 
   //=============================
   // SRVの作成
   //=============================
 
-  D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
-  instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-  instancingSrvDesc.Shader4ComponentMapping =
-      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-  instancingSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-  instancingSrvDesc.Buffer.FirstElement = 0;
-  instancingSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-  instancingSrvDesc.Buffer.NumElements = kNumMaxInstance;
-  instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
+  // D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
+  // instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+  // instancingSrvDesc.Shader4ComponentMapping =
+  //     D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  // instancingSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+  // instancingSrvDesc.Buffer.FirstElement = 0;
+  // instancingSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+  // instancingSrvDesc.Buffer.NumElements = kNumMaxInstance;
+  // instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
 
-  D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
-      srvManager->GetCPUDescriptorHandle(
-          3); // Heapの三番目に作成(空いているのであればどこでもOK)
-  D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
-      srvManager->GetGPUDescriptorHandle(3);
+  //D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
+  //    srvManager->GetCPUDescriptorHandle(
+  //        3); // Heapの三番目に作成(空いているのであればどこでもOK)
+  //D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
+  //    srvManager->GetGPUDescriptorHandle(3);
 
-  device->CreateShaderResourceView(instancingResource.Get(), &instancingSrvDesc,
-                                   instancingSrvHandleCPU);
+  //device->CreateShaderResourceView(instancingResource.Get(), &instancingSrvDesc,
+  //                                 instancingSrvHandleCPU);
 
   MSG msg{};
 

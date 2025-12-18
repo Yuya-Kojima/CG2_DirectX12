@@ -24,6 +24,16 @@ public:
   void Initialize(Dx12Core *dx12Core, SrvManager *srvManager);
 
   /// <summary>
+  /// 更新処理
+  /// </summary>
+  void Update();
+
+  /// <summary>
+  /// 描画
+  /// </summary>
+  void Draw();
+
+  /// <summary>
   /// 終了
   /// </summary>
   void Finalize();
@@ -79,6 +89,9 @@ private:
   // パーティクルグループコンテナ
   std::unordered_map<std::string, ParticleGroup> particleGroups_;
 
+  // インスタンシング用SRVの空き番号管理用インデックス
+  uint32_t nextInstancingSrvIndex_;
+
 private:
   /// <summary>
   /// ルートシグネチャを作成
@@ -95,6 +108,11 @@ private:
   /// </summary>
   void CreateVertexData();
 
+  /// <summary>
+  /// パーティクルグループの生成
+  /// </summary>
+  /// <param name="name"></param>
+  /// <param name="textureFilePath"></param>
   void CreateParticleGroup(const std::string name,
                            const std::string textureFilePath);
 };

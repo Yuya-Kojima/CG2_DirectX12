@@ -1,6 +1,8 @@
 #include "Render/ParticleManager.h"
 #include "Core/Logger.h"
 #include "Core/SrvManager.h"
+#include "Math/MathUtil.h"
+#include "Render/TextureManager.h"
 #include <cassert>
 
 void ParticleManager::Initialize(Dx12Core *dx12Core, SrvManager *srvManager) {
@@ -287,8 +289,64 @@ void ParticleManager::CreateParticleGroup(const std::string name,
                                           const std::string textureFilePath) {
 
   // 登録済みかチェック
-  assert(particleGroups_.contains(textureFilePath));
+  assert(!particleGroups_.contains(name));
 
+  // 新たなパーティクルグループを作成し、コンテナに登録
+  ParticleGroup &particleGroup = particleGroups_[name];
 
+  // マテリアルデータにテクスチャファイルパスを設定
+  particleGroup.materialData.filePath = textureFilePath;
 
+  // テクスチャ読み込み
+  TextureManager::GetInstance()->LoadTexture(
+      particleGroup.materialData.filePath);
+
+  // マテリアルデータにテクスチャのSRVインデックスを記録
+  particleGroup.materialData.textureSrvIndex =
+      TextureManager::GetInstance()->GetSrvIndex(
+          particleGroup.materialData.filePath);
+
+  const uint32_t kNumMaxInstance = 100; // インスタンス数
+
+  // インスタンシング用リソースの生成
+  particleGroup.instancingResource =
+      dx12Core_->CreateBufferResource(sizeof(ParticleForGPU) * kNumMaxInstance);
+
+  // 書き込むためのアドレスを取得
+  ParticleForGPU *instancingData = nullptr;
+
+  particleGroup.instancingResource->Map(
+      0, nullptr, reinterpret_cast<void **>(&instancingData));
+
+  particleGroup.instancingData = instancingData;
+
+  for (uint32_t index = 0; index < kNumMaxInstance; ++index) {
+    instancingData[index].WVP = MakeIdentity4x4();
+    instancingData[index].World = MakeIdentity4x4();
+    instancingData[index].color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  }
+
+  // インスタンシングようにSRVを確保して記録
+  D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
+  instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+  instancingSrvDesc.Shader4ComponentMapping =
+      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  instancingSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+  instancingSrvDesc.Buffer.FirstElement = 0;
+  instancingSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+  instancingSrvDesc.Buffer.NumElements = kNumMaxInstance;
+  instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
+
+  particleGroup.instancingSrvIndex = nextInstancingSrvIndex_++;
+
+  D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
+      srvManager_->GetCPUDescriptorHandle(
+          particleGroup
+              .instancingSrvIndex); // Heapの三番目に作成(空いているのであればどこでもOK)
+  D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
+      srvManager_->GetGPUDescriptorHandle(particleGroup.instancingSrvIndex);
+
+  dx12Core_->GetDevice()->CreateShaderResourceView(
+      particleGroup.instancingResource.Get(), &instancingSrvDesc,
+      instancingSrvHandleCPU);
 }
