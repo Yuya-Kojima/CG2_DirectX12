@@ -13,106 +13,111 @@ class SrvManager;
 class ParticleManager {
 
 public:
-  /// <summary>
-  /// シングルトンインスタンスの取得
-  /// </summary>
-  static ParticleManager *GetInstance();
+	/// <summary>
+	/// シングルトンインスタンスの取得
+	/// </summary>
+	static ParticleManager* GetInstance();
 
-  /// <summary>
-  /// 初期化
-  /// </summary>
-  void Initialize(Dx12Core *dx12Core, SrvManager *srvManager);
+	/// <summary>
+	/// 初期化
+	/// </summary>
+	void Initialize(Dx12Core* dx12Core, SrvManager* srvManager);
 
-  /// <summary>
-  /// 更新処理
-  /// </summary>
-  void Update();
+	/// <summary>
+	/// 更新処理
+	/// </summary>
+	void Update(const Matrix4x4& viewMatrix, const Matrix4x4& projectionMatrix);
 
-  /// <summary>
-  /// 描画
-  /// </summary>
-  void Draw();
+	/// <summary>
+	/// 描画
+	/// </summary>
+	void Draw();
 
-  /// <summary>
-  /// 終了
-  /// </summary>
-  void Finalize();
-
-private:
-  struct MaterialData {
-    std::string filePath;
-    uint32_t textureSrvIndex;
-  };
-
-  struct ParticleForGPU {
-    Matrix4x4 WVP;
-    Matrix4x4 World;
-    Vector4 color;
-  };
-
-  struct ParticleGroup {
-    MaterialData materialData;
-    std::list<Particle> particles;
-    uint32_t instancingSrvIndex = 0;
-    Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
-    uint32_t numInstance = 0;
-    ParticleForGPU *instancingData = nullptr;
-  };
-
-  ParticleManager() = default;
-  ~ParticleManager() = default;
-  ParticleManager(ParticleManager &) = delete;
-  ParticleManager &operator=(ParticleManager &) = delete;
+	/// <summary>
+	/// 終了
+	/// </summary>
+	void Finalize();
 
 private:
-  Dx12Core *dx12Core_ = nullptr;
+	struct MaterialData {
+		std::string filePath;
+		uint32_t textureSrvIndex;
+	};
 
-  SrvManager *srvManager_ = nullptr;
+	struct ParticleForGPU {
+		Matrix4x4 WVP;
+		Matrix4x4 World;
+		Vector4 color;
+	};
 
-  // ルートシグネチャ
-  Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
+	struct ParticleGroup {
+		MaterialData materialData;
+		std::list<Particle> particles;
+		uint32_t instancingSrvIndex = 0;
+		Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource;
+		uint32_t numInstance = 0;
+		ParticleForGPU* instancingData = nullptr;
+	};
 
-  // PSO
-  Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
-
-  // ランダムエンジン
-  std::random_device seedGenerator_;
-  std::mt19937 randomEngine_;
-  std::uniform_real_distribution<float> distribution_;
-
-  // バッファリソース
-  Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
-
-  // バッファリソースの使い道を補足するバッファビュー
-  D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-
-  // パーティクルグループコンテナ
-  std::unordered_map<std::string, ParticleGroup> particleGroups_;
-
-  // インスタンシング用SRVの空き番号管理用インデックス
-  uint32_t nextInstancingSrvIndex_;
+	ParticleManager() = default;
+	~ParticleManager() = default;
+	ParticleManager(ParticleManager&) = delete;
+	ParticleManager& operator=(ParticleManager&) = delete;
 
 private:
-  /// <summary>
-  /// ルートシグネチャを作成
-  /// </summary>
-  void CreateRootSignature();
+	Dx12Core* dx12Core_ = nullptr;
 
-  /// <summary>
-  /// オブジェクト用のPSOを作成
-  /// </summary>
-  void CreatePSO();
+	SrvManager* srvManager_ = nullptr;
 
-  /// <summary>
-  /// 頂点データの作成
-  /// </summary>
-  void CreateVertexData();
+	// ルートシグネチャ
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 
-  /// <summary>
-  /// パーティクルグループの生成
-  /// </summary>
-  /// <param name="name"></param>
-  /// <param name="textureFilePath"></param>
-  void CreateParticleGroup(const std::string name,
-                           const std::string textureFilePath);
+	// PSO
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
+
+	// ランダムエンジン
+	std::random_device seedGenerator_;
+	std::mt19937 randomEngine_;
+	std::uniform_real_distribution<float> distribution_;
+
+	// バッファリソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_ = nullptr;
+
+	// バッファリソースの使い道を補足するバッファビュー
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+
+	// パーティクルグループコンテナ
+	std::unordered_map<std::string, ParticleGroup> particleGroups_;
+
+	// インスタンシング用SRVの空き番号管理用インデックス
+	uint32_t nextInstancingSrvIndex_;
+
+private:
+	/// <summary>
+	/// ルートシグネチャを作成
+	/// </summary>
+	void CreateRootSignature();
+
+	/// <summary>
+	/// オブジェクト用のPSOを作成
+	/// </summary>
+	void CreatePSO();
+
+	/// <summary>
+	/// 頂点データの作成
+	/// </summary>
+	void CreateVertexData();
+
+	/// <summary>
+	/// パーティクルグループの生成
+	/// </summary>
+	/// <param name="name"></param>
+	/// <param name="textureFilePath"></param>
+	void CreateParticleGroup(const std::string name,
+		const std::string textureFilePath);
+
+private:
+
+	Matrix4x4 viewMatrix_;
+	Matrix4x4 projectionMatrix_;
 };
