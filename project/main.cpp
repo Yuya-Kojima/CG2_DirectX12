@@ -9,6 +9,8 @@
 #include "externals/imgui/imgui_impl_win32.h"
 // #include <Windows.h>
 #include "Camera/GameCamera.h"
+#include "Render/ParticleManager.h"
+#include "Render/ParticleEmitter.h"
 #include "Core/D3DResourceLeakChecker.h"
 #include "Render/ModelManager.h"
 #include "Render/TextureManager.h"
@@ -294,6 +296,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// モデルマネージャーの初期化
 	ModelManager::GetInstance()->Initialize(dx12Core);
 
+	// ParticleManagerの初期化
+	ParticleManager::GetInstance()->Initialize(dx12Core, srvManager);
+
 	//=============================
 	// サウンド用
 	//=============================
@@ -336,6 +341,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ModelManager::GetInstance()->LoadModel("plane.obj");
 
 	ModelManager::GetInstance()->LoadModel("axis.obj");
+
+
+	// グループ登録（name と texture を紐づけ）
+	ParticleManager::GetInstance()->CreateParticleGroup("test", "resources/circle.png");
 
 	// スプライトの生成と初期化
 	std::vector<Sprite*> sprites;
@@ -989,7 +998,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	SoundData soundData1 = SoundLoadWave("resources/fanfare.wav");
 	// SoundData soundData1 = SoundLoadWave("resources/Alarm01.wav");
 
-	SoundPlayerWave(xAudio2.Get(), soundData1);
+	//SoundPlayerWave(xAudio2.Get(), soundData1);
 
 	//=============================
 	// Instancing用リソース
@@ -1166,6 +1175,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	accelerationField.area.min = { -1.0f, -1.0f, -1.0f };
 	accelerationField.area.max = { 1.0f, 1.0f, 1.0f };
 
+	Transform emitterTransform{
+  {1.0f, 1.0f, 1.0f},
+  {0.0f, 0.0f, 0.0f},
+  {0.0f, 0.0f, 5.0f} , };
+
+	ParticleEmitter particleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
+
 	// ウィンドウのxボタンが押されるまでループ
 	while (true) {
 		// Windowにメッセージが来てたら最優先で処理させる
@@ -1187,30 +1203,51 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		// ゲームの処理
 
-		for (std::list<Particle>::iterator particleIterator = particles.begin();
-			particleIterator != particles.end(); ++particleIterator) {
-			// partic.transform.translate += particles.velocity * kDeltaTime;
-			// particles.currentTime += kDeltaTime; // 経過時間を足す
+		//for (std::list<Particle>::iterator particleIterator = particles.begin();
+		//	particleIterator != particles.end(); ++particleIterator) {
+		//	// partic.transform.translate += particles.velocity * kDeltaTime;
+		//	// particles.currentTime += kDeltaTime; // 経過時間を足す
 
-			if (isUpdate) {
-				if (IsCollision(accelerationField.area,
-					(*particleIterator).transform.translate)) {
-					(*particleIterator).velocity +=
-						accelerationField.acceleration * kDeltaTime;
-				}
-			}
+		//	if (isUpdate) {
+		//		if (IsCollision(accelerationField.area,
+		//			(*particleIterator).transform.translate)) {
+		//			(*particleIterator).velocity +=
+		//				accelerationField.acceleration * kDeltaTime;
+		//		}
+		//	}
 
-			(*particleIterator).transform.translate +=
-				(*particleIterator).velocity * kDeltaTime;
-			(*particleIterator).currentTime += kDeltaTime;
-		}
+		//	(*particleIterator).transform.translate +=
+		//		(*particleIterator).velocity * kDeltaTime;
+		//	(*particleIterator).currentTime += kDeltaTime;
+		//}
 
-		emitter.frequencyTime += kDeltaTime;
+		//emitter.frequencyTime += kDeltaTime;
 
-		if (emitter.frequency <= emitter.frequencyTime) {
-			particles.splice(particles.end(), Emit(emitter, randomEngine));
-			emitter.frequencyTime -= emitter.frequency;
-		}
+		//if (emitter.frequency <= emitter.frequencyTime) {
+		//	particles.splice(particles.end(), Emit(emitter, randomEngine));
+		//	emitter.frequencyTime -= emitter.frequency;
+		//}
+
+		// エミッタ更新
+		particleEmitter.Update();
+
+		// view / projection を作って ParticleManager 更新
+		Matrix4x4 cameraMatrix = MakeAffineMatrix(
+			cameraTransform.scale,
+			cameraTransform.rotate,
+			cameraTransform.translate
+		);
+
+		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+
+		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
+			0.45f,
+			float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
+			0.1f,
+			100.0f
+		);
+
+		ParticleManager::GetInstance()->Update(viewMatrix, projectionMatrix);
 
 		debugCamera->Update(*input);
 
@@ -1426,8 +1463,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		//                       TextureManager::GetInstance()->GetSrvHandleGPU(0));
 
 		// Lighting
-		/*       commandList->SetGraphicsRootConstantBufferView(
-				   3, directionalLightResource->GetGPUVirtualAddress());*/
+			  // commandList->SetGraphicsRootConstantBufferView(
+			//	   3, directionalLightResource->GetGPUVirtualAddress());
 				   // }
 				   // 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
 				   // commandList->DrawInstanced(UINT(modelData.vertices.size()), numInstance,
@@ -1441,6 +1478,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		// ３Dオブジェクトの描画
 		object3d->Draw();
 		object3dA->Draw();
+
+		ParticleManager::GetInstance()->Draw();
 
 		// Spriteの描画準備。Spriteの描画に共通のグラフィックスコマンドを積む
 		spriteRenderer->Begin();
@@ -1486,6 +1525,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ModelManager::GetInstance()->Finalize();
 
 	TextureManager::GetInstance()->Finalize();
+
+	ParticleManager::GetInstance()->Finalize();
 
 	delete input;
 

@@ -147,6 +147,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Render\ParticleEmitter.cpp" />
     <ClCompile Include="src\Render\ParticleManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="src\Camera\DebugCamera.cpp" />
@@ -242,6 +243,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="include\Render\ParticleManager.h" />
     <ClInclude Include="include\Math\VertexData.h" />
     <ClInclude Include="include\Core\WindowSystem.h" />
+    <ClInclude Include="include\Render\ParticleEmitter.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="externals\imgui\LICENSE.txt" />

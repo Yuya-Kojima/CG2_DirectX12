@@ -39,6 +39,8 @@ public:
 	void Finalize();
 
 private:
+
+
 	struct MaterialData {
 		std::string filePath;
 		uint32_t textureSrvIndex;
@@ -63,6 +65,16 @@ private:
 	~ParticleManager() = default;
 	ParticleManager(ParticleManager&) = delete;
 	ParticleManager& operator=(ParticleManager&) = delete;
+
+	struct Material {
+		Vector4 color;
+		int32_t enableLighting; 
+		float padding[3];
+		Matrix4x4 uvTransform;
+	};
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
+	Material* materialData_ = nullptr;
 
 private:
 	Dx12Core* dx12Core_ = nullptr;
@@ -90,7 +102,7 @@ private:
 	std::unordered_map<std::string, ParticleGroup> particleGroups_;
 
 	// インスタンシング用SRVの空き番号管理用インデックス
-	uint32_t nextInstancingSrvIndex_;
+	uint32_t nextInstancingSrvIndex_ = 0;
 
 private:
 	/// <summary>
@@ -108,6 +120,9 @@ private:
 	/// </summary>
 	void CreateVertexData();
 
+
+public:
+
 	/// <summary>
 	/// パーティクルグループの生成
 	/// </summary>
@@ -116,8 +131,20 @@ private:
 	void CreateParticleGroup(const std::string name,
 		const std::string textureFilePath);
 
+	/// <summary>
+	/// パーティクルの発生
+	/// </summary>
+	/// <param name="name"></param>
+	/// <param name="position"></param>
+	/// <param name="count"></param>
+	void Emit(const std::string& name, const Vector3& position, uint32_t count);
+
 private:
 
 	Matrix4x4 viewMatrix_;
 	Matrix4x4 projectionMatrix_;
+
+private:
+
+	const uint32_t kNumMaxInstance_ = 100;
 };

@@ -6,6 +6,11 @@
 #include <cassert>
 #include<numbers>
 
+ParticleManager* ParticleManager::GetInstance() {
+	static ParticleManager instance;
+	return &instance;
+}
+
 void ParticleManager::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
 
 	// ポインタを受け取ってメンバ変数に記録
@@ -17,6 +22,17 @@ void ParticleManager::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
 	randomEngine_ = std::mt19937(seedGenerator_());
 	distribution_ = std::uniform_real_distribution<float>(-1.0f, 1.0f);
 
+	// Material用のリソース作成（CBV）
+	materialResource_ = dx12Core_->CreateBufferResource(sizeof(Material));
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
+
+	// 初期値
+	materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	materialData_->enableLighting = 0;
+	materialData_->uvTransform = MakeIdentity4x4();
+
+	nextInstancingSrvIndex_ = 0;
+
 	// パイプライン生成
 	CreatePSO();
 
@@ -24,6 +40,8 @@ void ParticleManager::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
 }
 
 void ParticleManager::Update(const Matrix4x4& viewMatrix, const Matrix4x4& projectionMatrix) {
+
+
 
 	const float deltaTime = 1.0f / 60.0f;
 
@@ -52,6 +70,10 @@ void ParticleManager::Update(const Matrix4x4& viewMatrix, const Matrix4x4& proje
 		for (auto it = group.particles.begin();
 			it != group.particles.end(); ) {
 
+			if (group.numInstance >= kNumMaxInstance_) {
+				break;
+			}
+
 
 			//寿命チェック
 			if (it->currentTime >= it->lifeTime) {
@@ -62,7 +84,7 @@ void ParticleManager::Update(const Matrix4x4& viewMatrix, const Matrix4x4& proje
 			//場の影響を計算
 
 			//移動処理
-			it->transform.translate += it->velocity;
+			it->transform.translate += it->velocity * deltaTime;
 
 			//経過時間を加算
 			it->currentTime += deltaTime;
@@ -94,7 +116,54 @@ void ParticleManager::Update(const Matrix4x4& viewMatrix, const Matrix4x4& proje
 	}
 }
 
-void ParticleManager::Finalize() {}
+void ParticleManager::Draw() {
+
+	auto* commandList = dx12Core_->GetCommandList();
+
+	commandList->SetGraphicsRootSignature(rootSignature_.Get());
+	commandList->SetPipelineState(
+		graphicsPipeLineState_.Get());                 // PSOを設定
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_); // VBVを設定
+
+	commandList->SetGraphicsRootConstantBufferView(
+		0, materialResource_->GetGPUVirtualAddress());
+
+	for (auto& [name, group] : particleGroups_) {
+
+		if (group.numInstance == 0) { continue; }
+
+		D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
+			srvManager_->GetGPUDescriptorHandle(group.instancingSrvIndex);
+		commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
+
+		// (2) テクスチャSRV（rootParameter[2]）
+		D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
+			srvManager_->GetGPUDescriptorHandle(group.materialData.textureSrvIndex);
+		commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+
+		// (3) DrawCall（6頂点 = 板ポリ、instance数 = group.numInstance）
+		commandList->DrawInstanced(6, group.numInstance, 0, 0);
+
+	}
+}
+
+void ParticleManager::Finalize() {
+
+	particleGroups_.clear();
+
+	// GPUリソース類を解放
+	vertexResource_.Reset();
+	materialResource_.Reset();
+	graphicsPipeLineState_.Reset();
+	rootSignature_.Reset();
+
+	// Mapしてるやつはポインタ無効化（Unmap必須かは設計次第だが、最低これ）
+	materialData_ = nullptr;
+
+	dx12Core_ = nullptr;
+	srvManager_ = nullptr;
+}
 
 void ParticleManager::CreateRootSignature() {
 
@@ -398,27 +467,80 @@ void ParticleManager::CreateParticleGroup(const std::string name,
 		instancingData[index].color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
-	// インスタンシングようにSRVを確保して記録
-	D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
-	instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	instancingSrvDesc.Shader4ComponentMapping =
-		D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	instancingSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	instancingSrvDesc.Buffer.FirstElement = 0;
-	instancingSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-	instancingSrvDesc.Buffer.NumElements = kNumMaxInstance;
-	instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
+	//// インスタンシングようにSRVを確保して記録
+	//D3D12_SHADER_RESOURCE_VIEW_DESC instancingSrvDesc{};
+	//instancingSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	//instancingSrvDesc.Shader4ComponentMapping =
+	//	D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	//instancingSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	//instancingSrvDesc.Buffer.FirstElement = 0;
+	//instancingSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	//instancingSrvDesc.Buffer.NumElements = kNumMaxInstance;
+	//instancingSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
 
-	particleGroup.instancingSrvIndex = nextInstancingSrvIndex_++;
+	//particleGroup.instancingSrvIndex = nextInstancingSrvIndex_++;
 
-	D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
-		srvManager_->GetCPUDescriptorHandle(
-			particleGroup
-			.instancingSrvIndex); // Heapの三番目に作成(空いているのであればどこでもOK)
-	D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
-		srvManager_->GetGPUDescriptorHandle(particleGroup.instancingSrvIndex);
+	//D3D12_CPU_DESCRIPTOR_HANDLE instancingSrvHandleCPU =
+	//	srvManager_->GetCPUDescriptorHandle(
+	//		particleGroup
+	//		.instancingSrvIndex); // Heapの三番目に作成(空いているのであればどこでもOK)
+	//D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
+	//	srvManager_->GetGPUDescriptorHandle(particleGroup.instancingSrvIndex);
 
-	dx12Core_->GetDevice()->CreateShaderResourceView(
-		particleGroup.instancingResource.Get(), &instancingSrvDesc,
-		instancingSrvHandleCPU);
+	//dx12Core_->GetDevice()->CreateShaderResourceView(
+	//	particleGroup.instancingResource.Get(), &instancingSrvDesc,
+	//	instancingSrvHandleCPU);
+
+	particleGroup.instancingSrvIndex = srvManager_->Allocate();
+
+	// できればSrvManagerの関数を使う（あなたのSrvManagerにある）
+	srvManager_->CreateSRVforStructuredBuffer(
+		particleGroup.instancingSrvIndex,
+		particleGroup.instancingResource.Get(),
+		kNumMaxInstance,
+		sizeof(ParticleForGPU));
+}
+
+void ParticleManager::Emit(
+	const std::string& name,
+	const Vector3& position,
+	uint32_t count) {
+
+	Logger::Log(std::format(
+		"Emit: name={}, count={}\n",
+		name,
+		count
+	));
+
+	assert(particleGroups_.contains(name));
+
+	ParticleGroup& group = particleGroups_.at(name);
+
+	std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+	std::uniform_real_distribution<float> distLife(1.0f, 3.0f);
+
+	//秒速スケール
+	const float speed = 1.0f;
+
+	for (uint32_t i = 0; i < count; ++i) {
+		Particle particle{};
+
+		Vector3 randomOffset{ dist(randomEngine_), dist(randomEngine_), dist(randomEngine_) };
+		particle.transform.translate = position + randomOffset;
+
+		particle.transform.scale = { 1.0f, 1.0f, 1.0f };
+
+		particle.velocity = {
+			distribution_(randomEngine_),
+			distribution_(randomEngine_),
+			distribution_(randomEngine_)
+		};
+
+
+		particle.lifeTime = distLife(randomEngine_);
+		particle.currentTime = 0.0f;
+
+		// 指定グループに登録
+		group.particles.push_back(particle);
+	}
 }
