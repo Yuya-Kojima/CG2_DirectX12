@@ -1,1 +1,22 @@
-﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(463,5): error MSB8020: Visual Studio 2010 (プラットフォーム ツールセット = 'v100') のビルド ツールが見つかりません。v100 ビルド ツールを使用してビルドするには、Visual Studio 2010 ビルド ツールをインストールしてください。または、[プロジェクト] メニューを選択するかソリューションを右クリックし [ソリューションの再ターゲット] を選択して、現在の Visual Studio Tools にアップグレードすることもできます。
+﻿  BC.cpp
+  BC4BC5.cpp
+  BC6HBC7.cpp
+  BCDirectCompute.cpp
+  DirectXTexCompress.cpp
+  DirectXTexCompressGPU.cpp
+  DirectXTexConvert.cpp
+  DirectXTexD3D11.cpp
+  DirectXTexD3D12.cpp
+  DirectXTexDDS.cpp
+  DirectXTexFlipRotate.cpp
+  DirectXTexHDR.cpp
+  DirectXTexImage.cpp
+  DirectXTexMipMaps.cpp
+  DirectXTexMisc.cpp
+  DirectXTexNormalMaps.cpp
+  DirectXTexPMAlpha.cpp
+C:\Users\K024G\source\repos\CG2\project\externals\DirectXTex\BCDirectCompute.cpp(25,18): error C1083: include ファイルを開けません。'BC7Encode_EncodeBlockCS.inc':No such file or directory
+  DirectXTexResize.cpp
+  DirectXTexTGA.cpp
+  DirectXTexUtil.cpp
+  DirectXTexWIC.cpp
