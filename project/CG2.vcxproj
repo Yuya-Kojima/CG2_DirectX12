@@ -156,6 +156,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Game.cpp" />
     <ClCompile Include="src\Render\ParticleEmitter.cpp" />
     <ClCompile Include="src\Render\ParticleManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
@@ -209,6 +210,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Game.h" />
     <ClInclude Include="include\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="include\Camera\DebugCamera.h" />
     <ClInclude Include="DirectionalLight.h" />
