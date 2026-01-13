@@ -18,13 +18,13 @@
 #include <string>
 #define _USE_MATH_DEFINES
 #include "Core/Dx12Core.h"
+#include "Core/Game.h"
 #include "Core/Logger.h"
-#include "DirectionalLight.h"
-#include "Game.h"
-#include "Material.h"
 #include "Math/Field.h"
 #include "Math/TransformationMatrix.h"
-#include "ModelData.h"
+#include "Render/DirectionalLight.h"
+#include "Render/Material.h"
+#include "Render/ModelData.h"
 
 #include "Util/StringUtil.h"
 #include <dinput.h>
@@ -45,34 +45,26 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
+#include "Core/EngineBase.h"
+
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // ゲームの初期化
-  Game game;
+  EngineBase *game = new Game();
 
-  game.Initialize();
+  game->Run();
 
-  // ウィンドウのxボタンが押されるまでループ
-  while (true) {
-
-    game.Update();
-
-    if (game.IsEndRequest()) {
-      break;
-    }
-
-    game.Draw();
-
-    // 実際のcommandListのImGuiの描画コマンドを積む
-    // ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
-    //                              dx12Core->GetCommandList());
-  }
+  // 実際のcommandListのImGuiの描画コマンドを積む
+  // ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(),
+  //                              dx12Core->GetCommandList());
 
   // ImGuiの終了処理
   // ImGui_ImplDX12_Shutdown();
   // ImGui_ImplWin32_Shutdown();
   // ImGui::DestroyContext();
+
+  delete game;
 
   return 0;
 }

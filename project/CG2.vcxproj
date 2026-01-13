@@ -156,7 +156,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Game.cpp" />
+    <ClCompile Include="src\Core\EngineBase.cpp" />
+    <ClCompile Include="src\Core\Game.cpp" />
     <ClCompile Include="src\Render\ParticleEmitter.cpp" />
     <ClCompile Include="src\Render\ParticleManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
@@ -210,10 +211,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Game.h" />
+    <ClInclude Include="include\Core\EngineBase.h" />
+    <ClInclude Include="include\Core\Game.h" />
     <ClInclude Include="include\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="include\Camera\DebugCamera.h" />
-    <ClInclude Include="DirectionalLight.h" />
+    <ClInclude Include="include\Render\DirectionalLight.h" />
     <ClInclude Include="include\Core\Dx12Core.h" />
     <ClInclude Include="externals\imgui\imconfig.h" />
     <ClInclude Include="externals\imgui\imgui.h" />
@@ -229,13 +231,13 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="include\Input\InputKeyState.h" />
     <ClInclude Include="include\Input\InputMouseState.h" />
     <ClInclude Include="include\Core\Logger.h" />
-    <ClInclude Include="Material.h" />
-    <ClInclude Include="MaterialData.h" />
+    <ClInclude Include="include\Render\Material.h" />
+    <ClInclude Include="include\Render\MaterialData.h" />
     <ClInclude Include="include\Math\MathUtil.h" />
     <ClInclude Include="include\Math\Matrix3x3.h" />
     <ClInclude Include="include\Math\Matrix4x4.h" />
     <ClInclude Include="include\Render\Model.h" />
-    <ClInclude Include="ModelData.h" />
+    <ClInclude Include="include\Render\ModelData.h" />
     <ClInclude Include="include\Render\ModelManager.h" />
     <ClInclude Include="include\Render\ModelRenderer.h" />
     <ClInclude Include="include\Render\Object3d.h" />
