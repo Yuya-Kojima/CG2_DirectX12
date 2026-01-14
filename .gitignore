@@ -32,6 +32,24 @@ mono_crash.*
 # [Oo]ut/
 # [Ll]og/
 # [Ll]ogs/
+
+# ---- build outputs (VS) ----
+x64/
+x86/
+project/x64/
+project/x86/
+project/**/[Dd]ebug/
+project/**/[Rr]elease/
+project/**/[Ll]og/
+project/**/[Ll]ogs/
+
+# ---- DirectXTex build outputs ----
+project/externals/DirectXTex/Bin/
+project/externals/DirectXTex/**/Bin/
+project/externals/DirectXTex/**/obj/
+project/externals/DirectXTex/**/x64/
+
+# ---- must keep ignoring ----
 generated/
 
 # Visual Studio 2015/2017 cache/options directory
@@ -364,3 +382,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 project/imgui.ini
+
+imgui.ini
