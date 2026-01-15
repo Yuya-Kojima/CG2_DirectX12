@@ -144,6 +144,7 @@
     <ClCompile Include="src\Render\Sprite\Sprite.cpp" />
     <ClCompile Include="src\Render\Renderer\SpriteRenderer.cpp" />
     <ClCompile Include="src\Render\Texture\TextureManager.cpp" />
+    <ClCompile Include="src\Scene\BaseScene.cpp" />
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -183,6 +184,7 @@
     <ClInclude Include="include\Render\Sprite\Sprite.h" />
     <ClInclude Include="include\Render\Renderer\SpriteRenderer.h" />
     <ClInclude Include="include\Render\Texture\TextureManager.h" />
+    <ClInclude Include="include\Scene\BaseScene.h" />
     <ClInclude Include="include\Util\StringUtil.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
