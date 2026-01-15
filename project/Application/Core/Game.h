@@ -4,9 +4,6 @@
 #include "Scene/BaseScene.h"
 #include <vector>
 
-class Sprite;
-class Object3d;
-
 class Game : public EngineBase {
 
 public:
@@ -19,7 +16,5 @@ public:
   void Draw() override;
 
 private:
-  BaseScene *scene_ = nullptr;
-
   bool set60FPS_ = false;
 };

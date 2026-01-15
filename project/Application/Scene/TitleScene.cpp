@@ -1,6 +1,7 @@
 #include "TitleScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "GamePlayScene.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -10,131 +11,132 @@
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
+#include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <fstream>
 
 //// チャンクヘッダ
-//struct ChunkHeader {
-//  char id[4];   // チャンク毎のID
-//  int32_t size; // チャンクサイズ
-//};
+// struct ChunkHeader {
+//   char id[4];   // チャンク毎のID
+//   int32_t size; // チャンクサイズ
+// };
 //
 //// RIFFヘッダチャンク
-//struct RiffHeader {
-//  ChunkHeader chunk; //"RIFF"
-//  char type[4];      //"WAVE"
-//};
+// struct RiffHeader {
+//   ChunkHeader chunk; //"RIFF"
+//   char type[4];      //"WAVE"
+// };
 //
 //// FMTチャンク
-//struct FormatChunk {
-//  ChunkHeader chunk; //"fmt"
-//  WAVEFORMATEX fmt;  // 波形フォーマット
-//};
+// struct FormatChunk {
+//   ChunkHeader chunk; //"fmt"
+//   WAVEFORMATEX fmt;  // 波形フォーマット
+// };
 //
 ///// <summary>
 ///// waveファイルを読み込む
 ///// </summary>
 ///// <param name="filename">ファイル名</param>
 ///// <returns></returns>
-//SoundData SoundLoadWave(const char *filename) {
+// SoundData SoundLoadWave(const char *filename) {
 //
-//  /* ファイルオープン
-//  ----------------------*/
+//   /* ファイルオープン
+//   ----------------------*/
 //
-//  // ファイル入力ストリームのインスタンス
-//  std::ifstream file;
+//   // ファイル入力ストリームのインスタンス
+//   std::ifstream file;
 //
-//  //.wavファイルをバイナリモードで開く
-//  file.open(filename, std::ios_base::binary);
+//   //.wavファイルをバイナリモードで開く
+//   file.open(filename, std::ios_base::binary);
 //
-//  // ファイルが開けなかったら
-//  assert(file.is_open());
+//   // ファイルが開けなかったら
+//   assert(file.is_open());
 //
-//  /* .wavデータ読み込み
-//  ----------------------*/
+//   /* .wavデータ読み込み
+//   ----------------------*/
 //
-//  // RIFFヘッダーの読み込み
-//  RiffHeader riff;
+//   // RIFFヘッダーの読み込み
+//   RiffHeader riff;
 //
-//  file.read((char *)&riff, sizeof(riff));
+//   file.read((char *)&riff, sizeof(riff));
 //
-//  // 開いたファイルがRIFFであるかを確認する
-//  if (strncmp(riff.chunk.id, "RIFF", 4) != 0) {
-//    assert(0);
-//  }
+//   // 開いたファイルがRIFFであるかを確認する
+//   if (strncmp(riff.chunk.id, "RIFF", 4) != 0) {
+//     assert(0);
+//   }
 //
-//  // タイプがWAVEか確認
-//  if (strncmp(riff.type, "WAVE", 4) != 0) {
-//    assert(0);
-//  }
+//   // タイプがWAVEか確認
+//   if (strncmp(riff.type, "WAVE", 4) != 0) {
+//     assert(0);
+//   }
 //
-//  // formatチャンクの読み込み
-//  FormatChunk format = {};
+//   // formatチャンクの読み込み
+//   FormatChunk format = {};
 //
-//  // チャンクヘッダーの確認
-//  file.read((char *)&format, sizeof(ChunkHeader));
+//   // チャンクヘッダーの確認
+//   file.read((char *)&format, sizeof(ChunkHeader));
 //
-//  if (strncmp(format.chunk.id, "fmt ", 4) != 0) {
-//    assert(0);
-//  }
+//   if (strncmp(format.chunk.id, "fmt ", 4) != 0) {
+//     assert(0);
+//   }
 //
-//  // チャンク本体の読み込み
-//  assert(format.chunk.size <= sizeof(format.fmt));
-//  file.read((char *)&format.fmt, format.chunk.size);
+//   // チャンク本体の読み込み
+//   assert(format.chunk.size <= sizeof(format.fmt));
+//   file.read((char *)&format.fmt, format.chunk.size);
 //
-//  // Dataチャンクの読み込み
-//  ChunkHeader data;
+//   // Dataチャンクの読み込み
+//   ChunkHeader data;
 //
-//  file.read((char *)&data, sizeof(data));
+//   file.read((char *)&data, sizeof(data));
 //
-//  // Junkチャンク(パディング？)を検出した場合
-//  if (strncmp(data.id, "JUNK", 4) == 0) {
+//   // Junkチャンク(パディング？)を検出した場合
+//   if (strncmp(data.id, "JUNK", 4) == 0) {
 //
-//    // 読み取り位置をJunkチャンクの終わりまで進める
-//    file.seekg(data.size, std::ios_base::cur);
+//     // 読み取り位置をJunkチャンクの終わりまで進める
+//     file.seekg(data.size, std::ios_base::cur);
 //
-//    // 飛ばした後に再度読み込み
-//    file.read((char *)&data, sizeof(data));
-//  }
+//     // 飛ばした後に再度読み込み
+//     file.read((char *)&data, sizeof(data));
+//   }
 //
-//  if (strncmp(data.id, "data", 4) != 0) {
-//    assert(0);
-//  }
+//   if (strncmp(data.id, "data", 4) != 0) {
+//     assert(0);
+//   }
 //
-//  // Dataチャンクのデータ部(波形データ)の読み込み
-//  char *pBuffer = new char[data.size];
-//  file.read(pBuffer, data.size);
+//   // Dataチャンクのデータ部(波形データ)の読み込み
+//   char *pBuffer = new char[data.size];
+//   file.read(pBuffer, data.size);
 //
-//  // Waveファイルを閉じる
-//  file.close();
+//   // Waveファイルを閉じる
+//   file.close();
 //
-//  /* 読み込んだ音声データをreturn
-//  -------------------------------*/
+//   /* 読み込んだ音声データをreturn
+//   -------------------------------*/
 //
-//  // returnするための音声データ
-//  SoundData soundData = {};
+//   // returnするための音声データ
+//   SoundData soundData = {};
 //
-//  soundData.wfex = format.fmt;
-//  soundData.pBuffer = reinterpret_cast<BYTE *>(pBuffer);
-//  soundData.bufferSize = data.size;
+//   soundData.wfex = format.fmt;
+//   soundData.pBuffer = reinterpret_cast<BYTE *>(pBuffer);
+//   soundData.bufferSize = data.size;
 //
-//  return soundData;
-//}
+//   return soundData;
+// }
 //
 ///// <summary>
 ///// 音声データの解放
 ///// </summary>
 ///// <param name="soundData"></param>
-//void SoundUnload(SoundData *soundData) {
+// void SoundUnload(SoundData *soundData) {
 //
-//  // バッファのメモリを解放
-//  delete[] soundData->pBuffer;
+//   // バッファのメモリを解放
+//   delete[] soundData->pBuffer;
 //
-//  soundData->pBuffer = 0;
-//  soundData->bufferSize = 0;
-//  soundData->wfex = {};
-//}
+//   soundData->pBuffer = 0;
+//   soundData->bufferSize = 0;
+//   soundData->wfex = {};
+// }
 
 void TitleScene::Initialize(EngineBase *engine) {
 
@@ -152,7 +154,7 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
-  //soundData1_ = SoundLoadWave("resources/fanfare.wav");
+  // soundData1_ = SoundLoadWave("resources/fanfare.wav");
 
   //===========================
   // スプライト関係の初期化
@@ -247,8 +249,8 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
 
   // グループ登録（name と texture を紐づけ）
-  ParticleManager::GetInstance()->CreateParticleGroup("test",
-                                                      "resources/circle.png");
+  // ParticleManager::GetInstance()->CreateParticleGroup("test",
+  //                                                    "resources/circle.png");
 
   // エミッタ
   Transform emitterTransform{
@@ -285,10 +287,15 @@ void TitleScene::Finalize() {
   }
   sprites_.clear();
 
-  //SoundUnload(&soundData1_);
+  // SoundUnload(&soundData1_);
 }
 
 void TitleScene::Update() {
+
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+    BaseScene *scene = new GamePlayScene();
+    SceneManager::GetInstance()->SetNextScene(scene);
+  }
 
   // テクスチャ差し替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
@@ -366,13 +373,20 @@ void TitleScene::Update() {
   camera_->Update();
 }
 
+void TitleScene::Draw() {
+  Draw3D();
+  Draw2D();
+}
+
 void TitleScene::Draw3D() {
+  engine_->Begin3D();
   object3d_->Draw();
   object3dA_->Draw();
   ParticleManager::GetInstance()->Draw();
 }
 
 void TitleScene::Draw2D() {
+  engine_->Begin2D();
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     sprites_[i]->Draw();
   }
