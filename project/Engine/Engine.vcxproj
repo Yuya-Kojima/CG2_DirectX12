@@ -122,6 +122,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Audio\SoundManager.cpp" />
     <ClCompile Include="src\Scene\SceneManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="src\Core\Dx12Core.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="include\Scene\BaseScene.h" />
     <ClInclude Include="include\Util\StringUtil.h" />
     <ClInclude Include="include\Scene\SceneManager.h" />
+    <ClInclude Include="include\Audio\SoundManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

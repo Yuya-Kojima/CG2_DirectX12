@@ -13,129 +13,6 @@
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
-#include <fstream>
-
-// チャンクヘッダ
-struct ChunkHeader {
-  char id[4];   // チャンク毎のID
-  int32_t size; // チャンクサイズ
-};
-
-// RIFFヘッダチャンク
-struct RiffHeader {
-  ChunkHeader chunk; //"RIFF"
-  char type[4];      //"WAVE"
-};
-
-// FMTチャンク
-struct FormatChunk {
-  ChunkHeader chunk; //"fmt"
-  WAVEFORMATEX fmt;  // 波形フォーマット
-};
-
-/// <summary>
-/// waveファイルを読み込む
-/// </summary>
-/// <param name="filename">ファイル名</param>
-/// <returns></returns>
-SoundData SoundLoadWave(const char *filename) {
-
-  /* ファイルオープン
-  ----------------------*/
-
-  // ファイル入力ストリームのインスタンス
-  std::ifstream file;
-
-  //.wavファイルをバイナリモードで開く
-  file.open(filename, std::ios_base::binary);
-
-  // ファイルが開けなかったら
-  assert(file.is_open());
-
-  /* .wavデータ読み込み
-  ----------------------*/
-
-  // RIFFヘッダーの読み込み
-  RiffHeader riff;
-
-  file.read((char *)&riff, sizeof(riff));
-
-  // 開いたファイルがRIFFであるかを確認する
-  if (strncmp(riff.chunk.id, "RIFF", 4) != 0) {
-    assert(0);
-  }
-
-  // タイプがWAVEか確認
-  if (strncmp(riff.type, "WAVE", 4) != 0) {
-    assert(0);
-  }
-
-  // formatチャンクの読み込み
-  FormatChunk format = {};
-
-  // チャンクヘッダーの確認
-  file.read((char *)&format, sizeof(ChunkHeader));
-
-  if (strncmp(format.chunk.id, "fmt ", 4) != 0) {
-    assert(0);
-  }
-
-  // チャンク本体の読み込み
-  assert(format.chunk.size <= sizeof(format.fmt));
-  file.read((char *)&format.fmt, format.chunk.size);
-
-  // Dataチャンクの読み込み
-  ChunkHeader data;
-
-  file.read((char *)&data, sizeof(data));
-
-  // Junkチャンク(パディング？)を検出した場合
-  if (strncmp(data.id, "JUNK", 4) == 0) {
-
-    // 読み取り位置をJunkチャンクの終わりまで進める
-    file.seekg(data.size, std::ios_base::cur);
-
-    // 飛ばした後に再度読み込み
-    file.read((char *)&data, sizeof(data));
-  }
-
-  if (strncmp(data.id, "data", 4) != 0) {
-    assert(0);
-  }
-
-  // Dataチャンクのデータ部(波形データ)の読み込み
-  char *pBuffer = new char[data.size];
-  file.read(pBuffer, data.size);
-
-  // Waveファイルを閉じる
-  file.close();
-
-  /* 読み込んだ音声データをreturn
-  -------------------------------*/
-
-  // returnするための音声データ
-  SoundData soundData = {};
-
-  soundData.wfex = format.fmt;
-  soundData.pBuffer = reinterpret_cast<BYTE *>(pBuffer);
-  soundData.bufferSize = data.size;
-
-  return soundData;
-}
-
-/// <summary>
-/// 音声データの解放
-/// </summary>
-/// <param name="soundData"></param>
-void SoundUnload(SoundData *soundData) {
-
-  // バッファのメモリを解放
-  delete[] soundData->pBuffer;
-
-  soundData->pBuffer = 0;
-  soundData->bufferSize = 0;
-  soundData->wfex = {};
-}
 
 void GamePlayScene::Initialize(EngineBase *engine) {
 
@@ -153,7 +30,19 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
-  soundData1_ = SoundLoadWave("resources/fanfare.wav");
+  // soundData1_ =
+  //    SoundManager::GetInstance()->SoundLoadWave("resources/fanfare.wav");
+
+  // SoundManager::GetInstance()->SoundPlayWave(soundData1_);
+
+  auto *sm = SoundManager::GetInstance();
+
+  // Audioファイルを登録
+  sm->Load("bgm_mokugyo", "resources/mokugyo.wav");
+  sm->Load("se_fanfare", "resources/fanfare.wav");
+
+  // bgm再生
+  sm->PlayBGM("bgm_mokugyo");
 
   //===========================
   // スプライト関係の初期化
@@ -286,11 +175,27 @@ void GamePlayScene::Finalize() {
   }
   sprites_.clear();
 
-  SoundUnload(&soundData1_);
+  // SoundManager::GetInstance()->SoundUnload(&soundData1_);
+
+  auto *sm = SoundManager::GetInstance();
+  sm->StopBGM();
+
+  // ゲームシーンだけで使う運用ならここで解放してOK
+  sm->Unload("bgm_mokugyo");
+  sm->Unload("se_fanfare");
 }
 
 void GamePlayScene::Update() {
 
+  // Sound更新
+  SoundManager::GetInstance()->Update();
+
+  // VキーでSE(重複可能）
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_V)) {
+    SoundManager::GetInstance()->PlaySE("se_fanfare");
+  }
+
+  // タイトルシーンへ移行
   if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
     SceneManager::GetInstance()->ChangeScene("TITLE");
   }

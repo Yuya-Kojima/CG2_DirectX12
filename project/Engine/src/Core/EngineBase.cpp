@@ -1,4 +1,5 @@
 #include "Core/EngineBase.h"
+#include "Audio/SoundManager.h"
 #include "Camera/GameCamera.h"
 #include "Core/D3DResourceLeakChecker.h"
 #include "Core/SrvManager.h"
@@ -10,6 +11,7 @@
 #include "Renderer/SpriteRenderer.h"
 #include "Texture/TextureManager.h"
 #include <cassert>
+#include <xaudio2.h>
 
 void EngineBase::Initialize() {
 
@@ -52,6 +54,8 @@ void EngineBase::Initialize() {
   hr = xAudio2_->CreateMasteringVoice(&masterVoice);
   assert(SUCCEEDED(hr));
 
+  SoundManager::GetInstance()->Initialize(xAudio2_.Get());
+
   //===========================
   // SRVManagerの初期化
   //===========================
@@ -75,6 +79,9 @@ void EngineBase::Initialize() {
 }
 
 void EngineBase::Finalize() {
+
+  SoundManager::GetInstance()->Finalize();
+
   xAudio2_.Reset();
 
   ParticleManager::GetInstance()->Finalize();

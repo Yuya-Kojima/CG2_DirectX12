@@ -1,4 +1,5 @@
 #pragma once
+#include "Audio/SoundManager.h"
 #include "Core/EngineBase.h"
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
@@ -40,7 +41,7 @@ public:
   void Draw2D() override;
 
 private:
-  SoundData soundData1_;
+  // SoundData soundData1_;
 
   static constexpr int kSpriteCount_ = 5;
 
