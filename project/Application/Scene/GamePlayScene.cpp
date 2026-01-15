@@ -11,7 +11,6 @@
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
-#include "Scene/TitleScene.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <fstream>
@@ -293,8 +292,7 @@ void GamePlayScene::Finalize() {
 void GamePlayScene::Update() {
 
   if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    BaseScene *scene = new TitleScene();
-    SceneManager::GetInstance()->SetNextScene(scene);
+    SceneManager::GetInstance()->ChangeScene("TITLE");
   }
 
   // テクスチャ差し替え

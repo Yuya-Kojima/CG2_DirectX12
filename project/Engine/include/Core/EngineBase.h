@@ -10,6 +10,7 @@ class SpriteRenderer;
 class SrvManager;
 class GameCamera;
 class D3DResourceLeakChecker;
+class AbstractSceneFactory;
 
 // 音声データ
 struct SoundData {
@@ -76,4 +77,7 @@ protected:
   Object3dRenderer *object3dRenderer_ = nullptr;
 
   SrvManager *srvManager_ = nullptr;
+
+  // シーンファクトリー
+  AbstractSceneFactory *sceneFactory_ = nullptr;
 };

@@ -1,4 +1,5 @@
 #pragma once
+#include "AbstractSceneFactory.h"
 
 class BaseScene;
 class EngineBase;
@@ -29,7 +30,9 @@ public:
   /// 次のシーンを予約
   /// </summary>
   /// <param name="scene"></param>
-  void SetNextScene(BaseScene *scene) { nextScene_ = scene; }
+  // void SetNextScene(BaseScene *scene) { nextScene_ = scene; }
+
+  void ChangeScene(const std::string &sceneName);
 
 private:
   SceneManager() = default;
@@ -38,4 +41,13 @@ private:
   SceneManager &operator=(const SceneManager &) = delete;
   SceneManager(SceneManager &&) = delete;
   SceneManager &operator=(SceneManager &&) = delete;
+
+private:
+  // シーンファクトリー（借りてくる）
+  AbstractSceneFactory *sceneFactory_ = nullptr;
+
+public:
+  void SetSceneFactory(AbstractSceneFactory *sceneFactory) {
+    sceneFactory_ = sceneFactory;
+  }
 };
