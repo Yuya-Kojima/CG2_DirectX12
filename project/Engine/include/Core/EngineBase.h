@@ -25,7 +25,7 @@ struct SoundData {
 
 class EngineBase {
 public:
-  // 仮想デストラクタ（必須）
+  // 仮想デストラクタ
   virtual ~EngineBase() = default;
 
   // 初期化
@@ -37,7 +37,7 @@ public:
   // 毎フレーム更新
   virtual void Update();
 
-  // 描画（純粋仮想関数：必ず実装させる）
+  // 描画
   virtual void Draw() = 0;
 
   void BeginFrame();
@@ -52,6 +52,10 @@ public:
 
   // 実行
   void Run();
+
+  InputKeyState *GetInputManager() const { return input_; }
+  SpriteRenderer *GetSpriteRenderer() const { return spriteRenderer_; }
+  Object3dRenderer *GetObject3dRenderer() const { return object3dRenderer_; }
 
 protected:
   bool endRequest_ = false;

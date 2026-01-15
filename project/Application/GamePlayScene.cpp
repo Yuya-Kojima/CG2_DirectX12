@@ -1,20 +1,17 @@
-#include "Core/Game.h"
-#include "Debug/DebugCamera.h"
+#include "GamePlayScene.h"
 #include "Camera/GameCamera.h"
-#include "Core/ResourceObject.h"
-#include "Core/SrvManager.h"
+#include "Debug/DebugCamera.h"
+#include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Particle/Particle.h"
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
-#include "Renderer/ModelRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
-#include <cassert>
 #include <fstream>
 
 // チャンクヘッダ
@@ -139,39 +136,9 @@ void SoundUnload(SoundData *soundData) {
   soundData->wfex = {};
 }
 
-/// <summary>
-/// サウンド再生
-/// </summary>
-/// <param name="xAudio2">再生するためのxAudio2</param>
-/// <param name="soundData">音声データ(波形データ、サイズ、フォーマット)</param>
-void SoundPlayerWave(IXAudio2 *xAudio2, const SoundData &soundData) {
+void GamePlayScene::Initialize(EngineBase *engine) {
 
-  HRESULT result;
-
-  // 波形フォーマットを元にSourceVoiceの生成
-  IXAudio2SourceVoice *pSourceVoice = nullptr;
-  result = xAudio2->CreateSourceVoice(&pSourceVoice, &soundData.wfex);
-  assert(SUCCEEDED(result));
-
-  // 再生する波形データの設定
-  XAUDIO2_BUFFER buf{};
-  buf.pAudioData = soundData.pBuffer;
-  buf.AudioBytes = soundData.bufferSize;
-  buf.Flags = XAUDIO2_END_OF_STREAM;
-
-  // 波形データの再生
-  result = pSourceVoice->SubmitSourceBuffer(&buf);
-  result = pSourceVoice->Start();
-}
-
-void Game::Initialize() {
-
-  // 基底クラスの初期化処理
-  EngineBase::Initialize();
-
-  //===========================
-  // ローカル変数宣言
-  //===========================
+  engine_ = engine;
 
   //===========================
   // テクスチャファイルの読み込み
@@ -183,6 +150,11 @@ void Game::Initialize() {
   TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
 
   //===========================
+  // オーディオファイルの読み込み
+  //===========================
+  soundData1_ = SoundLoadWave("resources/fanfare.wav");
+
+  //===========================
   // スプライト関係の初期化
   //===========================
 
@@ -190,95 +162,22 @@ void Game::Initialize() {
   for (int i = 0; i < kSpriteCount_; ++i) {
     Sprite *sprite = new Sprite();
     if (i % 2 == 1) {
-      sprite->Initialize(spriteRenderer_, "resources/uvChecker.png");
+      sprite->Initialize(engine_->GetSpriteRenderer(),
+                         "resources/uvChecker.png");
     } else {
-      sprite->Initialize(spriteRenderer_, "resources/monsterball.png");
+      sprite->Initialize(engine_->GetSpriteRenderer(),
+                         "resources/monsterball.png");
     }
     sprites_.push_back(sprite);
   }
 
   sprite_ = new Sprite();
-  sprite_->Initialize(spriteRenderer_, "resources/uvChecker.png");
+  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/uvChecker.png");
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     spritePositions_[i] = {i * 200.0f, 0.0f};
     spriteSizes_[i] = {150.0f, 150.0f};
   }
-
-  //===========================
-  // デバッグテキストの初期化(未実装)
-  //===========================
-
-  //===========================
-  // 3Dオブジェクト関係の初期化
-  //===========================
-
-  // モデルの読み込み
-  ModelManager::GetInstance()->LoadModel("plane.obj");
-
-  ModelManager::GetInstance()->LoadModel("axis.obj");
-
-  // カメラの生成と初期化
-  camera_ = new GameCamera();
-  camera_->SetRotate({0.3f, 0.0f, 0.0f});
-  camera_->SetTranslate({0.0f, 4.0f, -10.0f});
-  object3dRenderer_->SetDefaultCamera(camera_);
-
-  // オブジェクトの生成と初期化
-  object3d_ = new Object3d();
-  object3d_->Initialize(object3dRenderer_);
-  object3d_->SetModel("plane.obj");
-
-  object3dA_ = new Object3d();
-  object3dA_->Initialize(object3dRenderer_);
-  object3dA_->SetModel("axis.obj");
-
-  //===========================
-  // オーディオファイルの読み込み
-  //===========================
-  soundData1_ = SoundLoadWave("resources/fanfare.wav");
-
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
-
-  // グループ登録（name と texture を紐づけ）
-  ParticleManager::GetInstance()->CreateParticleGroup("test",
-                                                      "resources/circle.png");
-
-  // エミッタ
-  Transform emitterTransform{
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 5.0f},
-  };
-
-  particleEmitter_ =
-      new ParticleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
-
-  // UVTransfotm用
-  uvTransformSprite_ = {
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-  };
-
-  // texture切り替え用
-  bool useMonsterBall = true;
-
-  // Lighting
-  bool enableLighting = true;
-
-  // デバッグカメラ
-  debugCamera_ = new DebugCamera();
-  debugCamera_->Initialize();
-
-  // デルタタイム 一旦60fpsで固定
-  const float kDeltaTime = 1.0f / 60.0f;
-
-  bool isUpdate = false;
-
-  bool useBillboard = true;
 
   // スプライトのTransform
   spritePosition_ = {
@@ -302,37 +201,72 @@ void Game::Initialize() {
   sprite_->SetIsFlipX(isFlipX_);
   sprite_->SetIsFlipY(isFlipY_);
 
+  // UVTransform用
+  uvTransformSprite_ = {
+      {1.0f, 1.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
+
+  //===========================
+  // 3Dオブジェクト関係の初期化
+  //===========================
+
+  // カメラの生成と初期化
+  camera_ = new GameCamera();
+  camera_->SetRotate({0.3f, 0.0f, 0.0f});
+  camera_->SetTranslate({0.0f, 4.0f, -10.0f});
+  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
+
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},
       {0.3f, 0.0f, 0.0f},
       {0.0f, 4.0f, -10.0f},
   };
 
-  //// 風を出す範囲 ※今は使用していないのでコメントアウト
-  // AccelerationField accelerationField;
-  // accelerationField.acceleration = {15.0f, 0.0f, 0.0f};
-  // accelerationField.area.min = {-1.0f, -1.0f, -1.0f};
-  // accelerationField.area.max = {1.0f, 1.0f, 1.0f};
+  // デバッグカメラ
+  debugCamera_ = new DebugCamera();
+  debugCamera_->Initialize();
+
+  // モデルの読み込み
+  ModelManager::GetInstance()->LoadModel("plane.obj");
+
+  ModelManager::GetInstance()->LoadModel("axis.obj");
+
+  // オブジェクトの生成と初期化
+  object3d_ = new Object3d();
+  object3d_->Initialize(engine_->GetObject3dRenderer());
+  object3d_->SetModel("plane.obj");
+
+  object3dA_ = new Object3d();
+  object3dA_->Initialize(engine_->GetObject3dRenderer());
+  object3dA_->SetModel("axis.obj");
+
+  //===========================
+  // パーティクル関係の初期化
+  //===========================
+
+  // グループ登録（name と texture を紐づけ）
+  ParticleManager::GetInstance()->CreateParticleGroup("test",
+                                                      "resources/circle.png");
+
+  // エミッタ
+  Transform emitterTransform{
+      {1.0f, 1.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 5.0f},
+  };
+
+  particleEmitter_ =
+      new ParticleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
 }
 
-void Game::Finalize() {
-
-  delete particleEmitter_;
-  particleEmitter_ = nullptr;
-
+void GamePlayScene::Finalize() {
   delete object3dA_;
   object3dA_ = nullptr;
 
   delete object3d_;
   object3d_ = nullptr;
-
-  delete sprite_;
-  sprite_ = nullptr;
-
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    delete sprites_[i];
-  }
-  sprites_.clear();
 
   delete debugCamera_;
   debugCamera_ = nullptr;
@@ -340,56 +274,26 @@ void Game::Finalize() {
   delete camera_;
   camera_ = nullptr;
 
-  SoundUnload(&soundData1_);
+  delete sprite_;
+  sprite_ = nullptr;
 
-  // 基底クラスの終了処理
-  EngineBase::Finalize();
+  delete particleEmitter_;
+  particleEmitter_ = nullptr;
+
+  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+    delete sprites_[i];
+  }
+  sprites_.clear();
+
+  SoundUnload(&soundData1_);
 }
 
-void Game::Update() {
-
-  // 基底クラスの更新処理
-  EngineBase::Update();
-  if (IsEndRequest()) {
-    return;
-  }
-
-  //=======================
-  // アクターの更新
-  //=======================
-
-  // エミッタ更新
-  particleEmitter_->Update();
-
-  // view / projection を作って ParticleManager 更新
-  Matrix4x4 cameraMatrix =
-      MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
-                       cameraTransform_.translate);
-
-  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-
-  Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-      0.45f,
-      float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
-      0.1f, 100.0f);
-
-  ParticleManager::GetInstance()->Update(viewMatrix, projectionMatrix);
-
-  debugCamera_->Update(*input_);
-
-  // FPSをセット
-  dx12Core_->SetFPS(set60FPS_);
+void GamePlayScene::Update() {
 
   // テクスチャ差し替え
-  if (input_->IsTriggerKey(DIK_SPACE)) {
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
     sprites_[0]->ChangeTexture("resources/uvChecker.png");
   }
-
-  camera_->SetRotate(cameraTransform_.rotate);
-  camera_->SetTranslate(cameraTransform_.translate);
-
-  // カメラの更新処理
-  camera_->Update();
 
   //=======================
   // スプライトの更新
@@ -424,10 +328,6 @@ void Game::Update() {
   }
 
   //=======================
-  // デバッグテキストの更新
-  //=======================
-
-  //=======================
   // 3Dオブジェクトの更新
   //=======================
   rotateObj_ += 0.01f;
@@ -439,28 +339,41 @@ void Game::Update() {
 
   object3d_->Update();
   object3dA_->Update();
+
+  // エミッタ更新
+  particleEmitter_->Update();
+
+  // view / projection を作って ParticleManager 更新
+  Matrix4x4 cameraMatrix =
+      MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
+                       cameraTransform_.translate);
+
+  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+
+  Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
+      0.45f,
+      float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
+      0.1f, 100.0f);
+
+  ParticleManager::GetInstance()->Update(viewMatrix, projectionMatrix);
+
+  debugCamera_->Update(*engine_->GetInputManager());
+
+  camera_->SetRotate(cameraTransform_.rotate);
+  camera_->SetTranslate(cameraTransform_.translate);
+
+  // カメラの更新処理
+  camera_->Update();
 }
 
-void Game::Draw() {
-
-  EngineBase::BeginFrame();
-
-  EngineBase::Begin3D();
-
-  // ３Dオブジェクトの描画
+void GamePlayScene::Draw3D() {
   object3d_->Draw();
   object3dA_->Draw();
-
   ParticleManager::GetInstance()->Draw();
+}
 
-  EngineBase::Begin2D();
-
-  // スプライトの描画
-  // sprite->Draw();
-
+void GamePlayScene::Draw2D() {
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     sprites_[i]->Draw();
   }
-
-  EngineBase::EndFrame();
 }
