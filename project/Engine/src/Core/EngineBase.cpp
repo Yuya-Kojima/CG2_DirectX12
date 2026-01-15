@@ -72,10 +72,6 @@ void EngineBase::Initialize() {
 
   // パーティクルマネージャーの初期化
   ParticleManager::GetInstance()->Initialize(dx12Core_, srvManager_);
-
-  // グループ登録（name と texture を紐づけ）
-  ParticleManager::GetInstance()->CreateParticleGroup("test",
-                                                      "resources/circle.png");
 }
 
 void EngineBase::Finalize() {

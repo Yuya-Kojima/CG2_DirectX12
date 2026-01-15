@@ -1,7 +1,6 @@
 #include "TitleScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
-#include "GamePlayScene.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -249,8 +248,8 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
 
   // グループ登録（name と texture を紐づけ）
-  // ParticleManager::GetInstance()->CreateParticleGroup("test",
-  //                                                    "resources/circle.png");
+  ParticleManager::GetInstance()->CreateParticleGroup("test",
+                                                      "resources/circle.png");
 
   // エミッタ
   Transform emitterTransform{
@@ -293,8 +292,7 @@ void TitleScene::Finalize() {
 void TitleScene::Update() {
 
   if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    BaseScene *scene = new GamePlayScene();
-    SceneManager::GetInstance()->SetNextScene(scene);
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
   // テクスチャ差し替え

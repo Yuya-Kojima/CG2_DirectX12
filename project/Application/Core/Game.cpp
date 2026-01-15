@@ -7,9 +7,8 @@
 #include "Renderer/ModelRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
-#include "Scene/GamePlayScene.h"
+#include "Scene/SceneFactory.h"
 #include "Scene/SceneManager.h"
-#include "Scene/TitleScene.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <cassert>
@@ -47,9 +46,11 @@ void Game::Initialize() {
 
   SceneManager::GetInstance()->Initialize(this);
 
-  BaseScene *scene = new TitleScene();
+  sceneFactory_ = new SceneFactory();
 
-  SceneManager::GetInstance()->SetNextScene(scene);
+  SceneManager::GetInstance()->SetSceneFactory(sceneFactory_);
+
+  SceneManager::GetInstance()->ChangeScene("TITLE");
 
   //===========================
   // ローカル変数宣言
@@ -81,8 +82,11 @@ void Game::Initialize() {
 
 void Game::Finalize() {
 
-  // シーンの解放     
+  // シーンの解放
   SceneManager::GetInstance()->Finalize();
+
+  // シーンファクトリー解放
+  delete sceneFactory_;
 
   // 基底クラスの終了処理
   EngineBase::Finalize();
