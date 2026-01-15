@@ -12,18 +12,6 @@ class GameCamera;
 class D3DResourceLeakChecker;
 class AbstractSceneFactory;
 
-// 音声データ
-struct SoundData {
-  // 波形フォーマット
-  WAVEFORMATEX wfex;
-
-  // バッファの先頭アドレス
-  BYTE *pBuffer;
-
-  // バッファサイズ
-  unsigned int bufferSize;
-};
-
 class EngineBase {
 public:
   // 仮想デストラクタ
