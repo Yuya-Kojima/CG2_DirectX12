@@ -1,8 +1,8 @@
 #include "Debug/DebugCamera.h"
 
-void DebugCamera::Initialize() {
+void DebugCamera::Initialize(const Vector3 &translate) {
   matRot_ = MakeIdentity4x4();
-  translation_ = {0.0f, 0.0f, -10.0f};
+  translation_ = translate;
   viewMatrix_ = MakeIdentity4x4();
 }
 

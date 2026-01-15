@@ -13,7 +13,7 @@ public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize();
+  void Initialize(const Vector3 &translate);
 
   /// <summary>
   /// 更新処理

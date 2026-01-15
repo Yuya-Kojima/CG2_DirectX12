@@ -41,8 +41,6 @@ public:
   void Draw2D() override;
 
 private:
-  // SoundData soundData1_;
-
   static constexpr int kSpriteCount_ = 5;
 
   std::vector<Sprite *> sprites_;
