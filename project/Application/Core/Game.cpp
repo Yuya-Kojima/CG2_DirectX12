@@ -8,6 +8,7 @@
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/GamePlayScene.h"
+#include "Scene/SceneManager.h"
 #include "Scene/TitleScene.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
@@ -44,10 +45,11 @@ void Game::Initialize() {
   // 基底クラスの初期化処理
   EngineBase::Initialize();
 
-  // シーンの初期化
-  scene_ = new GamePlayScene();
+  SceneManager::GetInstance()->Initialize(this);
 
-  scene_->Initialize(this);
+  BaseScene *scene = new TitleScene();
+
+  SceneManager::GetInstance()->SetNextScene(scene);
 
   //===========================
   // ローカル変数宣言
@@ -79,8 +81,8 @@ void Game::Initialize() {
 
 void Game::Finalize() {
 
-  scene_->Finalize();
-  delete scene_;
+  // シーンの解放     
+  SceneManager::GetInstance()->Finalize();
 
   // 基底クラスの終了処理
   EngineBase::Finalize();
@@ -94,7 +96,7 @@ void Game::Update() {
     return;
   }
 
-  scene_->Update();
+  SceneManager::GetInstance()->Update();
 
   // FPSをセット
   dx12Core_->SetFPS(set60FPS_);
@@ -113,12 +115,11 @@ void Game::Draw() {
   EngineBase::BeginFrame();
 
   // 3D
-  EngineBase::Begin3D();
-  scene_->Draw3D();
+  // EngineBase::Begin3D();
+  SceneManager::GetInstance()->Draw();
 
   // 2D
-  EngineBase::Begin2D();
-  scene_->Draw2D();
+  // EngineBase::Begin2D();
 
   EngineBase::EndFrame();
 }

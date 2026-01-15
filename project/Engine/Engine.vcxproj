@@ -122,6 +122,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Scene\SceneManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="src\Core\Dx12Core.cpp" />
     <ClCompile Include="src\Core\EngineBase.cpp" />
@@ -186,6 +187,7 @@
     <ClInclude Include="include\Render\Texture\TextureManager.h" />
     <ClInclude Include="include\Scene\BaseScene.h" />
     <ClInclude Include="include\Util\StringUtil.h" />
+    <ClInclude Include="include\Scene\SceneManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

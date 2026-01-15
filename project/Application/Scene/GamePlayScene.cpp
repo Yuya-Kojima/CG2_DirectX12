@@ -10,6 +10,8 @@
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
+#include "Scene/SceneManager.h"
+#include "Scene/TitleScene.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <fstream>
@@ -246,9 +248,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // パーティクル関係の初期化
   //===========================
 
-  // グループ登録（name と texture を紐づけ）
-  ParticleManager::GetInstance()->CreateParticleGroup("test",
-                                                      "resources/circle.png");
+  //// グループ登録（name と texture を紐づけ）
+  // ParticleManager::GetInstance()->CreateParticleGroup("test",
+  //                                                     "resources/circle.png");
 
   // エミッタ
   Transform emitterTransform{
@@ -289,6 +291,11 @@ void GamePlayScene::Finalize() {
 }
 
 void GamePlayScene::Update() {
+
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+    BaseScene *scene = new TitleScene();
+    SceneManager::GetInstance()->SetNextScene(scene);
+  }
 
   // テクスチャ差し替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
@@ -366,13 +373,20 @@ void GamePlayScene::Update() {
   camera_->Update();
 }
 
+void GamePlayScene::Draw() {
+  Draw3D();
+  Draw2D();
+}
+
 void GamePlayScene::Draw3D() {
+  engine_->Begin3D();
   object3d_->Draw();
   object3dA_->Draw();
   ParticleManager::GetInstance()->Draw();
 }
 
 void GamePlayScene::Draw2D() {
+  engine_->Begin2D();
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     sprites_[i]->Draw();
   }
