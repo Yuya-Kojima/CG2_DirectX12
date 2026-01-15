@@ -7,6 +7,8 @@
 #include "Renderer/ModelRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
+#include "Scene/GamePlayScene.h"
+#include "Scene/TitleScene.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <cassert>

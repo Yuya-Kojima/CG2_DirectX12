@@ -1,7 +1,7 @@
 #pragma once
 #include "Core/EngineBase.h"
-#include "GamePlayScene.h"
 #include "Math/MathUtil.h"
+#include "Scene/BaseScene.h"
 #include <vector>
 
 class Sprite;
@@ -19,7 +19,7 @@ public:
   void Draw() override;
 
 private:
-  GamePlayScene *scene_ = nullptr;
+  BaseScene *scene_ = nullptr;
 
   bool set60FPS_ = false;
 };

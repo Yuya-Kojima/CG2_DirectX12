@@ -1,6 +1,7 @@
 #pragma once
 #include "Core/EngineBase.h"
 #include "Math/MathUtil.h"
+#include "Scene/BaseScene.h"
 #include <vector>
 
 class Sprite;
@@ -11,31 +12,31 @@ class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
 
-class GamePlayScene {
+class GamePlayScene : public BaseScene {
 
 public:
   /// <summary>
   /// 初期化
   /// </summary>
-  void Initialize(EngineBase *engine);
+  void Initialize(EngineBase *engine) override;
 
   /// <summary>
   /// 終了
   /// </summary>
-  void Finalize();
+  void Finalize() override;
 
   /// <summary>
   /// 更新
   /// </summary>
-  void Update();
+  void Update() override;
 
   /// <summary>
   /// 描画
   /// </summary>
 
-  void Draw3D();
+  void Draw2D() override;
 
-  void Draw2D();
+  void Draw3D() override;
 
 private:
   SoundData soundData1_;
