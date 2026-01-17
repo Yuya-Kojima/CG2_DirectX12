@@ -176,10 +176,12 @@ void TitleScene::Finalize() {
 
 	auto* sm = SoundManager::GetInstance();
 	sm->StopBGM();
+	sm->StopAllSE();
 
 	// ゲームシーンだけで使う運用ならここで解放してOK
 	sm->Unload("bgm_mokugyo");
 	sm->Unload("se_fanfare");
+
 }
 
 void TitleScene::Update() {
