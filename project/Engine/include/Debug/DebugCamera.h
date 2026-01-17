@@ -6,36 +6,44 @@
 #include "Math/Vector3.h"
 #include <Windows.h>
 #include <cassert>
+#include"Render/Camera/GameCamera.h"
 
 class DebugCamera {
 
 public:
-  /// <summary>
-  /// 初期化
-  /// </summary>
-  void Initialize(const Vector3 &translate);
+	/// <summary>
+	/// 初期化
+	/// </summary>
+	void Initialize(const Vector3& translate);
 
-  /// <summary>
-  /// 更新処理
-  /// </summary>
-  void Update(const InputKeyState &input);
+	/// <summary>
+	/// 更新処理
+	/// </summary>
+	void Update(const InputKeyState& input);
 
-  Matrix4x4 GetViewMatrix() { return viewMatrix_; }
+	Matrix4x4 GetViewMatrix() { return viewMatrix_; }
+
+	GameCamera* GetCamera() {
+		return &camera_;
+	}
 
 private:
-  // 累積回転行列
-  Matrix4x4 matRot_ = MakeIdentity4x4();
+	GameCamera camera_;
 
-  // ローカル座標
-  Vector3 translation_ = {0.0f, 0.0f, -50.0f};
+	// 累積回転行列
+	Matrix4x4 matRot_ = MakeIdentity4x4();
 
-  // ビュー行列
-  Matrix4x4 viewMatrix_ = MakeIdentity4x4();
+	// ローカル座標
+	Vector3 rotate_{ 0.3f, 0.0f, 0.0f };
+	Vector3 translation_ = { 0.0f, 0.0f, -50.0f };
 
-  // 射影行列
-  // Matrix4x4 projectionMatrix_ = MakeIdentity4x4();
+	// ビュー行列
+	Matrix4x4 viewMatrix_ = MakeIdentity4x4();
 
-  // マウス用
-  // int prevMouseX_ = 0;
-  // int prevMouseY_ = 0;
+	// 射影行列
+	// Matrix4x4 projectionMatrix_ = MakeIdentity4x4();
+
+	// マウス用
+	// int prevMouseX_ = 0;
+	// int prevMouseY_ = 0;
 };

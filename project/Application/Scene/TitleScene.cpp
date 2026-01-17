@@ -11,262 +11,304 @@
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
+#include"Debug/Logger.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <fstream>
 
-void TitleScene::Initialize(EngineBase *engine) {
+void TitleScene::Initialize(EngineBase* engine) {
 
-  engine_ = engine;
+	engine_ = engine;
 
-  //===========================
-  // テクスチャファイルの読み込み
-  //===========================
+	//===========================
+	// テクスチャファイルの読み込み
+	//===========================
 
-  // テクスチャの読み込み
-  TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+	// テクスチャの読み込み
+	TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 
-  TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
+	TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
 
-  //===========================
-  // オーディオファイルの読み込み
-  //===========================
-  //soundData1_ =
-  //    SoundManager::GetInstance()->SoundLoadWave("resources/Alarm01.wav");
+	//===========================
+	// オーディオファイルの読み込み
+	//===========================
 
-  //SoundManager::GetInstance()->SoundPlayWave(soundData1_);
+	auto* sm = SoundManager::GetInstance();
 
-  //===========================
-  // スプライト関係の初期化
-  //===========================
+	// Audioファイルを登録
+	sm->Load("bgm_mokugyo", "resources/mokugyo.wav");
+	sm->Load("se_fanfare", "resources/fanfare.wav");
 
-  // スプライトの生成と初期化
-  for (int i = 0; i < kSpriteCount_; ++i) {
-    Sprite *sprite = new Sprite();
-    if (i % 2 == 1) {
-      sprite->Initialize(engine_->GetSpriteRenderer(),
-                         "resources/uvChecker.png");
-    } else {
-      sprite->Initialize(engine_->GetSpriteRenderer(),
-                         "resources/uvChecker.png");
-    }
-    sprites_.push_back(sprite);
-  }
+	// bgm再生
+	sm->PlayBGM("bgm_mokugyo");
 
-  sprite_ = new Sprite();
-  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/uvChecker.png");
+	//===========================
+	// スプライト関係の初期化
+	//===========================
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    spritePositions_[i] = {i * 200.0f, 0.0f};
-    spriteSizes_[i] = {150.0f, 150.0f};
-  }
+	// スプライトの生成と初期化
+	for (int i = 0; i < kSpriteCount_; ++i) {
+		Sprite* sprite = new Sprite();
+		if (i % 2 == 1) {
+			sprite->Initialize(engine_->GetSpriteRenderer(),
+				"resources/uvChecker.png");
+		} else {
+			sprite->Initialize(engine_->GetSpriteRenderer(),
+				"resources/uvChecker.png");
+		}
+		sprites_.push_back(sprite);
+	}
 
-  // スプライトのTransform
-  spritePosition_ = {
-      640.0f,
-      360.0f,
-  };
+	sprite_ = new Sprite();
+	sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/uvChecker.png");
 
-  spriteRotation_ = 0.0f;
+	for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+		spritePositions_[i] = { i * 200.0f, 0.0f };
+		spriteSizes_[i] = { 150.0f, 150.0f };
+	}
 
-  spriteColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+	// スプライトのTransform
+	spritePosition_ = {
+		640.0f,
+		360.0f,
+	};
 
-  spriteSize_ = {640.0f, 360.0f};
+	spriteRotation_ = 0.0f;
 
-  spriteAnchorPoint_ = {0.5f, 0.5f};
+	spriteColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-  sprite_->SetPosition(spritePosition_);
-  sprite_->SetRotation(spriteRotation_);
-  sprite_->SetColor(spriteColor_);
-  sprite_->SetSize(spriteSize_);
-  sprite_->SetAnchorPoint(spriteAnchorPoint_);
-  sprite_->SetIsFlipX(isFlipX_);
-  sprite_->SetIsFlipY(isFlipY_);
+	spriteSize_ = { 640.0f, 360.0f };
 
-  // UVTransform用
-  uvTransformSprite_ = {
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-  };
+	spriteAnchorPoint_ = { 0.5f, 0.5f };
 
-  //===========================
-  // 3Dオブジェクト関係の初期化
-  //===========================
+	sprite_->SetPosition(spritePosition_);
+	sprite_->SetRotation(spriteRotation_);
+	sprite_->SetColor(spriteColor_);
+	sprite_->SetSize(spriteSize_);
+	sprite_->SetAnchorPoint(spriteAnchorPoint_);
+	sprite_->SetIsFlipX(isFlipX_);
+	sprite_->SetIsFlipY(isFlipY_);
 
-  // カメラの生成と初期化
-  camera_ = new GameCamera();
-  camera_->SetRotate({0.3f, 0.0f, 0.0f});
-  camera_->SetTranslate({0.0f, 4.0f, -10.0f});
-  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
+	// UVTransform用
+	uvTransformSprite_ = {
+		{1.0f, 1.0f, 1.0f},
+		{0.0f, 0.0f, 0.0f},
+		{0.0f, 0.0f, 0.0f},
+	};
 
-  cameraTransform_ = {
-      {1.0f, 1.0f, 1.0f},
-      {0.3f, 0.0f, 0.0f},
-      {0.0f, 4.0f, -10.0f},
-  };
+	//===========================
+	// 3Dオブジェクト関係の初期化
+	//===========================
 
-  // デバッグカメラ
-  debugCamera_ = new DebugCamera();
-  debugCamera_->Initialize();
+	// カメラの生成と初期化
+	camera_ = new GameCamera();
+	camera_->SetRotate({ 0.3f, 0.0f, 0.0f });
+	camera_->SetTranslate({ 0.0f, 4.0f, -10.0f });
+	engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
 
-  // モデルの読み込み
-  ModelManager::GetInstance()->LoadModel("plane.obj");
+	cameraTransform_ = {
+		{1.0f, 1.0f, 1.0f},
+		{0.3f, 0.0f, 0.0f},
+		{0.0f, 4.0f, -10.0f},
+	};
 
-  ModelManager::GetInstance()->LoadModel("axis.obj");
+	// デバッグカメラ
+	debugCamera_ = new DebugCamera();
+	debugCamera_->Initialize({ 0.0f, 4.0f, -10.0f });
 
-  // オブジェクトの生成と初期化
-  object3d_ = new Object3d();
-  object3d_->Initialize(engine_->GetObject3dRenderer());
-  object3d_->SetModel("plane.obj");
 
-  object3dA_ = new Object3d();
-  object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("axis.obj");
+	// モデルの読み込み
+	ModelManager::GetInstance()->LoadModel("plane.obj");
 
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
+	ModelManager::GetInstance()->LoadModel("axis.obj");
 
-  // グループ登録（name と texture を紐づけ）
-  ParticleManager::GetInstance()->CreateParticleGroup("test",
-                                                      "resources/circle.png");
+	// オブジェクトの生成と初期化
+	object3d_ = new Object3d();
+	object3d_->Initialize(engine_->GetObject3dRenderer());
+	object3d_->SetModel("plane.obj");
 
-  // エミッタ
-  Transform emitterTransform{
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 5.0f},
-  };
+	object3dA_ = new Object3d();
+	object3dA_->Initialize(engine_->GetObject3dRenderer());
+	object3dA_->SetModel("axis.obj");
 
-  particleEmitter_ =
-      new ParticleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
+	//===========================
+	// パーティクル関係の初期化
+	//===========================
+
+	// グループ登録（name と texture を紐づけ）
+	ParticleManager::GetInstance()->CreateParticleGroup("test",
+		"resources/circle.png");
+
+	// エミッタ
+	Transform emitterTransform{
+		{1.0f, 1.0f, 1.0f},
+		{0.0f, 0.0f, 0.0f},
+		{0.0f, 0.0f, 5.0f},
+	};
+
+	particleEmitter_ =
+		new ParticleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
 }
 
 void TitleScene::Finalize() {
-  delete object3dA_;
-  object3dA_ = nullptr;
+	delete object3dA_;
+	object3dA_ = nullptr;
 
-  delete object3d_;
-  object3d_ = nullptr;
+	delete object3d_;
+	object3d_ = nullptr;
 
-  delete debugCamera_;
-  debugCamera_ = nullptr;
+	delete debugCamera_;
+	debugCamera_ = nullptr;
 
-  delete camera_;
-  camera_ = nullptr;
+	delete camera_;
+	camera_ = nullptr;
 
-  delete sprite_;
-  sprite_ = nullptr;
+	delete sprite_;
+	sprite_ = nullptr;
 
-  delete particleEmitter_;
-  particleEmitter_ = nullptr;
+	delete particleEmitter_;
+	particleEmitter_ = nullptr;
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    delete sprites_[i];
-  }
-  sprites_.clear();
+	for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+		delete sprites_[i];
+	}
+	sprites_.clear();
 
-  // SoundUnload(&soundData1_);
+	auto* sm = SoundManager::GetInstance();
+	sm->StopBGM();
+
+	// ゲームシーンだけで使う運用ならここで解放してOK
+	sm->Unload("bgm_mokugyo");
+	sm->Unload("se_fanfare");
 }
 
 void TitleScene::Update() {
 
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
-  }
+	//ゲームシーンに移行
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+		SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+	}
 
-  // テクスチャ差し替え
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
-    sprites_[0]->ChangeTexture("resources/uvChecker.png");
-  }
+	// テクスチャ差し替え
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
+		sprites_[0]->ChangeTexture("resources/uvChecker.png");
+	}
 
-  //=======================
-  // スプライトの更新
-  //=======================
+	//デバッグカメラ切り替え
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+		if (useDebugCamera_) {
+			useDebugCamera_ = false;
+		} else {
+			useDebugCamera_ = true;
+		}
+	}
 
-  // スプライトの情報を呼び出す
-  spritePosition_ = sprite_->GetPosition();
-  spriteRotation_ = sprite_->GetRotation();
-  spriteColor_ = sprite_->GetColor();
-  spriteSize_ = sprite_->GetSize();
-  spriteAnchorPoint_ = sprite_->GetAnchorPoint();
+	auto* sm = SoundManager::GetInstance();
 
-  // スプライトに設定
-  sprite_->SetPosition(spritePosition_);
-  sprite_->SetRotation(spriteRotation_);
-  sprite_->SetColor(spriteColor_);
-  sprite_->SetSize(spriteSize_);
-  sprite_->SetAnchorPoint(spriteAnchorPoint_);
-  sprite_->SetIsFlipX(isFlipX_);
-  sprite_->SetIsFlipY(isFlipY_);
+	//BGMを停止
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_B)) {
+		sm->StopBGM();
+	}
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    // spritePositions[i].x++;
-    sprites_[i]->SetPosition(spritePositions_[i]);
-    sprites_[i]->SetSize(spriteSizes_[i]);
-  }
+	// VキーでSE(重複可能）
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_V)) {
+		SoundManager::GetInstance()->PlaySE("se_fanfare");
+	}
 
-  sprite_->Update(uvTransformSprite_);
+	//=======================
+	// スプライトの更新
+	//=======================
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    sprites_[i]->Update(uvTransformSprite_);
-  }
+	// スプライトの情報を呼び出す
+	spritePosition_ = sprite_->GetPosition();
+	spriteRotation_ = sprite_->GetRotation();
+	spriteColor_ = sprite_->GetColor();
+	spriteSize_ = sprite_->GetSize();
+	spriteAnchorPoint_ = sprite_->GetAnchorPoint();
 
-  //=======================
-  // 3Dオブジェクトの更新
-  //=======================
-  rotateObj_ += 0.01f;
+	// スプライトに設定
+	sprite_->SetPosition(spritePosition_);
+	sprite_->SetRotation(spriteRotation_);
+	sprite_->SetColor(spriteColor_);
+	sprite_->SetSize(spriteSize_);
+	sprite_->SetAnchorPoint(spriteAnchorPoint_);
+	sprite_->SetIsFlipX(isFlipX_);
+	sprite_->SetIsFlipY(isFlipY_);
 
-  object3d_->SetRotation({0.0f, rotateObj_, 0.0f});
+	for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+		// spritePositions[i].x++;
+		sprites_[i]->SetPosition(spritePositions_[i]);
+		sprites_[i]->SetSize(spriteSizes_[i]);
+	}
 
-  object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
+	sprite_->Update(uvTransformSprite_);
 
-  object3d_->Update();
-  object3dA_->Update();
+	for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+		sprites_[i]->Update(uvTransformSprite_);
+	}
 
-  // エミッタ更新
-  particleEmitter_->Update();
+	//=======================
+	// 3Dオブジェクトの更新
+	//=======================
+	//rotateObj_ += 0.01f;
 
-  // view / projection を作って ParticleManager 更新
-  Matrix4x4 cameraMatrix =
-      MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
-                       cameraTransform_.translate);
+	object3d_->SetRotation({ 0.0f, rotateObj_, 0.0f });
 
-  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+	object3dA_->SetRotation({ 0.0f, rotateObj_, 0.0f });
+	object3dA_->SetTranslation({ 1.0f, 1.0f, 0.0f });
 
-  Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-      0.45f,
-      float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
-      0.1f, 100.0f);
+	object3d_->Update();
+	object3dA_->Update();
 
-  ParticleManager::GetInstance()->Update(viewMatrix, projectionMatrix);
+	// エミッタ更新
+	particleEmitter_->Update();
 
-  debugCamera_->Update(*engine_->GetInputManager());
+	//=======================
+	// カメラの更新
+	//=======================
+	GameCamera* activeCamera = nullptr;
 
-  camera_->SetRotate(cameraTransform_.rotate);
-  camera_->SetTranslate(cameraTransform_.translate);
+	camera_->SetRotate(cameraTransform_.rotate);
+	camera_->SetTranslate(cameraTransform_.translate);
 
-  // カメラの更新処理
-  camera_->Update();
+	// カメラの更新処理
+
+	if (useDebugCamera_) {
+		debugCamera_->Update(*engine_->GetInputManager());
+		activeCamera = debugCamera_->GetCamera();
+	} else {
+		camera_->Update();
+		activeCamera = camera_;
+	}
+
+	//アクティブカメラを描画で使用する
+	engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
+
+	// view / projection を作って ParticleManager 更新
+	ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
 }
 
 void TitleScene::Draw() {
-  Draw3D();
-  Draw2D();
+	Draw3D();
+	Draw2D();
 }
 
 void TitleScene::Draw3D() {
-  engine_->Begin3D();
-  object3d_->Draw();
-  object3dA_->Draw();
-  ParticleManager::GetInstance()->Draw();
+	engine_->Begin3D();
+
+	//ここから下で3DオブジェクトのDrawを呼ぶ
+
+	object3d_->Draw();
+	object3dA_->Draw();
+	ParticleManager::GetInstance()->Draw();
 }
 
 void TitleScene::Draw2D() {
-  engine_->Begin2D();
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    sprites_[i]->Draw();
-  }
+	engine_->Begin2D();
+
+	//ここから下で2DオブジェクトのDrawを呼ぶ
+
+	for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+		sprites_[i]->Draw();
+	}
 }

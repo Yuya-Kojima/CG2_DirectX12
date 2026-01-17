@@ -121,8 +121,8 @@ private:
   // uint32_t numInstance_{};
 
 private:
-  GameCamera *camera = nullptr;
+  GameCamera *camera_ = nullptr;
 
 public:
-  void SetCamera(GameCamera *camera) { this->camera = camera; }
+  void SetCamera(GameCamera *camera) { this->camera_ = camera; }
 };
