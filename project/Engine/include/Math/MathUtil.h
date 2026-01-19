@@ -138,3 +138,5 @@ Matrix4x4 Inverse(Matrix4x4 matrix);
 
 // 法線の変換（回転・スケールのみ適用／平行移動は無視）
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
+
+Matrix4x4 Transpose(Matrix4x4 matrix);

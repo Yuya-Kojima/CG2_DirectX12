@@ -150,6 +150,7 @@
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Render\Camera\CameraForGPU.h" />
     <ClInclude Include="include\Scene\AbstractSceneFactory.h" />
     <ClInclude Include="include\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="include\Core\Dx12Core.h" />

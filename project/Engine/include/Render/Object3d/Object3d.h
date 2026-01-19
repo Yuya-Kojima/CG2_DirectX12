@@ -1,10 +1,7 @@
 #pragma once
+#include "Camera/CameraForGPU.h"
 #include "Core/Dx12Core.h"
-#include "Math/Matrix4x4.h"
-#include "Math/Transform.h"
-#include "Math/Vector2.h"
-#include "Math/Vector3.h"
-#include "Math/Vector4.h"
+#include "Math/MathUtil.h"
 #include <d3d12.h>
 #include <stdint.h>
 #include <wrl.h>
@@ -22,6 +19,7 @@ class Object3d {
   struct TransformationMatrix {
     Matrix4x4 WVP;
     Matrix4x4 World;
+    Matrix4x4 WorldInverseTranspose;
   };
 
   struct DirectionalLight {
@@ -59,7 +57,6 @@ public:
 private:
   /* 座標変換行列データ
   -----------------------------*/
-
   // バッファリソース
   Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResource = nullptr;
 
@@ -73,7 +70,6 @@ private:
 
   /* 平行光源データ
   -----------------------------*/
-
   // バッファリソース
   Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource = nullptr;
 
@@ -84,6 +80,19 @@ private:
   /// 平行光源データを生成
   /// </summary>
   void CreateDirectionalLightData();
+
+  /* 鏡面反射用データ
+  -----------------------------*/
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> cameraForGPUResource = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  CameraForGPU *cameraForGPUData = nullptr;
+
+  /// <summary>
+  /// カメラデータを生成
+  /// </summary>
+  void CreateCameraForGPUData();
 
 private:
   Vector3 scale_{1.0f, 1.0f, 1.0f};
@@ -107,8 +116,8 @@ public:
 
   void SetRotation(const Vector3 &rotate) { rotate_ = rotate; }
 
-  // tranlation
-  Vector3 GetTranslatoin() const { return translate_; }
+  // translation
+  Vector3 GetTranslation() const { return translate_; }
 
   void SetTranslation(const Vector3 &translate) { translate_ = translate; }
 

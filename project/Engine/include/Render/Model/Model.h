@@ -1,8 +1,6 @@
 #pragma once
-#include "Math/Matrix4x4.h"
-#include "Math/Vector2.h"
-#include "Math/Vector3.h"
-#include "Math/Vector4.h"
+#include "Math/MathUtil.h"
+#include <cstdint>
 #include <d3d12.h>
 #include <string>
 #include <vector>
@@ -25,11 +23,13 @@ class Model {
     int32_t enableLighting;
     float padding[3];
     Matrix4x4 uvTransform;
+    float shininess;
+    float padding2[3];
   };
 
   struct MaterialData {
     std::string textureFilePath;
-    //uint32_t textureIndex = 0;
+    // uint32_t textureIndex = 0;
   };
 
   struct ModelData {
