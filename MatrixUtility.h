@@ -92,3 +92,5 @@ Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
 Matrix4x4 Inverse(Matrix4x4 matrix);
 
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
+
+Matrix4x4 Transpose(Matrix4x4 matrix);

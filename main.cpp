@@ -327,9 +327,9 @@ IDxcBlob *CompileShader(
   // 実際にshaderをコンパイルする
   IDxcResult *shaderResult = nullptr;
   hr = dxcCompiler->Compile(&shaderSourceBuffer, // 読み込んだファイル
-                            arguments, // コンパイルオプション
+                            arguments,           // コンパイルオプション
                             _countof(arguments), // コンパイルオプションの数
-                            includeHandler, // includeが含まれた諸々
+                            includeHandler,      // includeが含まれた諸々
                             IID_PPV_ARGS(&shaderResult));
 
   // コンパイルエラーではなくdxcが起動できないなど致命的な状況
@@ -461,7 +461,7 @@ CreateTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> &device,
   resourceDesc.DepthOrArraySize =
       UINT16(metadata.arraySize);        // 奥行 or 配列Textureの配列数
   resourceDesc.Format = metadata.format; // TextureのFormat
-  resourceDesc.SampleDesc.Count = 1; // サンプリングカウント。1固定
+  resourceDesc.SampleDesc.Count = 1;     // サンプリングカウント。1固定
   resourceDesc.Dimension =
       D3D12_RESOURCE_DIMENSION(metadata.dimension); // textureの次元数
 
@@ -476,12 +476,12 @@ CreateTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> &device,
   // Resourceの生成
   Microsoft::WRL::ComPtr<ID3D12Resource> resource = nullptr;
   HRESULT hr = device->CreateCommittedResource(
-      &heapProperties,      // Heapの設定
-      D3D12_HEAP_FLAG_NONE, // Heapの特殊な設定
-      &resourceDesc,        // Resourceの設定
+      &heapProperties,                   // Heapの設定
+      D3D12_HEAP_FLAG_NONE,              // Heapの特殊な設定
+      &resourceDesc,                     // Resourceの設定
       D3D12_RESOURCE_STATE_GENERIC_READ, // 初回のResourceState。Textureは基本読むだけ
-      nullptr,                  // Clear最適値。使用しないのでnullptr
-      IID_PPV_ARGS(&resource)); // 作成するResourceポインタへのポインタ
+      nullptr,                           // Clear最適値。使用しないのでnullptr
+      IID_PPV_ARGS(&resource));          // 作成するResourceポインタへのポインタ
 
   assert(SUCCEEDED(hr));
   return resource;
@@ -501,8 +501,8 @@ void UploadTextureData(Microsoft::WRL::ComPtr<ID3D12Resource> texture,
     // Textureに転送
     HRESULT hr =
         texture->WriteToSubresource(UINT(mipLevel),
-                                    nullptr,     // 全領域へコピー
-                                    img->pixels, // 元データアドレス
+                                    nullptr,              // 全領域へコピー
+                                    img->pixels,          // 元データアドレス
                                     UINT(img->rowPitch),  // 1ラインサイズ
                                     UINT(img->slicePitch) // 1枚サイズ
         );
@@ -546,7 +546,7 @@ CreateDepthStencilTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> &device,
       &resourceDesc,                    // Resourceの設定
       D3D12_RESOURCE_STATE_DEPTH_WRITE, // 深度値を書き込む状態にしておく
       &depthClearValue,                 // Clear最適値
-      IID_PPV_ARGS(&resource)); // 作成するResourceポインタへのポインタ
+      IID_PPV_ARGS(&resource));         // 作成するResourceポインタへのポインタ
 
   assert(SUCCEEDED(hr));
 
@@ -824,10 +824,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   swapChainDesc.Height =
       kClientHeight; // 画面の高さ。ウィンドウのクライアント領域を同じものにしておく
   swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // 色の形式
-  swapChainDesc.SampleDesc.Count = 1; // マルチサンプルしない
+  swapChainDesc.SampleDesc.Count = 1;                // マルチサンプルしない
   swapChainDesc.BufferUsage =
       DXGI_USAGE_RENDER_TARGET_OUTPUT; // 描画のターゲットとして利用する
-  swapChainDesc.BufferCount = 2; // ダブルバッファ
+  swapChainDesc.BufferCount = 2;       // ダブルバッファ
   swapChainDesc.SwapEffect =
       DXGI_SWAP_EFFECT_FLIP_DISCARD; // モニタにうつしたら、中身を破壊
 
@@ -860,7 +860,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   result = keyboard->SetCooperativeLevel(
       hwnd, DISCL_FOREGROUND // 画面が一番手前にある場合のみ入力を受け付ける
                 | DISCL_NONEXCLUSIVE // デバイスをこのｎアプリだけで専有しない
-                | DISCL_NOWINKEY // Windowsキーを無効化
+                | DISCL_NOWINKEY     // Windowsキーを無効化
   );
   assert(SUCCEEDED(result));
 
@@ -1072,7 +1072,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   rootParameterObject3d[1].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[1].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_VERTEX; // VertexShaderで使う
+      D3D12_SHADER_VISIBILITY_VERTEX;                     // VertexShaderで使う
   rootParameterObject3d[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
   descriptionRootSignature.pParameters =
       rootParameterObject3d; // ルートパラメータ配列へのポインタ
@@ -1453,6 +1453,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
   // 単位行列を書き込んでおく
   transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
+  transformationMatrixData->WorldInverseTranspose = MakeIdentity4x4();
 
   /* Sprite用のTransformationMatrix用のリソースを作る。Matrix4x4一つ分
   ----------------------------------------------------------------*/
@@ -1906,10 +1907,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       // 開発用UIの処理。実際に開発用のUIを出す場合はここをゲーム固有の処理に置き換える
       ImGui::ColorEdit4("materialColor", &materialData->color.x);
-      // ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
-      // ImGui::SliderAngle("rotateX", &transform.rotate.x);
-      // ImGui::SliderAngle("rotateY", &transform.rotate.y);
-      // ImGui::SliderAngle("rotateZ", &transform.rotate.z);
+      ImGui::DragFloat3("translate", &transform.translate.x, 0.01f);
+      ImGui::DragFloat3("scale", &transform.scale.x, 0.01f);
+      ImGui::SliderAngle("rotateX", &transform.rotate.x);
+      ImGui::SliderAngle("rotateY", &transform.rotate.y);
+      ImGui::SliderAngle("rotateZ", &transform.rotate.z);
       ImGui::Checkbox("useMonsterBall", &useMonsterBall);
       ImGui::Checkbox("enableLighting", &enableLighting);
       ImGui::Checkbox("Update", &isUpdate);
@@ -1950,6 +1952,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       transformationMatrixData->WVP = worldViewProjectionMatrix;
       transformationMatrixData->World = worldMatrix;
+      transformationMatrixData->WorldInverseTranspose =
+          Transpose(Inverse(worldMatrix));
 
       // Sprite用のWorldViewProjectionMatrixを作る
       Matrix4x4 worldMatrixSprite =
@@ -1971,6 +1975,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
       transformationMatrixDataSprite->WVP = worldViewProjectionMatrixSprite;
       transformationMatrixDataSprite->World = worldMatrixSprite;
+      transformationMatrixDataSprite->WorldInverseTranspose =
+          Transpose(worldMatrixSprite);
 
       // これから書き込むバックバッファのインデックスを取得
       UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -2020,7 +2026,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
       // RootSignatureを設定。PSOに設定しているけど別途設定が必要
       commandList->SetGraphicsRootSignature(rootSignatureParticle.Get());
       commandList->SetPipelineState(graphicsPipeLineState.Get()); // PSOを設定
-      commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
+      commandList->IASetVertexBuffers(0, 1, &vertexBufferView);   // VBVを設定
 
       commandList->SetPipelineState(graphicsPipeLineState.Get());
       commandList->SetGraphicsRootSignature(rootSignature.Get());
