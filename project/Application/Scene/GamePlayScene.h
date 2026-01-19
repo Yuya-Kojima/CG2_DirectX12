@@ -15,79 +15,51 @@ class ParticleEmitter;
 
 class GamePlayScene : public BaseScene {
 
-public:
-  /// <summary>
-  /// 初期化
-  /// </summary>
-  void Initialize(EngineBase *engine) override;
+private: // メンバ変数(ゲーム用)
+public:  // メンバ関数
+	/// <summary>
+	/// 初期化
+	/// </summary>
+	void Initialize(EngineBase* engine) override;
 
-  /// <summary>
-  /// 終了
-  /// </summary>
-  void Finalize() override;
+	/// <summary>
+	/// 終了
+	/// </summary>
+	void Finalize() override;
 
-  /// <summary>
-  /// 更新
-  /// </summary>
-  void Update() override;
+	/// <summary>
+	/// 更新
+	/// </summary>
+	void Update() override;
 
-  /// <summary>
-  /// 描画
-  /// </summary>
-  void Draw() override;
+	/// <summary>
+	/// 描画
+	/// </summary>
+	void Draw() override;
 
-  /// <summary>
-  /// 2Dオブジェクト描画
-  /// </summary>
-  void Draw2D() override;
+	/// <summary>
+	/// 2Dオブジェクト描画
+	/// </summary>
+	void Draw2D() override;
 
-  /// <summary>
-  /// 3Dオブジェクト描画
-  /// </summary>
-  void Draw3D() override;
+	/// <summary>
+	/// 3Dオブジェクト描画
+	/// </summary>
+	void Draw3D() override;
+
+private: // メンバ変数(システム用)
+	// カメラ
+	GameCamera* camera_ = nullptr;
+
+	// デバッグカメラ
+	DebugCamera* debugCamera_ = nullptr;
+
+	//デバッグカメラ使用
+	bool useDebugCamera_ = false;
 
 private:
-  // SoundData soundData1_;
-
-  static constexpr int kSpriteCount_ = 5;
-
-  std::vector<Sprite *> sprites_;
-
-  Sprite *sprite_ = nullptr;
-
-  Vector2 spritePositions_[kSpriteCount_];
-
-  Vector2 spriteSizes_[kSpriteCount_];
-
-  // スプライトのTransform
-  Vector2 spritePosition_{};
-
-  float spriteRotation_{};
-
-  Vector4 spriteColor_{};
-
-  Vector2 spriteSize_{};
-
-  Vector2 spriteAnchorPoint_{};
-
-  bool isFlipX_ = false;
-  bool isFlipY_ = false;
-
-  Transform uvTransformSprite_{};
-
-  Object3d *object3d_ = nullptr;
-  Object3d *object3dA_ = nullptr;
-
-  float rotateObj_{};
-
-  ParticleEmitter *particleEmitter_ = nullptr;
-
-  GameCamera *camera_ = nullptr;
-
-  Transform cameraTransform_{};
-
-  DebugCamera *debugCamera_ = nullptr;
-
-  // エンジン
-  EngineBase *engine_ = nullptr;
+	/*ポインタ参照
+	------------------*/
+	// エンジン
+	EngineBase* engine_ = nullptr;
 };

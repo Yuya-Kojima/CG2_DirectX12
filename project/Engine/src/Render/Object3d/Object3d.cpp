@@ -19,14 +19,20 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   CreateDirectionalLightData();
 
+  CreateCameraForGPUData();
+
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
   // cameraTransform_ = {
   //     {1.0f, 1.0f, 1.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 4.0f, -10.0f}};
 
-  this->camera = object3dRenderer_->GetDefaultCamera();
+  // this->camera = object3dRenderer_->GetDefaultCamera();
+  this->camera_ = nullptr;
 }
 
 void Object3d::Update() {
+
+  GameCamera *activeCamera =
+      (camera_ != nullptr) ? camera_ : object3dRenderer_->GetDefaultCamera();
 
   transform_ = {scale_, rotate_, translate_};
 
@@ -43,15 +49,25 @@ void Object3d::Update() {
   //    float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
   //    0.1f, 100.0f);
 
-  if (camera) {
-    const Matrix4x4 &viewProjectionMatrix = camera->GetViewProjectionMatrix();
-    worldViewProjectionMatrix = Multiply(worldMatrix,viewProjectionMatrix);
+  // if (camera_) {
+  //	const Matrix4x4& viewProjectionMatrix =
+  // camera->GetViewProjectionMatrix(); 	worldViewProjectionMatrix =
+  // Multiply(worldMatrix, viewProjectionMatrix); } else {
+  //	worldViewProjectionMatrix = worldMatrix;
+  // }
+
+  if (activeCamera) {
+    const Matrix4x4 &vp = activeCamera->GetViewProjectionMatrix();
+    worldViewProjectionMatrix = Multiply(worldMatrix, vp);
+    cameraForGPUData->worldPosition = activeCamera->GetTranslate();
   } else {
     worldViewProjectionMatrix = worldMatrix;
   }
 
   transformationMatrixData->WVP = worldViewProjectionMatrix;
   transformationMatrixData->World = worldMatrix;
+  transformationMatrixData->WorldInverseTranspose =
+      Transpose(Inverse(worldMatrix));
 }
 
 void Object3d::Draw() {
@@ -66,6 +82,10 @@ void Object3d::Draw() {
   // Lighting
   commandList->SetGraphicsRootConstantBufferView(
       3, directionalLightResource->GetGPUVirtualAddress());
+
+  // Camera
+  commandList->SetGraphicsRootConstantBufferView(
+      4, cameraForGPUResource->GetGPUVirtualAddress());
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
@@ -99,6 +119,7 @@ void Object3d::CreateTransformationMatrixData() {
   // 単位行列を書き込んでおく
   transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
+  transformationMatrixData->WorldInverseTranspose = MakeIdentity4x4();
 }
 
 void Object3d::CreateDirectionalLightData() {
@@ -117,4 +138,19 @@ void Object3d::CreateDirectionalLightData() {
   directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
   directionalLightData->intensity = 1.0f;
+}
+
+void Object3d::CreateCameraForGPUData() {
+
+  UINT cameraSize = (sizeof(CameraForGPU) + 255) & ~255;
+  cameraForGPUResource = dx12Core_->CreateBufferResource(cameraSize);
+
+  // データを書き込む
+  cameraForGPUData = nullptr;
+
+  // 書き込むためのアドレスを取得
+  cameraForGPUResource->Map(0, nullptr,
+                            reinterpret_cast<void **>(&cameraForGPUData));
+
+  cameraForGPUData->worldPosition = {0.0f, 0.0f, 0.0f};
 }

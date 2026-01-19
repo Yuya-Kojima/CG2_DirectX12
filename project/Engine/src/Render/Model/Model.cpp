@@ -1,4 +1,5 @@
 #include "Model/Model.h"
+#include "Debug/Logger.h"
 #include "Math/MathUtil.h"
 #include "Renderer/ModelRenderer.h"
 #include "Texture/TextureManager.h"
@@ -207,7 +208,8 @@ void Model::CreateMaterialData() {
   // 色の指定
   materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   // Lightingさせるか
-  materialData->enableLighting = false;
+  materialData->enableLighting = true;
   // UVTransform 単位行列を入れておく
   materialData->uvTransform = MakeIdentity4x4();
+  materialData->shininess = 30.0f;
 }

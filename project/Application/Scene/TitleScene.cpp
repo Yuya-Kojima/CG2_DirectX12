@@ -1,6 +1,7 @@
 #include "TitleScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -31,10 +32,15 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
-  //soundData1_ =
-  //    SoundManager::GetInstance()->SoundLoadWave("resources/Alarm01.wav");
 
-  //SoundManager::GetInstance()->SoundPlayWave(soundData1_);
+  auto *sm = SoundManager::GetInstance();
+
+  // Audioファイルを登録
+  sm->Load("bgm_mokugyo", "resources/mokugyo.wav");
+  sm->Load("se_fanfare", "resources/fanfare.wav");
+
+  // bgm再生
+  sm->PlayBGM("bgm_mokugyo");
 
   //===========================
   // スプライト関係の初期化
@@ -108,12 +114,12 @@ void TitleScene::Initialize(EngineBase *engine) {
 
   // デバッグカメラ
   debugCamera_ = new DebugCamera();
-  debugCamera_->Initialize();
+  debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
 
   // モデルの読み込み
   ModelManager::GetInstance()->LoadModel("plane.obj");
 
-  ModelManager::GetInstance()->LoadModel("axis.obj");
+  ModelManager::GetInstance()->LoadModel("monsterBallobj.obj");
 
   // オブジェクトの生成と初期化
   object3d_ = new Object3d();
@@ -122,7 +128,7 @@ void TitleScene::Initialize(EngineBase *engine) {
 
   object3dA_ = new Object3d();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("axis.obj");
+  object3dA_->SetModel("monsterBallobj.obj");
 
   //===========================
   // パーティクル関係の初期化
@@ -167,11 +173,18 @@ void TitleScene::Finalize() {
   }
   sprites_.clear();
 
-  // SoundUnload(&soundData1_);
+  auto *sm = SoundManager::GetInstance();
+  sm->StopBGM();
+  sm->StopAllSE();
+
+  // ゲームシーンだけで使う運用ならここで解放してOK
+  sm->Unload("bgm_mokugyo");
+  sm->Unload("se_fanfare");
 }
 
 void TitleScene::Update() {
 
+  // ゲームシーンに移行
   if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
     SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
@@ -179,6 +192,27 @@ void TitleScene::Update() {
   // テクスチャ差し替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
     sprites_[0]->ChangeTexture("resources/uvChecker.png");
+  }
+
+  // デバッグカメラ切り替え
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+    if (useDebugCamera_) {
+      useDebugCamera_ = false;
+    } else {
+      useDebugCamera_ = true;
+    }
+  }
+
+  auto *sm = SoundManager::GetInstance();
+
+  // BGMを停止
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_B)) {
+    sm->StopBGM();
+  }
+
+  // VキーでSE(重複可能）
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_V)) {
+    SoundManager::GetInstance()->PlaySE("se_fanfare");
   }
 
   //=======================
@@ -229,27 +263,30 @@ void TitleScene::Update() {
   // エミッタ更新
   particleEmitter_->Update();
 
-  // view / projection を作って ParticleManager 更新
-  Matrix4x4 cameraMatrix =
-      MakeAffineMatrix(cameraTransform_.scale, cameraTransform_.rotate,
-                       cameraTransform_.translate);
-
-  Matrix4x4 viewMatrix = Inverse(cameraMatrix);
-
-  Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(
-      0.45f,
-      float(WindowSystem::kClientWidth) / float(WindowSystem::kClientHeight),
-      0.1f, 100.0f);
-
-  ParticleManager::GetInstance()->Update(viewMatrix, projectionMatrix);
-
-  debugCamera_->Update(*engine_->GetInputManager());
+  //=======================
+  // カメラの更新
+  //=======================
+  GameCamera *activeCamera = nullptr;
 
   camera_->SetRotate(cameraTransform_.rotate);
   camera_->SetTranslate(cameraTransform_.translate);
 
   // カメラの更新処理
-  camera_->Update();
+
+  if (useDebugCamera_) {
+    debugCamera_->Update(*engine_->GetInputManager());
+    activeCamera = debugCamera_->GetCamera();
+  } else {
+    camera_->Update();
+    activeCamera = camera_;
+  }
+
+  // アクティブカメラを描画で使用する
+  engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
+
+  // view / projection を作って ParticleManager 更新
+  ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
+                                         activeCamera->GetProjectionMatrix());
 }
 
 void TitleScene::Draw() {
@@ -259,6 +296,9 @@ void TitleScene::Draw() {
 
 void TitleScene::Draw3D() {
   engine_->Begin3D();
+
+  // ここから下で3DオブジェクトのDrawを呼ぶ
+
   object3d_->Draw();
   object3dA_->Draw();
   ParticleManager::GetInstance()->Draw();
@@ -266,6 +306,9 @@ void TitleScene::Draw3D() {
 
 void TitleScene::Draw2D() {
   engine_->Begin2D();
+
+  // ここから下で2DオブジェクトのDrawを呼ぶ
+
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     sprites_[i]->Draw();
   }

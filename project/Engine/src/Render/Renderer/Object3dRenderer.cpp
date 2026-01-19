@@ -22,7 +22,7 @@ void Object3dRenderer::CreateRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[4] = {};
+  D3D12_ROOT_PARAMETER rootParameterObject3d[5] = {};
   rootParameterObject3d[0].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[0].ShaderVisibility =
@@ -57,6 +57,12 @@ void Object3dRenderer::CreateRootSignature() {
   rootParameterObject3d[3].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
   rootParameterObject3d[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
+
+  rootParameterObject3d[4].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+  rootParameterObject3d[4].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
+  rootParameterObject3d[4].Descriptor.ShaderRegister = 2; // レジスタ番号2を使う
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -153,7 +159,7 @@ void Object3dRenderer::CreatePSO() {
   blendDesc.RenderTarget[0].DestBlendAlpha =
       D3D12_BLEND_INV_SRC_ALPHA; // 背景の透明度は無視
 
-  // RasiterzerStateの設定
+  // RasterizerStateの設定
   D3D12_RASTERIZER_DESC rasterizerDesc{};
 
   // 裏面(時計回り)を表示しない
@@ -164,12 +170,12 @@ void Object3dRenderer::CreatePSO() {
   rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 
   // shaderをcompileする
-  IDxcBlob *vertexShaderBlob =
-      dx12Core_->CompileShader(L"resources/shaders/Object3D.VS.hlsl", L"vs_6_0");
+  IDxcBlob *vertexShaderBlob = dx12Core_->CompileShader(
+      L"resources/shaders/Object3D.VS.hlsl", L"vs_6_0");
   assert(vertexShaderBlob != nullptr);
 
-  IDxcBlob *pixelShaderBlob =
-      dx12Core_->CompileShader(L"resources/shaders/Object3D.PS.hlsl", L"ps_6_0");
+  IDxcBlob *pixelShaderBlob = dx12Core_->CompileShader(
+      L"resources/shaders/Object3D.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   // DepthStencilStateの設定

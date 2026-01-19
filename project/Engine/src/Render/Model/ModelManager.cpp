@@ -2,10 +2,50 @@
 #include "Model/Model.h"
 #include "Renderer/ModelRenderer.h"
 #include <cassert>
+#include <filesystem>
 
 ModelManager *ModelManager::instance = nullptr;
 
 bool ModelManager::isFinalized_ = false;
+
+namespace fs = std::filesystem;
+
+std::string ModelManager::ResolveModelPath(const std::string &input) {
+  const fs::path base = "resources";
+
+  // すでにパスならそのまま
+  if (input.find('/') != std::string::npos ||
+      input.find('\\') != std::string::npos) {
+    return input;
+  }
+
+  // 1) resources直下
+  {
+    fs::path p = base / input;
+    if (fs::exists(p)) {
+      return p.generic_string(); // "resources/xxx.obj"
+    }
+  }
+
+  // 2) resources/MaterialTemplate 以下を再帰検索
+  {
+    fs::path root = base / "MaterialTemplate";
+    if (fs::exists(root)) {
+      for (auto const &e : fs::recursive_directory_iterator(root)) {
+        if (!e.is_regular_file()) {
+          continue;
+        }
+        if (e.path().filename() == input) {
+          return e.path()
+              .generic_string(); // "resources/MaterialTemplate/.../xxx.obj"
+        }
+      }
+    }
+  }
+
+  // 見つからなければ、そのまま
+  return input;
+}
 
 ModelManager *ModelManager::GetInstance() {
 
@@ -45,25 +85,51 @@ void ModelManager::Initialize(Dx12Core *dx12Core) {
 
 void ModelManager::LoadModel(const std::string &filePath) {
 
-  if (models.contains(filePath)) {
+  const std::string resolved = ResolveModelPath(filePath);
+
+  if (models.contains(resolved)) {
     // 読み込み済みなら早期リターン
     return;
   }
 
-  // モデルの生成とファイル読み込み、初期化
-  std::unique_ptr<Model> model = std::make_unique<Model>();
-  model->Initialize(modelRenderer, "resources", filePath);
+  // "resources/" を基準にする
+  const std::string baseDir = "resources";
 
-  // モデルをmapコンテナに格納
-  models.insert(std::make_pair(filePath, std::move(model)));
+  // ディレクトリ部分とファイル名部分に分解
+  std::string directoryPath = baseDir;
+  std::string filename = resolved;
+
+  const size_t slash = resolved.find_last_of("/\\");
+  if (slash != std::string::npos) {
+    directoryPath = resolved.substr(0, slash);
+    filename = resolved.substr(slash + 1);
+  }
+  // if (slash != std::string::npos) {
+  //   directoryPath = baseDir + "/" + filePath.substr(0, slash);
+  //   filename = filePath.substr(slash + 1);
+  // }
+
+  std::unique_ptr<Model> model = std::make_unique<Model>();
+  model->Initialize(modelRenderer, directoryPath, filename);
+
+  models.insert(std::make_pair(resolved, std::move(model)));
+
+  //// モデルの生成とファイル読み込み、初期化
+  // std::unique_ptr<Model> model = std::make_unique<Model>();
+  // model->Initialize(modelRenderer, "resources", filePath);
+
+  //// モデルをmapコンテナに格納
+  // models.insert(std::make_pair(filePath, std::move(model)));
 }
 
 Model *ModelManager::FindModel(const std::string &filePath) {
 
+  const std::string resolved = ResolveModelPath(filePath);
+
   // 読み込み済みモデルを検索
-  if (models.contains(filePath)) {
+  if (models.contains(resolved)) {
     // 読み込みモデルを戻り値としてリターン
-    return models.at(filePath).get();
+    return models.at(resolved).get();
   }
 
   // ファイル名一致なし
