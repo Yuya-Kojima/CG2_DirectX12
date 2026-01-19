@@ -64,12 +64,29 @@ VertexShaderOutput input) {
 		//==========================================
 		//鏡面反射
 		
+		//diffuse
 		float3 diffuse = gMaterial.color.rgb * textureColor.rgb * gDirectionalLight.color.rgb * cos * gDirectionalLight.intensity;
 		
-		float3 specular = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPow * float3(1.0f, 1.0f, 1.0f);
+		//==========================================
+		//Phong Reflection
+		
+		//float3 specular = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPow * float3(1.0f, 1.0f, 1.0f);
+		
+		//output.color.rgb = diffuse + specular;
+      
+	    //==========================================
+		//Bllin-Phong 
+		
+		float3 halfVector = normalize(-gDirectionalLight.direction + toEye);
+		
+		float NDotH = dot(normalize(input.normal), halfVector);
+		
+		float specularPow = pow(saturate(NDotH), gMaterial.shininess);
+		
+		float3 specular = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPow;
 		
 		output.color.rgb = diffuse + specular;
-      
+		
 		//=================================================		
 		//Harflambert
 		
