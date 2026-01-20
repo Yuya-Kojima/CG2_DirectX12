@@ -4,6 +4,7 @@
 #include "Core/D3DResourceLeakChecker.h"
 #include "Core/SrvManager.h"
 #include "Core/WindowSystem.h"
+#include "Debug/ImGuiManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/ModelManager.h"
 #include "Particle/ParticleManager.h"

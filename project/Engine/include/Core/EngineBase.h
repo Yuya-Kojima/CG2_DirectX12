@@ -11,6 +11,7 @@ class SrvManager;
 class GameCamera;
 class D3DResourceLeakChecker;
 class AbstractSceneFactory;
+class ImGuiManager;
 
 class EngineBase {
 public:
@@ -50,22 +51,33 @@ protected:
   bool endRequest_ = false;
 
 protected:
+  // 解放漏れリークチェッカー
   D3DResourceLeakChecker *leakChecker_ = nullptr;
 
+  // WinApp
   WindowSystem *windowSystem_ = nullptr;
 
+  // DirectXCommon
   Dx12Core *dx12Core_ = nullptr;
 
+  // 入力
   InputKeyState *input_ = nullptr;
 
+  // サウンド
   Microsoft::WRL::ComPtr<IXAudio2> xAudio2_;
 
+  // 2dスプライト
   SpriteRenderer *spriteRenderer_ = nullptr;
 
+  // 3Ⅾオブジェクト
   Object3dRenderer *object3dRenderer_ = nullptr;
 
+  // SRV
   SrvManager *srvManager_ = nullptr;
 
   // シーンファクトリー
   AbstractSceneFactory *sceneFactory_ = nullptr;
+
+  // ImGui
+  ImGuiManager *imGuiManager_ = nullptr;
 };
