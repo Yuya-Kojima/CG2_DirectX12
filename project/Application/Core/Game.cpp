@@ -12,7 +12,6 @@
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
-#include "imgui.h"
 #include <cassert>
 #include <fstream>
 
@@ -83,11 +82,6 @@ void Game::Update() {
     return;
   }
 
-  // ImGui受付開始
-  if (imGuiManager_) {
-    imGuiManager_->Begin();
-  }
-
   SceneManager::GetInstance()->Update();
 
   // FPSをセット
@@ -101,10 +95,21 @@ void Game::Update() {
   // デバッグテキストの更新
   //=======================
 
+#ifdef USE_IMGUI
+
+  // ImGui受付開始
+  if (imGuiManager_) {
+    imGuiManager_->Begin();
+  }
+
+  // デモウィンドウ表示ON
+  ImGui::ShowDemoWindow();
+
   // ImGui受付終了
   if (imGuiManager_) {
     imGuiManager_->End();
   }
+#endif // USE_IMGUI
 }
 
 void Game::Draw() {
