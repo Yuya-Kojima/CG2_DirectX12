@@ -157,8 +157,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Core\Game.cpp" />
-    <ClCompile Include="Scene\SceneFactory.cpp" />
+    <ClCompile Include="Actor\Player.cpp" />
     <ClCompile Include="Scene\TitleScene.cpp" />
+    <ClCompile Include="Scene\SceneFactory.cpp" />
+    <ClCompile Include="Scene\DebugScene.cpp" />
     <ClCompile Include="Scene\GamePlayScene.cpp" />
     <ClCompile Include="main.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
@@ -185,8 +187,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\Game.h" />
-    <ClInclude Include="Scene\SceneFactory.h" />
+    <ClInclude Include="Actor\Player.h" />
     <ClInclude Include="Scene\TitleScene.h" />
+    <ClInclude Include="Scene\SceneFactory.h" />
+    <ClInclude Include="Scene\DebugScene.h" />
     <ClInclude Include="Scene\GamePlayScene.h" />
   </ItemGroup>
   <ItemGroup>

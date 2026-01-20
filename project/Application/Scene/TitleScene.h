@@ -15,7 +15,8 @@ class ParticleEmitter;
 
 class TitleScene : public BaseScene {
 
-public:
+private: // メンバ変数(ゲーム用)
+public:  // メンバ関数
 	/// <summary>
 	/// 初期化
 	/// </summary>
@@ -36,52 +37,29 @@ public:
 	/// </summary>
 	void Draw() override;
 
-	void Draw3D() override;
-
+	/// <summary>
+	/// 2Dオブジェクト描画
+	/// </summary>
 	void Draw2D() override;
 
-private:
-	static constexpr int kSpriteCount_ = 5;
+	/// <summary>
+	/// 3Dオブジェクト描画
+	/// </summary>
+	void Draw3D() override;
 
-	std::vector<Sprite*> sprites_;
-
-	Sprite* sprite_ = nullptr;
-
-	Vector2 spritePositions_[kSpriteCount_];
-
-	Vector2 spriteSizes_[kSpriteCount_];
-
-	// スプライトのTransform
-	Vector2 spritePosition_{};
-
-	float spriteRotation_{};
-
-	Vector4 spriteColor_{};
-
-	Vector2 spriteSize_{};
-
-	Vector2 spriteAnchorPoint_{};
-
-	bool isFlipX_ = false;
-	bool isFlipY_ = false;
-
-	Transform uvTransformSprite_{};
-
-	Object3d* object3d_ = nullptr;
-	Object3d* object3dA_ = nullptr;
-
-	float rotateObj_{};
-
-	ParticleEmitter* particleEmitter_ = nullptr;
-
+private: // メンバ変数(システム用)
+	// カメラ
 	GameCamera* camera_ = nullptr;
 
-	Transform cameraTransform_{};
-
+	// デバッグカメラ
 	DebugCamera* debugCamera_ = nullptr;
 
+	//デバッグカメラ使用
+	bool useDebugCamera_ = false;
+
+private:
+	/*ポインタ参照
+	------------------*/
 	// エンジン
 	EngineBase* engine_ = nullptr;
-
-	bool useDebugCamera_ = false;
 };
