@@ -4,17 +4,21 @@
 #include "Scene/BaseScene.h"
 #include <vector>
 
+class ImGuiManager;
+
 class Game : public EngineBase {
 
 public:
-	void Initialize() override;
+  void Initialize() override;
 
-	void Finalize() override;
+  void Finalize() override;
 
-	void Update() override;
+  void Update() override;
 
-	void Draw() override;
+  void Draw() override;
 
 private:
-	bool set60FPS_ = true;
+  bool set60FPS_ = true;
+
+  ImGuiManager *imGuiManager_ = nullptr;
 };

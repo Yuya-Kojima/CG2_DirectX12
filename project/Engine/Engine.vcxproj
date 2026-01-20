@@ -123,6 +123,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Audio\SoundManager.cpp" />
+    <ClCompile Include="src\Debug\ImGuiManager.cpp" />
     <ClCompile Include="src\Render\Camera\GameCamera.cpp" />
     <ClCompile Include="src\Scene\SceneManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
@@ -150,6 +151,7 @@
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Debug\ImGuiManager.h" />
     <ClInclude Include="include\Render\Camera\CameraForGPU.h" />
     <ClInclude Include="include\Render\Camera\GameCamera.h" />
     <ClInclude Include="include\Scene\AbstractSceneFactory.h" />

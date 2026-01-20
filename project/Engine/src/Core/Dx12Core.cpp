@@ -579,16 +579,16 @@ void Dx12Core::InitializeImGui() {
   // ImGuiの初期化
 
   // バージョンチェック
-  IMGUI_CHECKVERSION();
+  //IMGUI_CHECKVERSION();
 
-  // コンテキストの生成
-  ImGui::CreateContext();
+  //// コンテキストの生成
+  //ImGui::CreateContext();
 
-  // スタイルの設定
-  ImGui::StyleColorsDark();
+  //// スタイルの設定
+  //ImGui::StyleColorsDark();
 
-  // Win32用の初期化
-  ImGui_ImplWin32_Init(windowSystem->GetHwnd());
+  //// Win32用の初期化
+  //ImGui_ImplWin32_Init(windowSystem->GetHwnd());
 
   // DirectX12用の初期化
   // ImGui_ImplDX12_Init(device.Get(), swapChainDesc.BufferCount,
