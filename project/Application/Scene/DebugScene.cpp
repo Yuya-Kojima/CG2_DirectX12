@@ -119,7 +119,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   // モデルの読み込み
   ModelManager::GetInstance()->LoadModel("plane.obj");
 
-  ModelManager::GetInstance()->LoadModel("monsterBallobj.obj");
+  ModelManager::GetInstance()->LoadModel("monsterBall.obj");
 
   // オブジェクトの生成と初期化
   object3d_ = new Object3d();
@@ -128,7 +128,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   object3dA_ = new Object3d();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("monsterBallobj.obj");
+  object3dA_->SetModel("monsterBall.obj");
 
   //===========================
   // パーティクル関係の初期化
