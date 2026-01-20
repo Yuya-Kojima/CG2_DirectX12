@@ -123,6 +123,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Audio\SoundManager.cpp" />
+    <ClCompile Include="src\Render\Camera\GameCamera.cpp" />
     <ClCompile Include="src\Scene\SceneManager.cpp" />
     <ClCompile Include="src\Core\D3DResourceLeakChecker.cpp" />
     <ClCompile Include="src\Core\Dx12Core.cpp" />
@@ -135,7 +136,6 @@
     <ClCompile Include="src\Input\InputMouseState.cpp" />
     <ClCompile Include="src\Math\MathUtil.cpp" />
     <ClCompile Include="src\Debug\DebugCamera.cpp" />
-    <ClCompile Include="src\Render\Camera\GameCamera.cpp" />
     <ClCompile Include="src\Render\Model\Model.cpp" />
     <ClCompile Include="src\Render\Model\ModelManager.cpp" />
     <ClCompile Include="src\Render\Renderer\ModelRenderer.cpp" />
@@ -151,6 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Render\Camera\CameraForGPU.h" />
+    <ClInclude Include="include\Render\Camera\GameCamera.h" />
     <ClInclude Include="include\Scene\AbstractSceneFactory.h" />
     <ClInclude Include="include\Core\D3DResourceLeakChecker.h" />
     <ClInclude Include="include\Core\Dx12Core.h" />
@@ -172,7 +173,6 @@
     <ClInclude Include="include\Math\Vector4.h" />
     <ClInclude Include="include\Math\VertexData.h" />
     <ClInclude Include="include\Debug\DebugCamera.h" />
-    <ClInclude Include="include\Render\Camera\GameCamera.h" />
     <ClInclude Include="include\Render\Material\DirectionalLight.h" />
     <ClInclude Include="include\Render\Material\Material.h" />
     <ClInclude Include="include\Render\Material\MaterialData.h" />
