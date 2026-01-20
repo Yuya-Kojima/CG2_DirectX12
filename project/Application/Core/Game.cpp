@@ -82,6 +82,15 @@ void Game::Update() {
     return;
   }
 
+#ifdef USE_IMGUI
+
+  // ImGui受付開始
+  if (imGuiManager_) {
+    imGuiManager_->Begin();
+  }
+
+#endif // USE_IMGUI
+
   SceneManager::GetInstance()->Update();
 
   // FPSをセット
@@ -97,11 +106,6 @@ void Game::Update() {
 
 #ifdef USE_IMGUI
 
-  // ImGui受付開始
-  if (imGuiManager_) {
-    imGuiManager_->Begin();
-  }
-
   // デモウィンドウ表示ON
   ImGui::ShowDemoWindow();
 
@@ -109,6 +113,7 @@ void Game::Update() {
   if (imGuiManager_) {
     imGuiManager_->End();
   }
+
 #endif // USE_IMGUI
 }
 
