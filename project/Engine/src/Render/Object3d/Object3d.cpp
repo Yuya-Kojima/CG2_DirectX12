@@ -21,6 +21,8 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   CreateCameraForGPUData();
 
+  CreatePointLightData();
+
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
   // cameraTransform_ = {
   //     {1.0f, 1.0f, 1.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 4.0f, -10.0f}};
@@ -86,6 +88,10 @@ void Object3d::Draw() {
   // Camera
   commandList->SetGraphicsRootConstantBufferView(
       4, cameraForGPUResource->GetGPUVirtualAddress());
+
+  // PointLight
+  commandList->SetGraphicsRootConstantBufferView(
+      5, pointLightResource->GetGPUVirtualAddress());
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
@@ -153,4 +159,21 @@ void Object3d::CreateCameraForGPUData() {
                             reinterpret_cast<void **>(&cameraForGPUData));
 
   cameraForGPUData->worldPosition = {0.0f, 0.0f, 0.0f};
+}
+
+void Object3d::CreatePointLightData() {
+
+  UINT pointLightSize = (sizeof(PointLight) + 255) & ~255;
+  pointLightResource = dx12Core_->CreateBufferResource(pointLightSize);
+
+  // データを書き込む
+  pointLightData = nullptr;
+
+  // 書き込むためのアドレスを取得
+  cameraForGPUResource->Map(0, nullptr,
+                            reinterpret_cast<void **>(&pointLightData));
+
+  pointLightData->color = {1.0f, 1.0f, 1.0f, 1.0f};
+  pointLightData->position = {0.0f, 2.0f, 0.0f};
+  pointLightData->intensity = 30.0f;
 }

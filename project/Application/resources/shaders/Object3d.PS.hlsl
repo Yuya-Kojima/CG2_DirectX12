@@ -30,6 +30,14 @@ struct Camera {
 
 ConstantBuffer<Camera> gCamera : register(b2);
 
+struct PointLight {
+	float4 color;
+	float3 position;
+	float intensity;
+};
+
+ConstantBuffer<PointLight> gPointLight : register(b3);
+
 PixelShaderOutput main(
 VertexShaderOutput input) {
 	
@@ -107,9 +115,31 @@ VertexShaderOutput input) {
 	float3 specular = gDirectionalLight.color.rgb * gDirectionalLight.intensity * specularPow;
 		
 	//=========================
+	// PointLight
+	//=========================
+	
+	float3 pointLightDirection = normalize(input.worldPosition - gPointLight.position);
+	
+	float NdotLPoint = dot(normal, -pointLightDirection);
+	float cosPoint = pow(NdotLPoint * 0.5f + 0.5f, 2.0f);
+	
+	float3 pointLightColor = gPointLight.color.rgb * gPointLight.intensity;
+	
+	//diffuse
+	float3 diffusePointLight = gPointLight.color.rgb * gPointLight.intensity * pointLightColor * cosPoint;
+	
+	//specular
+	float3 halfVectorPoint = normalize(-pointLightDirection + toEye);
+	float NdotH_Point = dot(normal, halfVectorPoint);
+	float specularPowPoint = pow(saturate(NdotH_Point), gMaterial.shininess);
+
+	float3 specularPointLight = pointLightColor * specularPowPoint;
+	
+	
+	//=========================
 	// Output
 	//=========================
-	output.color.rgb = diffuse + specular;
+	output.color.rgb = diffuse + specular + diffusePointLight + specularPointLight;
 	output.color.a = gMaterial.color.a * textureColor.a;
 	
 	return output;
