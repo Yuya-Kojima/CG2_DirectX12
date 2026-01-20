@@ -34,10 +34,15 @@ private:
   static const uint32_t kMaxSRVCount;
 
   // SRV用のディスクリプタサイズ
-  uint32_t desctiptorSize;
+  uint32_t descriptorSize;
 
   // SRV用ディスクリプタヒープ
-  Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> desctiptorHeap;
+  Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> descriptorHeap;
 
   uint32_t useIndex_ = 0;
+
+public:
+  ID3D12DescriptorHeap *GetDescriptorHeap() const {
+    return descriptorHeap.Get();
+  }
 };

@@ -1,6 +1,7 @@
 #include "DebugScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
@@ -69,8 +70,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // スプライトのTransform
   spritePosition_ = {
-      640.0f,
-      360.0f,
+      100.0f,
+      100.0f,
   };
 
   spriteRotation_ = 0.0f;
@@ -79,7 +80,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   spriteSize_ = {640.0f, 360.0f};
 
-  spriteAnchorPoint_ = {0.5f, 0.5f};
+  spriteAnchorPoint_ = {0.0f, 0.0f};
 
   sprite_->SetPosition(spritePosition_);
   sprite_->SetRotation(spriteRotation_);
@@ -287,6 +288,18 @@ void DebugScene::Update() {
   // view / projection を作って ParticleManager 更新
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
+
+#ifdef USE_IMGUI
+  ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
+  ImGui::Begin("Sprite");
+
+  if (ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%.1f")) {
+    sprite_->SetPosition(spritePosition_);
+  }
+
+  ImGui::End();
+
+#endif // USE_IMGUI
 }
 
 void DebugScene::Draw() {
@@ -312,4 +325,6 @@ void DebugScene::Draw2D() {
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     sprites_[i]->Draw();
   }
+
+  sprite_->Draw();
 }

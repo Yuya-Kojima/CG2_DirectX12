@@ -1,6 +1,7 @@
 #include "Core/Game.h"
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
+#include "Debug/ImGuiManager.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -32,8 +33,10 @@ void Game::Initialize() {
   //===========================
 
   //===========================
-  // デバッグテキストの初期化(未実装)
+  // ImGuiManagerの初期化
   //===========================
+  imGuiManager_ = new ImGuiManager();
+  imGuiManager_->Initialize(windowSystem_, dx12Core_, srvManager_);
 
   // texture切り替え用
   bool useMonsterBall = true;
@@ -57,6 +60,10 @@ void Game::Initialize() {
 
 void Game::Finalize() {
 
+  imGuiManager_->Finalize();
+  delete imGuiManager_;
+  imGuiManager_ = nullptr;
+
   // シーンの解放
   SceneManager::GetInstance()->Finalize();
 
@@ -75,6 +82,15 @@ void Game::Update() {
     return;
   }
 
+#ifdef USE_IMGUI
+
+  // ImGui受付開始
+  if (imGuiManager_) {
+    imGuiManager_->Begin();
+  }
+
+#endif // USE_IMGUI
+
   SceneManager::GetInstance()->Update();
 
   // FPSをセット
@@ -87,6 +103,18 @@ void Game::Update() {
   //=======================
   // デバッグテキストの更新
   //=======================
+
+#ifdef USE_IMGUI
+
+  // デモウィンドウ表示ON
+  ImGui::ShowDemoWindow();
+
+  // ImGui受付終了
+  if (imGuiManager_) {
+    imGuiManager_->End();
+  }
+
+#endif // USE_IMGUI
 }
 
 void Game::Draw() {
@@ -99,6 +127,10 @@ void Game::Draw() {
 
   // 2D
   // EngineBase::Begin2D();
+
+  if (imGuiManager_) {
+    imGuiManager_->Draw();
+  }
 
   EngineBase::EndFrame();
 }
