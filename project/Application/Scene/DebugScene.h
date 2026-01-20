@@ -13,17 +13,51 @@ class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
 
-class GamePlayScene : public BaseScene {
+class DebugScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
   // カメラ
   GameCamera *camera_ = nullptr;
 
-  // デバッグカメラ
+  Transform cameraTransform_{};
+
   DebugCamera *debugCamera_ = nullptr;
 
-  // デバッグカメラ使用
+  // デバッグカメラ
   bool useDebugCamera_ = false;
+
+  static constexpr int kSpriteCount_ = 5;
+
+  std::vector<Sprite *> sprites_;
+
+  Sprite *sprite_ = nullptr;
+
+  Vector2 spritePositions_[kSpriteCount_];
+
+  Vector2 spriteSizes_[kSpriteCount_];
+
+  // スプライトのTransform
+  Vector2 spritePosition_{};
+
+  float spriteRotation_{};
+
+  Vector4 spriteColor_{};
+
+  Vector2 spriteSize_{};
+
+  Vector2 spriteAnchorPoint_{};
+
+  bool isFlipX_ = false;
+  bool isFlipY_ = false;
+
+  Transform uvTransformSprite_{};
+
+  Object3d *object3d_ = nullptr;
+  Object3d *object3dA_ = nullptr;
+
+  float rotateObj_{};
+
+  ParticleEmitter *particleEmitter_ = nullptr;
 
 public: // メンバ関数
   /// <summary>
@@ -46,20 +80,11 @@ public: // メンバ関数
   /// </summary>
   void Draw() override;
 
-  /// <summary>
-  /// 2Dオブジェクト描画
-  /// </summary>
-  void Draw2D() override;
-
-  /// <summary>
-  /// 3Dオブジェクト描画
-  /// </summary>
   void Draw3D() override;
 
+  void Draw2D() override;
+
 private: // メンバ変数(システム用)
-private:
-  /*ポインタ参照
-  ------------------*/
   // エンジン
   EngineBase *engine_ = nullptr;
 };
