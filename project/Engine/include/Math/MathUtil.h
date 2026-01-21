@@ -5,6 +5,7 @@
 #include "Vector3.h"
 #include "Vector4.h"
 #include <cmath>
+#include <numbers>
 
 //=========================
 // Vector3
@@ -140,3 +141,5 @@ Matrix4x4 Inverse(Matrix4x4 matrix);
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
 
 Matrix4x4 Transpose(Matrix4x4 matrix);
+
+static float DegToRad(float deg) { return deg * 3.14159265f / 180.0f; }

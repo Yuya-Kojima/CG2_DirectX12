@@ -290,19 +290,93 @@ void DebugScene::Update() {
                                          activeCamera->GetProjectionMatrix());
 
 #ifdef USE_IMGUI
-  ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
+  auto *renderer = engine_->GetObject3dRenderer();
 
-  auto *pl = engine_->GetObject3dRenderer()->GetPointLightData();
-  if (pl) {
-    ImGui::Begin("PointLight");
+  static bool showPointLight = false;
+  static bool showSpotLight = false;
+  static float pointIntensityBackup = 1.0f;
+  static float spotIntensityBackup = 4.0f;
 
-    ImGui::SliderFloat3("Position", &pl->position.x, -20.0f, 20.0f);
-    ImGui::SliderFloat("Intensity", &pl->intensity, 0.0f, 10.0f);
-    ImGui::ColorEdit3("Color", &pl->color.x);
-    ImGui::SliderFloat("radius", &pl->radius, 0.0f, 10.0f);
-    ImGui::SliderFloat("decay", &pl->decay, 0.0f, 10.0f);
+  ImGui::Begin("Lighting");
 
-    ImGui::End();
+  // PointLight
+  bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
+  if (changedPoint) {
+    if (auto *pl = renderer->GetPointLightData()) {
+      if (!showPointLight) {
+        pointIntensityBackup = pl->intensity;
+        pl->intensity = 0.0f;
+      } else {
+        pl->intensity =
+            (pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
+      }
+    }
+  }
+
+  // SpotLight
+  bool changedSpot = ImGui::Checkbox("Enable SpotLight", &showSpotLight);
+  if (changedSpot) {
+    if (auto *sl = renderer->GetSpotLightData()) {
+      if (!showSpotLight) {
+        spotIntensityBackup = sl->intensity;
+        sl->intensity = 0.0f;
+      } else {
+        sl->intensity =
+            (spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
+      }
+    }
+  }
+
+  ImGui::End();
+
+  //========================
+  // PointLight
+  //========================
+  if (auto *pl = renderer->GetPointLightData()) {
+    if (showPointLight) {
+      ImGui::Begin("PointLight");
+
+      ImGui::ColorEdit3("Color", &pl->color.x);
+      ImGui::DragFloat3("Position", &pl->position.x, 0.05f, -20.0f, 20.0f);
+      ImGui::DragFloat("Intensity", &pl->intensity, 0.05f, 0.0f, 10.0f);
+      ImGui::DragFloat("Radius", &pl->radius, 0.1f, 0.01f, 100.0f);
+      ImGui::DragFloat("Decay", &pl->decay, 0.05f, 0.01f, 8.0f);
+      ImGui::End();
+    }
+  }
+
+  //========================
+  // SpotLight
+  //========================
+  if (auto *sl = renderer->GetSpotLightData()) {
+    if (showSpotLight) {
+      ImGui::Begin("SpotLight");
+
+      ImGui::ColorEdit3("Color", &sl->color.x);
+      ImGui::DragFloat3("Position", &sl->position.x, 0.05f, -20.0f, 20.0f);
+      ImGui::DragFloat("Intensity", &sl->intensity, 0.05f, 0.0f, 10.0f);
+
+      static float yawDeg = 0.0f;
+      static float pitchDeg = -20.0f;
+      ImGui::SliderFloat("Yaw(deg)", &yawDeg, -180.0f, 180.0f);
+      ImGui::SliderFloat("Pitch(deg)", &pitchDeg, -89.0f, 89.0f);
+
+      float yaw = DegToRad(yawDeg);
+      float pitch = DegToRad(pitchDeg);
+      sl->direction = {
+          std::cos(pitch) * std::sin(yaw),
+          std::sin(pitch),
+          std::cos(pitch) * std::cos(yaw),
+      };
+
+      ImGui::DragFloat("Distance", &sl->distance, 0.1f, 0.01f, 100.0f);
+      ImGui::DragFloat("Decay", &sl->decay, 0.05f, 0.01f, 8.0f);
+
+      static float spotAngleDeg = 30.0f;
+      ImGui::DragFloat("Angle(deg)", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
+      sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
+      ImGui::End();
+    }
   }
 
 #endif // USE_IMGUI
@@ -320,7 +394,7 @@ void DebugScene::Draw3D() {
 
   object3d_->Draw();
   object3dA_->Draw();
-  ParticleManager::GetInstance()->Draw();
+  // ParticleManager::GetInstance()->Draw();
 }
 
 void DebugScene::Draw2D() {
@@ -328,9 +402,9 @@ void DebugScene::Draw2D() {
 
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    sprites_[i]->Draw();
-  }
+  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+  // sprites_[i]->Draw();
+  // }
 
   // sprite_->Draw();
 }

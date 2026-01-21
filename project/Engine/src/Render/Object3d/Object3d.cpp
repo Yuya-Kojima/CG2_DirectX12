@@ -91,6 +91,10 @@ void Object3d::Draw() {
   commandList->SetGraphicsRootConstantBufferView(
       5, object3dRenderer_->GetPointLightResource()->GetGPUVirtualAddress());
 
+  // SpotLight
+  commandList->SetGraphicsRootConstantBufferView(
+      6, object3dRenderer_->GetSpotLightResource()->GetGPUVirtualAddress());
+
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
     model_->Draw();

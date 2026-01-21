@@ -40,6 +40,18 @@ struct PointLight {
 
 ConstantBuffer<PointLight> gPointLight : register(b3);
 
+struct SpotLight {
+	float4 color;
+	float3 position;
+	float intensity;
+	float3 direction;
+	float distance;
+	float decay;
+	float cosAngle;
+};
+
+ConstantBuffer<SpotLight> gSpotLight : register(b4);
+
 PixelShaderOutput main(
 VertexShaderOutput input) {
 	
@@ -141,11 +153,36 @@ VertexShaderOutput input) {
 
 	float3 specularPointLight = pointLightColor * specularPowPoint;
 	
+	//=========================
+	// SpotLight
+	//=========================
+	
+	float3 spotLightDirectionOnSurface = normalize(input.worldPosition - gSpotLight.position);
+	
+	float cosAngle = dot(spotLightDirectionOnSurface, gSpotLight.direction);
+	float falloffFactor = saturate((cosAngle - gSpotLight.cosAngle) / (1.0f - gSpotLight.cosAngle));
+	
+	float spotDistance = length(gSpotLight.position - input.worldPosition);
+	float attenuationFactor = pow(saturate(-spotDistance / gSpotLight.distance + 1.0f), gSpotLight.decay);
+	
+	float3 spotLightColor =
+    gSpotLight.color.rgb * gSpotLight.intensity * attenuationFactor * falloffFactor;
+	
+	// diffuse
+	float NdotLSpot = dot(normal, -spotLightDirectionOnSurface);
+	float cosSpot = pow(NdotLSpot * 0.5f + 0.5f, 2.0f);
+	float3 diffuseSpotLight = base.rgb * spotLightColor * cosSpot;
+	
+	// specular
+	float3 halfVectorSpot = normalize(-spotLightDirectionOnSurface + toEye);
+	float NdotH_Spot = dot(normal, halfVectorSpot);
+	float specularPowSpot = pow(saturate(NdotH_Spot), gMaterial.shininess);
+	float3 specularSpotLight = spotLightColor * specularPowSpot;
 	
 	//=========================
 	// Output
 	//=========================
-	output.color.rgb = diffuse + specular + diffusePointLight + specularPointLight;
+	output.color.rgb = diffuse + specular + diffusePointLight + specularPointLight + diffuseSpotLight + specularSpotLight;
 	output.color.a = gMaterial.color.a * textureColor.a;
 	
 	return output;

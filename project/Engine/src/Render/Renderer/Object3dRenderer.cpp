@@ -8,6 +8,8 @@ void Object3dRenderer::Initialize(Dx12Core *dx12Core) {
   CreatePSO();
 
   CreatePointLightData();
+
+  CreateSpotLightData();
 }
 
 void Object3dRenderer::CreateRootSignature() {
@@ -22,7 +24,7 @@ void Object3dRenderer::CreateRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[6] = {};
+  D3D12_ROOT_PARAMETER rootParameterObject3d[7] = {};
   rootParameterObject3d[0].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[0].ShaderVisibility =
@@ -69,6 +71,12 @@ void Object3dRenderer::CreateRootSignature() {
   rootParameterObject3d[5].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
   rootParameterObject3d[5].Descriptor.ShaderRegister = 3; // レジスタ番号3を使う
+
+  rootParameterObject3d[6].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+  rootParameterObject3d[6].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
+  rootParameterObject3d[6].Descriptor.ShaderRegister = 4; // レジスタ番号4を使う
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -259,7 +267,27 @@ void Object3dRenderer::CreatePointLightData() {
 
   pointLightData_->color = {1.0f, 1.0f, 1.0f, 1.0f};
   pointLightData_->position = {0.0f, 2.0f, 0.0f};
-  pointLightData_->intensity = 1.0f;
+  pointLightData_->intensity = 0.0f;
   pointLightData_->radius = 5.0f;
   pointLightData_->decay = 2.0f;
+}
+
+void Object3dRenderer::CreateSpotLightData() {
+  UINT spotLightSize = (sizeof(SpotLight) + 255) & ~255;
+  spotLightResource_ = dx12Core_->CreateBufferResource(spotLightSize);
+
+  // データを書き込む
+  spotLightData_ = nullptr;
+
+  // 書き込むためのアドレスを取得
+  spotLightResource_->Map(0, nullptr,
+                          reinterpret_cast<void **>(&spotLightData_));
+
+  spotLightData_->color = {1.0f, 1.0f, 1.0f, 1.0f};
+  spotLightData_->position = {2.0f, 1.25f, 0.0f};
+  spotLightData_->intensity = 0.0f;
+  spotLightData_->distance = 7.0f;
+  spotLightData_->direction = Normalize({-1.0f, -1.0f, 0.0f});
+  spotLightData_->decay = 2.0f;
+  spotLightData_->cosAngle = std::cos(std::numbers::pi_v<float> / 3.0f);
 }

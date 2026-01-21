@@ -77,4 +77,36 @@ private:
   /// PointLightを生成
   /// </summary>
   void CreatePointLightData();
+
+public:
+  struct SpotLight {
+    Vector4 color;
+    Vector3 position;
+    float intensity;
+    Vector3 direction;
+    float distance;
+    float decay;
+    float cosAngle; // スポットライトの余弦
+    float padding[2];
+  };
+
+  ID3D12Resource *GetSpotLightResource() const {
+    return spotLightResource_.Get();
+  }
+
+  SpotLight *GetSpotLightData() { return spotLightData_; }
+
+private:
+  /* SpotLight用データ
+　-----------------------------*/
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> spotLightResource_ = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  Object3dRenderer::SpotLight *spotLightData_ = nullptr;
+
+  /// <summary>
+  /// SpotLightを生成
+  /// </summary>
+  void CreateSpotLightData();
 };

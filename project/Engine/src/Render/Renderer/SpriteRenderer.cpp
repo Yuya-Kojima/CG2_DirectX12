@@ -22,7 +22,7 @@ void SpriteRenderer::CreateSpriteRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[6] = {};
+  D3D12_ROOT_PARAMETER rootParameterObject3d[7] = {};
   rootParameterObject3d[0].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[0].ShaderVisibility =
@@ -69,6 +69,12 @@ void SpriteRenderer::CreateSpriteRootSignature() {
   rootParameterObject3d[5].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
   rootParameterObject3d[5].Descriptor.ShaderRegister = 3; // レジスタ番号3を使う
+
+  rootParameterObject3d[6].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+  rootParameterObject3d[6].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
+  rootParameterObject3d[6].Descriptor.ShaderRegister = 4; // レジスタ番号4を使う
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
