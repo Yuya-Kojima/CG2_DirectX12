@@ -87,6 +87,14 @@ void Object3d::Draw() {
   commandList->SetGraphicsRootConstantBufferView(
       4, cameraForGPUResource->GetGPUVirtualAddress());
 
+  // PointLight
+  commandList->SetGraphicsRootConstantBufferView(
+      5, object3dRenderer_->GetPointLightResource()->GetGPUVirtualAddress());
+
+  // SpotLight
+  commandList->SetGraphicsRootConstantBufferView(
+      6, object3dRenderer_->GetSpotLightResource()->GetGPUVirtualAddress());
+
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
     model_->Draw();
@@ -123,9 +131,8 @@ void Object3d::CreateTransformationMatrixData() {
 }
 
 void Object3d::CreateDirectionalLightData() {
-
-  directionalLightResource =
-      dx12Core_->CreateBufferResource(sizeof(DirectionalLight));
+  UINT size = (sizeof(DirectionalLight) + 255) & ~255;
+  directionalLightResource = dx12Core_->CreateBufferResource(size);
 
   // データを書き込む
   directionalLightData = nullptr;
@@ -137,7 +144,7 @@ void Object3d::CreateDirectionalLightData() {
   // Lightingの色
   directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData->intensity = 1.0f;
+  directionalLightData->intensity = 0.0f;
 }
 
 void Object3d::CreateCameraForGPUData() {

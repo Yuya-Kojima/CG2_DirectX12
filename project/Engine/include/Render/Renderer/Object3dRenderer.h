@@ -1,5 +1,6 @@
 #pragma once
 #include "Core/Dx12Core.h"
+#include "Math/MathUtil.h"
 
 class GameCamera;
 
@@ -46,4 +47,66 @@ private:
 public:
   void SetDefaultCamera(GameCamera *camera) { defaultCamera = camera; }
   GameCamera *GetDefaultCamera() const { return defaultCamera; }
+
+public:
+  struct PointLight {
+    Vector4 color;    // 色
+    Vector3 position; // 位置
+    float intensity;  // 輝度
+    float radius;     // ライトの届く最大距離
+    float decay;      // 減衰率
+    float padding[2];
+  };
+
+  ID3D12Resource *GetPointLightResource() const {
+    return pointLightResource_.Get();
+  }
+
+  PointLight *GetPointLightData() { return pointLightData_; }
+
+private:
+  /* PointLight用データ
+　-----------------------------*/
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource_ = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  Object3dRenderer::PointLight *pointLightData_ = nullptr;
+
+  /// <summary>
+  /// PointLightを生成
+  /// </summary>
+  void CreatePointLightData();
+
+public:
+  struct SpotLight {
+    Vector4 color;
+    Vector3 position;
+    float intensity;
+    Vector3 direction;
+    float distance;
+    float decay;
+    float cosAngle; // スポットライトの余弦
+    float padding[2];
+  };
+
+  ID3D12Resource *GetSpotLightResource() const {
+    return spotLightResource_.Get();
+  }
+
+  SpotLight *GetSpotLightData() { return spotLightData_; }
+
+private:
+  /* SpotLight用データ
+　-----------------------------*/
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> spotLightResource_ = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  Object3dRenderer::SpotLight *spotLightData_ = nullptr;
+
+  /// <summary>
+  /// SpotLightを生成
+  /// </summary>
+  void CreateSpotLightData();
 };
