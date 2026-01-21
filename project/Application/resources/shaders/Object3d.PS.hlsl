@@ -34,6 +34,8 @@ struct PointLight {
 	float4 color;
 	float3 position;
 	float intensity;
+	float radius;
+	float decay;
 };
 
 ConstantBuffer<PointLight> gPointLight : register(b3);
@@ -51,7 +53,7 @@ VertexShaderOutput input) {
 	if (textureColor.a <= 0.5) {
 		discard;
 	}
-	
+
 	//=========================
     // Base color
     //=========================
@@ -123,10 +125,14 @@ VertexShaderOutput input) {
 	float NdotLPoint = dot(normal, -pointLightDirection);
 	float cosPoint = pow(NdotLPoint * 0.5f + 0.5f, 2.0f);
 	
-	float3 pointLightColor = gPointLight.color.rgb * gPointLight.intensity;
+	//逆二乗則減衰
+	float distance = length(gPointLight.position - input.worldPosition);
+	float factor = pow(saturate(-distance / gPointLight.radius + 1.0f), gPointLight.decay);
+	
+	float3 pointLightColor = gPointLight.color.rgb * gPointLight.intensity * factor;
 	
 	//diffuse
-	float3 diffusePointLight = gPointLight.color.rgb * gPointLight.intensity * pointLightColor * cosPoint;
+	float3 diffusePointLight = base.rgb * pointLightColor * cosPoint;
 	
 	//specular
 	float3 halfVectorPoint = normalize(-pointLightDirection + toEye);

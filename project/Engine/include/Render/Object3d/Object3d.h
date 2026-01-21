@@ -28,12 +28,6 @@ class Object3d {
     float intensity;   // 輝度
   };
 
-  struct PointLight {
-    Vector4 color;    // 色
-    Vector3 position; // 位置
-    float intensity;  // 輝度
-  };
-
 public:
   /// <summary>
   /// 初期化
@@ -99,19 +93,6 @@ private:
   /// カメラデータを生成
   /// </summary>
   void CreateCameraForGPUData();
-
-  /* PointLight用データ
-　-----------------------------*/
-  // バッファリソース
-  Microsoft::WRL::ComPtr<ID3D12Resource> pointLightResource = nullptr;
-
-  // バッファリソース内のデータを指すポインタ
-  PointLight *pointLightData = nullptr;
-
-  /// <summary>
-  /// PointLightを生成
-  /// </summary>
-  void CreatePointLightData();
 
 private:
   Vector3 scale_{1.0f, 1.0f, 1.0f};

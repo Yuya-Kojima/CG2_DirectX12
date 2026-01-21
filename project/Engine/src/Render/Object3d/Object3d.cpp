@@ -21,8 +21,6 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   CreateCameraForGPUData();
 
-  CreatePointLightData();
-
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
   // cameraTransform_ = {
   //     {1.0f, 1.0f, 1.0f}, {0.3f, 0.0f, 0.0f}, {0.0f, 4.0f, -10.0f}};
@@ -91,7 +89,7 @@ void Object3d::Draw() {
 
   // PointLight
   commandList->SetGraphicsRootConstantBufferView(
-      5, pointLightResource->GetGPUVirtualAddress());
+      5, object3dRenderer_->GetPointLightResource()->GetGPUVirtualAddress());
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
@@ -129,9 +127,8 @@ void Object3d::CreateTransformationMatrixData() {
 }
 
 void Object3d::CreateDirectionalLightData() {
-
-  directionalLightResource =
-      dx12Core_->CreateBufferResource(sizeof(DirectionalLight));
+  UINT size = (sizeof(DirectionalLight) + 255) & ~255;
+  directionalLightResource = dx12Core_->CreateBufferResource(size);
 
   // データを書き込む
   directionalLightData = nullptr;
@@ -143,7 +140,7 @@ void Object3d::CreateDirectionalLightData() {
   // Lightingの色
   directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData->intensity = 1.0f;
+  directionalLightData->intensity = 0.0f;
 }
 
 void Object3d::CreateCameraForGPUData() {
@@ -159,21 +156,4 @@ void Object3d::CreateCameraForGPUData() {
                             reinterpret_cast<void **>(&cameraForGPUData));
 
   cameraForGPUData->worldPosition = {0.0f, 0.0f, 0.0f};
-}
-
-void Object3d::CreatePointLightData() {
-
-  UINT pointLightSize = (sizeof(PointLight) + 255) & ~255;
-  pointLightResource = dx12Core_->CreateBufferResource(pointLightSize);
-
-  // データを書き込む
-  pointLightData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  cameraForGPUResource->Map(0, nullptr,
-                            reinterpret_cast<void **>(&pointLightData));
-
-  pointLightData->color = {1.0f, 1.0f, 1.0f, 1.0f};
-  pointLightData->position = {0.0f, 2.0f, 0.0f};
-  pointLightData->intensity = 30.0f;
 }

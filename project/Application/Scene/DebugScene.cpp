@@ -118,14 +118,14 @@ void DebugScene::Initialize(EngineBase *engine) {
   debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
 
   // モデルの読み込み
-  ModelManager::GetInstance()->LoadModel("plane.obj");
+  ModelManager::GetInstance()->LoadModel("terrain.obj");
 
   ModelManager::GetInstance()->LoadModel("monsterBall.obj");
 
   // オブジェクトの生成と初期化
   object3d_ = new Object3d();
   object3d_->Initialize(engine_->GetObject3dRenderer());
-  object3d_->SetModel("plane.obj");
+  object3d_->SetModel("terrain.obj");
 
   object3dA_ = new Object3d();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
@@ -251,12 +251,12 @@ void DebugScene::Update() {
   //=======================
   // 3Dオブジェクトの更新
   //=======================
-  rotateObj_ += 0.01f;
+  // rotateObj_ += 0.01f;
 
   object3d_->SetRotation({0.0f, rotateObj_, 0.0f});
 
   object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
+  // object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
 
   object3d_->Update();
   object3dA_->Update();
@@ -291,13 +291,19 @@ void DebugScene::Update() {
 
 #ifdef USE_IMGUI
   ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
-  ImGui::Begin("Sprite");
 
-  if (ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%.1f")) {
-    sprite_->SetPosition(spritePosition_);
+  auto *pl = engine_->GetObject3dRenderer()->GetPointLightData();
+  if (pl) {
+    ImGui::Begin("PointLight");
+
+    ImGui::SliderFloat3("Position", &pl->position.x, -20.0f, 20.0f);
+    ImGui::SliderFloat("Intensity", &pl->intensity, 0.0f, 10.0f);
+    ImGui::ColorEdit3("Color", &pl->color.x);
+    ImGui::SliderFloat("radius", &pl->radius, 0.0f, 10.0f);
+    ImGui::SliderFloat("decay", &pl->decay, 0.0f, 10.0f);
+
+    ImGui::End();
   }
-
-  ImGui::End();
 
 #endif // USE_IMGUI
 }
@@ -326,5 +332,5 @@ void DebugScene::Draw2D() {
     sprites_[i]->Draw();
   }
 
-  sprite_->Draw();
+  // sprite_->Draw();
 }

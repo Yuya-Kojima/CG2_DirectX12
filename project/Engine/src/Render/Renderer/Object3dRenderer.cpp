@@ -5,9 +5,9 @@
 void Object3dRenderer::Initialize(Dx12Core *dx12Core) {
   dx12Core_ = dx12Core;
 
-  CreateRootSignature();
-
   CreatePSO();
+
+  CreatePointLightData();
 }
 
 void Object3dRenderer::CreateRootSignature() {
@@ -243,4 +243,23 @@ void Object3dRenderer::Begin() {
 
   // プリミティブトポロジー(形状）をセット
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void Object3dRenderer::CreatePointLightData() {
+
+  UINT pointLightSize = (sizeof(PointLight) + 255) & ~255;
+  pointLightResource_ = dx12Core_->CreateBufferResource(pointLightSize);
+
+  // データを書き込む
+  pointLightData_ = nullptr;
+
+  // 書き込むためのアドレスを取得
+  pointLightResource_->Map(0, nullptr,
+                           reinterpret_cast<void **>(&pointLightData_));
+
+  pointLightData_->color = {1.0f, 1.0f, 1.0f, 1.0f};
+  pointLightData_->position = {0.0f, 2.0f, 0.0f};
+  pointLightData_->intensity = 1.0f;
+  pointLightData_->radius = 5.0f;
+  pointLightData_->decay = 2.0f;
 }
