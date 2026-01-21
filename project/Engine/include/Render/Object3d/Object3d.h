@@ -22,12 +22,6 @@ class Object3d {
     Matrix4x4 WorldInverseTranspose;
   };
 
-  struct DirectionalLight {
-    Vector4 color;     // ライトの色
-    Vector3 direction; // ライトの向き
-    float intensity;   // 輝度
-  };
-
 public:
   /// <summary>
   /// 初期化
@@ -67,19 +61,6 @@ private:
   /// 座標変換行列データを生成
   /// </summary>
   void CreateTransformationMatrixData();
-
-  /* 平行光源データ
-  -----------------------------*/
-  // バッファリソース
-  Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource = nullptr;
-
-  // バッファリソース内のデータを指すポインタ
-  DirectionalLight *directionalLightData = nullptr;
-
-  /// <summary>
-  /// 平行光源データを生成
-  /// </summary>
-  void CreateDirectionalLightData();
 
   /* 鏡面反射用データ
   -----------------------------*/

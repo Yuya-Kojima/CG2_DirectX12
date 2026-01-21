@@ -17,8 +17,6 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   CreateTransformationMatrixData();
 
-  CreateDirectionalLightData();
-
   CreateCameraForGPUData();
 
   transform_ = {{1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
@@ -81,7 +79,8 @@ void Object3d::Draw() {
 
   // Lighting
   commandList->SetGraphicsRootConstantBufferView(
-      3, directionalLightResource->GetGPUVirtualAddress());
+      3,
+      object3dRenderer_->GetDirectionalLightResource()->GetGPUVirtualAddress());
 
   // Camera
   commandList->SetGraphicsRootConstantBufferView(
@@ -128,23 +127,6 @@ void Object3d::CreateTransformationMatrixData() {
   transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
   transformationMatrixData->WorldInverseTranspose = MakeIdentity4x4();
-}
-
-void Object3d::CreateDirectionalLightData() {
-  UINT size = (sizeof(DirectionalLight) + 255) & ~255;
-  directionalLightResource = dx12Core_->CreateBufferResource(size);
-
-  // データを書き込む
-  directionalLightData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  directionalLightResource->Map(
-      0, nullptr, reinterpret_cast<void **>(&directionalLightData));
-
-  // Lightingの色
-  directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData->intensity = 0.0f;
 }
 
 void Object3d::CreateCameraForGPUData() {

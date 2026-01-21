@@ -49,6 +49,33 @@ public:
   GameCamera *GetDefaultCamera() const { return defaultCamera; }
 
 public:
+  struct DirectionalLight {
+    Vector4 color;     // ライトの色
+    Vector3 direction; // ライトの向き
+    float intensity;   // 輝度
+  };
+
+  ID3D12Resource *GetDirectionalLightResource() {
+    return directionalLightResource_.Get();
+  }
+
+  DirectionalLight *GetDirectionalLightData() { return directionalLightData_; }
+
+private:
+  /* 平行光源データ
+ -----------------------------*/
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> directionalLightResource_ = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  DirectionalLight *directionalLightData_ = nullptr;
+
+  /// <summary>
+  /// 平行光源データを生成
+  /// </summary>
+  void CreateDirectionalLightData();
+
+public:
   struct PointLight {
     Vector4 color;    // 色
     Vector3 position; // 位置
