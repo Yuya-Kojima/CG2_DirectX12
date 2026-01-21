@@ -351,10 +351,10 @@ void DebugScene::Update() {
   // DirectionalLight
   //========================
   if (auto *dl = renderer->GetDirectionalLightData()) {
-    if (showPointLight) {
+    if (showDirectionalLight) {
       ImGui::Begin("DirectionalLight");
       ImGui::ColorEdit3("Color", &dl->color.x);
-      ImGui::DragFloat("Intensity", &dl->intensity, 0.05f, 0.0f, 10.0f);
+      ImGui::DragFloat("Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
       ImGui::End();
     }
   }
