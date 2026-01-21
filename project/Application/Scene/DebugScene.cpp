@@ -292,12 +292,30 @@ void DebugScene::Update() {
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
+  static bool showDirectionalLight = false;
   static bool showPointLight = false;
   static bool showSpotLight = false;
+  static float directionalIntensityBackup = 1.0f;
   static float pointIntensityBackup = 1.0f;
   static float spotIntensityBackup = 4.0f;
 
   ImGui::Begin("Lighting");
+
+  // DirectionalLight
+  bool changedDirectional =
+      ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight);
+  if (changedDirectional) {
+    if (auto *dl = renderer->GetDirectionalLightData()) {
+      if (!showDirectionalLight) {
+        directionalIntensityBackup = dl->intensity;
+        dl->intensity = 0.0f;
+      } else {
+        dl->intensity = (directionalIntensityBackup > 0.0f)
+                            ? directionalIntensityBackup
+                            : 1.0f;
+      }
+    }
+  }
 
   // PointLight
   bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
@@ -328,6 +346,18 @@ void DebugScene::Update() {
   }
 
   ImGui::End();
+
+  //========================
+  // DirectionalLight
+  //========================
+  if (auto *dl = renderer->GetDirectionalLightData()) {
+    if (showPointLight) {
+      ImGui::Begin("DirectionalLight");
+      ImGui::ColorEdit3("Color", &dl->color.x);
+      ImGui::DragFloat("Intensity", &dl->intensity, 0.05f, 0.0f, 10.0f);
+      ImGui::End();
+    }
+  }
 
   //========================
   // PointLight

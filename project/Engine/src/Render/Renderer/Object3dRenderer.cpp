@@ -7,6 +7,8 @@ void Object3dRenderer::Initialize(Dx12Core *dx12Core) {
 
   CreatePSO();
 
+  CreateDirectionalLightData();
+
   CreatePointLightData();
 
   CreateSpotLightData();
@@ -251,6 +253,23 @@ void Object3dRenderer::Begin() {
 
   // プリミティブトポロジー(形状）をセット
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void Object3dRenderer::CreateDirectionalLightData() {
+  UINT size = (sizeof(DirectionalLight) + 255) & ~255;
+  directionalLightResource_ = dx12Core_->CreateBufferResource(size);
+
+  // データを書き込む
+  directionalLightData_ = nullptr;
+
+  // 書き込むためのアドレスを取得
+  directionalLightResource_->Map(
+      0, nullptr, reinterpret_cast<void **>(&directionalLightData_));
+
+  // Lightingの色
+  directionalLightData_->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  directionalLightData_->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
+  directionalLightData_->intensity = 0.0f;
 }
 
 void Object3dRenderer::CreatePointLightData() {
