@@ -3,6 +3,9 @@
 #include "Math/MathUtil.h"
 #include "Renderer/ModelRenderer.h"
 #include "Texture/TextureManager.h"
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <fstream>
 
 void Model::Initialize(ModelRenderer *modelRenderer,
