@@ -36,6 +36,12 @@ void Object3d::Update() {
 
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
+
+  Matrix4x4 finalWorld = worldMatrix;
+  if (model_) {
+    finalWorld = Multiply(model_->GetRootLocalMatrix(), worldMatrix);
+  }
+
   Matrix4x4 worldViewProjectionMatrix;
 
   // Matrix4x4 cameraMatrix =
@@ -56,16 +62,16 @@ void Object3d::Update() {
 
   if (activeCamera) {
     const Matrix4x4 &vp = activeCamera->GetViewProjectionMatrix();
-    worldViewProjectionMatrix = Multiply(worldMatrix, vp);
+    worldViewProjectionMatrix = Multiply(finalWorld, vp);
     cameraForGPUData->worldPosition = activeCamera->GetTranslate();
   } else {
-    worldViewProjectionMatrix = worldMatrix;
+    worldViewProjectionMatrix = finalWorld;
   }
 
   transformationMatrixData->WVP = worldViewProjectionMatrix;
-  transformationMatrixData->World = worldMatrix;
+  transformationMatrixData->World = finalWorld;
   transformationMatrixData->WorldInverseTranspose =
-      Transpose(Inverse(worldMatrix));
+      Transpose(Inverse(finalWorld));
 }
 
 void Object3d::Draw() {
