@@ -82,14 +82,10 @@ void Game::Update() {
     return;
   }
 
-#ifdef USE_IMGUI
-
   // ImGui受付開始
   if (imGuiManager_) {
     imGuiManager_->Begin();
   }
-
-#endif // USE_IMGUI
 
   SceneManager::GetInstance()->Update();
 
@@ -104,17 +100,10 @@ void Game::Update() {
   // デバッグテキストの更新
   //=======================
 
-#ifdef USE_IMGUI
-
-  // デモウィンドウ表示ON
-  ImGui::ShowDemoWindow();
-
   // ImGui受付終了
   if (imGuiManager_) {
     imGuiManager_->End();
   }
-
-#endif // USE_IMGUI
 }
 
 void Game::Draw() {

@@ -1,23 +1,19 @@
 #include "Core/WindowSystem.h"
 #include "Debug/ImGuiManager.h"
 
-#ifdef USE_IMGUI
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd,
                                                              UINT msg,
                                                              WPARAM wParam,
                                                              LPARAM lParam);
-#endif // USE_IMGUI
 
 LRESULT WindowSystem::WindowProc(HWND hwnd, UINT msg, WPARAM wparam,
-                                 LPARAM lparam) {
-#ifdef USE_IMGUI
+                                 LPARAM lparam) {\
 
   if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
     return true;
   }
 
-#endif // USE_IMGUI
 
   // メッセージに応じてゲーム固有の処理を行う
   switch (msg) {

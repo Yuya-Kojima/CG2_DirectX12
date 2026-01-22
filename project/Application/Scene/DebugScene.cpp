@@ -118,18 +118,28 @@ void DebugScene::Initialize(EngineBase *engine) {
   debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
 
   // モデルの読み込み
+  ModelManager::GetInstance()->LoadModel("monsterBall.obj");
   ModelManager::GetInstance()->LoadModel("terrain.obj");
-
   ModelManager::GetInstance()->LoadModel("plane.gltf");
 
   // オブジェクトの生成と初期化
-  object3d_ = new Object3d();
-  object3d_->Initialize(engine_->GetObject3dRenderer());
-  object3d_->SetModel("terrain.obj");
+  monsterBall_ = new Object3d();
+  monsterBall_->Initialize(engine_->GetObject3dRenderer());
+  monsterBall_->SetModel("monsterBall.obj");
 
-  object3dA_ = new Object3d();
-  object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("plane.gltf");
+  terrain_ = new Object3d();
+  terrain_->Initialize(engine_->GetObject3dRenderer());
+  terrain_->SetModel("terrain.obj");
+
+  plane_ = new Object3d();
+  plane_->Initialize(engine_->GetObject3dRenderer());
+  plane_->SetModel("plane.gltf");
+
+  monsterBall_->SetScale(monsterBallTransform_.scale);
+  monsterBall_->SetRotation(monsterBallTransform_.rotate);
+  monsterBall_->SetTranslation(monsterBallTransform_.translate);
+
+  plane_->SetTranslation(Vector3{2.0f, 1.0f, 0.0f});
 
   //===========================
   // パーティクル関係の初期化
@@ -151,11 +161,14 @@ void DebugScene::Initialize(EngineBase *engine) {
 }
 
 void DebugScene::Finalize() {
-  delete object3dA_;
-  object3dA_ = nullptr;
+  delete monsterBall_;
+  monsterBall_ = nullptr;
 
-  delete object3d_;
-  object3d_ = nullptr;
+  delete terrain_;
+  terrain_ = nullptr;
+
+  delete plane_;
+  plane_ = nullptr;
 
   delete debugCamera_;
   debugCamera_ = nullptr;
@@ -251,15 +264,9 @@ void DebugScene::Update() {
   //=======================
   // 3Dオブジェクトの更新
   //=======================
-  // rotateObj_ += 0.01f;
-
-  object3d_->SetRotation({0.0f, rotateObj_, 0.0f});
-
-  object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  // object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
-
-  object3d_->Update();
-  object3dA_->Update();
+  monsterBall_->Update();
+  terrain_->Update();
+  plane_->Update();
 
   // エミッタ更新
   particleEmitter_->Update();
@@ -289,19 +296,29 @@ void DebugScene::Update() {
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
 
-  ImGui::Begin("Setting");
+  ImGui::Begin("MonsterBall-Setting");
 
-  if (auto *model = object3dA_ ? object3dA_->GetModel() : nullptr) {
+  if (auto *model = monsterBall_ ? monsterBall_->GetModel() : nullptr) {
 
     Vector4 color = model->GetColor();
     if (ImGui::ColorEdit4("Color", &color.x)) {
       model->SetColor(color);
     }
+
+    if (ImGui::DragFloat3("Scale", &monsterBallTransform_.scale.x, 0.01f)) {
+      monsterBall_->SetScale(monsterBallTransform_.scale);
+    }
+    if (ImGui::DragFloat3("Rotate", &monsterBallTransform_.rotate.x, 0.01f)) {
+      monsterBall_->SetRotation(monsterBallTransform_.rotate);
+    }
+    if (ImGui::DragFloat3("Translate", &monsterBallTransform_.translate.x,
+                          0.01f)) {
+      monsterBall_->SetTranslation(monsterBallTransform_.translate);
+    }
   }
 
   ImGui::End();
 
-#ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
   static bool showDirectionalLight = true;
@@ -311,7 +328,34 @@ void DebugScene::Update() {
   static float pointIntensityBackup = 1.0f;
   static float spotIntensityBackup = 4.0f;
 
-  ImGui::Begin("Lighting");
+  ImGui::Begin("Render");
+
+  ImGui::Text("Camera");
+  ImGui::Checkbox("Use Debug Camera", &useDebugCamera_);
+
+  if (useDebugCamera_) {
+    ImGui::Separator();
+    ImGui::TextDisabled("Debug Camera Controls");
+
+    ImGui::BulletText("Move");
+    ImGui::Indent();
+    ImGui::Text("E / Q : Forward / Back");
+    ImGui::Text("D / A : Right / Left");
+    ImGui::Text("W / S : Up / Down");
+    ImGui::Unindent();
+
+    ImGui::Spacing();
+
+    ImGui::BulletText("Rotate");
+    ImGui::Indent();
+    ImGui::Text("Arrow Keys : Pitch / Yaw");
+    ImGui::Text("C / Z : Roll");
+    ImGui::Unindent();
+  }
+
+  ImGui::Separator();
+
+  ImGui::Text("Lighting");
 
   // DirectionalLight
   bool changedDirectional =
@@ -358,70 +402,6 @@ void DebugScene::Update() {
   }
 
   ImGui::End();
-
-  //========================
-  // DirectionalLight
-  //========================
-  if (auto *dl = renderer->GetDirectionalLightData()) {
-    if (showDirectionalLight) {
-      ImGui::Begin("DirectionalLight");
-      ImGui::ColorEdit3("Color", &dl->color.x);
-      ImGui::DragFloat("Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
-      ImGui::End();
-    }
-  }
-
-  //========================
-  // PointLight
-  //========================
-  if (auto *pl = renderer->GetPointLightData()) {
-    if (showPointLight) {
-      ImGui::Begin("PointLight");
-
-      ImGui::ColorEdit3("Color", &pl->color.x);
-      ImGui::DragFloat3("Position", &pl->position.x, 0.05f, -20.0f, 20.0f);
-      ImGui::DragFloat("Intensity", &pl->intensity, 0.05f, 0.0f, 10.0f);
-      ImGui::DragFloat("Radius", &pl->radius, 0.1f, 0.01f, 100.0f);
-      ImGui::DragFloat("Decay", &pl->decay, 0.05f, 0.01f, 8.0f);
-      ImGui::End();
-    }
-  }
-
-  //========================
-  // SpotLight
-  //========================
-  if (auto *sl = renderer->GetSpotLightData()) {
-    if (showSpotLight) {
-      ImGui::Begin("SpotLight");
-
-      ImGui::ColorEdit3("Color", &sl->color.x);
-      ImGui::DragFloat3("Position", &sl->position.x, 0.05f, -20.0f, 20.0f);
-      ImGui::DragFloat("Intensity", &sl->intensity, 0.05f, 0.0f, 10.0f);
-
-      static float yawDeg = 0.0f;
-      static float pitchDeg = -20.0f;
-      ImGui::SliderFloat("Yaw(deg)", &yawDeg, -180.0f, 180.0f);
-      ImGui::SliderFloat("Pitch(deg)", &pitchDeg, -89.0f, 89.0f);
-
-      float yaw = DegToRad(yawDeg);
-      float pitch = DegToRad(pitchDeg);
-      sl->direction = {
-          std::cos(pitch) * std::sin(yaw),
-          std::sin(pitch),
-          std::cos(pitch) * std::cos(yaw),
-      };
-
-      ImGui::DragFloat("Distance", &sl->distance, 0.1f, 0.01f, 100.0f);
-      ImGui::DragFloat("Decay", &sl->decay, 0.05f, 0.01f, 8.0f);
-
-      static float spotAngleDeg = 30.0f;
-      ImGui::DragFloat("Angle(deg)", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
-      sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
-      ImGui::End();
-    }
-  }
-
-#endif // USE_IMGUI
 }
 
 void DebugScene::Draw() {
@@ -434,8 +414,9 @@ void DebugScene::Draw3D() {
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
 
-  object3d_->Draw();
-  object3dA_->Draw();
+  monsterBall_->Draw();
+  terrain_->Draw();
+  plane_->Draw();
   // ParticleManager::GetInstance()->Draw();
 }
 

@@ -52,8 +52,15 @@ private: // メンバ変数(ゲーム用)
 
   Transform uvTransformSprite_{};
 
-  Object3d *object3d_ = nullptr;
-  Object3d *object3dA_ = nullptr;
+  Object3d *monsterBall_ = nullptr;
+  Object3d *terrain_ = nullptr;
+  Object3d *plane_ = nullptr;
+
+  Transform monsterBallTransform_{
+      {1.0f, 1.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
 
   float rotateObj_{};
 
