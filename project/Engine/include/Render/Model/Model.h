@@ -119,6 +119,11 @@ private:
   /// </summary>
   void CreateMaterialData();
 
+public:
+  Vector4 GetColor() const { return materialData->color; }
+
+  void SetColor(const Vector4 &color) { materialData->color = color; }
+
 private:
   Node ReadNode(aiNode *node);
 

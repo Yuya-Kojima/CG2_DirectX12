@@ -46,6 +46,8 @@ private:
   Model *model_ = nullptr;
 
 public:
+  Model *GetModel() const { return model_; }
+
   void SetModel(const std::string &filePath);
 
 private:
