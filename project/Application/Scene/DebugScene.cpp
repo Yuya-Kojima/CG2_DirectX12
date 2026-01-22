@@ -289,6 +289,18 @@ void DebugScene::Update() {
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
 
+  ImGui::Begin("Setting");
+
+  if (auto *model = object3dA_ ? object3dA_->GetModel() : nullptr) {
+
+    Vector4 color = model->GetColor();
+    if (ImGui::ColorEdit4("Color", &color.x)) {
+      model->SetColor(color);
+    }
+  }
+
+  ImGui::End();
+
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
