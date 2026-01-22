@@ -13,6 +13,7 @@ class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
 class Player;
+class Level;
 
 class GamePlayScene : public BaseScene {
 
@@ -65,5 +66,7 @@ private:
   EngineBase *engine_ = nullptr;
   // player
   Player* player_ = nullptr;
+  // level
+  Level* level_ = nullptr;
   // (probe removed) 
 };

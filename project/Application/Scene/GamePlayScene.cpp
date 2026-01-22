@@ -16,6 +16,8 @@
 #include "Debug/Logger.h"
 #include <format>
 #include "Actor/Player.h"
+#include "Actor/Level.h"
+#include "Actor/Hazard.h"
 
 void GamePlayScene::Initialize(EngineBase *engine) {
 
@@ -59,7 +61,10 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // position player to match DebugScene visible object (monsterBall) so it is in view
   player_->SetPosition({1.0f, 1.0f, 0.0f});
 
-  // (probe removed)
+  // create level and initialize
+  level_ = new Level();
+  level_->Initialize(engine_->GetObject3dRenderer(), 16, 16, 1.0f);
+  player_->AttachLevel(level_);
 
   // モデルの読み込み
 
@@ -80,6 +85,8 @@ void GamePlayScene::Finalize() {
 
   delete player_;
   player_ = nullptr;
+  delete level_;
+  level_ = nullptr;
 }
 
 void GamePlayScene::Update() {
@@ -129,6 +136,7 @@ void GamePlayScene::Update() {
 
   // update player
   if (player_) player_->Update(1.0f / 60.0f);
+  if (level_) level_->Update(1.0f / 60.0f);
 }
 
 void GamePlayScene::Draw() {
@@ -141,6 +149,7 @@ void GamePlayScene::Draw3D() {
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
   if (player_) player_->Draw();
+  if (level_) level_->Draw();
 }
 
 void GamePlayScene::Draw2D() {

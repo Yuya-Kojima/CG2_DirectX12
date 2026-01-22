@@ -156,6 +156,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Actor\Hazard.cpp" />
+    <ClCompile Include="Actor\Level.cpp" />
+    <ClCompile Include="Actor\Physics.cpp" />
     <ClCompile Include="Core\Game.cpp" />
     <ClCompile Include="Actor\Player.cpp" />
     <ClCompile Include="Scene\TitleScene.cpp" />
@@ -186,6 +189,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Actor\Hazard.h" />
+    <ClInclude Include="Actor\Level.h" />
+    <ClInclude Include="Actor\Physics.h" />
     <ClInclude Include="Core\Game.h" />
     <ClInclude Include="Actor\Player.h" />
     <ClInclude Include="Scene\TitleScene.h" />
