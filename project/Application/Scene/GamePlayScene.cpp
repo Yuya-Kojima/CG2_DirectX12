@@ -13,6 +13,9 @@
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
+#include "Debug/Logger.h"
+#include <format>
+#include "Actor/Player.h"
 
 void GamePlayScene::Initialize(EngineBase *engine) {
 
@@ -47,6 +50,17 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // デフォルトカメラのセット
   engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
 
+  // create player
+  player_ = new Player();
+  player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
+  // Do not attach the scene camera to the player here - Player currently performs camera-follow
+  // which would move the scene camera away and hide scene objects. Keep camera independent
+  // so GamePlayScene shows objects like DebugScene for verification.
+  // position player to match DebugScene visible object (monsterBall) so it is in view
+  player_->SetPosition({1.0f, 1.0f, 0.0f});
+
+  // (probe removed)
+
   // モデルの読み込み
 
   // オブジェクトの生成と初期化
@@ -63,6 +77,9 @@ void GamePlayScene::Finalize() {
 
   delete camera_;
   camera_ = nullptr;
+
+  delete player_;
+  player_ = nullptr;
 }
 
 void GamePlayScene::Update() {
@@ -102,11 +119,16 @@ void GamePlayScene::Update() {
     activeCamera = debugCamera_->GetCamera();
   } else {
     camera_->Update();
-    activeCamera = debugCamera_->GetCamera();
+    activeCamera = camera_;
   }
+
+  // (debug logging removed)
 
   // アクティブカメラを描画で使用する
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
+
+  // update player
+  if (player_) player_->Update(1.0f / 60.0f);
 }
 
 void GamePlayScene::Draw() {
@@ -118,6 +140,7 @@ void GamePlayScene::Draw3D() {
   engine_->Begin3D();
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
+  if (player_) player_->Draw();
 }
 
 void GamePlayScene::Draw2D() {

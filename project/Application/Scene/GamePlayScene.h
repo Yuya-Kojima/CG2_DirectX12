@@ -12,6 +12,7 @@ class Object3dRenderer;
 class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
+class Player;
 
 class GamePlayScene : public BaseScene {
 
@@ -62,4 +63,7 @@ private:
   ------------------*/
   // エンジン
   EngineBase *engine_ = nullptr;
+  // player
+  Player* player_ = nullptr;
+  // (probe removed) 
 };
