@@ -292,7 +292,7 @@ void DebugScene::Update() {
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
-  static bool showDirectionalLight = false;
+  static bool showDirectionalLight = true;
   static bool showPointLight = false;
   static bool showSpotLight = false;
   static float directionalIntensityBackup = 1.0f;

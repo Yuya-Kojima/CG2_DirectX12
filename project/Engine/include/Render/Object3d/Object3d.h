@@ -43,7 +43,7 @@ private:
 
   Dx12Core *dx12Core_ = nullptr;
 
-  Model *model_;
+  Model *model_ = nullptr;
 
 public:
   void SetModel(const std::string &filePath);

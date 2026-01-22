@@ -269,7 +269,7 @@ void Object3dRenderer::CreateDirectionalLightData() {
   // Lightingの色
   directionalLightData_->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
   directionalLightData_->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData_->intensity = 0.0f;
+  directionalLightData_->intensity = 1.0f;
 }
 
 void Object3dRenderer::CreatePointLightData() {
