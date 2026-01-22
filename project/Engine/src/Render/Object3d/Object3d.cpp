@@ -1,5 +1,6 @@
 #include "Object3d/Object3d.h"
 #include "Camera/GameCamera.h"
+#include "Debug/Logger.h"
 #include "Math/MathUtil.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -110,6 +111,18 @@ void Object3d::SetModel(const std::string &filePath) {
 
   // モデルを検索し、セット
   model_ = ModelManager::GetInstance()->FindModel(filePath);
+
+  // LoadModel と SetModel の引数不一致（スペルミス等）を即座に検知する
+  if (!model_) {
+    Logger::Log(std::string("[Object3d] SetModel failed. Model not found: ") +
+                filePath);
+
+    // Debug では assert、Release でも沈黙しないように abort
+    assert(false && "Object3d::SetModel: model not loaded / not found");
+#if defined(NDEBUG)
+    std::abort();
+#endif
+  }
 }
 
 void Object3d::CreateTransformationMatrixData() {
