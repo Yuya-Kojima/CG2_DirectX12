@@ -3,9 +3,6 @@
 #include "Math/MathUtil.h"
 #include "Renderer/ModelRenderer.h"
 #include "Texture/TextureManager.h"
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
 #include <fstream>
 
 void Model::Initialize(ModelRenderer *modelRenderer,
@@ -99,6 +96,8 @@ void Model::LoadModelFile(const std::string &directoryPath,
 
   assert(scene);
   assert(scene->HasMeshes());
+
+  modelData.rootNode = ReadNode(scene->mRootNode);
 
   for (uint32_t meshIndex = 0; meshIndex < scene->mNumMeshes; ++meshIndex) {
     aiMesh *mesh = scene->mMeshes[meshIndex];
@@ -275,4 +274,49 @@ void Model::CreateMaterialData() {
   // UVTransform 単位行列を入れておく
   materialData->uvTransform = MakeIdentity4x4();
   materialData->shininess = 30.0f;
+}
+
+Model::Node Model::ReadNode(aiNode *node) {
+
+  Node result{};
+
+  // nodeのLocalMatrixを取得
+  aiMatrix4x4 aiLocalMatrix = node->mTransformation;
+
+  // 列ベクトル形式 → 行ベクトル形式（スライド通り）
+  aiLocalMatrix.Transpose();
+
+  // aiMatrix4x4 → Matrix4x4 にコピー
+  result.localMatrix.m[0][0] = aiLocalMatrix[0][0];
+  result.localMatrix.m[0][1] = aiLocalMatrix[0][1];
+  result.localMatrix.m[0][2] = aiLocalMatrix[0][2];
+  result.localMatrix.m[0][3] = aiLocalMatrix[0][3];
+
+  result.localMatrix.m[1][0] = aiLocalMatrix[1][0];
+  result.localMatrix.m[1][1] = aiLocalMatrix[1][1];
+  result.localMatrix.m[1][2] = aiLocalMatrix[1][2];
+  result.localMatrix.m[1][3] = aiLocalMatrix[1][3];
+
+  result.localMatrix.m[2][0] = aiLocalMatrix[2][0];
+  result.localMatrix.m[2][1] = aiLocalMatrix[2][1];
+  result.localMatrix.m[2][2] = aiLocalMatrix[2][2];
+  result.localMatrix.m[2][3] = aiLocalMatrix[2][3];
+
+  result.localMatrix.m[3][0] = aiLocalMatrix[3][0];
+  result.localMatrix.m[3][1] = aiLocalMatrix[3][1];
+  result.localMatrix.m[3][2] = aiLocalMatrix[3][2];
+  result.localMatrix.m[3][3] = aiLocalMatrix[3][3];
+
+  // Node名を格納
+  result.name = node->mName.C_Str();
+
+  // 子供の数だけ確保
+  result.children.resize(node->mNumChildren);
+
+  // 再帰的に読んで階層構造を作る
+  for (uint32_t childIndex = 0; childIndex < node->mNumChildren; ++childIndex) {
+    result.children[childIndex] = ReadNode(node->mChildren[childIndex]);
+  }
+
+  return result;
 }
