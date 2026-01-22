@@ -1,5 +1,6 @@
 #include "Object3d/Object3d.h"
 #include "Camera/GameCamera.h"
+#include "Debug/Logger.h"
 #include "Math/MathUtil.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -16,8 +17,6 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
   dx12Core_ = object3dRenderer_->GetDx12Core();
 
   CreateTransformationMatrixData();
-
-  CreateDirectionalLightData();
 
   CreateCameraForGPUData();
 
@@ -38,6 +37,12 @@ void Object3d::Update() {
 
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
+
+  Matrix4x4 finalWorld = worldMatrix;
+  if (model_) {
+    finalWorld = Multiply(model_->GetRootLocalMatrix(), worldMatrix);
+  }
+
   Matrix4x4 worldViewProjectionMatrix;
 
   // Matrix4x4 cameraMatrix =
@@ -58,16 +63,16 @@ void Object3d::Update() {
 
   if (activeCamera) {
     const Matrix4x4 &vp = activeCamera->GetViewProjectionMatrix();
-    worldViewProjectionMatrix = Multiply(worldMatrix, vp);
+    worldViewProjectionMatrix = Multiply(finalWorld, vp);
     cameraForGPUData->worldPosition = activeCamera->GetTranslate();
   } else {
-    worldViewProjectionMatrix = worldMatrix;
+    worldViewProjectionMatrix = finalWorld;
   }
 
   transformationMatrixData->WVP = worldViewProjectionMatrix;
-  transformationMatrixData->World = worldMatrix;
+  transformationMatrixData->World = finalWorld;
   transformationMatrixData->WorldInverseTranspose =
-      Transpose(Inverse(worldMatrix));
+      Transpose(Inverse(finalWorld));
 }
 
 void Object3d::Draw() {
@@ -81,11 +86,20 @@ void Object3d::Draw() {
 
   // Lighting
   commandList->SetGraphicsRootConstantBufferView(
-      3, directionalLightResource->GetGPUVirtualAddress());
+      3,
+      object3dRenderer_->GetDirectionalLightResource()->GetGPUVirtualAddress());
 
   // Camera
   commandList->SetGraphicsRootConstantBufferView(
       4, cameraForGPUResource->GetGPUVirtualAddress());
+
+  // PointLight
+  commandList->SetGraphicsRootConstantBufferView(
+      5, object3dRenderer_->GetPointLightResource()->GetGPUVirtualAddress());
+
+  // SpotLight
+  commandList->SetGraphicsRootConstantBufferView(
+      6, object3dRenderer_->GetSpotLightResource()->GetGPUVirtualAddress());
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
@@ -97,6 +111,18 @@ void Object3d::SetModel(const std::string &filePath) {
 
   // モデルを検索し、セット
   model_ = ModelManager::GetInstance()->FindModel(filePath);
+
+  // LoadModel と SetModel の引数不一致（スペルミス等）を即座に検知する
+  if (!model_) {
+    Logger::Log(std::string("[Object3d] SetModel failed. Model not found: ") +
+                filePath);
+
+    // Debug では assert、Release でも沈黙しないように abort
+    assert(false && "Object3d::SetModel: model not loaded / not found");
+#if defined(NDEBUG)
+    std::abort();
+#endif
+  }
 }
 
 void Object3d::CreateTransformationMatrixData() {
@@ -120,24 +146,6 @@ void Object3d::CreateTransformationMatrixData() {
   transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
   transformationMatrixData->WorldInverseTranspose = MakeIdentity4x4();
-}
-
-void Object3d::CreateDirectionalLightData() {
-
-  directionalLightResource =
-      dx12Core_->CreateBufferResource(sizeof(DirectionalLight));
-
-  // データを書き込む
-  directionalLightData = nullptr;
-
-  // 書き込むためのアドレスを取得
-  directionalLightResource->Map(
-      0, nullptr, reinterpret_cast<void **>(&directionalLightData));
-
-  // Lightingの色
-  directionalLightData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  directionalLightData->direction = Normalize(Vector3(0.0f, -1.0f, 0.0f));
-  directionalLightData->intensity = 1.0f;
 }
 
 void Object3d::CreateCameraForGPUData() {

@@ -1,5 +1,8 @@
 #pragma once
 #include "Math/MathUtil.h"
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
+#include <assimp/scene.h>
 #include <cstdint>
 #include <d3d12.h>
 #include <string>
@@ -32,9 +35,16 @@ class Model {
     // uint32_t textureIndex = 0;
   };
 
+  struct Node {
+    Matrix4x4 localMatrix;
+    std::string name;
+    std::vector<Node> children;
+  };
+
   struct ModelData {
     std::vector<VertexData> vertices;
     MaterialData material;
+    Node rootNode;
   };
 
 public:
@@ -108,4 +118,12 @@ private:
   /// マテリアルデータを作成
   /// </summary>
   void CreateMaterialData();
+
+private:
+  Node ReadNode(aiNode *node);
+
+public:
+  const Matrix4x4 &GetRootLocalMatrix() const {
+    return modelData_.rootNode.localMatrix;
+  }
 };

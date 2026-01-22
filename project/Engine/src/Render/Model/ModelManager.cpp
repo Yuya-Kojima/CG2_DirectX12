@@ -19,29 +19,19 @@ std::string ModelManager::ResolveModelPath(const std::string &input) {
     return input;
   }
 
-  // 1) resources直下
-  {
-    fs::path p = base / input;
-    if (fs::exists(p)) {
-      return p.generic_string(); // "resources/xxx.obj"
-    }
-  }
+  // resources 以下を再帰検索
+  if (fs::exists(base)) {
+    for (const auto &e : fs::recursive_directory_iterator(base)) {
+      if (!e.is_regular_file()) {
+        continue;
+      }
 
-  // 2) resources/MaterialTemplate 以下を再帰検索
-  {
-    fs::path root = base / "MaterialTemplate";
-    if (fs::exists(root)) {
-      for (auto const &e : fs::recursive_directory_iterator(root)) {
-        if (!e.is_regular_file()) {
-          continue;
-        }
-        if (e.path().filename() == input) {
-          return e.path()
-              .generic_string(); // "resources/MaterialTemplate/.../xxx.obj"
-        }
+      if (e.path().filename() == input) {
+        return e.path().generic_string();
       }
     }
   }
+
 
   // 見つからなければ、そのまま
   return input;

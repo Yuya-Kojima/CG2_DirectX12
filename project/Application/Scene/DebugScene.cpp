@@ -1,6 +1,7 @@
 #include "DebugScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
@@ -69,8 +70,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // スプライトのTransform
   spritePosition_ = {
-      640.0f,
-      360.0f,
+      100.0f,
+      100.0f,
   };
 
   spriteRotation_ = 0.0f;
@@ -79,7 +80,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   spriteSize_ = {640.0f, 360.0f};
 
-  spriteAnchorPoint_ = {0.5f, 0.5f};
+  spriteAnchorPoint_ = {0.0f, 0.0f};
 
   sprite_->SetPosition(spritePosition_);
   sprite_->SetRotation(spriteRotation_);
@@ -117,18 +118,18 @@ void DebugScene::Initialize(EngineBase *engine) {
   debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
 
   // モデルの読み込み
-  ModelManager::GetInstance()->LoadModel("plane.obj");
+  ModelManager::GetInstance()->LoadModel("terrain.obj");
 
-  ModelManager::GetInstance()->LoadModel("monsterBall.obj");
+  ModelManager::GetInstance()->LoadModel("plane.gltf");
 
   // オブジェクトの生成と初期化
   object3d_ = new Object3d();
   object3d_->Initialize(engine_->GetObject3dRenderer());
-  object3d_->SetModel("plane.obj");
+  object3d_->SetModel("terrain.obj");
 
   object3dA_ = new Object3d();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("monsterBall.obj");
+  object3dA_->SetModel("plane.gltf");
 
   //===========================
   // パーティクル関係の初期化
@@ -250,12 +251,12 @@ void DebugScene::Update() {
   //=======================
   // 3Dオブジェクトの更新
   //=======================
-  rotateObj_ += 0.01f;
+  // rotateObj_ += 0.01f;
 
   object3d_->SetRotation({0.0f, rotateObj_, 0.0f});
 
   object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
+  // object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
 
   object3d_->Update();
   object3dA_->Update();
@@ -287,6 +288,128 @@ void DebugScene::Update() {
   // view / projection を作って ParticleManager 更新
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
+
+#ifdef USE_IMGUI
+  auto *renderer = engine_->GetObject3dRenderer();
+
+  static bool showDirectionalLight = true;
+  static bool showPointLight = false;
+  static bool showSpotLight = false;
+  static float directionalIntensityBackup = 1.0f;
+  static float pointIntensityBackup = 1.0f;
+  static float spotIntensityBackup = 4.0f;
+
+  ImGui::Begin("Lighting");
+
+  // DirectionalLight
+  bool changedDirectional =
+      ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight);
+  if (changedDirectional) {
+    if (auto *dl = renderer->GetDirectionalLightData()) {
+      if (!showDirectionalLight) {
+        directionalIntensityBackup = dl->intensity;
+        dl->intensity = 0.0f;
+      } else {
+        dl->intensity = (directionalIntensityBackup > 0.0f)
+                            ? directionalIntensityBackup
+                            : 1.0f;
+      }
+    }
+  }
+
+  // PointLight
+  bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
+  if (changedPoint) {
+    if (auto *pl = renderer->GetPointLightData()) {
+      if (!showPointLight) {
+        pointIntensityBackup = pl->intensity;
+        pl->intensity = 0.0f;
+      } else {
+        pl->intensity =
+            (pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
+      }
+    }
+  }
+
+  // SpotLight
+  bool changedSpot = ImGui::Checkbox("Enable SpotLight", &showSpotLight);
+  if (changedSpot) {
+    if (auto *sl = renderer->GetSpotLightData()) {
+      if (!showSpotLight) {
+        spotIntensityBackup = sl->intensity;
+        sl->intensity = 0.0f;
+      } else {
+        sl->intensity =
+            (spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
+      }
+    }
+  }
+
+  ImGui::End();
+
+  //========================
+  // DirectionalLight
+  //========================
+  if (auto *dl = renderer->GetDirectionalLightData()) {
+    if (showDirectionalLight) {
+      ImGui::Begin("DirectionalLight");
+      ImGui::ColorEdit3("Color", &dl->color.x);
+      ImGui::DragFloat("Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
+      ImGui::End();
+    }
+  }
+
+  //========================
+  // PointLight
+  //========================
+  if (auto *pl = renderer->GetPointLightData()) {
+    if (showPointLight) {
+      ImGui::Begin("PointLight");
+
+      ImGui::ColorEdit3("Color", &pl->color.x);
+      ImGui::DragFloat3("Position", &pl->position.x, 0.05f, -20.0f, 20.0f);
+      ImGui::DragFloat("Intensity", &pl->intensity, 0.05f, 0.0f, 10.0f);
+      ImGui::DragFloat("Radius", &pl->radius, 0.1f, 0.01f, 100.0f);
+      ImGui::DragFloat("Decay", &pl->decay, 0.05f, 0.01f, 8.0f);
+      ImGui::End();
+    }
+  }
+
+  //========================
+  // SpotLight
+  //========================
+  if (auto *sl = renderer->GetSpotLightData()) {
+    if (showSpotLight) {
+      ImGui::Begin("SpotLight");
+
+      ImGui::ColorEdit3("Color", &sl->color.x);
+      ImGui::DragFloat3("Position", &sl->position.x, 0.05f, -20.0f, 20.0f);
+      ImGui::DragFloat("Intensity", &sl->intensity, 0.05f, 0.0f, 10.0f);
+
+      static float yawDeg = 0.0f;
+      static float pitchDeg = -20.0f;
+      ImGui::SliderFloat("Yaw(deg)", &yawDeg, -180.0f, 180.0f);
+      ImGui::SliderFloat("Pitch(deg)", &pitchDeg, -89.0f, 89.0f);
+
+      float yaw = DegToRad(yawDeg);
+      float pitch = DegToRad(pitchDeg);
+      sl->direction = {
+          std::cos(pitch) * std::sin(yaw),
+          std::sin(pitch),
+          std::cos(pitch) * std::cos(yaw),
+      };
+
+      ImGui::DragFloat("Distance", &sl->distance, 0.1f, 0.01f, 100.0f);
+      ImGui::DragFloat("Decay", &sl->decay, 0.05f, 0.01f, 8.0f);
+
+      static float spotAngleDeg = 30.0f;
+      ImGui::DragFloat("Angle(deg)", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
+      sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
+      ImGui::End();
+    }
+  }
+
+#endif // USE_IMGUI
 }
 
 void DebugScene::Draw() {
@@ -301,7 +424,7 @@ void DebugScene::Draw3D() {
 
   object3d_->Draw();
   object3dA_->Draw();
-  ParticleManager::GetInstance()->Draw();
+  // ParticleManager::GetInstance()->Draw();
 }
 
 void DebugScene::Draw2D() {
@@ -309,7 +432,9 @@ void DebugScene::Draw2D() {
 
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    sprites_[i]->Draw();
-  }
+  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+  // sprites_[i]->Draw();
+  // }
+
+  // sprite_->Draw();
 }
