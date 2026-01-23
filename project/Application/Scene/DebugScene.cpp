@@ -416,6 +416,10 @@ void DebugScene::Update() {
 
       ImGui::DragFloat("Distance##SL", &sl->distance, 0.1f);
       ImGui::DragFloat("Decay##SL", &sl->decay, 0.05f);
+
+      static float spotAngleDeg = 30.0f;
+      ImGui::DragFloat("Angle(deg)##SL", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
+      sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
     }
     ImGui::Unindent();
   }
