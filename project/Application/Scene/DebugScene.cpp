@@ -40,9 +40,6 @@ void DebugScene::Initialize(EngineBase *engine) {
   sm->Load("bgm_mokugyo", "resources/mokugyo.wav");
   sm->Load("se_fanfare", "resources/fanfare.wav");
 
-  // bgm再生
-  sm->PlayBGM("bgm_mokugyo");
-
   //===========================
   // スプライト関係の初期化
   //===========================
@@ -198,16 +195,6 @@ void DebugScene::Finalize() {
 
 void DebugScene::Update() {
 
-  // ゲームシーンに移行
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
-  }
-
-  // テクスチャ差し替え
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
-    sprites_[0]->ChangeTexture("resources/uvChecker.png");
-  }
-
   // デバッグカメラ切り替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
     if (useDebugCamera_) {
@@ -215,18 +202,6 @@ void DebugScene::Update() {
     } else {
       useDebugCamera_ = true;
     }
-  }
-
-  auto *sm = SoundManager::GetInstance();
-
-  // BGMを停止
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_B)) {
-    sm->StopBGM();
-  }
-
-  // VキーでSE(重複可能）
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_V)) {
-    SoundManager::GetInstance()->PlaySE("se_fanfare");
   }
 
   //=======================
@@ -357,9 +332,9 @@ void DebugScene::Update() {
 
   ImGui::Text("Lighting");
 
-  // DirectionalLight
+  // ---- Directional ----
   bool changedDirectional =
-      ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight);
+      ImGui::Checkbox("Directional Light", &showDirectionalLight);
   if (changedDirectional) {
     if (auto *dl = renderer->GetDirectionalLightData()) {
       if (!showDirectionalLight) {
@@ -372,9 +347,17 @@ void DebugScene::Update() {
       }
     }
   }
+  if (showDirectionalLight) {
+    ImGui::Indent();
+    if (auto *dl = renderer->GetDirectionalLightData()) {
+      ImGui::ColorEdit3("Color##DL", &dl->color.x);
+      ImGui::DragFloat("Intensity##DL", &dl->intensity, 0.01f, 0.0f, 10.0f);
+    }
+    ImGui::Unindent();
+  }
 
-  // PointLight
-  bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
+  // ---- Point ----
+  bool changedPoint = ImGui::Checkbox("Point Light", &showPointLight);
   if (changedPoint) {
     if (auto *pl = renderer->GetPointLightData()) {
       if (!showPointLight) {
@@ -386,9 +369,20 @@ void DebugScene::Update() {
       }
     }
   }
+  if (showPointLight) {
+    ImGui::Indent();
+    if (auto *pl = renderer->GetPointLightData()) {
+      ImGui::ColorEdit3("Color##PL", &pl->color.x);
+      ImGui::DragFloat3("Position##PL", &pl->position.x, 0.05f);
+      ImGui::DragFloat("Intensity##PL", &pl->intensity, 0.05f, 0.0f, 10.0f);
+      ImGui::DragFloat("Radius##PL", &pl->radius, 0.1f);
+      ImGui::DragFloat("Decay##PL", &pl->decay, 0.05f);
+    }
+    ImGui::Unindent();
+  }
 
-  // SpotLight
-  bool changedSpot = ImGui::Checkbox("Enable SpotLight", &showSpotLight);
+  // ---- Spot ----
+  bool changedSpot = ImGui::Checkbox("Spot Light", &showSpotLight);
   if (changedSpot) {
     if (auto *sl = renderer->GetSpotLightData()) {
       if (!showSpotLight) {
@@ -399,6 +393,31 @@ void DebugScene::Update() {
             (spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
       }
     }
+  }
+  if (showSpotLight) {
+    ImGui::Indent();
+    if (auto *sl = renderer->GetSpotLightData()) {
+      ImGui::ColorEdit3("Color##SL", &sl->color.x);
+      ImGui::DragFloat3("Position##SL", &sl->position.x, 0.05f);
+      ImGui::DragFloat("Intensity##SL", &sl->intensity, 0.05f, 0.0f, 10.0f);
+
+      static float yawDeg = 0.0f;
+      static float pitchDeg = -20.0f;
+      ImGui::SliderFloat("Yaw(deg)##SL", &yawDeg, -180.0f, 180.0f);
+      ImGui::SliderFloat("Pitch(deg)##SL", &pitchDeg, -89.0f, 89.0f);
+
+      const float yaw = DegToRad(yawDeg);
+      const float pitch = DegToRad(pitchDeg);
+      sl->direction = {
+          std::cos(pitch) * std::sin(yaw),
+          std::sin(pitch),
+          std::cos(pitch) * std::cos(yaw),
+      };
+
+      ImGui::DragFloat("Distance##SL", &sl->distance, 0.1f);
+      ImGui::DragFloat("Decay##SL", &sl->decay, 0.05f);
+    }
+    ImGui::Unindent();
   }
 
   ImGui::End();
