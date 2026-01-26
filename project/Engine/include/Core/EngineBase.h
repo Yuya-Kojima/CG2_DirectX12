@@ -1,21 +1,23 @@
 #pragma once
+#include <memory>
 #include <wrl.h>
 #include <xaudio2.h>
+#include "Renderer/Object3dRenderer.h"
+#include "Renderer/SpriteRenderer.h"
+#include "Particle/ParticleManager.h"
+#include "Input/InputKeyState.h"
+#include "Core/SrvManager.h"
+#include "Core/D3DResourceLeakChecker.h"
 
 class WindowSystem;
-class InputKeyState;
 class Dx12Core;
-class Object3dRenderer;
-class SpriteRenderer;
-class SrvManager;
 class GameCamera;
-class D3DResourceLeakChecker;
 class AbstractSceneFactory;
 
 class EngineBase {
 public:
   // 仮想デストラクタ
-  virtual ~EngineBase() = default;
+  virtual ~EngineBase();
 
   // 初期化
   virtual void Initialize();
@@ -42,29 +44,31 @@ public:
   // 実行
   void Run();
 
-  InputKeyState *GetInputManager() const { return input_; }
-  SpriteRenderer *GetSpriteRenderer() const { return spriteRenderer_; }
-  Object3dRenderer *GetObject3dRenderer() const { return object3dRenderer_; }
+  InputKeyState *GetInputManager() const { return input_.get(); }
+  SpriteRenderer *GetSpriteRenderer() const { return spriteRenderer_.get(); }
+  Object3dRenderer *GetObject3dRenderer() const {
+    return object3dRenderer_.get();
+  }
 
 protected:
   bool endRequest_ = false;
 
 protected:
-  D3DResourceLeakChecker *leakChecker_ = nullptr;
+  std::unique_ptr<D3DResourceLeakChecker> leakChecker_ = nullptr;
 
-  WindowSystem *windowSystem_ = nullptr;
+  std::unique_ptr<WindowSystem> windowSystem_ = nullptr;
 
-  Dx12Core *dx12Core_ = nullptr;
+  std::unique_ptr<Dx12Core> dx12Core_ = nullptr;
 
-  InputKeyState *input_ = nullptr;
+  std::unique_ptr<InputKeyState> input_ = nullptr;
 
   Microsoft::WRL::ComPtr<IXAudio2> xAudio2_;
 
-  SpriteRenderer *spriteRenderer_ = nullptr;
+  std::unique_ptr<SpriteRenderer> spriteRenderer_ = nullptr;
 
-  Object3dRenderer *object3dRenderer_ = nullptr;
+  std::unique_ptr<Object3dRenderer> object3dRenderer_ = nullptr;
 
-  SrvManager *srvManager_ = nullptr;
+  std::unique_ptr<SrvManager> srvManager_ = nullptr;
 
   // シーンファクトリー
   AbstractSceneFactory *sceneFactory_ = nullptr;

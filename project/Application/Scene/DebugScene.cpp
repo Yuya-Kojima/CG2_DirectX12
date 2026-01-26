@@ -1,19 +1,15 @@
 #include "DebugScene.h"
 #include "Camera/GameCamera.h"
-#include "Debug/DebugCamera.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
-#include "Object3d/Object3d.h"
 #include "Particle/Particle.h"
-#include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
-#include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <fstream>
 
@@ -49,7 +45,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // スプライトの生成と初期化
   for (int i = 0; i < kSpriteCount_; ++i) {
-    Sprite *sprite = new Sprite();
+    auto sprite = std::make_unique<Sprite>();
     if (i % 2 == 1) {
       sprite->Initialize(engine_->GetSpriteRenderer(),
                          "resources/uvChecker.png");
@@ -57,10 +53,10 @@ void DebugScene::Initialize(EngineBase *engine) {
       sprite->Initialize(engine_->GetSpriteRenderer(),
                          "resources/uvChecker.png");
     }
-    sprites_.push_back(sprite);
+    sprites_.push_back(std::move(sprite));
   }
 
-  sprite_ = new Sprite();
+  sprite_ = std::make_unique<Sprite>();
   sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/uvChecker.png");
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
@@ -102,10 +98,10 @@ void DebugScene::Initialize(EngineBase *engine) {
   //===========================
 
   // カメラの生成と初期化
-  camera_ = new GameCamera();
+  camera_ = std::make_unique<GameCamera>();
   camera_->SetRotate({0.3f, 0.0f, 0.0f});
   camera_->SetTranslate({0.0f, 4.0f, -10.0f});
-  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
+  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
 
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},
@@ -114,7 +110,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   };
 
   // デバッグカメラ
-  debugCamera_ = new DebugCamera();
+  debugCamera_ = std::make_unique<DebugCamera>();
   debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
 
   // モデルの読み込み
@@ -123,11 +119,11 @@ void DebugScene::Initialize(EngineBase *engine) {
   ModelManager::GetInstance()->LoadModel("plane.gltf");
 
   // オブジェクトの生成と初期化
-  object3d_ = new Object3d();
+  object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(engine_->GetObject3dRenderer());
   object3d_->SetModel("terrain.obj");
 
-  object3dA_ = new Object3d();
+  object3dA_ = std::make_unique<Object3d>();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
   object3dA_->SetModel("plane.gltf");
 
@@ -146,33 +142,33 @@ void DebugScene::Initialize(EngineBase *engine) {
       {0.0f, 0.0f, 5.0f},
   };
 
-  particleEmitter_ =
-      new ParticleEmitter("test", emitterTransform, 3, 1.0f, 0.0f);
+  particleEmitter_ = std::make_unique<ParticleEmitter>("test", emitterTransform,
+                                                       3, 1.0f, 0.0f);
 }
 
 void DebugScene::Finalize() {
-  delete object3dA_;
-  object3dA_ = nullptr;
+  // delete object3dA_;
+  // object3dA_ = nullptr;
 
-  delete object3d_;
-  object3d_ = nullptr;
+  // delete object3d_;
+  // object3d_ = nullptr;
 
-  delete debugCamera_;
-  debugCamera_ = nullptr;
+  // delete debugCamera_;
+  // debugCamera_ = nullptr;
 
-  delete camera_;
-  camera_ = nullptr;
+  // delete camera_;
+  // camera_ = nullptr;
 
-  delete sprite_;
-  sprite_ = nullptr;
+  // delete sprite_;
+  // sprite_ = nullptr;
 
-  delete particleEmitter_;
-  particleEmitter_ = nullptr;
+  // delete particleEmitter_;
+  // particleEmitter_ = nullptr;
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    delete sprites_[i];
-  }
-  sprites_.clear();
+  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+  //   delete sprites_[i];
+  // }
+  // sprites_.clear();
 
   auto *sm = SoundManager::GetInstance();
   sm->StopBGM();
@@ -282,7 +278,7 @@ void DebugScene::Update() {
     activeCamera = debugCamera_->GetCamera();
   } else {
     camera_->Update();
-    activeCamera = camera_;
+    activeCamera = camera_.get();
   }
 
   // アクティブカメラを描画で使用する
@@ -441,3 +437,5 @@ void DebugScene::Draw2D() {
 
   // sprite_->Draw();
 }
+
+DebugScene::~DebugScene() = default;

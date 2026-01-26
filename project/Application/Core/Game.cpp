@@ -36,7 +36,8 @@ void Game::Initialize() {
   // ImGuiManagerの初期化
   //===========================
   imGuiManager_ = new ImGuiManager();
-  imGuiManager_->Initialize(windowSystem_, dx12Core_, srvManager_);
+  imGuiManager_->Initialize(windowSystem_.get(), dx12Core_.get(),
+                            srvManager_.get());
 
   // texture切り替え用
   bool useMonsterBall = true;

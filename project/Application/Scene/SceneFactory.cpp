@@ -3,18 +3,20 @@
 #include "GamePlayScene.h"
 #include "TitleScene.h"
 
-BaseScene *SceneFactory::CreateScene(const std::string &sceneName) {
+std::unique_ptr<BaseScene>
+SceneFactory::CreateScene(const std::string &sceneName) {
 
   // 次のシーンを生成
   BaseScene *newScene = nullptr;
 
   if (sceneName == "TITLE") {
-    newScene = new TitleScene();
+    return std::make_unique<TitleScene>();
   } else if (sceneName == "GAMEPLAY") {
-    newScene = new GamePlayScene();
+    return std::make_unique<GamePlayScene>();
   } else if (sceneName == "DEBUG") {
-    newScene = new DebugScene();
+    return std::make_unique<DebugScene>();
   }
 
-  return newScene;
+  assert(false && "Unknown sceneName");
+  return nullptr;
 }

@@ -1,15 +1,17 @@
 #pragma once
-#include "AbstractSceneFactory.h"
+#include <memory>
+#include <string>
 
 class BaseScene;
 class EngineBase;
+class AbstractSceneFactory;
 
 class SceneManager {
 
 private:
-  BaseScene *scene_ = nullptr;
+  std::unique_ptr<BaseScene> scene_ = nullptr;
 
-  BaseScene *nextScene_ = nullptr;
+  std::unique_ptr<BaseScene> nextScene_ = nullptr;
 
   EngineBase *engine_ = nullptr;
 
