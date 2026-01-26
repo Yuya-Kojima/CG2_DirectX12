@@ -37,11 +37,11 @@ void DebugScene::Initialize(EngineBase *engine) {
   auto *sm = SoundManager::GetInstance();
 
   // Audioファイルを登録
-  sm->Load("bgm_mokugyo", "resources/mokugyo.wav");
-  sm->Load("se_fanfare", "resources/fanfare.wav");
+  sm->Load("mokugyo", "resources/mokugyo.wav");
+  sm->Load("se", "resources/se.mp3");
 
   // bgm再生
-  sm->PlayBGM("bgm_mokugyo");
+  sm->PlayBGM("mokugyo");
 
   //===========================
   // スプライト関係の初期化
@@ -179,11 +179,14 @@ void DebugScene::Finalize() {
   sm->StopAllSE();
 
   // ゲームシーンだけで使う運用ならここで解放してOK
-  sm->Unload("bgm_mokugyo");
-  sm->Unload("se_fanfare");
+  sm->Unload("mokugyo");
+  sm->Unload("se");
 }
 
 void DebugScene::Update() {
+
+  // Sound更新
+  SoundManager::GetInstance()->Update();
 
   // ゲームシーンに移行
   if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
@@ -213,7 +216,7 @@ void DebugScene::Update() {
 
   // VキーでSE(重複可能）
   if (engine_->GetInputManager()->IsTriggerKey(DIK_V)) {
-    SoundManager::GetInstance()->PlaySE("se_fanfare");
+    SoundManager::GetInstance()->PlaySE("se");
   }
 
   //=======================
@@ -288,18 +291,6 @@ void DebugScene::Update() {
   // view / projection を作って ParticleManager 更新
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
-
-  ImGui::Begin("Setting");
-
-  if (auto *model = object3dA_ ? object3dA_->GetModel() : nullptr) {
-
-    Vector4 color = model->GetColor();
-    if (ImGui::ColorEdit4("Color", &color.x)) {
-      model->SetColor(color);
-    }
-  }
-
-  ImGui::End();
 
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
