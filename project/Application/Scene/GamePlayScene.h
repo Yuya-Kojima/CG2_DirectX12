@@ -14,6 +14,9 @@ class InputKeyState;
 class ParticleEmitter;
 class Player;
 class Level;
+class Stick;
+class Npc;
+class Goal;
 
 class GamePlayScene : public BaseScene {
 
@@ -26,6 +29,8 @@ private: // メンバ変数(ゲーム用)
 
   // デバッグカメラ使用
   bool useDebugCamera_ = false;
+  // when true, override camera each frame to a fixed safe position for debug
+  bool forceFixedCamera_ = false;
 
 public: // メンバ関数
   /// <summary>
@@ -66,6 +71,11 @@ private:
   EngineBase *engine_ = nullptr;
   // player
   Player* player_ = nullptr;
+  // actors
+  Stick* stick_ = nullptr;
+  Npc* npc_ = nullptr;
+  Goal* goal_ = nullptr;
+  bool goalReached_ = false;
   // level
   Level* level_ = nullptr;
   // (probe removed) 

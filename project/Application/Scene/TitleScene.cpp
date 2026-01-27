@@ -98,13 +98,13 @@ void TitleScene::Update() {
 	//=======================
 	GameCamera* activeCamera = nullptr;
 
-	if (useDebugCamera_) {
-		debugCamera_->Update(*engine_->GetInputManager());
-		activeCamera = debugCamera_->GetCamera();
-	} else {
-		camera_->Update();
-		activeCamera = debugCamera_->GetCamera();
-	}
+    if (useDebugCamera_) {
+        debugCamera_->Update(*engine_->GetInputManager());
+        activeCamera = debugCamera_->GetCamera();
+    } else {
+        camera_->Update();
+        activeCamera = camera_;
+    }
 
 	//アクティブカメラを描画で使用する
 	engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);

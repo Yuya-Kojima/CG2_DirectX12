@@ -10,8 +10,11 @@ public:
     Hazard() = default;
     ~Hazard();
 
+    // 初期化: レンダラと位置・半径を与え視覚オブジェクトを生成
     void Initialize(Object3dRenderer* renderer, const Vector3& pos, float radius);
+    // 更新: 内部オブジェクトを更新
     void Update(float dt);
+    // 描画: 内部の Object3d を描画
     void Draw();
 
     Vector3 GetPosition() const { return position_; }

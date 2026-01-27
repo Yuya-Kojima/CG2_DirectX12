@@ -5,6 +5,7 @@
 #include <assert.h>
 
 Hazard::~Hazard() {
+    // Object3d は生ポインタで保持しているため破棄する
     if (obj_) { delete obj_; obj_ = nullptr; }
 }
 
@@ -16,6 +17,7 @@ void Hazard::Initialize(Object3dRenderer* renderer, const Vector3& pos, float ra
         obj_->Initialize(renderer);
         ModelManager::GetInstance()->LoadModel("monsterBall.obj");
         obj_->SetModel("monsterBall.obj");
+        // モデルは直径に合わせてスケールを設定
         obj_->SetScale({radius*2.0f, radius*2.0f, radius*2.0f});
         obj_->SetTranslation(position_);
     }

@@ -88,7 +88,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalOptions>/ignore:4049 /ignore:4098 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/ignore:4049 /ignore:4098 /ignore:4099 %(AdditionalOptions)</AdditionalOptions>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <AdditionalDependencies>imgui.lib;Engine.lib;DirectXTex.lib;assimp-vc143-mdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)..\generated\outputs\$(Configuration)\;$(SolutionDir)externals\DirectXTex\Bin\Desktop_2022_Win10\x64\$(Configuration)\;$(SolutionDir)\externals\assimp\lib\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -156,11 +156,16 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Actor\Goal.cpp" />
     <ClCompile Include="Actor\Hazard.cpp" />
     <ClCompile Include="Actor\Level.cpp" />
+    <ClCompile Include="Actor\Npc.cpp" />
     <ClCompile Include="Actor\Physics.cpp" />
+    <ClCompile Include="Actor\Stick.cpp" />
     <ClCompile Include="Core\Game.cpp" />
     <ClCompile Include="Actor\Player.cpp" />
+    <ClCompile Include="Navigation\NavigationGrid.cpp" />
+    <ClCompile Include="Physics\CollisionSystem.cpp" />
     <ClCompile Include="Scene\TitleScene.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\DebugScene.cpp" />
@@ -169,6 +174,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">MaxSpeed</Optimization>
       <WholeProgramOptimization Condition="'$(Configuration)|$(Platform)'=='Development|x64'">true</WholeProgramOptimization>
     </ClCompile>
+    <ClCompile Include="Stage\StageLoader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="resources\shaders\Object3d.PS.hlsl">
@@ -189,19 +195,26 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Actor\Goal.h" />
     <ClInclude Include="Actor\Hazard.h" />
     <ClInclude Include="Actor\Level.h" />
+    <ClInclude Include="Actor\Npc.h" />
     <ClInclude Include="Actor\Physics.h" />
+    <ClInclude Include="Actor\Stick.h" />
     <ClInclude Include="Core\Game.h" />
     <ClInclude Include="Actor\Player.h" />
+    <ClInclude Include="Navigation\NavigationGrid.h" />
+    <ClInclude Include="Physics\CollisionSystem.h" />
     <ClInclude Include="Scene\TitleScene.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\DebugScene.h" />
     <ClInclude Include="Scene\GamePlayScene.h" />
+    <ClInclude Include="Stage\StageLoader.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
     <None Include="resources\shaders\Object3d.hlsli" />
+    <None Include="resources\stages\level01.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
