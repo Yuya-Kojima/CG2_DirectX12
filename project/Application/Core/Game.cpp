@@ -1,7 +1,6 @@
 #include "Core/Game.h"
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
-#include "Debug/ImGuiManager.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -22,9 +21,9 @@ void Game::Initialize() {
 
   SceneManager::GetInstance()->Initialize(this);
 
-  sceneFactory_ = new SceneFactory();
+  sceneFactory_ = std::make_unique<SceneFactory>();
 
-  SceneManager::GetInstance()->SetSceneFactory(sceneFactory_);
+  SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
 
   SceneManager::GetInstance()->ChangeScene("DEBUG");
 
@@ -35,8 +34,9 @@ void Game::Initialize() {
   //===========================
   // ImGuiManagerの初期化
   //===========================
-  imGuiManager_ = new ImGuiManager();
-  imGuiManager_->Initialize(windowSystem_, dx12Core_, srvManager_);
+  imGuiManager_ = std::make_unique<ImGuiManager>();
+  imGuiManager_->Initialize(windowSystem_.get(), dx12Core_.get(),
+                            srvManager_.get());
 
   // texture切り替え用
   bool useMonsterBall = true;
@@ -61,14 +61,14 @@ void Game::Initialize() {
 void Game::Finalize() {
 
   imGuiManager_->Finalize();
-  delete imGuiManager_;
-  imGuiManager_ = nullptr;
+  // delete imGuiManager_;
+  // imGuiManager_ = nullptr;
 
   // シーンの解放
   SceneManager::GetInstance()->Finalize();
 
   // シーンファクトリー解放
-  delete sceneFactory_;
+  // delete sceneFactory_;
 
   // 基底クラスの終了処理
   EngineBase::Finalize();
