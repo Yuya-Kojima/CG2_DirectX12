@@ -1,5 +1,5 @@
 #include "Object3d/Object3d.h"
-#include "Camera/GameCamera.h"
+#include "Camera/ICamera.h"
 #include "Debug/Logger.h"
 #include "Math/MathUtil.h"
 #include "Model/Model.h"
@@ -30,7 +30,7 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
 void Object3d::Update() {
 
-  GameCamera *activeCamera =
+  const ICamera *activeCamera =
       (camera_ != nullptr) ? camera_ : object3dRenderer_->GetDefaultCamera();
 
   transform_ = {scale_, rotate_, translate_};
