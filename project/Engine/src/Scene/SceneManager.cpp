@@ -1,5 +1,6 @@
 #include "Scene/SceneManager.h"
 #include "Core/EngineBase.h"
+#include "Scene/AbstractSceneFactory.h"
 #include "Scene/BaseScene.h"
 #include <cassert>
 
@@ -15,15 +16,17 @@ void SceneManager::Finalize() {
   // 予約が残ってたら解放
   if (nextScene_) {
     nextScene_->Finalize();
-    delete nextScene_;
-    nextScene_ = nullptr;
+    nextScene_.reset();
+    // delete nextScene_;
+    // nextScene_ = nullptr;
   }
 
   // 現在シーン解放
   if (scene_) {
     scene_->Finalize();
-    delete scene_;
-    scene_ = nullptr;
+    scene_.reset();
+    // delete scene_;
+    // scene_ = nullptr;
   }
 
   engine_ = nullptr;
@@ -37,12 +40,13 @@ void SceneManager::Update() {
     // 旧シーンの終了
     if (scene_) {
       scene_->Finalize();
-      delete scene_;
+      // delete scene_;
     }
 
     // シーン切り替え
-    scene_ = nextScene_;
-    nextScene_ = nullptr;
+    // scene_ = nextScene_;
+    scene_ = std::move(nextScene_);
+    // nextScene_ = nullptr;
 
     scene_->SetSceneManger(this);
 
@@ -67,6 +71,7 @@ void SceneManager::ChangeScene(const std::string &sceneName) {
   assert(nextScene_ == nullptr);
 
   // 次シーンを生成
+  // nextScene_ = sceneFactory_->CreateScene(sceneName);
   nextScene_ = sceneFactory_->CreateScene(sceneName);
 }
 

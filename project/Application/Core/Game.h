@@ -1,7 +1,9 @@
 #pragma once
 #include "Core/EngineBase.h"
+#include "Debug/ImGuiManager.h"
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
+#include <memory>
 #include <vector>
 
 class ImGuiManager;
@@ -20,5 +22,5 @@ public:
 private:
   bool set60FPS_ = true;
 
-  ImGuiManager *imGuiManager_ = nullptr;
+  std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
 };

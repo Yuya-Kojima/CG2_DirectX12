@@ -1,17 +1,13 @@
 #include "Core/EngineBase.h"
 #include "Audio/SoundManager.h"
 #include "Camera/GameCamera.h"
-#include "Core/D3DResourceLeakChecker.h"
-#include "Core/SrvManager.h"
-#include "Core/WindowSystem.h"
-#include "Input/InputKeyState.h"
-#include "Model/ModelManager.h"
-#include "Particle/ParticleManager.h"
-#include "Renderer/Object3dRenderer.h"
-#include "Renderer/SpriteRenderer.h"
 #include "Texture/TextureManager.h"
+#include "Core/WindowSystem.h"
+#include "Model/ModelManager.h"
 #include <cassert>
 #include <xaudio2.h>
+
+EngineBase::~EngineBase() = default;
 
 void EngineBase::Initialize() {
 
@@ -19,20 +15,20 @@ void EngineBase::Initialize() {
   HRESULT hr;
 
 #ifdef _DEBUG
-  leakChecker_ = new D3DResourceLeakChecker();
+  leakChecker_ = std::make_unique<D3DResourceLeakChecker>();
 #endif
 
   //===========================
   // WindowsAPIの初期化
   //===========================
-  windowSystem_ = new WindowSystem();
+  windowSystem_ = std::make_unique<WindowSystem>();
   windowSystem_->Initialize();
 
   //===========================
   // DirectXの初期化
   //===========================
-  dx12Core_ = new Dx12Core();
-  dx12Core_->Initialize(windowSystem_);
+  dx12Core_ = std::make_unique<Dx12Core>();
+  dx12Core_->Initialize(windowSystem_.get());
 
   ID3D12Device *device = dx12Core_->GetDevice();
   ID3D12GraphicsCommandList *commandList = dx12Core_->GetCommandList();
@@ -40,8 +36,8 @@ void EngineBase::Initialize() {
   //===========================
   // キーボード入力の初期化
   //===========================
-  input_ = new InputKeyState();
-  input_->Initialize(windowSystem_);
+  input_ = std::make_unique<InputKeyState>();
+  input_->Initialize(windowSystem_.get());
 
   //===========================
   // Audioの初期化
@@ -59,23 +55,24 @@ void EngineBase::Initialize() {
   //===========================
   // SRVManagerの初期化
   //===========================
-  srvManager_ = new SrvManager();
-  srvManager_->Initialize(dx12Core_);
+  srvManager_ = std::make_unique<SrvManager>();
+  srvManager_->Initialize(dx12Core_.get());
 
-  spriteRenderer_ = new SpriteRenderer();
-  spriteRenderer_->Initialize(dx12Core_);
+  spriteRenderer_ = std::make_unique<SpriteRenderer>();
+  spriteRenderer_->Initialize(dx12Core_.get());
 
-  object3dRenderer_ = new Object3dRenderer();
-  object3dRenderer_->Initialize(dx12Core_);
+  object3dRenderer_ = std::make_unique<Object3dRenderer>();
+  object3dRenderer_->Initialize(dx12Core_.get());
 
   // テクスチャマネージャーの初期化
-  TextureManager::GetInstance()->Initialize(dx12Core_, srvManager_);
+  TextureManager::GetInstance()->Initialize(dx12Core_.get(), srvManager_.get());
 
   // モデルマネージャーの初期化
-  ModelManager::GetInstance()->Initialize(dx12Core_);
+  ModelManager::GetInstance()->Initialize(dx12Core_.get());
 
   // パーティクルマネージャーの初期化
-  ParticleManager::GetInstance()->Initialize(dx12Core_, srvManager_);
+  ParticleManager::GetInstance()->Initialize(dx12Core_.get(),
+                                             srvManager_.get());
 }
 
 void EngineBase::Finalize() {
@@ -90,29 +87,42 @@ void EngineBase::Finalize() {
 
   TextureManager::GetInstance()->Finalize();
 
-  delete input_;
-  input_ = nullptr;
+  // delete input_;
+  // input_ = nullptr;
 
-  delete srvManager_;
-  srvManager_ = nullptr;
+  // delete srvManager_;
+  // srvManager_ = nullptr;
 
-  delete object3dRenderer_;
-  object3dRenderer_ = nullptr;
+  // delete object3dRenderer_;
+  // object3dRenderer_ = nullptr;
 
-  delete spriteRenderer_;
-  spriteRenderer_ = nullptr;
+  // delete spriteRenderer_;
+  // spriteRenderer_ = nullptr;
 
-  delete dx12Core_;
-  dx12Core_ = nullptr;
+  // delete dx12Core_;
+  // dx12Core_ = nullptr;
 
-  windowSystem_->Finalize();
+  // windowSystem_->Finalize();
 
-  delete windowSystem_;
-  windowSystem_ = nullptr;
+  // delete windowSystem_;
+  // windowSystem_ = nullptr;
+
+  input_.reset();
+  object3dRenderer_.reset();
+  spriteRenderer_.reset();
+  srvManager_.reset();
+
+  dx12Core_.reset();
+
+  if (windowSystem_) {
+    windowSystem_->Finalize();
+    windowSystem_.reset();
+  }
 
 #ifdef _DEBUG
-  delete leakChecker_;
-  leakChecker_ = nullptr;
+  // delete leakChecker_;
+  // leakChecker_ = nullptr;
+  leakChecker_.reset();
 #endif
 }
 
