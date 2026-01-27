@@ -386,7 +386,12 @@ project/imgui.ini
 imgui.ini
 
 # ---- keep assimp prebuilt libs even though Debug/Release are ignored ----
-!project/externals/assimp/lib/
-!project/externals/assimp/lib/**/
-!project/externals/assimp/lib/**/*.lib
-!project/externals/assimp/lib/**/*.dll
+#!project/externals/assimp/lib/
+#!project/externals/assimp/lib/**/
+#!project/externals/assimp/lib/**/*.lib
+#!project/externals/assimp/lib/**/*.dll
+
+# ---- assimp binaries (do not commit) ----
+project/externals/assimp/lib/
+project/externals/assimp/bin/
+
