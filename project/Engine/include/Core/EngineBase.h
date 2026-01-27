@@ -1,18 +1,18 @@
 #pragma once
+#include "Core/D3DResourceLeakChecker.h"
+#include "Core/SrvManager.h"
+#include "Input/InputKeyState.h"
+#include "Particle/ParticleManager.h"
+#include "Renderer/Object3dRenderer.h"
+#include "Renderer/SpriteRenderer.h"
+#include "Scene/AbstractSceneFactory.h"
 #include <memory>
 #include <wrl.h>
 #include <xaudio2.h>
-#include "Renderer/Object3dRenderer.h"
-#include "Renderer/SpriteRenderer.h"
-#include "Particle/ParticleManager.h"
-#include "Input/InputKeyState.h"
-#include "Core/SrvManager.h"
-#include "Core/D3DResourceLeakChecker.h"
 
 class WindowSystem;
 class Dx12Core;
 class GameCamera;
-class AbstractSceneFactory;
 
 class EngineBase {
 public:
@@ -71,5 +71,5 @@ protected:
   std::unique_ptr<SrvManager> srvManager_ = nullptr;
 
   // シーンファクトリー
-  AbstractSceneFactory *sceneFactory_ = nullptr;
+  std::unique_ptr<AbstractSceneFactory> sceneFactory_ = nullptr;
 };
