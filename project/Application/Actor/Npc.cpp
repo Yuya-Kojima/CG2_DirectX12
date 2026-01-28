@@ -5,6 +5,7 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
+#include "Debug/Logger.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -34,6 +35,11 @@ void Npc::Initialize(Object3dRenderer* renderer, const Vector3& startPos)
     // スケール調整と初期位置の設定
     obj_->SetScale({ 0.6f, 0.6f, 0.6f });
     obj_->SetTranslation(pos_);
+    try {
+        Logger::Log(std::format("[Npc] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", pos_.x, pos_.y, pos_.z));
+    } catch (...) {
+        Logger::Log(std::string("[Npc] Initialize: pos=(") + std::to_string(pos_.x) + "," + std::to_string(pos_.y) + "," + std::to_string(pos_.z) + ")\n");
+    }
 }
 
 void Npc::Update(float dt, const Vector3& targetPos, Level& level)

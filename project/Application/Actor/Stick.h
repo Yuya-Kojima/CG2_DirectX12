@@ -57,6 +57,13 @@ public:
     }
     const Vector3& GetRotation() const { return rotation_; }
 
+    // Set the target rotation used while the stick is held (so Update lerps to this)
+    void SetHeldRotation(const Vector3& r)
+    {
+        heldRotation_ = r;
+        SetRotation(r);
+    }
+
     // 衝突判定無効化タイマーの更新（落とした直後の誤判定防止用）
     void UpdateCollisionTimer(float dt);
 
@@ -68,8 +75,9 @@ public:
     void SetId(uint32_t id) { id_ = id; }
     uint32_t GetId() const { return id_; }
 
-    // 所属するレベル（ステージ）へのポインタを設定・取得
-    void SetLevel(class Level* lvl) { level_ = lvl; }
+    // 所属するレベル（ステージ）へのポインタを設定
+    // SetLevel によって、既に設定されている pos_ を基に床の高さへスナップします。
+    void SetLevel(class Level* lvl);
     Level* GetLevel() const { return level_; }
 
     // 公開変数（便宜上publicに配置されている管理用データ）
@@ -98,8 +106,11 @@ private:
 
     // 回転に関するパラメータ
     Vector3 rotation_ { 0, 0, 0 }; // 現在の回転角
-    Vector3 heldRotation_ { -0.6f, 0.0f, 0.5f }; // 手に持っている時の角度
-    Vector3 dropRotation_ { 1.57f, 0.0f, 0.0f }; // 地面に置いた時の角度（横倒しなど）
+    // Default rotations:
+    // - heldRotation_: when held, keep roughly horizontal (can be adjusted by scene)
+    // - dropRotation_: when dropped, lie flat on the ground
+    Vector3 heldRotation_ { 0.0f, 0.0f, 0.0f };
+    Vector3 dropRotation_ { 0.0f, 0.0f, 0.0f };
     float rotationLerpSpeed_ = 10.0f; // 角度変化の補間速度
 
     Level* level_ = nullptr; // 所属ステージへの参照

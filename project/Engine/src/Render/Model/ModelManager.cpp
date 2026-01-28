@@ -3,6 +3,7 @@
 #include "Renderer/ModelRenderer.h"
 #include <cassert>
 #include <filesystem>
+#include "Debug/Logger.h"
 
 ModelManager *ModelManager::instance = nullptr;
 
@@ -11,29 +12,38 @@ bool ModelManager::isFinalized_ = false;
 namespace fs = std::filesystem;
 
 std::string ModelManager::ResolveModelPath(const std::string &input) {
-  const fs::path base = "resources";
-
-  // すでにパスならそのまま
-  if (input.find('/') != std::string::npos ||
-      input.find('\\') != std::string::npos) {
+  // 入力が既にパスであればそのまま返す
+  if (input.find('/') != std::string::npos || input.find('\\') != std::string::npos) {
     return input;
   }
 
-  // resources 以下を再帰検索
-  if (fs::exists(base)) {
+  // 検索対象のベースディレクトリを列挙（プロジェクト内の resources と MaterialTemplate も優先）
+  // Application/resources を追加して、Application/resources/MaterialTemplate 配下の仮モデルも見つかるようにする
+  const std::vector<fs::path> bases = {
+      "Application/resources",
+      "Application/resources/MaterialTemplate",
+      "resources",
+      "resources/materialtemplate",
+  };
+
+  for (const auto &base : bases) {
+    if (!fs::exists(base))
+      continue;
+
     for (const auto &e : fs::recursive_directory_iterator(base)) {
-      if (!e.is_regular_file()) {
+      if (!e.is_regular_file())
         continue;
-      }
 
       if (e.path().filename() == input) {
-        return e.path().generic_string();
+        std::string found = e.path().generic_string();
+        Logger::Log(std::string("[ModelManager] ResolveModelPath: found '") + input + "' -> '" + found + "'\n");
+        return found;
       }
     }
   }
 
-
-  // 見つからなければ、そのまま
+  // 見つからなければ、そのまま返す
+  Logger::Log(std::string("[ModelManager] ResolveModelPath: not found '") + input + "'\n");
   return input;
 }
 
@@ -77,8 +87,11 @@ void ModelManager::LoadModel(const std::string &filePath) {
 
   const std::string resolved = ResolveModelPath(filePath);
 
+  Logger::Log(std::string("[ModelManager] LoadModel request: input='") + filePath + "' -> resolved='" + resolved + "'\n");
+
   if (models.contains(resolved)) {
     // 読み込み済みなら早期リターン
+    Logger::Log(std::string("[ModelManager] LoadModel: already loaded '") + resolved + "'\n");
     return;
   }
 
@@ -101,8 +114,8 @@ void ModelManager::LoadModel(const std::string &filePath) {
 
   std::unique_ptr<Model> model = std::make_unique<Model>();
   model->Initialize(modelRenderer, directoryPath, filename);
-
   models.insert(std::make_pair(resolved, std::move(model)));
+  Logger::Log(std::string("[ModelManager] LoadModel: loaded '") + resolved + "' from dir='" + directoryPath + "' file='" + filename + "'\n");
 
   //// モデルの生成とファイル読み込み、初期化
   // std::unique_ptr<Model> model = std::make_unique<Model>();

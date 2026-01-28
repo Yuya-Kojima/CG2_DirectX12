@@ -1,6 +1,13 @@
 #include "GamePlayScene.h"
+#include "Actor/Goal.h"
+#include "Actor/Hazard.h"
+#include "Actor/Level.h"
+#include "Actor/Npc.h"
+#include "Actor/Player.h"
+#include "Actor/Stick.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -8,399 +15,386 @@
 #include "Particle/Particle.h"
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
+#include "Physics/CollisionSystem.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
-#include "Texture/TextureManager.h"
-#include "Debug/Logger.h"
-#include <format>
-#include "Actor/Player.h"
-#include "Actor/Level.h"
-#include "Actor/Hazard.h"
-#include "Actor/Npc.h"
-#include "Actor/Stick.h"
-#include "Actor/Goal.h"
-#include "Physics/CollisionSystem.h"
 #include "Stage/StageLoader.h"
+#include "Texture/TextureManager.h"
+#include <algorithm>
+#include <filesystem>
+#include <format>
 
-void GamePlayScene::Initialize(EngineBase *engine) {
+// ---------------------------------------------------------
+// 初期化
+// ---------------------------------------------------------
+void GamePlayScene::Initialize(EngineBase* engine)
+{
+    // エンジン本体への参照を保持
+    engine_ = engine;
 
-  // 参照をコピー
-  engine_ = engine;
+    //===========================
+    // テクスチャ・オーディオ・スプライトの初期化
+    //===========================
+    // (必要に応じてリソースロード処理を追加)
 
-  //===========================
-  // テクスチャファイルの読み込み
-  //===========================
+    //===========================
+    // 3Dオブジェクト関係の初期化
+    //===========================
 
-  //===========================
-  // オーディオファイルの読み込み
-  //===========================
+    // メインカメラの生成と初期設定 (俯瞰視点)
+    camera_ = new GameCamera();
+    camera_->SetRotate({ 1.0f, 0.0f, 0.0f });
+    camera_->SetTranslate({ 0.0f, 50.0f, -30.0f });
 
-  //===========================
-  // スプライト関係の初期化
-  //===========================
+    // デバッグ用カメラの生成
+    debugCamera_ = new DebugCamera();
+    debugCamera_->Initialize({ 0.0f, 4.0f, -10.0f });
 
-  //===========================
-  // 3Dオブジェクト関係の初期化
-  //===========================
+    // レンダラに使用するカメラを登録
+    engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
 
-  // カメラの生成と初期化
-  camera_ = new GameCamera();
-  camera_->SetRotate({0.3f, 0.0f, 0.0f});
-  camera_->SetTranslate({0.0f, 4.0f, -10.0f});
+    // --- ステージ読み込み ---
+    level_ = new Level();
+    Stage::StageData sd;
+    bool loaded = false;
 
-  // デバッグカメラ
-  debugCamera_ = new DebugCamera();
-  debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
+    // JSONファイルからステージ構成をロード (優先パス順)
+    if (!loaded)
+        loaded = Stage::StageLoader::LoadStage("Application/resources/stages/level01.json", sd);
+    if (!loaded)
+        loaded = Stage::StageLoader::LoadStage("resources/stages/level01.json", sd);
 
-  // デフォルトカメラのセット
-  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
-
-  // create player
-  player_ = new Player();
-  player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
-  player_->SetLayer(CollisionMask::Player);
-  // Attach the scene camera to the player with smoothing
-  player_->AttachCameraImmediate(camera_);
-  // position player to match DebugScene visible object (monsterBall) so it is in view
-  player_->SetPosition({1.0f, 1.0f, 0.0f});
-
-  // create level - attempt to load from stage JSON
-  level_ = new Level();
-  Stage::StageData sd;
-  // prefer stage file located inside Application/resources if present
-  bool loaded = false;
-  if (!loaded) loaded = Stage::StageLoader::LoadStage("Application/resources/stages/level01.json", sd);
-  if (!loaded) loaded = Stage::StageLoader::LoadStage("resources/stages/level01.json", sd);
-  if (loaded) {
-    level_->Initialize(engine_->GetObject3dRenderer(), sd.width, sd.height, sd.tileSize);
-  } else {
-    level_->Initialize(engine_->GetObject3dRenderer(), 16, 16, 1.0f);
-  }
-  player_->AttachLevel(level_);
-
-  // preload models referenced by stage objects
-  if (loaded) {
-    for (const auto &o : sd.objects) {
-      if (!o.model.empty()) {
-        std::string m = ModelManager::ResolveModelPath(o.model);
-        ModelManager::GetInstance()->LoadModel(m);
-      }
-    }
-  }
-
-  // spawn objects from stage (simple mapping)
-  static uint32_t nextId = 1;
-  player_->SetLayer(CollisionMask::Player);
-  player_->SetId(nextId++);
-  if (loaded) {
-    for (const auto &o : sd.objects) {
-      std::string cls = o.className;
-      if (cls == "Hazard") {
-        float radius = (o.scale.x > 0.0f) ? (o.scale.x * 0.5f) : 0.5f;
-        level_->AddHazard(o.position, radius);
-      } else if (cls == "Goal") {
-        if (!goal_) {
-          goal_ = new Goal();
-          goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
-        }
-      } else if (cls == "Stick") {
-        if (!stick_) {
-          stick_ = new Stick();
-          stick_->Initialize(engine_->GetObject3dRenderer(), o.position);
-          stick_->SetLevel(level_);
-          stick_->SetLayer(CollisionMask::Item);
-          stick_->SetId(nextId++);
-        }
-      } else if (cls == "Npc") {
-        if (!npc_) {
-          npc_ = new Npc();
-          npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
-          npc_->SetNavGrid(&level_->GetNavGrid());
-          npc_->SetLayer(CollisionMask::NPC);
-          npc_->SetId(nextId++);
-          // apply behavior property if provided in stage
-          auto it = o.properties.find("behavior");
-          if (it != o.properties.end()) {
-            npc_->SetBehavior(it->second);
-            try { Logger::Log(std::format("Npc spawn behavior='{}'\n", it->second)); } catch(...) {}
-          }
-        }
-      }
+    if (loaded) {
+        // ロード成功時はJSON内のグリッド設定で初期化
+        level_->Initialize(engine_->GetObject3dRenderer(), sd.width, sd.height, sd.tileSize);
+    } else {
+        // ロード失敗時はデフォルト設定で初期化
+        level_->Initialize(engine_->GetObject3dRenderer(), 16, 16, 1.0f);
     }
 
-    // tile collision -> create wall AABBs
-    if (!sd.collision.empty()) {
-      for (int z = 0; z < sd.height; ++z) {
-        for (int x = 0; x < sd.width; ++x) {
-          int idx = z * sd.width + x;
-          if (idx >= 0 && idx < (int)sd.collision.size() && sd.collision[idx] != 0) {
-            const auto &nav = level_->GetNavGrid();
-            Vector3 center = nav.TileCenter(x, z);
-            float hs = sd.tileSize * 0.5f;
-            Vector3 min = { center.x - hs, 0.0f, center.z - hs };
-            Vector3 max = { center.x + hs, 2.0f, center.z + hs };
-            level_->AddWallAABB(min, max, true, 0, 0);
-          }
-        }
-      }
-      level_->RebuildWallGrid();
+    // --- フォールバック生成 (シーン側で個別初期化を行う) ---
+    static uint32_t nextId = 1;
+
+    // プレイヤー生成（フォールバック）
+    if (!player_) {
+        player_ = new Player();
+        player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
+        player_->SetLayer(CollisionMask::Player);
+        player_->AttachCameraImmediate(camera_);
+        player_->SetId(nextId++);
+        player_->AttachLevel(level_);
+        Logger::Log("[Scene] Fallback: spawned Player\n");
     }
-  } else {
-    // fallback: create default NPC / Stick / Goal as before
-    npc_ = new Npc();
-    npc_->Initialize(engine_->GetObject3dRenderer(), { -2.0f, 0.0f, 2.0f });
-    npc_->SetNavGrid(&level_->GetNavGrid());
-    npc_->SetLayer(CollisionMask::NPC);
-    npc_->SetId(nextId++);
-    stick_ = new Stick();
-    stick_->Initialize(engine_->GetObject3dRenderer(), { 0.0f, 0.0f, 2.0f });
-    stick_->SetLevel(level_);
-    stick_->SetLayer(CollisionMask::Item);
-    stick_->SetId(nextId++);
-    goal_ = new Goal();
-    goal_->Initialize(engine_->GetObject3dRenderer(), { 8.0f, 0.0f, 0.0f });
-  }
 
-  // モデルの読み込み
+    // 棒(Stick)生成（フォールバック）
+    if (!stick_) {
+        Vector3 sp = { 0.0f, 0.1f, 2.0f };
+        if (player_) {
+            const Vector3& pp = player_->GetPosition();
+            sp = { pp.x + 0.6f, pp.y + 0.1f, pp.z + 0.6f };
+        }
+        stick_ = new Stick();
+        stick_->Initialize(engine_->GetObject3dRenderer(), sp);
+        stick_->SetLevel(level_);
+        stick_->SetLayer(CollisionMask::Item);
+        stick_->SetId(nextId++);
+        Logger::Log("[Scene] Fallback: spawned Stick\n");
+    }
 
-  // オブジェクトの生成と初期化
+    // ゴール生成（フォールバック）
+    if (!goal_) {
+        goal_ = new Goal();
+        goal_->Initialize(engine_->GetObject3dRenderer(), { 8.0f, 0.0f, 0.0f });
+        Logger::Log("[Scene] Fallback: spawned Goal\n");
+    }
 
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
+    // --- ステージ情報のログ出力 ---
+    if (loaded) {
+        for (const auto& o : sd.objects) {
+            try {
+                Logger::Log(std::format("[StageObjects] type='{}' class='{}' model='{}' id={}\n", o.type, o.className, o.model, o.id));
+            } catch (...) {
+                Logger::Log("[StageObjects] (format error)\n");
+            }
+            try {
+                Logger::Log(std::format("[Scene] object class='{}' pos=({:.2f},{:.2f},{:.2f}) id={}\n", o.className, o.position.x, o.position.y, o.position.z, o.id));
+            } catch (...) {
+                Logger::Log(std::string("[Scene] object class='") + o.className + "'\n");
+            }
+        }
+    }
+
+    // --- オブジェクト・アクターの生成 ---
+    // JSON はマップ（タイル／コリジョン）のみを供給し、個々のオブジェクト生成は
+    // 各クラス／初期化処理側で行うように変更しました。
+    if (loaded) {
+        // タイルマップに基づく壁コリジョンの生成
+        if (!sd.collision.empty()) {
+            for (int z = 0; z < sd.height; ++z) {
+                for (int x = 0; x < sd.width; ++x) {
+                    int idx = z * sd.width + x;
+                    if (idx >= 0 && idx < (int)sd.collision.size() && sd.collision[idx] != 0) {
+                        const auto& nav = level_->GetNavGrid();
+                        Vector3 center = nav.TileCenter(x, z);
+                        float hs = sd.tileSize * 0.5f;
+                        Vector3 min = { center.x - hs, 0.0f, center.z - hs };
+                        Vector3 max = { center.x + hs, 2.0f, center.z + hs };
+                        level_->AddWallAABB(min, max, true, 0, 0);
+                    }
+                }
+            }
+            // 壁データをグリッドに反映
+            level_->RebuildWallGrid();
+        }
+    }
 }
 
-void GamePlayScene::Finalize() {
-  // clear owner ids before deleting actors to avoid stale references in level
-  if (level_) {
-    if (player_) level_->ClearOwnerId(player_->GetId());
-    if (npc_) level_->ClearOwnerId(npc_->GetId());
-    if (stick_) level_->ClearOwnerId(stick_->GetId());
-  }
+// ---------------------------------------------------------
+// 終了処理
+// ---------------------------------------------------------
+void GamePlayScene::Finalize()
+{
+    // オブジェクト破棄前に、レベルに登録されたID参照をクリア
+    if (level_) {
+        if (player_)
+            level_->ClearOwnerId(player_->GetId());
+        if (npc_)
+            level_->ClearOwnerId(npc_->GetId());
+        if (stick_)
+            level_->ClearOwnerId(stick_->GetId());
+    }
 
-  delete debugCamera_;
-  debugCamera_ = nullptr;
+    // メモリの解放
+    delete debugCamera_;
+    debugCamera_ = nullptr;
 
-  delete camera_;
-  camera_ = nullptr;
+    delete camera_;
+    camera_ = nullptr;
 
-  delete player_;
-  player_ = nullptr;
-  delete npc_;
-  npc_ = nullptr;
-  delete stick_;
-  stick_ = nullptr;
-  delete goal_;
-  goal_ = nullptr;
-  delete level_;
-  level_ = nullptr;
+    delete player_;
+    player_ = nullptr;
+    delete npc_;
+    npc_ = nullptr;
+    delete stick_;
+    stick_ = nullptr;
+    delete goal_;
+    goal_ = nullptr;
+    delete level_;
+    level_ = nullptr;
 }
 
-void GamePlayScene::Update() {
+// ---------------------------------------------------------
+// フレーム更新
+// ---------------------------------------------------------
+void GamePlayScene::Update()
+{
+    // オーディオ更新
+    SoundManager::GetInstance()->Update();
 
-  // Sound更新
-  SoundManager::GetInstance()->Update();
+    // デバッグ用：Enterでタイトル(DEBUGシーン)へ
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+        SceneManager::GetInstance()->ChangeScene("DEBUG");
+    }
 
-  // タイトルシーンへ移行
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    SceneManager::GetInstance()->ChangeScene("DEBUG");
-  }
+    // Pキーでデバッグカメラをトグル
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+        useDebugCamera_ = !useDebugCamera_;
+    }
 
-  // デバッグカメラ切り替え
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+    // --- 1. アクターと環境の更新 ---
+    if (player_)
+        player_->Update(1.0f / 60.0f);
+    if (level_)
+        level_->Update(1.0f / 60.0f);
+
+    // --- 2. NPCのAI制御 ---
+    if (npc_) {
+        Vector3 targetPos = { 0.0f, 0.0f, 0.0f };
+        const std::string& beh = npc_->GetBehavior();
+
+        // ビヘイビアに応じた目標地点の設定
+        if (beh == "followPlayer") {
+            if (player_)
+                targetPos = player_->GetPosition();
+        } else if (beh == "gotoGoal") {
+            if (goal_)
+                targetPos = goal_->GetPosition();
+            else if (player_)
+                targetPos = player_->GetPosition();
+        } else if (beh == "idle") {
+            targetPos = npc_->GetPosition();
+        } else {
+            // デフォルト：プレイヤーかゴールの位置を目指す
+            if (player_)
+                targetPos = player_->GetPosition();
+            if (goal_)
+                targetPos = goal_->GetPosition();
+        }
+        npc_->Update(1.0f / 60.0f, targetPos, *level_);
+    }
+
+    // --- 3. 木の棒(Stick)の拾う・置く処理 ---
+    auto input = engine_->GetInputManager();
+    if (input && stick_) {
+        if (input->IsTriggerKey(DIK_E)) {
+            if (!stick_->IsHeld()) {
+                // 未保持：プレイヤーが存在する場合のみ距離をチェックして拾う
+                if (player_) {
+                    const Vector3& pp = player_->GetPosition();
+                    const Vector3& sp = stick_->GetPosition();
+                    float dx = pp.x - sp.x;
+                    float dy = pp.y - sp.y;
+                    float dz = pp.z - sp.z;
+                    float dist2 = dx * dx + dy * dy + dz * dz;
+                    const float pickupRadius = 1.5f;
+
+                    if (dist2 <= pickupRadius * pickupRadius) {
+                        stick_->PickUpExternal();
+                        stick_->SetHeld(true);
+                        Logger::Log("Stick picked up.");
+                    }
+                }
+            } else {
+                // 保持中：プレイヤーがいる場合は目の前に置く。いない場合は現位置に置く。
+                stick_->DropExternal();
+                stick_->SetHeld(false);
+                Vector3 dropPos;
+                if (player_) {
+                    Vector3 p = player_->GetPosition();
+                    dropPos = { p.x + 0.6f, p.y + 0.3f, p.z + 0.6f };
+                } else {
+                    dropPos = stick_->GetPosition();
+                }
+
+                // 地面に接地させ、壁への埋まりを解消
+                float hitY;
+                if (level_ && level_->RaycastDown({ dropPos.x, dropPos.y + 1.0f, dropPos.z }, 2.0f, hitY)) {
+                    dropPos.y = hitY;
+                } else {
+                    dropPos.y = 0.0f;
+                }
+                if (level_)
+                    level_->ResolveCollision(dropPos, 0.3f, true);
+                stick_->SetPosition(dropPos);
+                Logger::Log("Stick dropped.");
+            }
+        }
+    }
+
+    // --- 4. オブジェクトの状態更新 ---
+    if (stick_) {
+        stick_->Update(1.0f / 60.0f);
+        stick_->UpdateCollisionTimer(1.0f / 60.0f);
+    }
+    if (goal_)
+        goal_->Update(1.0f / 60.0f);
+
+    // --- 5. カメラの状態確定 ---
+    GameCamera* activeCamera = nullptr;
     if (useDebugCamera_) {
-      useDebugCamera_ = false;
+        debugCamera_->Update(*engine_->GetInputManager());
+        activeCamera = debugCamera_->GetCamera();
     } else {
-      useDebugCamera_ = true;
+        if (camera_)
+            camera_->Update();
+        activeCamera = camera_;
     }
-  }
 
-  //=======================
-  // スプライトの更新
-  //=======================
-
-  //=======================
-  // 3Dオブジェクトの更新
-  //=======================
-
-  // カメラ更新はプレイヤーの Update() 後に行う（プレイヤーがカメラを制御するため）
-
-  // update player
-  if (player_) player_->Update(1.0f / 60.0f);
-  if (level_) level_->Update(1.0f / 60.0f);
-  // NPC target selection: behavior from stage properties can override default
-  if (npc_) {
-    Vector3 targetPos = {0.0f, 0.0f, 0.0f};
-    const std::string &beh = npc_->GetBehavior();
-    if (beh == "followPlayer") {
-      if (player_) targetPos = player_->GetPosition();
-    } else if (beh == "gotoGoal") {
-      if (goal_) targetPos = goal_->GetPosition();
-      else if (player_) targetPos = player_->GetPosition();
-    } else if (beh == "idle") {
-      targetPos = npc_->GetPosition();
-    } else {
-      // default: prefer goal position if present, otherwise follow player
-      if (player_) targetPos = player_->GetPosition();
-      if (goal_) targetPos = goal_->GetPosition();
-    }
-    npc_->Update(1.0f / 60.0f, targetPos, *level_);
-  }
-  // handle pickup / drop input (E)
-  auto input = engine_->GetInputManager();
-  if (input && stick_) {
-    // trigger key pressed this frame
-    if (input->IsTriggerKey(DIK_E)) {
-      // if not held, try pickup when close enough
-      if (!stick_->IsHeld()) {
-        const Vector3 &pp = player_->GetPosition();
-        const Vector3 &sp = stick_->GetPosition();
-        float dx = pp.x - sp.x;
-        float dy = pp.y - sp.y;
-        float dz = pp.z - sp.z;
-        float dist2 = dx*dx + dy*dy + dz*dz;
-        const float pickupRadius = 1.5f;
-        if (dist2 <= pickupRadius*pickupRadius) {
-          stick_->PickUpExternal();
-          stick_->SetHeld(true);
-          Logger::Log("Stick picked up.");
-        }
+    // レンダラに現在有効なカメラを渡す
+    if (forceFixedCamera_) {
+        // 固定カメラモードの場合
+        if (camera_) {
+            camera_->SetRotate({ 0.3f, 0.0f, 0.0f });
+            camera_->SetTranslate({ 0.0f, 4.0f, -10.0f });
+            camera_->Update();
+            engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
         } else {
-        // drop in front of player
-        stick_->DropExternal();
-        stick_->SetHeld(false);
-        Vector3 p = player_->GetPosition();
-        // simple forward offset
-        Vector3 dropPos = { p.x + 0.6f, p.y + 0.3f, p.z + 0.6f };
-        // snap to ground using level raycast
-        float hitY;
-        if (level_ && level_->RaycastDown({ dropPos.x, dropPos.y + 1.0f, dropPos.z }, 2.0f, hitY)) {
-          dropPos.y = hitY;
-        } else {
-          dropPos.y = 0.0f;
+            static GameCamera fixed;
+            fixed.SetRotate({ 0.3f, 0.0f, 0.0f });
+            fixed.SetTranslate({ 0.0f, 4.0f, -10.0f });
+            fixed.Update();
+            engine_->GetObject3dRenderer()->SetDefaultCamera(&fixed);
         }
-        stick_->SetPosition(dropPos);
-        // after placing ensure no penetration with walls
-        if (level_) level_->ResolveCollision(dropPos, 0.3f, true);
-        stick_->SetPosition(dropPos);
-        Logger::Log("Stick dropped.");
-      }
-    }
-  }
-  if (stick_) stick_->Update(1.0f / 60.0f);
-  // update stick collision timer to re-enable collision after drop
-  if (stick_) stick_->UpdateCollisionTimer(1.0f / 60.0f);
-  // update stick collision timer to re-enable collision after drop
-  if (stick_) stick_->UpdateCollisionTimer(1.0f / 60.0f);
-  if (goal_) goal_->Update(1.0f / 60.0f);
-
-  //=======================
-  // カメラの更新（プレイヤー更新の後に行う）
-  //=======================
-  GameCamera *activeCamera = nullptr;
-
-  if (useDebugCamera_) {
-    debugCamera_->Update(*engine_->GetInputManager());
-    activeCamera = debugCamera_->GetCamera();
-  } else {
-    // update scene camera state from stored values (player may have attached/modified it)
-    if (camera_) camera_->Update();
-    activeCamera = camera_;
-  }
-
-  // debug: log camera/player positions to help diagnose camera jumps
-  if (activeCamera) {
-    try {
-      const Vector3 &cpos = activeCamera->GetTranslate();
-      const Vector3 &crot = activeCamera->GetRotate();
-      Vector3 ppos = {0.0f, 0.0f, 0.0f};
-      if (player_) ppos = player_->GetPosition();
-      Logger::Log(std::format("[CameraDebug] cam=({:.3f},{:.3f},{:.3f}) rot=({:.3f},{:.3f},{:.3f}) player=({:.3f},{:.3f},{:.3f})\n",
-                              cpos.x, cpos.y, cpos.z,
-                              crot.x, crot.y, crot.z,
-                              ppos.x, ppos.y, ppos.z));
-    } catch(...) {}
-  }
-
-  // アクティブカメラを描画で使用する
-  if (forceFixedCamera_) {
-    // Use the scene camera if available (persistent), otherwise use a static
-    // fallback camera. Previously we used a local automatic GameCamera which
-    // produced a dangling pointer when Draw() ran — avoid that.
-    if (camera_) {
-      camera_->SetRotate({0.3f, 0.0f, 0.0f});
-      camera_->SetTranslate({0.0f, 4.0f, -10.0f});
-      camera_->Update();
-      engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
     } else {
-      static GameCamera fixed;
-      fixed.SetRotate({0.3f, 0.0f, 0.0f});
-      fixed.SetTranslate({0.0f, 4.0f, -10.0f});
-      fixed.Update();
-      engine_->GetObject3dRenderer()->SetDefaultCamera(&fixed);
+        engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
     }
-  } else {
-    engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
-  }
 
-  // if stick is held, follow the player (hold offset)
-  if (stick_ && stick_->IsHeld() && player_) {
-    const Vector3 &pp = player_->GetPosition();
-    Vector3 holdPos = { pp.x + 0.5f, pp.y + 1.0f, pp.z }; // right/above player
-    stick_->SetPosition(holdPos);
-    stick_->SetRotation({ -0.6f, 0.0f, 0.5f });
-  }
-
-  // goal check
-  if (goal_ && player_) {
-    const Vector3 &gp = goal_->GetPosition();
-    const Vector3 &pp = player_->GetPosition();
-    float dx = gp.x - pp.x; float dy = gp.y - pp.y; float dz = gp.z - pp.z;
-    float d2 = dx*dx + dy*dy + dz*dz;
-    const float goalRadius = 1.2f;
-    if (d2 <= goalRadius*goalRadius && !goalReached_) {
-      goalReached_ = true;
-      Logger::Log("Goal reached!");
-      // small delay could be added; for now change scene once
-      SceneManager::GetInstance()->ChangeScene("DEBUG");
+    // --- 6. 掴んでいる棒をプレイヤーに追従させる ---
+    if (stick_ && stick_->IsHeld() && player_) {
+        const Vector3& pp = player_->GetPosition();
+        Vector3 holdPos = { pp.x + 0.5f, pp.y + 1.0f, pp.z };
+        stick_->SetPosition(holdPos);
+        stick_->SetRotation({ -0.6f, 0.0f, 0.5f });
     }
-  }
 
-  // NPC reaching goal should also satisfy goal check
-  if (goal_ && npc_) {
-    const Vector3 &gp = goal_->GetPosition();
-    const Vector3 &np = npc_->GetPosition();
-    float dx = gp.x - np.x; float dy = gp.y - np.y; float dz = gp.z - np.z;
-    float d2 = dx*dx + dy*dy + dz*dz;
-    const float goalRadius = 1.2f;
-    if (d2 <= goalRadius*goalRadius && !goalReached_) {
-      goalReached_ = true;
-      Logger::Log("Goal reached by NPC!");
-      SceneManager::GetInstance()->ChangeScene("DEBUG");
+    // --- 7. ゴール(勝利)判定 ---
+    if (goal_ && !goalReached_) {
+        const float goalRadius = 1.2f;
+        const Vector3& gp = goal_->GetPosition();
+
+        // プレイヤーがゴールに接触
+        if (player_) {
+            const Vector3& pp = player_->GetPosition();
+            float dx = gp.x - pp.x;
+            float dy = gp.y - pp.y;
+            float dz = gp.z - pp.z;
+            if ((dx * dx + dy * dy + dz * dz) <= goalRadius * goalRadius) {
+                goalReached_ = true;
+                Logger::Log("Goal reached by Player!");
+                SceneManager::GetInstance()->ChangeScene("DEBUG");
+            }
+        }
+        // NPCがゴールに接触 (NPC救出目標などの想定)
+        if (!goalReached_ && npc_) {
+            const Vector3& np = npc_->GetPosition();
+            float dx = gp.x - np.x;
+            float dy = gp.y - np.y;
+            float dz = gp.z - np.z;
+            if ((dx * dx + dy * dy + dz * dz) <= goalRadius * goalRadius) {
+                goalReached_ = true;
+                Logger::Log("Goal reached by NPC!");
+                SceneManager::GetInstance()->ChangeScene("DEBUG");
+            }
+        }
     }
-  }
 }
 
-void GamePlayScene::Draw() {
-  Draw3D();
-  Draw2D();
+// ---------------------------------------------------------
+// 描画処理
+// ---------------------------------------------------------
+void GamePlayScene::Draw()
+{
+    Draw3D();
+    Draw2D();
 }
 
-void GamePlayScene::Draw3D() {
-  engine_->Begin3D();
+// ---------------------------------------------------------
+// 3D描画
+// ---------------------------------------------------------
+void GamePlayScene::Draw3D()
+{
+    engine_->Begin3D();
 
-  // ここから下で3DオブジェクトのDrawを呼ぶ
-  if (player_) player_->Draw();
-  if (level_) level_->Draw();
-  if (npc_) npc_->Draw();
-  if (stick_) stick_->Draw();
-  if (goal_) goal_->Draw();
+    // 描画順：レベル環境 -> 各種アクター
+    if (player_)
+        player_->Draw();
+    if (level_)
+        level_->Draw();
+    if (npc_)
+        npc_->Draw();
+    if (stick_)
+        stick_->Draw();
+    if (goal_)
+        goal_->Draw();
 }
 
-void GamePlayScene::Draw2D() {
-  engine_->Begin2D();
-
-  // ここから下で2DオブジェクトのDrawを呼ぶ
+// ---------------------------------------------------------
+// 2D描画
+// ---------------------------------------------------------
+void GamePlayScene::Draw2D()
+{
+    engine_->Begin2D();
+    // UIやスコア表示などをここに記述
 }

@@ -363,6 +363,23 @@ bool StageLoader::LoadStage(const std::string& path, StageData& out)
                 o.properties = props;
 
             out.objects.push_back(o);
+            
+            // try to parse optional OBB data if present in object (keys: obb_center, obb_halfExtents, obb_yaw)
+            // Note: ExtractFloatArrayFromObject/ExtractNumberValue operate on the object string `b`.
+            // This allows JSON like: "obb_center": [x,y,z], "obb_halfExtents": [x,y,z], "obb_yaw": 0.785
+            {
+                Vector3 tmpv;
+                if (ExtractFloatArrayFromObject(b, "obb_center", tmpv)) {
+                    out.objects.back().obbCenter = tmpv;
+                }
+                if (ExtractFloatArrayFromObject(b, "obb_halfExtents", tmpv)) {
+                    out.objects.back().obbHalfExtents = tmpv;
+                }
+                float yawv;
+                if (ExtractNumberValue(b, "obb_yaw", yawv)) {
+                    out.objects.back().obbYaw = yawv;
+                }
+            }
         }
     }
 

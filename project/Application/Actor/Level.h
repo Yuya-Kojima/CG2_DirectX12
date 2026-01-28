@@ -1,74 +1,150 @@
 #pragma once
 #include "Math/Vector3.h"
-#include <vector>
-#include <memory>
 #include "Navigation/NavigationGrid.h"
+#include <memory>
+#include <vector>
+#include <string>
+#include <cstdint>
 
+// 前方宣言
 class Object3d;
 class Object3dRenderer;
 class Hazard;
 
+/// <summary>
+/// ゲームフィールド（レベル）を管理するクラス。
+/// 床タイルの生成、壁のAABB衝突判定、ハザードの配置、ナビグリッドの構築を担当します。
+/// </summary>
 class Level {
 public:
-    struct AABB { Vector3 min; Vector3 max; uint32_t ownerLayer = 0; uint32_t ownerId = 0; };
+    /// <summary> 軸に平行な境界ボックス（AABB）構造体 </summary>
+    struct AABB {
+        Vector3 min; // 最小座標 (左下奥)
+        Vector3 max; // 最大座標 (右上前)
+        uint32_t ownerLayer = 0; // 所有者のレイヤー
+        uint32_t ownerId = 0; // 所有者の個別ID
+    };
 
-    // 初期化: Object3dRenderer を渡して床タイルのグリッドを生成
+    /// <summary> 回転を持つ境界ボックス（XZ平面での回転のみを扱う） </summary>
+    struct OBB {
+        Vector3 center;       // 中心座標
+        Vector3 halfExtents;  // 半幅 (x, y, z)
+        float yaw = 0.0f;     // Y軸回りの回転角（ラジアン）
+        uint32_t ownerLayer = 0;
+        uint32_t ownerId = 0;
+    };
+
+    // ---------------------------------------------------------
+    // 基本システムメソッド
+    // ---------------------------------------------------------
+
+    /// <summary>
+    /// レベルの初期化。床タイルの生成と外周の壁を構築します。
+    /// </summary>
     void Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float tileSize);
+
+    /// <summary> 毎フレームの更新（可視範囲のタイルやハザードの更新） </summary>
     void Update(float dt);
+
+    /// <summary> レベル内の全オブジェクトを描画 </summary>
     void Draw();
 
-    // XZ 範囲内に位置を保持（半径分のマージン込み）
+    // ---------------------------------------------------------
+    // 衝突判定・境界チェック
+    // ---------------------------------------------------------
+
+    /// <summary> 指定した位置をレベルのXZ境界内に収めます（押し出し） </summary>
     void KeepInsideBounds(Vector3& pos, float halfSize) const;
 
-    // 球(中心 pos, 半径) と壁 AABB 群の衝突を解決（XZ 平面）
-    // considerCollision: if false, the call is a no-op (used for held objects)
+    /// <summary> 球体と壁の衝突を解決し、位置を補正します </summary>
     void ResolveCollision(Vector3& pos, float radius, bool considerCollision = true) const;
+
+    /// <summary> ハザード（危険物）に触れているか判定します </summary>
     bool IsHazardHit(const Vector3& pos, float radius) const;
+
+    /// <summary> 新しいハザードを追加します </summary>
     void AddHazard(const Vector3& pos, float radius);
 
-    // 指定範囲に重なる壁 AABB を列挙します。
+    /// <summary> 回転付きOBBを追加します（視覚表示は省略可能） </summary>
+    void AddWallOBB(const OBB& obb, bool visual = false);
+
+    // ---------------------------------------------------------
+    // クエリ・空間分割
+    // ---------------------------------------------------------
+
+    /// <summary> 指定範囲内にある壁のAABBリストを取得します </summary>
     void QueryWalls(const Vector3& qmin, const Vector3& qmax, std::vector<const AABB*>& out) const;
-    // オプション付き Query: ignoreId が 0 でない場合、その ownerId を持つ壁は無視します
+
+    /// <summary> 指定範囲内にある回転付きOBBのリストを取得します（XZ平面回転のみ） </summary>
+    void QueryOBBs(const Vector3& qmin, const Vector3& qmax, std::vector<const OBB*>& out) const;
+
+    /// <summary> 特定のIDを無視して、範囲内の壁AABBリストを取得します </summary>
     void QueryWalls(const Vector3& qmin, const Vector3& qmax, std::vector<const AABB*>& out, uint32_t ignoreId) const;
 
-    // 下方向にレイキャストして床面や壁の上面を検出
+    /// <summary> 下方向へレイを飛ばし、床や壁の天面の高さを取得します </summary>
     bool RaycastDown(const Vector3& origin, float maxDist, float& hitY) const;
+
+    // ---------------------------------------------------------
+    // アクセッサ
+    // ---------------------------------------------------------
 
     float GetMinX() const { return minX_; }
     float GetMaxX() const { return maxX_; }
     float GetMinZ() const { return minZ_; }
     float GetMaxZ() const { return maxZ_; }
 
-    // 壁 AABB の追加
-    // ownerLayer: 所有者を示すレイヤーマスク (0 = none)
-    // ownerId: 所有者の一意な ID (0 = none)
-    void AddWallAABB(const Vector3& min, const Vector3& max, bool visual, uint32_t ownerLayer = 0, uint32_t ownerId = 0);
-    // clear ownerId from any AABB that references the given id
+    // ---------------------------------------------------------
+    // 動的な壁の管理
+    // ---------------------------------------------------------
+
+    /// <summary> 壁AABBを追加します。visualがtrueならCubeモデルも生成します。
+    /// visualModelが指定されていればそのモデルを表示用に使用します。 </summary>
+    void AddWallAABB(const Vector3& min, const Vector3& max, bool visual, uint32_t ownerLayer = 0, uint32_t ownerId = 0, const std::string& visualModel = "");
+
+    /// <summary> 指定IDを持つ壁の所有権を解除します </summary>
     void ClearOwnerId(uint32_t id);
-    // remove all wall AABBs that were registered for the given owner id
+
+    /// <summary> 指定IDに関連付けられた壁をすべて削除します </summary>
     void RemoveWallsByOwnerId(uint32_t ownerId);
-    // rebuild internal wall grid after dynamic wall changes
+    /// <summary> 指定IDに関連付けられたOBBをすべて削除します </summary>
+    void RemoveOBBsByOwnerId(uint32_t ownerId);
+
+    /// <summary> 空間分割グリッドを再構築します（動的な壁変更後に呼び出し） </summary>
     void RebuildWallGrid();
-    // Navigation grid
+
+    // ---------------------------------------------------------
+    // ナビゲーション
+    // ---------------------------------------------------------
+
+    /// <summary> AIの移動経路計算用のナビグリッドを構築します </summary>
     void BuildNavGrid();
+
+    /// <summary> ナビグリッドへの参照を取得します </summary>
     const NavigationGrid& GetNavGrid() const { return nav_; }
-    NavigationGrid nav_;
+
+    NavigationGrid nav_; // 公開されているナビグリッド実体
 
 private:
-    Object3dRenderer* renderer_ = nullptr;
-    std::vector<std::unique_ptr<Object3d>> floorTiles_;
-    std::vector<std::unique_ptr<Object3d>> wallObjs_;
-    std::vector<AABB> walls_;
-    std::vector<std::unique_ptr<Hazard>> hazards_;
-    int tilesX_ = 0;
-    int tilesZ_ = 0;
-    float tileSize_ = 1.0f;
-    float minX_ = 0.0f, maxX_ = 0.0f;
-    float minZ_ = 0.0f, maxZ_ = 0.0f;
+    // --- 描画・アセット関連 ---
+    Object3dRenderer* renderer_ = nullptr; // レンダラへの参照
+    std::vector<std::unique_ptr<Object3d>> floorTiles_; // 床タイルモデル群
+    std::vector<std::unique_ptr<Object3d>> wallObjs_; // 壁の視覚モデル群
+    std::vector<AABB> walls_; // 衝突判定用AABB群
+    std::vector<OBB> obbs_; // 衝突判定用OBB群（回転あり）
+    std::vector<std::unique_ptr<Hazard>> hazards_; // 危険オブジェクト群
 
-    // 壁グリッドによる簡易加速
-    int gridX_ = 0, gridZ_ = 0;
-    float cellSizeX_ = 1.0f, cellSizeZ_ = 1.0f;
-    std::vector<std::vector<int>> wallGrid_;
+    // --- レベル形状パラメータ ---
+    int tilesX_ = 0; // X方向のタイル数
+    int tilesZ_ = 0; // Z方向のタイル数
+    float tileSize_ = 1.0f; // タイル1枚のサイズ
+    float minX_ = 0.0f, maxX_ = 0.0f; // レベルのX端
+    float minZ_ = 0.0f, maxZ_ = 0.0f; // レベルのZ端
+
+    // --- 空間分割（衝突検知の高速化） ---
+    int gridX_ = 0, gridZ_ = 0; // 分割グリッド数
+    float cellSizeX_ = 1.0f, cellSizeZ_ = 1.0f; // 1セル辺りのサイズ
+    std::vector<std::vector<int>> wallGrid_; // セルごとの壁インデックスリスト
+
+    /// <summary> 内部用：空間分割グリッドの構築メソッド </summary>
     void BuildWallGrid();
 };

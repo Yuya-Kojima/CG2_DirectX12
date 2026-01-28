@@ -6,6 +6,12 @@ struct AABB {
   Vector3 max; // 最大点
 };
 
+struct OBB {
+  Vector3 center;      // 中心点
+  Vector3 halfExtents; // 半辺長
+  float yaw = 0.0f;    // Y回転（ラジアン、XZ平面回転）
+};
+
 struct AccelerationField {
   Vector3 acceleration;
   AABB area; // 範囲

@@ -16,6 +16,10 @@ struct StageObject {
     Vector3 rotation { 0, 0, 0 }; // 回転角
     Vector3 scale { 1, 1, 1 }; // スケール（大きさ）
     bool collision = false; // 衝突判定の有無
+    // optional OBB parameters (parsed from JSON if present)
+    Vector3 obbCenter{0,0,0};
+    Vector3 obbHalfExtents{0,0,0};
+    float obbYaw = 0.0f; // radians
     uint32_t layer = 0; // 衝突レイヤー設定
     uint32_t id = 0; // オブジェクト固有のID
     std::map<std::string, std::string> properties; // カスタムプロパティ（AI行動設定など）

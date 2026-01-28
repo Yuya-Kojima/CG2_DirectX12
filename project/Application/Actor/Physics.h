@@ -16,4 +16,18 @@ void ResolveSphereAabb2D(Vector3& pos, float r, const Vector3& bmin, const Vecto
 // オプション版: `collisionEnabled` が false の場合は何もしません。
 void ResolveSphereAabb2D(Vector3& pos, float r, const Vector3& bmin, const Vector3& bmax, bool collisionEnabled);
 
+//=========================
+// OBB (XZ平面) support
+//=========================
+// OBB は中心、半幅（extent）、Y回転角(yaw) で定義される。XZ平面での球との当たり判定を行う。
+// 静的押し出し（めり込み解消）
+void ResolveSphereObb2D(Vector3& pos, float r, const Vector3& obbCenter, const Vector3& halfExtents, float yaw);
+// オプション版（有効フラグ）
+void ResolveSphereObb2D(Vector3& pos, float r, const Vector3& obbCenter, const Vector3& halfExtents, float yaw, bool collisionEnabled);
+
+// スイープ判定（XZ 平面）: start から delta の移動で衝突するか。衝突時刻 toi と法線 normal を返す。
+bool SweepSphereObb2D(const Vector3& start, const Vector3& delta, float r,
+                      const Vector3& obbCenter, const Vector3& halfExtents, float yaw,
+                      float& toi, Vector3& normal);
+
 } // namespace GamePhysics
