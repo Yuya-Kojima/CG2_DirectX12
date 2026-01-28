@@ -35,6 +35,12 @@ public:
     // 外部から呼び出されるドロップ処理
     void DropExternal();
 
+    // プレイヤーが拾ったときに、プレイヤーのどちら側にあったかを判定する
+    void SetHoldSideFromPlayerPos(const Vector3& playerPos);
+
+    // Get per-player hold offset (x,z) and vertical offset
+    Vector3 GetHoldOffset() const { return Vector3{0.5f * (float)holdSideX, 1.0f, 0.6f}; }
+
     // 現在手に持たれているかどうかを取得
     bool IsHeld() const { return held_; }
     void SetHeld(bool v) { held_ = v; }
@@ -64,6 +70,11 @@ public:
         SetRotation(r);
     }
 
+    const Vector3& GetHeldRotation() const { return heldRotation_; }
+
+    // Adjust held yaw (in radians) while the stick is held
+    void AdjustHeldYaw(float delta);
+
     // 衝突判定無効化タイマーの更新（落とした直後の誤判定防止用）
     void UpdateCollisionTimer(float dt);
 
@@ -72,8 +83,11 @@ public:
     void SetLayer(uint32_t v) { layer_ = v; }
 
     // インスタンスIDの設定・取得
-    void SetId(uint32_t id) { id_ = id; }
+    void SetId(uint32_t id);
     uint32_t GetId() const { return id_; }
+
+    // Public accessor for collision enabled state (for debug/inspection)
+    bool GetCollisionEnabled() const { return collisionEnabled_; }
 
     // 所属するレベル（ステージ）へのポインタを設定
     // SetLevel によって、既に設定されている pos_ を基に床の高さへスナップします。
@@ -104,6 +118,11 @@ private:
     float collisionDisableTimer_ = 0.0f;
     float collisionDisableDuration_ = 0.5f;
 
+    // When dropping we delay adding the OBB to level until collision is re-enabled
+    bool pendingRegister_ = false;
+    Vector3 pendingHalfExtents_ {0.0f, 0.0f, 0.0f};
+    float pendingYaw_ = 0.0f;
+
     // 回転に関するパラメータ
     Vector3 rotation_ { 0, 0, 0 }; // 現在の回転角
     // Default rotations:
@@ -114,4 +133,16 @@ private:
     float rotationLerpSpeed_ = 10.0f; // 角度変化の補間速度
 
     Level* level_ = nullptr; // 所属ステージへの参照
+    // whether an OBB has been registered in the level for this stick
+    // (registeredOwnerId_ contains the id when registered)
+    // --- OBB (oriented bounding box) used by Stick collision ---
+    // ローカルに定義して Stick 固有の当たり判定で利用します。
+    struct StickOBB {
+        Vector3 center;      // 中心点
+        Vector3 halfExtents; // 半辺長 (x:半長, y:半高さ, z:半幅)
+        float yaw = 0.0f;    // Y回転（ラジアン、XZ平面回転）
+    };
+
+    // Which side relative to player the stick should be held on: -1 left, +1 right
+    int holdSideX = 1;
 };

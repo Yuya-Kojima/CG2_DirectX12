@@ -90,9 +90,9 @@ void Player::Initialize(InputKeyState* input, Object3dRenderer* object3dRenderer
         obj_->SetScale({ 1.0f, 1.0f, 1.0f });
         obj_->SetRotation({ 0.0f, rotate_, 0.0f });
         try {
-            Logger::Log(std::format("[Player] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", position_.x, position_.y, position_.z));
+            Logger::Log(std::format("[プレイヤー] 初期化: pos=({:.2f},{:.2f},{:.2f})\n", position_.x, position_.y, position_.z));
         } catch (...) {
-            Logger::Log(std::string("[Player] Initialize: pos=(") + std::to_string(position_.x) + "," + std::to_string(position_.y) + "," + std::to_string(position_.z) + ")\n");
+            Logger::Log(std::string("[プレイヤー] 初期化: pos=(") + std::to_string(position_.x) + "," + std::to_string(position_.y) + "," + std::to_string(position_.z) + ")\n");
         }
     }
 }
@@ -168,6 +168,7 @@ void Player::Update(float dt)
 
             float best_t = 1.0f;
             const Level::AABB* bestA = nullptr;
+            const Level::OBB* bestO = nullptr;
             Vector3 bestN { 0, 0, 0 };
 
             for (const auto* a : candidates) {
@@ -202,7 +203,8 @@ void Player::Update(float dt)
                 if (GamePhysics::SweepSphereObb2D(position_, remaining, halfSize_, o->center, o->halfExtents, o->yaw, toi, normal)) {
                     if (toi >= 0.0f && toi < best_t) {
                         best_t = toi;
-                        bestA = nullptr; // mark that best is an OBB
+                        bestA = nullptr; // clear AABB
+                        bestO = o;       // record OBB
                         bestN = normal;
                     }
                 }
@@ -211,7 +213,7 @@ void Player::Update(float dt)
                 // スイープテスト（移動経路上の衝突確認）
                 float toi = 0.0f;
                 Vector3 normal { 0, 0, 0 };
-                if (GamePhysics::SweepSphereAabb2D(position_, remaining, halfSize_, a->min, a->max, toi, normal)) {
+            if (GamePhysics::SweepSphereAabb2D(position_, remaining, halfSize_, a->min, a->max, toi, normal)) {
                     if (toi >= 0.0f && toi < best_t) {
                         best_t = toi;
                         bestA = a;
@@ -221,7 +223,7 @@ void Player::Update(float dt)
             }
 
             const float kCollisionEps = 1e-3f;
-            if (bestA && best_t > kCollisionEps) {
+            if ((bestA || bestO) && best_t > kCollisionEps) {
                 // 衝突地点まで進む
                 position_.x += remaining.x * best_t;
                 position_.z += remaining.z * best_t;
@@ -243,8 +245,14 @@ void Player::Update(float dt)
                 slide.x -= n.x * d;
                 slide.z -= n.z * d;
 
-                // 浮動小数点誤差による再衝突を防ぐ微調整
-                GamePhysics::ResolveSphereAabb2D(position_, halfSize_, bestA->min, bestA->max);
+                // 衝突対象ごとの再押し出し
+                if (bestA) {
+                    // AABBへの微調整
+                    GamePhysics::ResolveSphereAabb2D(position_, halfSize_, bestA->min, bestA->max);
+                } else if (bestO) {
+                    // OBBへの微調整（回転を考慮）
+                    GamePhysics::ResolveSphereObb2D(position_, halfSize_, bestO->center, bestO->halfExtents, bestO->yaw);
+                }
 
                 remaining = slide;
                 lastNormal = n;
@@ -253,6 +261,18 @@ void Player::Update(float dt)
                 // 衝突がなければそのまま移動
                 position_.x += remaining.x;
                 position_.z += remaining.z;
+                // 移動後にOBBにめり込んでいないか念のためチェックして押し出す
+                for (const auto* o : obbCandidates) {
+                    // 最近接点による粗いチェック
+                    float cx = std::max(o->center.x - o->halfExtents.x, std::min(position_.x, o->center.x + o->halfExtents.x));
+                    float cz = std::max(o->center.z - o->halfExtents.z, std::min(position_.z, o->center.z + o->halfExtents.z));
+                    float dx = position_.x - cx;
+                    float dz = position_.z - cz;
+                    if (dx * dx + dz * dz < halfSize_ * halfSize_) {
+                        GamePhysics::ResolveSphereObb2D(position_, halfSize_, o->center, o->halfExtents, o->yaw);
+                    }
+                }
+
                 remaining.x = remaining.z = 0.0f;
                 break;
             }
