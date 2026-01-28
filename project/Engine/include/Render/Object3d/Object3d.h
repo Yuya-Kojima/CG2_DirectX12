@@ -12,7 +12,7 @@ class Dx12Core;
 
 class Object3dRenderer;
 
-class GameCamera;
+class ICamera;
 
 class Object3d {
 
@@ -113,8 +113,8 @@ private:
   // uint32_t numInstance_{};
 
 private:
-  GameCamera *camera_ = nullptr;
+  const ICamera *camera_ = nullptr;
 
 public:
-  void SetCamera(GameCamera *camera) { this->camera_ = camera; }
+  void SetCamera(const ICamera *camera) { this->camera_ = camera; }
 };

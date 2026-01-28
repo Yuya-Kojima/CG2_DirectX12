@@ -95,7 +95,7 @@ void GamePlayScene::Update() {
   //=======================
   // カメラの更新
   //=======================
-  GameCamera *activeCamera = nullptr;
+  const ICamera *activeCamera = nullptr;
 
   if (useDebugCamera_) {
     debugCamera_->Update(*engine_->GetInputManager());

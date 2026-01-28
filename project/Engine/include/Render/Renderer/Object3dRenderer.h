@@ -2,7 +2,7 @@
 #include "Core/Dx12Core.h"
 #include "Math/MathUtil.h"
 
-class GameCamera;
+class ICamera;
 
 class Object3dRenderer {
 
@@ -42,11 +42,11 @@ private:
   void CreatePSO();
 
 private:
-  GameCamera *defaultCamera = nullptr;
+  const ICamera *defaultCamera = nullptr;
 
 public:
-  void SetDefaultCamera(GameCamera *camera) { defaultCamera = camera; }
-  GameCamera *GetDefaultCamera() const { return defaultCamera; }
+  void SetDefaultCamera(const ICamera *camera) { defaultCamera = camera; }
+  const ICamera *GetDefaultCamera() const { return defaultCamera; }
 
 public:
   struct DirectionalLight {
