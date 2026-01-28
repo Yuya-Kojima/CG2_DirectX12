@@ -1,4 +1,5 @@
 #include "Actor/Level.h"
+#include "Actor/Physics.h"
 #include "Actor/Hazard.h"
 #include "Camera/GameCamera.h"
 #include "Model/ModelManager.h"
@@ -41,7 +42,7 @@ void Level::Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float
         for (int x = -halfX; x <= halfX; ++x) {
             auto obj = std::make_unique<Object3d>();
             obj->Initialize(renderer_);
-            // Use Block model for floor tiles so stage shows block-style floor
+            // 床タイルはブロック風の見た目にするため Block モデルを使用
             ModelManager::GetInstance()->LoadModel("floor.obj");
             obj->SetModel("floor.obj");
             obj->SetScale({ tileSize_, 1.0f, tileSize_ });
@@ -150,8 +151,15 @@ void Level::QueryOBBs(const Vector3& qmin, const Vector3& qmax, std::vector<cons
 {
     out.clear();
     for (const auto& o : obbs_) {
-        if (o.center.x + o.halfExtents.x < qmin.x || o.center.x - o.halfExtents.x > qmax.x) continue;
-        if (o.center.z + o.halfExtents.z < qmin.z || o.center.z - o.halfExtents.z > qmax.z) continue;
+        // conservative AABB in XZ that contains rotated OBB
+        float cy = std::cos(o.yaw);
+        float sy = std::sin(o.yaw);
+        float absCy = std::fabs(cy);
+        float absSy = std::fabs(sy);
+        float extX = absCy * o.halfExtents.x + absSy * o.halfExtents.z;
+        float extZ = absSy * o.halfExtents.x + absCy * o.halfExtents.z;
+        if (o.center.x + extX < qmin.x || o.center.x - extX > qmax.x) continue;
+        if (o.center.z + extZ < qmin.z || o.center.z - extZ > qmax.z) continue;
         if (std::find(out.begin(), out.end(), &o) == out.end()) out.push_back(&o);
     }
 }
@@ -160,6 +168,25 @@ void Level::RemoveOBBsByOwnerId(uint32_t ownerId)
 {
     if (ownerId == 0) return;
     obbs_.erase(std::remove_if(obbs_.begin(), obbs_.end(), [&](const OBB& o) { return o.ownerId == ownerId; }), obbs_.end());
+}
+
+void Level::UpdateOBB(uint32_t ownerId, const Level::OBB& obb)
+{
+    if (ownerId == 0) return;
+
+    // Try to find existing OBB with the same ownerId and update it
+    for (auto& o : obbs_) {
+        if (o.ownerId == ownerId) {
+            o.center = obb.center;
+            o.halfExtents = obb.halfExtents;
+            o.yaw = obb.yaw;
+            o.ownerLayer = obb.ownerLayer;
+            return;
+        }
+    }
+
+    // Not found: add a new one
+    obbs_.push_back(obb);
 }
 
 // ---------------------------------------------------------
@@ -224,6 +251,9 @@ void Level::BuildWallGrid()
             }
         }
     }
+
+    // 注: OBBはここで wallGrid_ に挿入しません。QueryOBBs は obbs_ を直接走査して
+    // 保守的な AABB チェックを行うため、wallGrid_ は軸整列壁専用に保持します。
 }
 
 // ---------------------------------------------------------
@@ -255,9 +285,15 @@ bool Level::RaycastDown(const Vector3& origin, float maxDist, float& hitY) const
 
     // OBB の上面も床候補として扱う（単純に中心のY+半高を上面とする）
     for (const auto& o : obbs_) {
-        // XZ平面の回転を無視した簡易判定: 中心のローカルAABB内にあるか
-        if (origin.x < o.center.x - o.halfExtents.x || origin.x > o.center.x + o.halfExtents.x) continue;
-        if (origin.z < o.center.z - o.halfExtents.z || origin.z > o.center.z + o.halfExtents.z) continue;
+        // XZ平面の回転を考慮した保守的なAABB（conservative AABB）判定
+        float cy = std::cos(o.yaw);
+        float sy = std::sin(o.yaw);
+        float absCy = std::fabs(cy);
+        float absSy = std::fabs(sy);
+        float extX = absCy * o.halfExtents.x + absSy * o.halfExtents.z;
+        float extZ = absSy * o.halfExtents.x + absCy * o.halfExtents.z;
+        if (origin.x < o.center.x - extX || origin.x > o.center.x + extX) continue;
+        if (origin.z < o.center.z - extZ || origin.z > o.center.z + extZ) continue;
         float topY = o.center.y + o.halfExtents.y;
         if (origin.y >= topY && origin.y - maxDist <= topY) {
             if (topY > bestY) bestY = topY;
@@ -403,7 +439,7 @@ void Level::ResolveCollision(Vector3& pos, float radius, bool considerCollision)
 {
     if (!considerCollision)
         return;
-
+    // First resolve against axis-aligned walls (existing behavior)
     for (const auto& aabb : walls_) {
         // AABB内の最も球に近い点を求める
         float cx = std::max(aabb.min.x, std::min(pos.x, aabb.max.x));
@@ -438,6 +474,13 @@ void Level::ResolveCollision(Vector3& pos, float radius, bool considerCollision)
                     pos.z = aabb.max.z + radius;
             }
         }
+    }
+
+    // 次に OBB に対する押し出し（XZ平面回転を考慮）
+    for (const auto& obb : obbs_) {
+        if (!considerCollision) break; // フラグがオフなら処理しない
+        // OBB は Level::OBB を使用。GamePhysics の関数に合わせて変換
+        GamePhysics::ResolveSphereObb2D(pos, radius, obb.center, obb.halfExtents, obb.yaw);
     }
 }
 

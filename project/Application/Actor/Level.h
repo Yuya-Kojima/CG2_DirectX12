@@ -109,6 +109,9 @@ public:
     /// <summary> 指定IDに関連付けられたOBBをすべて削除します </summary>
     void RemoveOBBsByOwnerId(uint32_t ownerId);
 
+    /// <summary> 指定IDに対応する OBB の中心/半幅/yaw を更新します。存在しなければ追加します。 </summary>
+    void UpdateOBB(uint32_t ownerId, const OBB& obb);
+
     /// <summary> 空間分割グリッドを再構築します（動的な壁変更後に呼び出し） </summary>
     void RebuildWallGrid();
 
@@ -123,6 +126,9 @@ public:
     const NavigationGrid& GetNavGrid() const { return nav_; }
 
     NavigationGrid nav_; // 公開されているナビグリッド実体
+
+    // デバッグ用: 登録されている OBB の一覧を取得
+    const std::vector<OBB>& GetOBBs() const { return obbs_; }
 
 private:
     // --- 描画・アセット関連 ---

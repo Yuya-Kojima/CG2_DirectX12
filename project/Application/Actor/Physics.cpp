@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-// Simple 2D rotate (around Y) for XZ plane
+// XZ 平面での Y 軸周りの簡易回転
 static inline Vector3 RotateY(const Vector3& v, float yaw) {
     float c = std::cos(yaw);
     float s = std::sin(yaw);
@@ -13,7 +13,7 @@ static inline Vector3 RotateY(const Vector3& v, float yaw) {
 
 
 static inline Vector3 RotateYInv(const Vector3& v, float yaw) {
-    // inverse rotation equals rotation by -yaw
+    // 逆回転は -yaw 回転と同じ
     float c = std::cos(yaw);
     float s = std::sin(yaw);
     return Vector3{ v.x * c - v.z * s, v.y, v.x * s + v.z * c };
@@ -31,11 +31,11 @@ void ResolveSphereObb2D(Vector3& pos, float r, const Vector3& obbCenter, const V
     // rotate into local (inverse rotation)
     local = RotateYInv(local, yaw);
 
-    // treat as AABB with extents halfExtents.x/ z
+    // ローカル空間では AABB として扱う（半幅は halfExtents.x/z）
     Vector3 bmin{ -halfExtents.x, 0.0f, -halfExtents.z };
     Vector3 bmax{ halfExtents.x, 0.0f, halfExtents.z };
 
-    // clamp in local XZ
+    // ローカル座標で XZ をクランプ
     auto clampf = [](float v, float a, float b) { return std::max(a, std::min(b, v)); };
     float cx = clampf(local.x, bmin.x, bmax.x);
     float cz = clampf(local.z, bmin.z, bmax.z);
@@ -45,12 +45,13 @@ void ResolveSphereObb2D(Vector3& pos, float r, const Vector3& obbCenter, const V
     float rr = r*r;
     if (d2 < rr) {
         float dist = std::sqrt(std::max(0.0001f, d2));
-        float pen = r - dist + 0.001f;
+        // 端で僅かに残る重なりを避けるため、少し余裕を加える
+        float pen = r - dist + 0.02f;
         if (dist > 0.0001f) {
             local.x += (dx / dist) * pen;
             local.z += (dz / dist) * pen;
         } else {
-            // push out along smallest penetration to face
+            // 最小のめり込み量の面方向へ押し出す
             float pushL = std::abs(local.x - bmin.x);
             float pushR = std::abs(bmax.x - local.x);
             float pushB = std::abs(local.z - bmin.z);
@@ -126,8 +127,8 @@ void ResolveSphereAabb2D(Vector3& pos, float r, const Vector3& bmin, const Vecto
     float rr = r*r;
     if (d2 < rr) {
         float dist = std::sqrt(std::max(0.0001f, d2));
-        // 隙間を確保するために少し余分に押し出す（極小のめり込みが繰り返されるのを防ぐ）
-        float pen = r - dist + 0.001f;
+        // Add a slightly larger separation margin to avoid lingering overlap at edges
+        float pen = r - dist + 0.02f;
         if (dist > 0.0001f) {
             pos.x += (dx / dist) * pen;
             pos.z += (dz / dist) * pen;
@@ -137,15 +138,15 @@ void ResolveSphereAabb2D(Vector3& pos, float r, const Vector3& bmin, const Vecto
             float pushB = std::abs(pos.z - bmin.z);
             float pushF = std::abs(bmax.z - pos.z);
             float m = std::min(std::min(pushL, pushR), std::min(pushB, pushF));
-            if (m == pushL) pos.x = bmin.x - r;
-            else if (m == pushR) pos.x = bmax.x + r;
-            else if (m == pushB) pos.z = bmin.z - r;
-            else pos.z = bmax.z + r;
+            if (m == pushL) pos.x = bmin.x - r - 0.02f;
+            else if (m == pushR) pos.x = bmax.x + r + 0.02f;
+            else if (m == pushB) pos.z = bmin.z - r - 0.02f;
+            else pos.z = bmax.z + r + 0.02f;
         }
     }
 }
 
-// overload with enabled flag
+    // 有効フラグ付きのオーバーロード
 void ResolveSphereAabb2D(Vector3& pos, float r, const Vector3& bmin, const Vector3& bmax, bool collisionEnabled) {
     if (!collisionEnabled) return;
     ResolveSphereAabb2D(pos, r, bmin, bmax);
