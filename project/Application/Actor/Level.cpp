@@ -1,6 +1,6 @@
 #include "Actor/Level.h"
 #include "Actor/Hazard.h"
-#include "Camera/GameCamera.h"
+#include "Camera/ICamera.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
@@ -285,7 +285,7 @@ void Level::Update(float dt)
 {
     if (!renderer_)
         return;
-    GameCamera* cam = renderer_->GetDefaultCamera();
+    const ICamera* cam = renderer_->GetDefaultCamera();
     if (!cam)
         return;
 
@@ -312,7 +312,7 @@ void Level::Update(float dt)
 
 void Level::Draw()
 {
-    GameCamera* cam = renderer_ ? renderer_->GetDefaultCamera() : nullptr;
+  const ICamera *cam = renderer_ ? renderer_->GetDefaultCamera() : nullptr;
     Vector3 camPos = cam ? cam->GetTranslate() : Vector3 { 0, 0, 0 };
     const float viewRadius2 = 80.0f * 80.0f;
 
