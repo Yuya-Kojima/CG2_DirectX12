@@ -4,6 +4,7 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
+#include "Debug/Logger.h"
 #include <algorithm>
 
 // Windows等の環境で衝突する可能性のあるマクロを解除
@@ -24,11 +25,34 @@ void Stick::Initialize(Object3dRenderer* renderer, const Vector3& pos)
     obj_->Initialize(renderer_);
 
     // スティック用モデルの読み込みと初期設定
-    std::string m = ModelManager::ResolveModelPath("stick.obj");
-    ModelManager::GetInstance()->LoadModel(m);
-    obj_->SetModel(m);
+    ModelManager::GetInstance()->LoadModel("stick.obj");
+    obj_->SetModel("stick.obj");
     obj_->SetScale({ 0.5f, 0.5f, 0.5f });
+    // Default: lying on the ground horizontally
+    obj_->SetRotation(dropRotation_);
     obj_->SetTranslation(pos_);
+    try {
+        Logger::Log(std::format("[Stick] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", pos_.x, pos_.y, pos_.z));
+    } catch (...) {
+        Logger::Log(std::string("[Stick] Initialize: pos=(") + std::to_string(pos_.x) + "," + std::to_string(pos_.y) + "," + std::to_string(pos_.z) + ")\n");
+    }
+}
+
+void Stick::SetLevel(Level* lvl)
+{
+    level_ = lvl;
+    // Align stick to be on top of the floor: Raycast down from a little above current pos
+    if (level_) {
+        float hitY;
+        if (level_->RaycastDown({ pos_.x, pos_.y + 1.0f, pos_.z }, 2.0f, hitY)) {
+            pos_.y = hitY + 0.1f; // slightly above floor
+        } else {
+            // fallback to default ground
+            pos_.y = 0.1f;
+        }
+        if (obj_)
+            obj_->SetTranslation(pos_);
+    }
 }
 
 void Stick::Update(float dt)
@@ -74,14 +98,18 @@ void Stick::PickUpExternal()
     held_ = true;
     collisionEnabled_ = false; // 持っている間は物理判定を無効化
 
-    // めり込み防止のため、少しだけ上方にオフセット
-    pos_.y += 0.05f;
-    if (obj_)
+    // When picked up, position at player's side / above head depending on caller
+    // Slightly lift so it doesn't intersect body
+    pos_.y += 0.25f;
+    if (obj_) {
         obj_->SetTranslation(pos_);
+        // Rotate to be horizontal above/alongside player
+        obj_->SetRotation(heldRotation_);
+    }
 
     // 地面に置いた際に登録した「壁としての当たり判定」をレベルから削除
     if (level_ && registeredOwnerId_ != 0) {
-        level_->RemoveWallsByOwnerId(registeredOwnerId_);
+        level_->RemoveOBBsByOwnerId(registeredOwnerId_);
         registeredOwnerId_ = 0;
     }
 }
@@ -99,11 +127,21 @@ void Stick::DropExternal()
     // これにより、他のNPCなどがこのアイテムを避けて通るようになります
     if (level_) {
         // スティックの周囲に小さな衝突判定領域(AABB)を作成
-        Vector3 min = { pos_.x - 0.3f, pos_.y - 0.3f, pos_.z - 0.3f };
-        Vector3 max = { pos_.x + 0.3f, pos_.y + 0.3f, pos_.z + 0.3f };
+        // Ensure the stick lies flat on the ground when dropped
+        pos_.y -= 0.15f; // lower slightly to contact ground
+        if (obj_) obj_->SetRotation(dropRotation_);
 
-        // レベルに壁データを追加し、このスティックのIDをオーナーとして紐付け
-        level_->AddWallAABB(min, max, false, layer_, id_);
+        // OBB として登録する: スティックはXZ平面回転のみ考慮
+        Level::OBB obb;
+        obb.center = pos_;
+        // スティックは細長い形状なので、scaleから半幅を推定
+        obb.halfExtents = Vector3 { 0.5f * 0.5f, 0.1f, 0.2f };
+        // Y回転は rotation_.y を使用（ラジアン想定）
+        obb.yaw = rotation_.y;
+        obb.ownerLayer = layer_;
+        obb.ownerId = id_;
+
+        level_->AddWallOBB(obb, false);
         registeredOwnerId_ = id_;
 
         // グリッドを再構築してAIが認識できるようにする

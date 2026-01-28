@@ -8,6 +8,7 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Physics/CollisionSystem.h"
+#include <format>
 #include <algorithm>
 #include <filesystem>
 #include <format>
@@ -53,13 +54,34 @@ void Player::Initialize(InputKeyState* input, Object3dRenderer* object3dRenderer
         obj_->Initialize(object3dRenderer);
 
         // モデルアセットの検索とロード
-        std::vector<std::string> candidates = { "Player", "player.obj", "models/player.obj", "player" };
+        // 優先的に拡張子付きファイル名を試し、クラス名などの生文字列でのResolve呼び出しを減らす
+        std::vector<std::string> candidates = { "player.obj", "models/player.obj", "Player", "player" };
+        bool loadedModel = false;
         for (const auto& c : candidates) {
-            std::string resolved = ModelManager::ResolveModelPath(c);
-            if (resolved != c || std::filesystem::exists(resolved)) {
-                ModelManager::GetInstance()->LoadModel(resolved);
-                obj_->SetModel(resolved);
-                break;
+            if (c.find('.') != std::string::npos || c.find('/') != std::string::npos || c.find('\\') != std::string::npos) {
+                // ファイル名っぽい候補はそのまま解決を試みる
+                std::string resolved = ModelManager::ResolveModelPath(c);
+                if (resolved != c || std::filesystem::exists(resolved)) {
+                    ModelManager::GetInstance()->LoadModel(resolved);
+                    obj_->SetModel(resolved);
+                    loadedModel = true;
+                    break;
+                }
+            } else {
+                // 生のクラス名などの場合は、まず小文字+拡張子で試す（不要な ResolveModelPath のログを減らすため）
+                std::string lower = c;
+                std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) { return std::tolower(ch); });
+                std::vector<std::string> tryList = { lower + ".obj", lower + ".gltf", std::string("models/") + lower + ".obj" };
+                for (const auto& t : tryList) {
+                    std::string resolved = ModelManager::ResolveModelPath(t);
+                    if (resolved != t || std::filesystem::exists(resolved)) {
+                        ModelManager::GetInstance()->LoadModel(resolved);
+                        obj_->SetModel(resolved);
+                        loadedModel = true;
+                        break;
+                    }
+                }
+                if (loadedModel) break;
             }
         }
 
@@ -67,6 +89,11 @@ void Player::Initialize(InputKeyState* input, Object3dRenderer* object3dRenderer
         obj_->SetTranslation(position_);
         obj_->SetScale({ 1.0f, 1.0f, 1.0f });
         obj_->SetRotation({ 0.0f, rotate_, 0.0f });
+        try {
+            Logger::Log(std::format("[Player] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", position_.x, position_.y, position_.z));
+        } catch (...) {
+            Logger::Log(std::string("[Player] Initialize: pos=(") + std::to_string(position_.x) + "," + std::to_string(position_.y) + "," + std::to_string(position_.z) + ")\n");
+        }
     }
 }
 
@@ -135,6 +162,10 @@ void Player::Update(float dt)
             std::vector<const Level::AABB*> candidates;
             level_->QueryWalls(qmin, qmax, candidates);
 
+            // OBB も検索して候補に加える
+            std::vector<const Level::OBB*> obbCandidates;
+            level_->QueryOBBs(qmin, qmax, obbCandidates);
+
             float best_t = 1.0f;
             const Level::AABB* bestA = nullptr;
             Vector3 bestN { 0, 0, 0 };
@@ -151,6 +182,31 @@ void Player::Update(float dt)
                     best_t = 1.0f;
                     continue;
                 }
+
+            // OBB 候補に対する処理
+            for (const auto* o : obbCandidates) {
+                // まずめり込みの即時解決
+                // 近似的にローカルAABBでの最近接点を求める（回転は無視せず GamePhysics を使う）
+                float cx = std::max(o->center.x - o->halfExtents.x, std::min(position_.x, o->center.x + o->halfExtents.x));
+                float cz = std::max(o->center.z - o->halfExtents.z, std::min(position_.z, o->center.z + o->halfExtents.z));
+                float dx = position_.x - cx;
+                float dz = position_.z - cz;
+                if (dx * dx + dz * dz < halfSize_ * halfSize_) {
+                    GamePhysics::ResolveSphereObb2D(position_, halfSize_, o->center, o->halfExtents, o->yaw);
+                    continue;
+                }
+
+                // スイープテスト
+                float toi = 0.0f;
+                Vector3 normal { 0, 0, 0 };
+                if (GamePhysics::SweepSphereObb2D(position_, remaining, halfSize_, o->center, o->halfExtents, o->yaw, toi, normal)) {
+                    if (toi >= 0.0f && toi < best_t) {
+                        best_t = toi;
+                        bestA = nullptr; // mark that best is an OBB
+                        bestN = normal;
+                    }
+                }
+            }
 
                 // スイープテスト（移動経路上の衝突確認）
                 float toi = 0.0f;

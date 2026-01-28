@@ -2,6 +2,8 @@
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Model/ModelManager.h"
+#include "Debug/Logger.h"
+#include <format>
 
 void Goal::Initialize(Object3dRenderer* renderer, const Vector3& pos) {
     // レンダラ参照と位置を保存し、描画用オブジェクトを生成
@@ -13,6 +15,11 @@ void Goal::Initialize(Object3dRenderer* renderer, const Vector3& pos) {
     obj_->SetModel(m);
     obj_->SetScale({0.8f,0.8f,0.8f});
     obj_->SetTranslation(pos_);
+    try {
+        Logger::Log(std::format("[Goal] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", pos_.x, pos_.y, pos_.z));
+    } catch (...) {
+        Logger::Log(std::string("[Goal] Initialize: pos=(") + std::to_string(pos_.x) + "," + std::to_string(pos_.y) + "," + std::to_string(pos_.z) + ")\n");
+    }
 }
 
 void Goal::Update(float dt) {
