@@ -290,9 +290,12 @@ void GamePlayScene::Update()
     }
     if (goal_)
         goal_->Update(1.0f / 60.0f);
+  //=======================
+  // カメラの更新
+  //=======================
+  const ICamera *activeCamera = nullptr;
 
     // --- 5. カメラの状態確定 ---
-    GameCamera* activeCamera = nullptr;
     if (useDebugCamera_) {
         debugCamera_->Update(*engine_->GetInputManager());
         activeCamera = debugCamera_->GetCamera();

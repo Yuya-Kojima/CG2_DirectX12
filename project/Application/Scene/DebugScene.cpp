@@ -266,7 +266,7 @@ void DebugScene::Update() {
   //=======================
   // カメラの更新
   //=======================
-  GameCamera *activeCamera = nullptr;
+  const ICamera *activeCamera = nullptr;
 
   camera_->SetRotate(cameraTransform_.rotate);
   camera_->SetTranslate(cameraTransform_.translate);
