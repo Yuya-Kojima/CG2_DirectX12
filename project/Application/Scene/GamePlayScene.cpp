@@ -252,9 +252,9 @@ void GamePlayScene::Update()
     // オーディオ更新
     SoundManager::GetInstance()->Update();
 
-    // デバッグ用：Enterでタイトル(DEBUGシーン)へ
+    // デバッグ用：Enterでシーン遷移
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-        SceneManager::GetInstance()->ChangeScene("DEBUG");
+        SceneManager::GetInstance()->ChangeScene("STAGESELECT");
     }
 
     // Pキーでデバッグカメラをトグル

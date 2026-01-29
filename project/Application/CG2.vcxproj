@@ -166,6 +166,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Actor\Player.cpp" />
     <ClCompile Include="Navigation\NavigationGrid.cpp" />
     <ClCompile Include="Physics\CollisionSystem.cpp" />
+    <ClCompile Include="Scene\StageSelectScene.cpp" />
     <ClCompile Include="Scene\TitleScene.cpp" />
     <ClCompile Include="Scene\SceneFactory.cpp" />
     <ClCompile Include="Scene\DebugScene.cpp" />
@@ -205,6 +206,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Actor\Player.h" />
     <ClInclude Include="Navigation\NavigationGrid.h" />
     <ClInclude Include="Physics\CollisionSystem.h" />
+    <ClInclude Include="Scene\StageSelection.h" />
+    <ClInclude Include="Scene\StageSelectScene.h" />
     <ClInclude Include="Scene\TitleScene.h" />
     <ClInclude Include="Scene\SceneFactory.h" />
     <ClInclude Include="Scene\DebugScene.h" />
