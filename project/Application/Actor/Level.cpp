@@ -210,11 +210,19 @@ void Level::BuildNavGrid()
                     break;
                 }
             }
-            // OBB の簡易判定: XZ平面で中心がOBBのローカルAABBに含まれるかをチェック
+            // OBB の簡易判定: 回転を考慮した保守的な AABB (conservative AABB) を使って判定する
+            // これにより、斜めに置かれた OBB のコーナー部分でナビグリッドが甘くなり
+            // プレイヤー/NPCがすり抜ける問題を軽減できる。
             for (const auto& o : obbs_) {
-                // 回転を無視したAABBで簡易判定（将来は回転考慮の正確判定に置換可）
-                if (center.x >= o.center.x - o.halfExtents.x && center.x <= o.center.x + o.halfExtents.x &&
-                    center.z >= o.center.z - o.halfExtents.z && center.z <= o.center.z + o.halfExtents.z) {
+                float cy = std::cos(o.yaw);
+                float sy = std::sin(o.yaw);
+                float absCy = std::fabs(cy);
+                float absSy = std::fabs(sy);
+                // XZ平面で回転を考慮した外接長
+                float extX = absCy * o.halfExtents.x + absSy * o.halfExtents.z;
+                float extZ = absSy * o.halfExtents.x + absCy * o.halfExtents.z;
+                if (center.x >= o.center.x - extX && center.x <= o.center.x + extX &&
+                    center.z >= o.center.z - extZ && center.z <= o.center.z + extZ) {
                     ok = false;
                     break;
                 }
