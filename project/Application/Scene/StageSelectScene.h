@@ -5,6 +5,7 @@
 #include <string>
 
 #include <memory>
+#include "Math/MathUtil.h"
 
 class GameCamera;
 class DebugCamera;
@@ -31,6 +32,16 @@ private:
 	std::unique_ptr<Object3d> object3d_;
 	bool useDebugCamera_ = false;
 
-	float cameraTranslate_[3] = { 0.0f, 46.5f, -81.4f };
-	float cameraRotateDeg_[3] = { 26.0f, 0.0f, 0.0f };
+	// プレイヤーモデル用Object3d
+	std::unique_ptr<Object3d> playerObject3d_;
+	// ImGuiで編集するためのワーク変数（回転は度でUIを扱う）
+	float playerTranslate_[3] = { 0.0f, 0.0f, 0.0f };
+	float playerRotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
+	float playerScale_[3] = { 1.0f, 1.0f, 1.0f };
+
+	// 各ステージに対応するプレイヤー表示位置（X,Y,Z）
+	std::vector<Vector3> stagePositions_;
+
+	float cameraTranslate_[3] = { 0.0f, 44.2f, -86.5f };
+	float cameraRotateDeg_[3] = { 20.0f, 0.0f, 0.0f };
 };
