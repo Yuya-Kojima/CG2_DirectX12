@@ -122,6 +122,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Input\InputPadState.cpp" />
+    <ClCompile Include="src\Input\Input.cpp" />
     <ClCompile Include="src\Render\Camera\ICamera.cpp" />
     <ClCompile Include="src\Audio\SoundManager.cpp" />
     <ClCompile Include="src\Debug\ImGuiManager.cpp" />
@@ -196,6 +198,8 @@
     <ClInclude Include="include\Util\StringUtil.h" />
     <ClInclude Include="include\Scene\SceneManager.h" />
     <ClInclude Include="include\Audio\SoundManager.h" />
+    <ClInclude Include="include\Input\Input.h" />
+    <ClInclude Include="include\Input\InputPadState.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

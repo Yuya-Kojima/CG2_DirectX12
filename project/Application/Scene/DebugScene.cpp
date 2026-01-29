@@ -2,7 +2,7 @@
 #include "Camera/GameCamera.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
-#include "Input/InputKeyState.h"
+#include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Particle/Particle.h"
@@ -181,11 +181,18 @@ void DebugScene::Finalize() {
 
 void DebugScene::Update() {
 
+  // input取得
+  auto *input = engine_->GetInputManager();
+
   // Sound更新
   SoundManager::GetInstance()->Update();
 
   // ゲームシーンに移行
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+  if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::Enter)) {
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+  }
+
+  if (input->IsPadTrigger(PadButton::A)) {
     SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
