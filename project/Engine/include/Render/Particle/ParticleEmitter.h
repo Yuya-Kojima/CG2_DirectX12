@@ -1,25 +1,42 @@
 #pragma once
 
-#include "Math/Transform.h"
-#include "Math/Vector3.h"
-#include <string> 
+#include "Math/MathUtil.h"
+#include <string>
 
 class ParticleEmitter {
 
 public:
+  ParticleEmitter(const std::string &name, Vector3 center, Vector3 halfSize,
+                  int count, float frequency, Vector3 baseVel,
+                  Vector3 velRandom, float lifeMin, float lifeMax);
 
-	ParticleEmitter(const std::string& name, Transform transform, int count, float frequency, float frequencyTime);
+  void Update();
 
-	void Update();
+  void Emit();
 
-	void Emit();
+  void SetCenter(const Vector3 &center) { center_ = center; }
+
+  void SetHalfSize(const Vector3 &halfSize);
+
+  void SetCount(int count);
+  void SetFrequency(float frequency);
+
+  void SetBaseVelocity(const Vector3 &v) { baseVelocity_ = v; }
+  void SetVelocityRandom(const Vector3 &v) { velocityRand_ = v; }
+
+  void SetLifeRange(float lifeMin, float lifeMax);
 
 private:
-	std::string name_;
-	Transform transform_; // エミッターのtransform
-	int count_;      // 発生する数
-	float frequency_;     // 発生頻度
-	float frequencyTime_;
+  std::string name_;
+  Vector3 center_;   // 中心座標
+  Vector3 halfSize_; // 発生範囲(AABB)
+  int count_;        // 発生する数
+  float frequency_;  // 発生間隔
+  float frequencyTime_ = 0.0f;
 
+  Vector3 baseVelocity_{};
+  Vector3 velocityRand_{};
+
+  float lifeMin_;
+  float lifeMax_;
 };
-

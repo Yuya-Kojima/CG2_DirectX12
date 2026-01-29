@@ -45,9 +45,13 @@ void ParticleManager::Update(const Matrix4x4 &viewMatrix,
   const float deltaTime = 1.0f / 60.0f;
 
   // ビルボード回転行列
-  Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
+  // Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
+  // Matrix4x4 cameraMatrix = Inverse(viewMatrix);
+  // Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+
   Matrix4x4 cameraMatrix = Inverse(viewMatrix);
-  Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+  Matrix4x4 billboardMatrix = cameraMatrix;
+
   billboardMatrix.m[3][0] = 0;
   billboardMatrix.m[3][1] = 0;
   billboardMatrix.m[3][2] = 0;
@@ -114,7 +118,11 @@ void ParticleManager::Update(const Matrix4x4 &viewMatrix,
   }
 }
 
-void ParticleManager::Draw() {
+void ParticleManager::Draw(const std::string &name) {
+
+  if (!HasGroup(name)) {
+    return;
+  }
 
   auto *commandList = dx12Core_->GetCommandList();
 
@@ -126,24 +134,26 @@ void ParticleManager::Draw() {
   commandList->SetGraphicsRootConstantBufferView(
       0, materialResource_->GetGPUVirtualAddress());
 
-  for (auto &[name, group] : particleGroups_) {
+  //  for (auto &[name, group] : particleGroups_) {
 
-    if (group.numInstance == 0) {
-      continue;
-    }
+  auto &group = particleGroups_.at(name);
 
-    D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
-        srvManager_->GetGPUDescriptorHandle(group.instancingSrvIndex);
-    commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
-
-    // (2) テクスチャSRV（rootParameter[2]）
-    D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
-        srvManager_->GetGPUDescriptorHandle(group.materialData.textureSrvIndex);
-    commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
-
-    // (3) DrawCall（6頂点 = 板ポリ、instance数 = group.numInstance）
-    commandList->DrawInstanced(6, group.numInstance, 0, 0);
+  if (group.numInstance == 0) {
+    return;
   }
+
+  D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
+      srvManager_->GetGPUDescriptorHandle(group.instancingSrvIndex);
+  commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
+
+  // (2) テクスチャSRV（rootParameter[2]）
+  D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
+      srvManager_->GetGPUDescriptorHandle(group.materialData.textureSrvIndex);
+  commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+
+  // (3) DrawCall（6頂点 = 板ポリ、instance数 = group.numInstance）
+  commandList->DrawInstanced(6, group.numInstance, 0, 0);
+  // }
 }
 
 void ParticleManager::Finalize() {
@@ -161,6 +171,25 @@ void ParticleManager::Finalize() {
 
   dx12Core_ = nullptr;
   srvManager_ = nullptr;
+}
+
+void ParticleManager::ClearParticles(const std::string &groupName) {
+  auto it = particleGroups_.find(groupName);
+  if (it == particleGroups_.end()) {
+    return;
+  }
+
+  // 生存中パーティクルを全消し
+  it->second.particles.clear();
+
+  it->second.numInstance = 0;
+}
+
+void ParticleManager::ClearAllParticles() {
+  for (auto &[name, group] : particleGroups_) {
+    group.particles.clear();
+    group.numInstance = 0;
+  }
 }
 
 void ParticleManager::CreateRootSignature() {
@@ -503,37 +532,51 @@ void ParticleManager::CreateParticleGroup(const std::string name,
 }
 
 void ParticleManager::Emit(const std::string &name, const Vector3 &position,
-                           uint32_t count) {
+                           uint32_t count, const Vector3 &baseVelocity,
+                           const Vector3 &velocityRandom,
+                           const Vector3 &spawnRandom, float lifeMin,
+                           float lifeMax) {
 
-  Logger::Log(std::format("Emit: name={}, count={}\n", name, count));
-
-  assert(particleGroups_.contains(name));
+  if (!HasGroup(name)) {
+    Logger::Log(std::format("Emit: group not found: {}\n", name));
+    return;
+  }
 
   ParticleGroup &group = particleGroups_.at(name);
 
-  std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-  std::uniform_real_distribution<float> distLife(1.0f, 3.0f);
+  auto randSym = [&](float halfRange) -> float {
+    if (halfRange <= 0.0f) {
+      return 0.0f;
+    }
+    std::uniform_real_distribution<float> d(-halfRange, +halfRange);
+    return d(randomEngine_);
+  };
 
-  // 秒速スケール
-  const float speed = 1.0f;
+  std::uniform_real_distribution<float> distLife(lifeMin, lifeMax);
 
   for (uint32_t i = 0; i < count; ++i) {
     Particle particle{};
 
-    Vector3 randomOffset{dist(randomEngine_), dist(randomEngine_),
-                         dist(randomEngine_)};
-    particle.transform.translate = position + randomOffset;
+    // 位置（中心 + ばらつき）
+    particle.transform.translate = {
+        position.x + randSym(spawnRandom.x),
+        position.y + randSym(spawnRandom.y),
+        position.z + randSym(spawnRandom.z),
+    };
 
     particle.transform.scale = {1.0f, 1.0f, 1.0f};
+    particle.transform.rotate = {0.0f, 0.0f, 0.0f};
 
-    particle.velocity = {distribution_(randomEngine_),
-                         distribution_(randomEngine_),
-                         distribution_(randomEngine_)};
+    // 速度（ベース + ばらつき）
+    particle.velocity = {
+        baseVelocity.x + randSym(velocityRandom.x),
+        baseVelocity.y + randSym(velocityRandom.y),
+        baseVelocity.z + randSym(velocityRandom.z),
+    };
 
     particle.lifeTime = distLife(randomEngine_);
     particle.currentTime = 0.0f;
 
-    // 指定グループに登録
     group.particles.push_back(particle);
   }
 }
