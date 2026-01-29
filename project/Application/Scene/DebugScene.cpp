@@ -158,6 +158,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 }
 
 void DebugScene::Finalize() {
+  // 出ているパーティクルをすべてクリア
+  ParticleManager::GetInstance()->ClearAllParticles();
 
   auto *sm = SoundManager::GetInstance();
   sm->StopBGM();

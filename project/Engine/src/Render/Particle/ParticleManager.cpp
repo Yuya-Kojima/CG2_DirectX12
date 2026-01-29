@@ -173,6 +173,25 @@ void ParticleManager::Finalize() {
   srvManager_ = nullptr;
 }
 
+void ParticleManager::ClearParticles(const std::string &groupName) {
+  auto it = particleGroups_.find(groupName);
+  if (it == particleGroups_.end()) {
+    return;
+  }
+
+  // 生存中パーティクルを全消し
+  it->second.particles.clear();
+
+  it->second.numInstance = 0;
+}
+
+void ParticleManager::ClearAllParticles() {
+  for (auto &[name, group] : particleGroups_) {
+    group.particles.clear();
+    group.numInstance = 0;
+  }
+}
+
 void ParticleManager::CreateRootSignature() {
 
   HRESULT hr;

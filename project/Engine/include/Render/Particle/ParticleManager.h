@@ -38,6 +38,12 @@ public:
   /// </summary>
   void Finalize();
 
+  // 生存しているパーティクルのみをクリア
+  void ClearParticles(const std::string &groupName);
+
+  // 全グループの生存パーティクルをクリア
+  void ClearAllParticles();
+
 private:
   struct MaterialData {
     std::string filePath;
