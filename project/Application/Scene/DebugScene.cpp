@@ -135,40 +135,31 @@ void DebugScene::Initialize(EngineBase *engine) {
   ParticleManager::GetInstance()->CreateParticleGroup("test",
                                                       "resources/circle.png");
 
-  // エミッタ
-  Transform emitterTransform{
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 5.0f},
-  };
+  ParticleManager::GetInstance()->CreateParticleGroup(
+      "Clear", "resources/uvChecker.png");
 
-  particleEmitter_ = std::make_unique<ParticleEmitter>("test", emitterTransform,
-                                                       3, 1.0f, 0.0f);
+  // 中心からXY方向にランダム速度
+  particleEmitter_ = std::make_unique<ParticleEmitter>(
+      "test",                    // グループ名
+      Vector3{0.0f, 0.0f, 5.0f}, // center (エミッターの中心座標)
+      Vector3{0.2f, 0.2f, 0.2f}, // halfSize（エミッターの半径）
+      3,                         // 発生数
+      1.0f,                      // 発生間隔
+      Vector3{0.0f, 0.0f, 0.0f}, // baseVel
+      Vector3{1.0f, 1.0f, 1.0f}, // velRandom
+      1.6f,                      // lifeMin
+      2.1f                       // lifeMax
+  );
+
+  // 噴水のように下から吹き上げる
+  clearParticleEmitter_ = std::make_unique<ParticleEmitter>(
+      "Clear", Vector3{1.0f, 0.0f, 2.0f}, Vector3{0.2f, 0.0f, 0.2f}, 8, 1.0f,
+      Vector3{0.0f, 6.0f, 0.0f}, Vector3{1.5f, 1.0f, 1.5f}, 0.6f, 1.1f);
 }
 
 void DebugScene::Finalize() {
-  // delete object3dA_;
-  // object3dA_ = nullptr;
-
-  // delete object3d_;
-  // object3d_ = nullptr;
-
-  // delete debugCamera_;
-  // debugCamera_ = nullptr;
-
-  // delete camera_;
-  // camera_ = nullptr;
-
-  // delete sprite_;
-  // sprite_ = nullptr;
-
-  // delete particleEmitter_;
-  // particleEmitter_ = nullptr;
-
-  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-  //   delete sprites_[i];
-  // }
-  // sprites_.clear();
+  // 出ているパーティクルをすべてクリア
+  ParticleManager::GetInstance()->ClearAllParticles();
 
   auto *sm = SoundManager::GetInstance();
   sm->StopBGM();
@@ -267,8 +258,18 @@ void DebugScene::Update() {
   object3d_->Update();
   object3dA_->Update();
 
+  //=======================
+  // パーティクルの更新
+  //=======================
+
   // エミッタ更新
   particleEmitter_->Update();
+  clearParticleEmitter_->Update();
+
+  // 能動的にエミットも可
+  if (input->IsKeyTrigger(KeyCode::E)) {
+    clearParticleEmitter_->Emit();
+  }
 
   //=======================
   // カメラの更新
@@ -430,7 +431,8 @@ void DebugScene::Draw3D() {
 
   object3d_->Draw();
   object3dA_->Draw();
-  // ParticleManager::GetInstance()->Draw();
+  ParticleManager::GetInstance()->Draw("test");
+  ParticleManager::GetInstance()->Draw("Clear");
 }
 
 void DebugScene::Draw2D() {

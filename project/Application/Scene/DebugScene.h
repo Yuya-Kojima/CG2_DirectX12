@@ -60,6 +60,7 @@ private: // メンバ変数(ゲーム用)
   float rotateObj_{};
 
   std::unique_ptr<ParticleEmitter> particleEmitter_ = nullptr;
+  std::unique_ptr<ParticleEmitter> clearParticleEmitter_ = nullptr;
 
 public: // メンバ関数
   /// <summary>

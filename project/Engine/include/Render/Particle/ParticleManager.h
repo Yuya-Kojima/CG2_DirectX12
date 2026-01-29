@@ -31,12 +31,18 @@ public:
   /// <summary>
   /// 描画
   /// </summary>
-  void Draw();
+  void Draw(const std::string &name);
 
   /// <summary>
   /// 終了
   /// </summary>
   void Finalize();
+
+  // 生存しているパーティクルのみをクリア
+  void ClearParticles(const std::string &groupName);
+
+  // 全グループの生存パーティクルをクリア
+  void ClearAllParticles();
 
 private:
   struct MaterialData {
@@ -130,10 +136,17 @@ public:
   /// <summary>
   /// パーティクルの発生
   /// </summary>
-  /// <param name="name"></param>
-  /// <param name="position"></param>
-  /// <param name="count"></param>
-  void Emit(const std::string &name, const Vector3 &position, uint32_t count);
+  /// <param name="name">グループ名</param>
+  /// <param name="position">発生中心</param>
+  /// <param name="count">発生数</param>
+  /// <param name="baseVelocity">ベース速度（例：噴水なら {0,6,0}）</param>
+  /// <param name="velocityRandom">速度ばらつき幅（各成分の±）</param>
+  /// <param name="spawnRandom">発生位置ばらつき幅（各成分の±）</param>
+  /// <param name="lifeMin">寿命最小</param>
+  /// <param name="lifeMax">寿命最大</param>
+  void Emit(const std::string &name, const Vector3 &position, uint32_t count,
+            const Vector3 &baseVelocity, const Vector3 &velocityRandom,
+            const Vector3 &spawnRandom, float lifeMin, float lifeMax);
 
   bool HasGroup(const std::string &name) const;
 
