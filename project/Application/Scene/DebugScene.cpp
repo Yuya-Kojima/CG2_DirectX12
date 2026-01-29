@@ -51,7 +51,7 @@ void DebugScene::Initialize(EngineBase *engine) {
                          "resources/uvChecker.png");
     } else {
       sprite->Initialize(engine_->GetSpriteRenderer(),
-                         "resources/uvChecker.png");
+                         "resources/monsterBall.png");
     }
     sprites_.push_back(std::move(sprite));
   }
@@ -438,9 +438,9 @@ void DebugScene::Draw2D() {
 
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
-  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-  // sprites_[i]->Draw();
-  // }
+  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+    sprites_[i]->Draw();
+  }
 
   // sprite_->Draw();
 }
