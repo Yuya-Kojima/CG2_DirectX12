@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <format>
+#include "Scene/StageSelection.h"
 
 // ---------------------------------------------------------
 // 初期化
@@ -61,10 +62,11 @@ void GamePlayScene::Initialize(EngineBase* engine)
     bool loaded = false;
 
     // JSONファイルからステージ構成をロード (優先パス順)
+    const std::string selected = StageSelection::GetSelected();
     if (!loaded)
-        loaded = Stage::StageLoader::LoadStage("Application/resources/stages/level01.json", sd);
+        loaded = Stage::StageLoader::LoadStage("Application/resources/stages/" + selected, sd);
     if (!loaded)
-        loaded = Stage::StageLoader::LoadStage("resources/stages/level01.json", sd);
+        loaded = Stage::StageLoader::LoadStage("resources/stages/" + selected, sd);
 
     if (loaded) {
         // ロード成功時はJSON内のグリッド設定で初期化

@@ -13,6 +13,7 @@
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
+#include "Debug/ImGuiManager.h"
 
 void TitleScene::Initialize(EngineBase *engine) {
 
@@ -71,8 +72,9 @@ void TitleScene::Update() {
 	SoundManager::GetInstance()->Update();
 
 	// タイトルシーンへ移行
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-		SceneManager::GetInstance()->ChangeScene("TITLE");
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN))
+	{
+		SceneManager::GetInstance()->ChangeScene("STAGESELECT");
 	}
 
 	//デバッグカメラ切り替え
@@ -108,6 +110,18 @@ void TitleScene::Update() {
 
 	//アクティブカメラを描画で使用する
 	engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
+
+#ifdef USE_IMGUI
+
+	// デモウィンドウ表示ON
+	ImGui::ShowDemoWindow();
+
+	// 現在アクティブなシーン名を表示
+	ImGui::Begin("Scene Info");
+	ImGui::Text("TitleScene");
+	ImGui::End();
+#endif // USE_IMGUI
+
 }
 
 void TitleScene::Draw() {
