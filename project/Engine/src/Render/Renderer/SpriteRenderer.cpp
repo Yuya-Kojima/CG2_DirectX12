@@ -22,19 +22,16 @@ void SpriteRenderer::CreateSpriteRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[7] = {};
-  rootParameterObject3d[0].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[0].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-  rootParameterObject3d[0].Descriptor.ShaderRegister =
-      0; // レジスタ番号0とバインド
+  D3D12_ROOT_PARAMETER rootParameter[3] = {};
+  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+  rootParameter[0].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;              // PixelShaderで使う
+  rootParameter[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド
 
-  rootParameterObject3d[1].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[1].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_VERTEX;                     // VertexShaderで使う
-  rootParameterObject3d[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
+  rootParameter[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
+  rootParameter[1].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_VERTEX;             // VertexShaderで使う
+  rootParameter[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
 
   D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
   descriptorRange[0].BaseShaderRegister = 0; // ０から始まる
@@ -43,38 +40,14 @@ void SpriteRenderer::CreateSpriteRootSignature() {
   descriptorRange[0].OffsetInDescriptorsFromTableStart =
       D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
 
-  rootParameterObject3d[2].ParameterType =
+  rootParameter[2].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // DescriptorTableを使う
-  rootParameterObject3d[2].ShaderVisibility =
+  rootParameter[2].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-  rootParameterObject3d[2].DescriptorTable.pDescriptorRanges =
+  rootParameter[2].DescriptorTable.pDescriptorRanges =
       descriptorRange; // Tableの中身の配列を指定
-  rootParameterObject3d[2].DescriptorTable.NumDescriptorRanges =
+  rootParameter[2].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRange); // Tableで利用する数
-
-  rootParameterObject3d[3].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[3].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
-  rootParameterObject3d[3].Descriptor.ShaderRegister = 1; // レジスタ番号1を使う
-
-  rootParameterObject3d[4].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[4].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
-  rootParameterObject3d[4].Descriptor.ShaderRegister = 2; // レジスタ番号2を使う
-
-  rootParameterObject3d[5].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[5].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
-  rootParameterObject3d[5].Descriptor.ShaderRegister = 3; // レジスタ番号3を使う
-
-  rootParameterObject3d[6].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameterObject3d[6].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
-  rootParameterObject3d[6].Descriptor.ShaderRegister = 4; // レジスタ番号4を使う
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -90,9 +63,9 @@ void SpriteRenderer::CreateSpriteRootSignature() {
       D3D12_SHADER_VISIBILITY_PIXEL; // pixelShaderを使う
 
   descriptionRootSignature.pParameters =
-      rootParameterObject3d; // ルートパラメータ配列へのポインタ
+      rootParameter; // ルートパラメータ配列へのポインタ
   descriptionRootSignature.NumParameters =
-      _countof(rootParameterObject3d); // 配列の長さ
+      _countof(rootParameter); // 配列の長さ
   descriptionRootSignature.pStaticSamplers = staticSamplers;
   descriptionRootSignature.NumStaticSamplers = _countof(staticSamplers);
 
@@ -125,7 +98,7 @@ void SpriteRenderer::CreateSpritePSO() {
   CreateSpriteRootSignature();
 
   // inputLayout
-  D3D12_INPUT_ELEMENT_DESC inputElementDescs[3] = {};
+  D3D12_INPUT_ELEMENT_DESC inputElementDescs[2] = {};
   inputElementDescs[0].SemanticName = "POSITION";
   inputElementDescs[0].SemanticIndex = 0;
   inputElementDescs[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -135,11 +108,6 @@ void SpriteRenderer::CreateSpritePSO() {
   inputElementDescs[1].SemanticIndex = 0;
   inputElementDescs[1].Format = DXGI_FORMAT_R32G32_FLOAT;
   inputElementDescs[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-
-  inputElementDescs[2].SemanticName = "NORMAL";
-  inputElementDescs[2].SemanticIndex = 0;
-  inputElementDescs[2].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-  inputElementDescs[2].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 
   D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
   inputLayoutDesc.pInputElementDescs = inputElementDescs;
@@ -180,12 +148,12 @@ void SpriteRenderer::CreateSpritePSO() {
   rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 
   // shaderをcompileする
-  IDxcBlob *vertexShaderBlob = dx12Core_->CompileShader(
-      L"resources/shaders/Object3D.VS.hlsl", L"vs_6_0");
+  IDxcBlob *vertexShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/Sprite.VS.hlsl", L"vs_6_0");
   assert(vertexShaderBlob != nullptr);
 
-  IDxcBlob *pixelShaderBlob = dx12Core_->CompileShader(
-      L"resources/shaders/Object3D.PS.hlsl", L"ps_6_0");
+  IDxcBlob *pixelShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/Sprite.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   // DepthStencilStateの設定
