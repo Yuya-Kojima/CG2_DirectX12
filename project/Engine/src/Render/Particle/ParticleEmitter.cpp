@@ -1,34 +1,97 @@
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
+#include <algorithm>
+#include <cmath>
 
-ParticleEmitter::ParticleEmitter(const std::string &name, Transform transform,
-                                 int count, float frequency,
-                                 float frequencyTime) {
+ParticleEmitter::ParticleEmitter(const std::string &name, Vector3 center,
+                                 Vector3 halfSize, int count, float frequency,
+                                 Vector3 baseVel, Vector3 velRandom,
+                                 float lifeMin, float lifeMax) {
 
   name_ = name;
+  center_ = center;
 
-  transform_ = transform;
+  frequencyTime_ = 0.0f;
 
-  count_ = count;
+  SetHalfSize(halfSize);
+  SetCount(count);
+  SetFrequency(frequency);
+  SetBaseVelocity(baseVel);
+  SetVelocityRandom(velRandom);
+  SetLifeRange(lifeMin, lifeMax);
+}
 
+void ParticleEmitter::SetHalfSize(const Vector3 &halfSize) {
+  halfSize_.x = (std::max)(0.0f, halfSize.x);
+  halfSize_.y = (std::max)(0.0f, halfSize.y);
+  halfSize_.z = (std::max)(0.0f, halfSize.z);
+}
+
+void ParticleEmitter::SetCount(int count) { count_ = (std::max)(0, count); }
+
+void ParticleEmitter::SetFrequency(float frequency) {
+  if (!std::isfinite(frequency) || frequency <= 0.0f) {
+    frequency_ = 0.0f;
+    frequencyTime_ = 0.0f;
+    return;
+  }
   frequency_ = frequency;
 
-  frequencyTime_ = frequencyTime;
+  if (!std::isfinite(frequencyTime_) || frequencyTime_ < 0.0f) {
+    frequencyTime_ = 0.0f;
+  }
+}
+
+void ParticleEmitter::SetLifeRange(float lifeMin, float lifeMax) {
+  if (!std::isfinite(lifeMin)) {
+    lifeMin = 0.0f;
+  }
+  if (!std::isfinite(lifeMax)) {
+    lifeMax = 0.0f;
+  }
+
+  lifeMin = (std::max)(0.0f, lifeMin);
+  lifeMax = (std::max)(0.0f, lifeMax);
+
+  if (lifeMin > lifeMax) {
+    std::swap(lifeMin, lifeMax);
+  }
+
+  constexpr float kMinLife = 0.01f;
+  if (lifeMax < kMinLife) {
+    lifeMax = kMinLife;
+  }
+  if (lifeMin < kMinLife) {
+    lifeMin = kMinLife;
+  }
+
+  lifeMin_ = lifeMin;
+  lifeMax_ = lifeMax;
 }
 
 void ParticleEmitter::Update() {
 
   const float deltaTime = 1.0f / 60.0f;
 
+  // frequencyが無効なら自動発生しない
+  if (frequency_ <= 0.0f || count_ <= 0) {
+    return;
+  }
+
   frequencyTime_ += deltaTime;
 
-  if (frequencyTime_ >= frequency_) {
+  while (frequencyTime_ >= frequency_) {
     Emit();
     frequencyTime_ -= frequency_;
   }
 }
 
 void ParticleEmitter::Emit() {
-  ParticleManager::GetInstance()->Emit(name_, transform_.translate,
-                                       static_cast<uint32_t>(count_));
+  if (count_ <= 0) {
+    return;
+  }
+
+  ParticleManager::GetInstance()->Emit(
+      name_, center_, static_cast<uint32_t>(count_), baseVelocity_,
+      velocityRand_, halfSize_, lifeMin_, lifeMax_);
 }
