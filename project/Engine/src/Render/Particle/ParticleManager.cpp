@@ -45,9 +45,13 @@ void ParticleManager::Update(const Matrix4x4 &viewMatrix,
   const float deltaTime = 1.0f / 60.0f;
 
   // ビルボード回転行列
-  Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
+  // Matrix4x4 backToFrontMatrix = MakeRotateYMatrix(std::numbers::pi_v<float>);
+  // Matrix4x4 cameraMatrix = Inverse(viewMatrix);
+  // Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+
   Matrix4x4 cameraMatrix = Inverse(viewMatrix);
-  Matrix4x4 billboardMatrix = Multiply(backToFrontMatrix, cameraMatrix);
+  Matrix4x4 billboardMatrix = cameraMatrix;
+
   billboardMatrix.m[3][0] = 0;
   billboardMatrix.m[3][1] = 0;
   billboardMatrix.m[3][2] = 0;
