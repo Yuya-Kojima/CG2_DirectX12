@@ -28,9 +28,8 @@ void Npc::Initialize(Object3dRenderer* renderer, const Vector3& startPos)
     obj_->Initialize(renderer_);
 
     // モデルマネージャを介してNPC用モデルをロードし適用
-    std::string m = ModelManager::ResolveModelPath("npc.obj");
-    ModelManager::GetInstance()->LoadModel(m);
-    obj_->SetModel(m);
+    ModelManager::GetInstance()->LoadModel("breakableBlock.obj");
+    obj_->SetModel("breakableBlock.obj");
 
     // スケール調整と初期位置の設定
     obj_->SetScale({ 0.6f, 0.6f, 0.6f });
@@ -83,24 +82,42 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
     else
         vel_.z = std::max(targetVZ, vel_.z - decel_ * dt);
 
+    // --- 追加: 速度ベクトルの大きさを最大速度で制限する ---
+    // 斜め移動で速度が moveSpeed_ を超えないようにクランプする
+    float horizSpeed = std::sqrt(vel_.x * vel_.x + vel_.z * vel_.z);
+    if (horizSpeed > moveSpeed_ && horizSpeed > kSmallEpsilon) {
+        float s = moveSpeed_ / horizSpeed;
+        vel_.x *= s;
+        vel_.z *= s;
+    }
+
     // --- 2. 経路の再計画 (Path Re-planning) ---
     replanTimer_ -= dt;
-    // 計算負荷を抑えるため、一定間隔（0.5秒）ごとに実行
+    // 計算負荷を抑えるため、一定間隔ごとに実行。ただし開始/目標タイルが変わらない場合は再検索をスキップする
     if (nav_ && replanTimer_ <= 0.0f) {
         int sx, sz, gx, gz;
-        // 現在地と目的地をグリッド座標に変換
         if (nav_->WorldToTile(pos_, sx, sz) && nav_->WorldToTile(targetPos, gx, gz)) {
-            // A*などのアルゴリズムで経路リストを生成
-            path_ = nav_->FindPath(sx, sz, gx, gz);
-            pathIndex_ = 0;
+            // 前回と開始・目標タイルが同じなら再計算をスキップ
+            if (sx != lastSearchStartX_ || sz != lastSearchStartZ_ || gx != lastSearchGoalX_ || gz != lastSearchGoalZ_) {
+                // A*などのアルゴリズムで経路リストを生成
+                path_ = nav_->FindPath(sx, sz, gx, gz);
+                pathIndex_ = 0;
+
+                // 前回検索タイル位置を更新
+                lastSearchStartX_ = sx;
+                lastSearchStartZ_ = sz;
+                lastSearchGoalX_ = gx;
+                lastSearchGoalZ_ = gz;
+            }
         }
-        replanTimer_ = 0.5f; // タイマーリセット
+        replanTimer_ = kReplanInterval; // タイマーリセット（定数を使用）
     }
 
     // --- 3. ハザード（危険地帯）の早期検知と回避 ---
     // 次のフレームで移動する予定の座標を計算
     Vector3 next { pos_.x + vel_.x * dt, 0.0f, pos_.z + vel_.z * dt };
-    if (level.IsHazardHit(next, 0.3f)) {
+    // 当たり判定半径には定数を使用
+    if (level.IsHazardHit(next, kDefaultRadius)) {
         // 危険地帯に触れる場合は速度を大幅に減衰
         vel_.x *= 0.2f;
         vel_.z *= 0.2f;
@@ -112,7 +129,8 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
     }
 
     // --- 4. 壁に対するスイープ移動と衝突解決 (2D/XZ平面) ---
-    const float radius = 0.3f; // NPCの当たり判定半径
+    // NPCの当たり判定半径
+    const float radius = kDefaultRadius;
     Vector3 start = pos_;
     Vector3 delta { vel_.x * dt, 0.0f, vel_.z * dt };
 
@@ -122,27 +140,75 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
     std::vector<const Level::AABB*> candidates;
     level.QueryWalls(qmin, qmax, candidates);
 
-    // 衝突までの時間（TOI: Time of Impact）を求めて、壁を突き抜けない位置まで移動を制限
-    float tMove = 1.0f;
-    for (const Level::AABB* box : candidates) {
-        float toi;
-        Vector3 n;
-        // スフィア（NPC）対 AABB（壁）のスイープテスト
-        if (GamePhysics::SweepSphereAabb2D(start, delta, radius, box->min, box->max, toi, n)) {
-            if (toi < tMove)
-                tMove = toi;
-        }
-    }
-    // 実際に衝突しない安全な距離まで移動させる
-    start.x += delta.x * tMove;
-    start.z += delta.z * tMove;
+    // 衝突応答: 法線を使ったスライド処理
+    // 複数の衝突面に対応するため、短い反復で残り移動を接触面に沿って投影して滑らせる
+    Vector3 curStart = start;
+    Vector3 curDelta = delta;
+    const int kMaxSlideIter = 3; // 最大反復回数
+    const float kEpsilon = 1e-4f;
+    for (int iter = 0; iter < kMaxSlideIter; ++iter) {
+        float bestToi = 1.0f + 1e-6f;
+        Vector3 bestNormal = {0.0f, 0.0f, 0.0f};
+        const Level::AABB* hitBox = nullptr;
 
-    // 浮動小数点の誤差による壁へのめり込みを完全に解決（押し出し処理）
-    for (const Level::AABB* box : candidates) {
-        GamePhysics::ResolveSphereAabb2D(start, radius, box->min, box->max);
+        // 最も早く衝突する候補を探す
+        for (const Level::AABB* box : candidates) {
+            float toi;
+            Vector3 n;
+            if (GamePhysics::SweepSphereAabb2D(curStart, curDelta, radius, box->min, box->max, toi, n)) {
+                if (toi >= 0.0f && toi < bestToi) {
+                    bestToi = toi;
+                    bestNormal = n;
+                    hitBox = box;
+                }
+            }
+        }
+
+        if (!hitBox || bestToi > 1.0f) {
+            // 衝突なし: 残り移動を全て適用して終了
+            curStart.x += curDelta.x;
+            curStart.z += curDelta.z;
+            break;
+        }
+
+        // 衝突点まで移動
+        curStart.x += curDelta.x * bestToi;
+        curStart.z += curDelta.z * bestToi;
+
+        // 小さなオフセットで法線方向に押し出してめり込みを防止
+        curStart.x += bestNormal.x * kEpsilon;
+        curStart.z += bestNormal.z * kEpsilon;
+
+        // 残り移動を計算し、接触面に沿うように投影（スライド）
+        Vector3 remaining = { curDelta.x * (1.0f - bestToi), 0.0f, curDelta.z * (1.0f - bestToi) };
+        // 内積（X,Z 平面のみ）
+        float dot = remaining.x * bestNormal.x + remaining.z * bestNormal.z;
+        Vector3 slide = { remaining.x - bestNormal.x * dot, 0.0f, remaining.z - bestNormal.z * dot };
+
+        // 速度ベクトルから法線成分を除去して摩擦を適用
+        float vdot = vel_.x * bestNormal.x + vel_.z * bestNormal.z;
+        vel_.x -= bestNormal.x * vdot;
+        vel_.z -= bestNormal.z * vdot;
+        const float kSlideFriction = 0.9f; // スライド時の減衰係数
+        vel_.x *= kSlideFriction;
+        vel_.z *= kSlideFriction;
+
+        // 次の反復はスライドベクトルを移動量として扱う
+        curDelta = slide;
+
+        // 移動が微小なら終了
+        if (std::sqrt(curDelta.x * curDelta.x + curDelta.z * curDelta.z) < kEpsilon)
+            break;
     }
-    pos_.x = start.x;
-    pos_.z = start.z;
+
+    // 反復後の位置を反映
+    pos_.x = curStart.x;
+    pos_.z = curStart.z;
+
+    // 最終的に微小なめり込みが残る可能性があるため、補正を行う
+    for (const Level::AABB* box : candidates) {
+        GamePhysics::ResolveSphereAabb2D(pos_, radius, box->min, box->max);
+    }
 
     // --- 5. 経路追従 (Path Following) の更新 ---
     if (!path_.empty() && pathIndex_ < (int)path_.size()) {
@@ -152,7 +218,7 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
         float distp = std::sqrt(dxp * dxp + dzp * dzp);
 
         // 中継点に十分近づいたら、次の地点へターゲットを切り替える
-        if (distp < 0.3f) {
+        if (distp < kWaypointThreshold) {
             pathIndex_++;
         } else {
             // 到達行動の速度を上書きし、経路に沿って移動する
@@ -163,9 +229,8 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 
     // --- 6. 接地判定 (Raycasting Down) ---
     float hitY;
-    const float stepHeight = 0.3f; // 少し高い段差でも乗り越えられるよう上からレイを飛ばす
-    // 足元に下向きのレイを飛ばし、床やプラットフォームとの交点を取得
-    if (level.RaycastDown({ pos_.x, pos_.y + stepHeight, pos_.z }, stepHeight + 0.2f, hitY)) {
+    // 接地判定に使用するレイの高さはヘッダ定数を使用
+    if (level.RaycastDown({ pos_.x, pos_.y + kStepHeight, pos_.z }, kStepHeight + kStepExtra, hitY)) {
         pos_.y = hitY; // 地面の高さにスナップ
     } else {
         pos_.y = 0.0f; // 下に何もなければデフォルトの高さ0へ
@@ -175,9 +240,10 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 
     // --- 7. 最終的な制約と描画への反映 ---
     // ステージの境界外に出ないように制限
-    level.KeepInsideBounds(pos_, 0.3f);
+    // ステージ境界内に位置を制限
+    level.KeepInsideBounds(pos_, kDefaultRadius);
     // その他の一般的な衝突解決
-    level.ResolveCollision(pos_, 0.3f);
+    level.ResolveCollision(pos_, kDefaultRadius);
 
     // 算出した座標を3Dモデルに適用
     obj_->SetTranslation(pos_);
@@ -186,6 +252,17 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
     auto* cam = renderer_->GetDefaultCamera();
     if (cam)
         obj_->Update();
+
+    // --- 追加: 移動方向に応じて NPC モデルの向きを更新（yaw） ---
+    // 停止時には向きを変えない
+    float moveDirX = vel_.x;
+    float moveDirZ = vel_.z;
+    if (std::sqrt(moveDirX*moveDirX + moveDirZ*moveDirZ) > kSmallEpsilon) {
+        float yaw = std::atan2(moveDirX, moveDirZ); // Y 軸回転（ラジアン）
+        Vector3 rot = obj_->GetRotation();
+        rot.y = yaw;
+        obj_->SetRotation(rot);
+    }
 }
 
 void Npc::Draw()

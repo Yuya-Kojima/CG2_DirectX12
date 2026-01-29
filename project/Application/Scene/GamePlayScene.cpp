@@ -114,7 +114,27 @@ void GamePlayScene::Initialize(EngineBase* engine)
         Logger::Log("[Scene] Fallback: spawned Goal\n");
     }
 
+    // NPC生成（フォールバック） - 同様の形式で作成
+    if (!npc_) {
+        // place NPC near player if possible, otherwise use a default position
+        Vector3 npPos = { 2.0f, 0.0f, 2.0f };
+        if (player_) {
+            const Vector3& pp = player_->GetPosition();
+            npPos = { pp.x + 1.5f, pp.y, pp.z + 1.5f };
+        }
+        npc_ = new Npc();
+        npc_->Initialize(engine_->GetObject3dRenderer(), npPos);
+        npc_->AttachLevel(level_);
+        npc_->SetNavGrid(&level_->GetNavGrid());
+        npc_->SetLayer(CollisionMask::NPC);
+        npc_->SetId(nextId++);
+        // default behavior
+        npc_->SetBehavior("followPlayer");
+        Logger::Log("[Scene] Fallback: spawned Npc\n");
+    }
+
     // --- ステージ情報のログ出力 ---
+    bool hadStageHazard = false;
     if (loaded) {
         for (const auto& o : sd.objects) {
             try {
@@ -127,6 +147,12 @@ void GamePlayScene::Initialize(EngineBase* engine)
             } catch (...) {
                 Logger::Log(std::string("[Scene] object class='") + o.className + "'\n");
             }
+            // detect stage-defined hazards so we can skip fallback creation
+            if (o.className == "Hazard" || o.className == "hazard" || o.type == "hazard") {
+                hadStageHazard = true;
+            }
+            // Note: NPC spawning from stage object list is disabled here.
+            // NPC instances are created as fallbacks below if none exist.
         }
     }
 
@@ -151,6 +177,33 @@ void GamePlayScene::Initialize(EngineBase* engine)
             }
             // 壁データをグリッドに反映
             level_->RebuildWallGrid();
+        }
+        // Hazards: create multiple fallback hazards only if stage didn't define any
+        if (!hadStageHazard && level_) {
+            const float defaultRadius = 0.5f;
+            const float spacing = 2.0f;
+            Vector3 base = { 4.0f, 0.0f, 4.0f };
+            if (player_) {
+                const Vector3& pp = player_->GetPosition();
+                base = { pp.x + spacing, pp.y, pp.z + spacing };
+            }
+
+            // arrange hazards in a small cross pattern around base
+            const Vector3 offs[] = {
+                { 0.0f, 0.0f, 0.0f },
+                {  spacing, 0.0f,  0.0f },
+                { -spacing, 0.0f,  0.0f },
+                {  0.0f,    0.0f,  spacing },
+                {  0.0f,    0.0f, -spacing }
+            };
+
+            int created = 0;
+            for (const auto& off : offs) {
+                Vector3 p = { base.x + off.x, base.y + off.y, base.z + off.z };
+                level_->AddHazard(p, defaultRadius);
+                ++created;
+            }
+            Logger::Log(std::string("[Scene] Fallback: spawned ") + std::to_string(created) + " Hazards\n");
         }
     }
 }
