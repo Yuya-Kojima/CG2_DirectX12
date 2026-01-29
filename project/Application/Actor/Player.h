@@ -6,7 +6,7 @@
 class Object3d;
 class Object3dRenderer;
 #include "Actor/Level.h"
-#include "Input/InputKeyState.h"
+#include "Input/Input.h"
 
 /// <summary>
 /// プレイヤーキャラクターを制御するクラス
@@ -22,7 +22,7 @@ public:
     /// <summary>
     /// エンジンの入力管理とレンダラを受け取って初期化します
     /// </summary>
-    void Initialize(InputKeyState* input, Object3dRenderer* object3dRenderer);
+    void Initialize(Input* input, Object3dRenderer* object3dRenderer);
 
     /// <summary>
     /// 毎フレームの更新処理（移動計算、衝突解決、カメラ更新など）
@@ -75,7 +75,7 @@ public:
 private:
     // --- 内部参照・コンポーネント ---
     GameCamera* camera_ = nullptr; // 使用中のカメラ
-    InputKeyState* input_ = nullptr; // キーボード/パッド入力
+    Input* input_ = nullptr; // キーボード/パッド入力
     Object3d* obj_ = nullptr; // 描画用モデル実体
 
     // --- 動力学パラメータ ---

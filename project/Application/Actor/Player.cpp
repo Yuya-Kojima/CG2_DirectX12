@@ -43,7 +43,7 @@ Player::~Player()
 // 初期化
 // ---------------------------------------------------------
 
-void Player::Initialize(InputKeyState* input, Object3dRenderer* object3dRenderer)
+void Player::Initialize(Input* input, Object3dRenderer* object3dRenderer)
 {
     input_ = input;
     position_ = { 0.0f, 0.0f, 0.0f };
