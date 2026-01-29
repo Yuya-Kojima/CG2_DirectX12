@@ -136,10 +136,10 @@ void Player::Update(float dt)
     }
 
     // --- 3. ジャンプと重力の適用 ---
-    if (onGround_ && input_->IsTriggerKey(DIK_SPACE)) {
+    /*if (onGround_ && input_->IsTriggerKey(DIK_SPACE)) {
         velocity_.y = jumpSpeed_;
         onGround_ = false;
-    }
+    }*/
     velocity_.y -= gravity_ * dt;
 
     // --- 4. 水平方向の移動と衝突解決（スイープ＆スライド） ---
@@ -293,7 +293,14 @@ void Player::Update(float dt)
         position_.z += deltaXZ.z;
     }
 
-    // --- 5. 垂直方向の更新と接地判定 ---
+        // 最終移動後にレベルとのめり込みが発生していないかを必ず解消する
+        // （OBB の候補検出が漏れた場合や、直前に設置されたオブジェクトで
+        //  すり抜けが発生するのを防ぐための保険）
+        if (level_) {
+            level_->ResolveCollision(position_, halfSize_, true);
+        }
+
+        // --- 5. 垂直方向の更新と接地判定 ---
     position_.y += velocity_.y * dt;
     if (position_.y <= 0.0f) {
         position_.y = 0.0f;
