@@ -42,6 +42,11 @@ private:
 	// 各ステージに対応するプレイヤー表示位置（X,Y,Z）
 	std::vector<Vector3> stagePositions_;
 
+	// 天球（スカイドーム）
+	std::unique_ptr<Object3d> skyObject3d_;
+	float skyScale_ = 1.0f;
+	float skyRotate_ = 0.0f;
+
 	float cameraTranslate_[3] = { 0.0f, 44.2f, -86.5f };
 	float cameraRotateDeg_[3] = { 20.0f, 0.0f, 0.0f };
 };

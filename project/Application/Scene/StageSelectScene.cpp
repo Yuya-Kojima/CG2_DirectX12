@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "StageSelectScene.h"
 #include "Scene/SceneManager.h"
 #include "Scene/StageSelection.h"
@@ -54,8 +55,6 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		options_.push_back("level01.json");
 		options_.push_back("level02.json");
 		options_.push_back("level03.json");
-		options_.push_back("level04.json");
-		options_.push_back("level05.json");
 	}
 
 	// -------------------------
@@ -87,33 +86,77 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		currentIndex_ = 0;
 	}
 
-	// -------------------------
-	// カメラ初期化
-	// -------------------------
+
+	// カメラ生成
 	camera_ = std::make_unique<GameCamera>();
 	camera_->SetRotate({ 0.3f, 0.0f, 0.0f });
 	camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
 
-	// デバッグカメラ
+	// デバッグカメラ（任意）
 	debugCamera_ = std::make_unique<DebugCamera>();
 	debugCamera_->Initialize({ 0.0f, 4.0f, -10.0f });
 
-	// -------------------------
-	// 背景モデル（stageSelect）とプレイヤーモデル準備
-	// -------------------------
+	if (auto* renderer = engine_->GetObject3dRenderer())
+	{
+		// 平行光を少し斜め前方から当てる
+		if (auto* dl = renderer->GetDirectionalLightData())
+		{
+			dl->color = Vector4(1.0f, 0.98f, 0.92f, 1.0f); // 暖色寄り
+			dl->direction = Normalize(Vector3(-0.3f, -1.0f, -0.2f));
+			dl->intensity = 1.0f;
+		}
+
+		// 点光を有効化して薄くステージ選択の中心を照らす
+		//if (auto* pl = renderer->GetPointLightData())
+		//{
+		//	pl->color = Vector4(1.0f, 0.9f, 0.8f, 1.0f);
+		//	pl->position = Vector3(0.0f, 4.0f, 0.0f);
+		//	pl->intensity = 0.7f;
+		//	pl->radius = 10.0f;
+		//	pl->decay = 2.0f;
+		//}
+
+		//// スポットライトはオフのままでも良いが必要なら設定する
+		//if (auto* sl = renderer->GetSpotLightData())
+		//{
+		//	sl->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+		//	sl->position = Vector3(10.0f, 6.0f, 0.0f);
+		//	sl->direction = Normalize(Vector3(-1.0f, -1.5f, 0.0f));
+		//	sl->intensity = 0.0f; // 有効化するなら >0 に設定
+		//	sl->distance = 15.0f;
+		//	sl->decay = 2.0f;
+		//	sl->cosAngle = std::cos(30.0f * 3.14159265f / 180.0f);
+		//}
+	}
+
+	// 表示するモデルを事前ロード（SetModel 前に LoadModel 必須）
+	// 必要に応じて別モデル名に変更
 	ModelManager::GetInstance()->LoadModel("stageSelect.obj");
 
+	// Object3d を生成してモデルを割り当て
 	object3d_ = std::make_unique<Object3d>();
 	object3d_->Initialize(engine_->GetObject3dRenderer());
 	object3d_->SetModel("stageSelect.obj");
 
-	// プレイヤーモデル
+	// --- 天球モデルの用意 ---
+	// モデル名はプロジェクトに合わせて変更してください（例: "skydome.obj"）
+	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
+	skyObject3d_ = std::make_unique<Object3d>();
+	skyObject3d_->Initialize(engine_->GetObject3dRenderer());
+	skyObject3d_->SetModel("SkyDome.obj");
+	// 天球はカメラ位置に追従させるので位置は(0,0,0)でよい。スケールは大きめに。
+	skyObject3d_->SetTranslation({ 0.0f, 0.0f, 0.0f });
+	skyObject3d_->SetScale({ skyScale_, skyScale_, skyScale_ });
+	skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+
+	// --- プレイヤーモデルの用意 ---
+	// プロジェクト内の実ファイル名に合わせて変更してください
 	ModelManager::GetInstance()->LoadModel("player.obj");
 	playerObject3d_ = std::make_unique<Object3d>();
 	playerObject3d_->Initialize(engine_->GetObject3dRenderer());
 	playerObject3d_->SetModel("player.obj");
 
-	// 初期 transform を currentIndex_ に合わせて設定
+	// 初期 transform を stagePositions_ に合わせて設定
 	const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
 	playerTranslate_[0] = sp.x; playerTranslate_[1] = sp.y; playerTranslate_[2] = sp.z;
 	playerRotateDeg_[0] = 0.0f; playerRotateDeg_[1] = 180.0f; playerRotateDeg_[2] = 0.0f;
@@ -123,12 +166,16 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	const float degToRad = 3.14159265358979323846f / 180.0f;
 	playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 	playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
+
+
 }
 
 void StageSelectScene::Finalize()
 {
+	// オブジェクトを解放
 	object3d_.reset();
 	playerObject3d_.reset();
+	skyObject3d_.reset();
 	debugCamera_.reset();
 	camera_.reset();
 
@@ -246,6 +293,24 @@ void StageSelectScene::Update()
 		playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
 	}
 
+	// 天球の更新：カメラ位置へ追従させ、ゆっくり回転させる
+	if (skyObject3d_)
+	{
+		const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
+		if (activeCam)
+		{
+			playerObject3d_ ? void(0) : void(0); // no-op to avoid unused warning if needed
+			// camera の位置を取得して天球の中心に設定
+			Vector3 camPos = activeCam->GetTranslate();
+			skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
+		}
+		// ゆっくり自転
+		skyRotate_ += 0.0005f;
+		if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
+		skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
+		skyObject3d_->Update();
+	}
+
 	// プレイヤーの ImGui 操作パネル（位置・回転・スケール）
 #ifdef USE_IMGUI
 	if (playerObject3d_)
@@ -277,6 +342,81 @@ void StageSelectScene::Update()
 	ImGui::Text("UseDebugCamera: %s", useDebugCamera_ ? "ON" : "OFF");
 	ImGui::End();
 #endif // USE_IMGUI
+
+#ifdef USE_IMGUI
+	// ライティング調整パネル（StageSelect 用）
+	{
+		auto* renderer = engine_->GetObject3dRenderer();
+		if (renderer)
+		{
+			auto* dl = renderer->GetDirectionalLightData();
+			auto* pl = renderer->GetPointLightData();
+			auto* sl = renderer->GetSpotLightData();
+
+			ImGui::Begin("Lighting (StageSelect)");
+
+			if (dl)
+			{
+				ImGui::Text("Directional Light");
+				ImGui::ColorEdit3("Dir Color", &dl->color.x);
+				ImGui::DragFloat3("Dir Direction", &dl->direction.x, 0.01f, -1.0f, 1.0f);
+				ImGui::DragFloat("Dir Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
+				// 正規化して向きを保つ
+				dl->direction = Normalize(dl->direction);
+			}
+
+			if (pl)
+			{
+				ImGui::Separator();
+				ImGui::Text("Point Light");
+				ImGui::ColorEdit3("Point Color", &pl->color.x);
+				ImGui::DragFloat3("Point Position", &pl->position.x, 0.05f, -100.0f, 100.0f);
+				ImGui::DragFloat("Point Intensity", &pl->intensity, 0.01f, 0.0f, 10.0f);
+				ImGui::DragFloat("Point Radius", &pl->radius, 0.1f, 0.1f, 200.0f);
+				ImGui::DragFloat("Point Decay", &pl->decay, 0.01f, 0.01f, 8.0f);
+			}
+
+			if (sl)
+			{
+				ImGui::Separator();
+				ImGui::Text("Spot Light");
+				ImGui::ColorEdit3("Spot Color", &sl->color.x);
+				ImGui::DragFloat3("Spot Position", &sl->position.x, 0.05f, -100.0f, 100.0f);
+				ImGui::DragFloat3("Spot Direction", &sl->direction.x, 0.01f, -1.0f, 1.0f);
+				ImGui::DragFloat("Spot Intensity", &sl->intensity, 0.01f, 0.0f, 10.0f);
+				ImGui::DragFloat("Spot Distance", &sl->distance, 0.1f, 0.01f, 200.0f);
+				ImGui::DragFloat("Spot Decay", &sl->decay, 0.01f, 0.01f, 8.0f);
+				// 余弦は UI 上では角度で操作するのが親切だがここは直接編集しない
+				sl->direction = Normalize(sl->direction);
+			}
+
+			// 天球を明るくするための簡易コントロール:
+			// カメラ位置に点光を置いて天球だけを明るく見せる用途に使えます。
+			static float skyBrightness = 0.0f;
+			if (ImGui::SliderFloat("Sky Brightness (point)", &skyBrightness, 0.0f, 5.0f))
+			{
+				if (pl)
+				{
+					const ICamera* cam = renderer->GetDefaultCamera();
+					if (cam)
+					{
+						// 点光をカメラ位置へ移動して天球を局所的に明るくする
+						pl->position = cam->GetTranslate();
+					}
+					pl->intensity = skyBrightness;
+					pl->radius = 30.0f * (0.5f + skyBrightness); // 明るさに応じて届く範囲を拡大
+				}
+				// ついでに平行光の最低照度を上げることで天球が暗くなり過ぎる問題を緩和
+				if (dl)
+				{
+					dl->intensity = std::max(dl->intensity, 0.15f);
+				}
+			}
+
+			ImGui::End();
+		}
+	}
+#endif
 }
 
 void StageSelectScene::Draw()
@@ -289,6 +429,11 @@ void StageSelectScene::Draw3D()
 {
 	engine_->Begin3D();
 	// 3D の表示が必要ならここに記述
+	// 天球は最初に描画して常に背景に表示（カメラ追従済み）
+	if (skyObject3d_)
+	{
+		skyObject3d_->Draw();
+	}
 	// プレイヤーモデルを先に描画してから背景などを描く
 	if (playerObject3d_)
 	{
