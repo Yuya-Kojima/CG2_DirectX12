@@ -1,7 +1,7 @@
 #pragma once
 #include "Core/D3DResourceLeakChecker.h"
 #include "Core/SrvManager.h"
-#include "Input/InputKeyState.h"
+#include "Input/Input.h"
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
@@ -44,7 +44,7 @@ public:
   // 実行
   void Run();
 
-  InputKeyState *GetInputManager() const { return input_.get(); }
+  Input *GetInputManager() const { return input_.get(); }
   SpriteRenderer *GetSpriteRenderer() const { return spriteRenderer_.get(); }
   Object3dRenderer *GetObject3dRenderer() const {
     return object3dRenderer_.get();
@@ -60,7 +60,7 @@ protected:
 
   std::unique_ptr<Dx12Core> dx12Core_ = nullptr;
 
-  std::unique_ptr<InputKeyState> input_ = nullptr;
+  std::unique_ptr<Input> input_ = nullptr;
 
   Microsoft::WRL::ComPtr<IXAudio2> xAudio2_;
 

@@ -6,7 +6,7 @@ void DebugCamera::Initialize(const Vector3& translate) {
 	viewMatrix_ = MakeIdentity4x4();
 }
 
-void DebugCamera::Update(const InputKeyState& input) {
+void DebugCamera::Update(const Input& input) {
 
 	// 追加回転分の回転行列を生成
 	const float rotateSpeed = 0.05f;
