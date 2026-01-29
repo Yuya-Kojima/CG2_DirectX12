@@ -1,32 +1,55 @@
 #pragma once
 #include "Core/windowSystem.h"
-#include <Windows.h>
-#include <cstring>
 #include <dinput.h>
 #include <wrl.h>
 
 class InputKeyState {
-
 public:
+  enum class KeyCode {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+
+    Up,
+    Down,
+    Left,
+    Right,
+
+    Enter,
+    Space,
+    Escape,
+    Tab,
+    Shift,
+    Control,
+
+    Count
+  };
+
   template <class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 
-private:
-  BYTE key_[256] = {};
-  BYTE preKey_[256] = {};
-
-  char mouse_[2]{};
-  char preMouse_[2]{};
-
-  int mouseX_ = 0;
-  int mouseY_ = 0;
-  int prevMouseX_ = 0;
-  int prevMouseY_ = 0;
-
-  ComPtr<IDirectInputDevice8> keyboard;
-
-  WindowSystem *windowSystem = nullptr;
-
-public:
   /// <summary>
   /// 初期化
   /// </summary>
@@ -66,14 +89,10 @@ public:
   /// <returns></returns>
   bool IsReleaseKey(BYTE dik) const;
 
-  /// <summary>
-  /// マウスを
-  /// </summary>
-  /// <param name="button"></param>
-  /// <returns></returns>
-  bool IsMousePress(int button) const;
+private:
+  BYTE key_[256] = {};
+  BYTE preKey_[256] = {};
 
-  bool IsMouseTrigger(int button) const;
-
-  bool IsMouseRelease(int button) const;
+  ComPtr<IDirectInputDevice8> keyboard_;
+  WindowSystem *windowSystem_ = nullptr;
 };

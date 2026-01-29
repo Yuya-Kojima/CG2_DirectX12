@@ -1,9 +1,9 @@
 #include "Core/EngineBase.h"
 #include "Audio/SoundManager.h"
 #include "Camera/GameCamera.h"
-#include "Texture/TextureManager.h"
 #include "Core/WindowSystem.h"
 #include "Model/ModelManager.h"
+#include "Texture/TextureManager.h"
 #include <cassert>
 #include <xaudio2.h>
 
@@ -36,7 +36,7 @@ void EngineBase::Initialize() {
   //===========================
   // キーボード入力の初期化
   //===========================
-  input_ = std::make_unique<InputKeyState>();
+  input_ = std::make_unique<Input>();
   input_->Initialize(windowSystem_.get());
 
   //===========================

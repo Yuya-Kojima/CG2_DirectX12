@@ -1,6 +1,5 @@
 #pragma once
-#include "Input/InputKeyState.h"
-#include "Input/InputMouseState.h"
+#include "Input/Input.h"
 #include "Math/MathUtil.h"
 #include "Math/Matrix4x4.h"
 #include "Math/Vector3.h"
@@ -20,7 +19,7 @@ public:
   /// <summary>
   /// 更新処理
   /// </summary>
-  void Update(const InputKeyState &input);
+  void Update(const Input &input);
 
   const ICamera *GetCamera() const { return &camera_; }
 
