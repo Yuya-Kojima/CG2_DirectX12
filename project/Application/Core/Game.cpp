@@ -25,7 +25,7 @@ void Game::Initialize() {
 
   SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
 
-  SceneManager::GetInstance()->ChangeScene("DEBUG");
+  SceneManager::GetInstance()->ChangeScene("TITLE");
 
   //===========================
   // ローカル変数宣言
