@@ -60,28 +60,16 @@ void Sprite::Update(Transform uvTransform) {
   // 頂点リソースにデータを書き込む(4点分)
 
   // 一枚目の三角形
-  // vertexData[0].position = {0.0f, 1.0f, 0.0f, 1.0f}; // 左下
-  vertexData[0].position = {left, bottom, 0.0f, 1.0f}; // 左下
-  // vertexData[0].texcoord = {0.0f, 1.0f};
+  vertexData[0].position = {left, bottom, 0.0f, 1.0f}; // 左
   vertexData[0].texcoord = {texLeft, texBottom};
-  vertexData[0].normal = {0.0f, 0.0f, -1.0f};
-  //  vertexData[1].position = {0.0f, 0.0f, 0.0f, 1.0f}; // 左上
   vertexData[1].position = {left, top, 0.0f, 1.0f}; // 左上
-  //  vertexData[1].texcoord = {0.0f, 0.0f};
   vertexData[1].texcoord = {texLeft, texTop};
-  vertexData[1].normal = {0.0f, 0.0f, -1.0f};
-  // vertexData[2].position = {1.0f, 1.0f, 0.0f, 1.0f}; // 右下
   vertexData[2].position = {right, bottom, 0.0f, 1.0f}; // 右下
-  // vertexData[2].texcoord = {1.0f, 1.0f};
   vertexData[2].texcoord = {texRight, texBottom};
-  vertexData[2].normal = {0.0f, 0.0f, -1.0f};
 
   // 二枚目
-  //  vertexData[3].position = {1.0f, 0.0f, 0.0f, 1.0f}; // 右上
   vertexData[3].position = {right, top, 0.0f, 1.0f}; // 右上
-  //  vertexData[3].texcoord = {1.0f, 0.0f};
   vertexData[3].texcoord = {texRight, texTop};
-  vertexData[3].normal = {0.0f, 0.0f, -1.0f};
 
   // インデックスリソースにデータを書き込む(6点分)
 
@@ -132,7 +120,6 @@ void Sprite::Update(Transform uvTransform) {
 
   // データに代入
   transformationMatrixData->WVP = worldViewProjectionMatrix;
-  transformationMatrixData->World = worldMatrix;
 }
 
 void Sprite::Draw() {
@@ -166,7 +153,7 @@ void Sprite::CreateVertexData() {
 
   // VertexResourceを作る
   //=========================
-  vertexResource = dx12Core_->CreateBufferResource(sizeof(VertexData) * 6);
+  vertexResource = dx12Core_->CreateBufferResource(sizeof(VertexData) * 4);
 
   // IndexResourceを作る
   //=========================
@@ -178,7 +165,7 @@ void Sprite::CreateVertexData() {
   vertexBufferView.BufferLocation = vertexResource->GetGPUVirtualAddress();
 
   // 使用するリソースサイズは頂点六つ分のサイズ
-  vertexBufferView.SizeInBytes = sizeof(VertexData) * 6;
+  vertexBufferView.SizeInBytes = sizeof(VertexData) * 4;
 
   // 1頂点あたりのサイズ
   vertexBufferView.StrideInBytes = sizeof(VertexData);
@@ -216,7 +203,6 @@ void Sprite::CreateMaterialData() {
 
   // マテリアルデータの初期値を書き込む
   materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-  materialData->enableLighting = false;
   materialData->uvTransform = MakeIdentity4x4();
 }
 
@@ -234,7 +220,6 @@ void Sprite::CreateTransformationMatrixData() {
       0, nullptr, reinterpret_cast<void **>(&transformationMatrixData));
 
   // 単位行列を書き込んでおく
-  transformationMatrixData->World = MakeIdentity4x4();
   transformationMatrixData->WVP = MakeIdentity4x4();
 }
 
