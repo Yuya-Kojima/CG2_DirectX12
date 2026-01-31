@@ -3,7 +3,6 @@
 #include "Scene/BaseScene.h"
 #include <vector>
 #include <string>
-
 #include <memory>
 #include "Math/MathUtil.h"
 
@@ -11,17 +10,23 @@ class GameCamera;
 class DebugCamera;
 class Object3d;
 
-class StageSelectScene : public BaseScene
-{
+class StageSelectScene : public BaseScene {
 public:
+	
 	void Initialize(EngineBase* engine) override;
+	
 	void Finalize() override;
+	
 	void Update() override;
+	
 	void Draw() override;
+	
 	void Draw2D() override;
+	
 	void Draw3D() override;
 
 private:
+
 	EngineBase* engine_ = nullptr;
 	std::vector<std::string> options_;
 	int currentIndex_ = 0;
@@ -34,10 +39,30 @@ private:
 
 	// プレイヤーモデル用Object3d
 	std::unique_ptr<Object3d> playerObject3d_;
-	// ImGuiで編集するためのワーク変数（回転は度でUIを扱う）
+	// ImGuiで編集するための変数
 	float playerTranslate_[3] = { 0.0f, 0.0f, 0.0f };
 	float playerRotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
 	float playerScale_[3] = { 1.0f, 1.0f, 1.0f };
+
+	// 滑らか移動用ターゲットとフラグ
+	Vector3 playerTargetTranslate_{ 0.0f, 0.0f, 0.0f };
+	bool playerMoving_ = false;
+	// 補間スピード
+	float playerMoveSpeed_ = 6.0f;
+	// この距離未満でスナップ
+	float playerSnapThreshold_ = 0.01f;
+
+	// プレイヤー回転の補間速度（度／秒）
+	float playerRotateSpeedDeg_ = 720.0f;
+
+	// 停止時に正面へ戻るときの速さ（度／秒）
+	float playerReturnRotateSpeedDeg_ = 1440.0f;
+
+	// 停止直前に回転を開始する距離
+	float playerReturnStartDistance_ = 0.5f;
+
+	// 初期の角度を保持用
+	float playerInitialFrontDeg_ = 180.0f;
 
 	// 各ステージに対応するプレイヤー表示位置（X,Y,Z）
 	std::vector<Vector3> stagePositions_;
