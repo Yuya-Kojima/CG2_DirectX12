@@ -12,6 +12,18 @@
 #include <cassert>
 #include <cmath>
 #include <filesystem>
+#include <algorithm>
+
+namespace {
+	// easing: easeOutBack
+	static float EaseOutBack(float t)
+	{
+		const float c1 = 1.70158f;
+		const float c3 = c1 + 1.0f;
+		float p = t - 1.0f;
+		return 1.0f + c3 * p * p * p + c1 * p * p;
+	}
+}
 
 void StageSelectScene::Initialize(EngineBase* engine)
 {
@@ -54,22 +66,7 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	}
 
 	// -------------------------
-	// プレイヤー表示位置を自動配置（横並び・中央揃え）
-	// -------------------------
-	stagePositions_.clear();
-	// ステージ間の間隔
-	const float spacing = 15.0f;
-	const float baseY = 3.3f;
-	const float baseZ = 0.0f;
-	const int n = static_cast<int>(options_.size());
-	for (int i = 0; i < n; ++i) {
-		// 中央揃え
-		float x = (i - (n - 1) * 0.5f) * spacing;
-		stagePositions_.push_back({ x, baseY, baseZ });
-	}
-
-	// -------------------------
-	// 選択状態の復元
+	// 選択状態の復元（位置計算の前に行う）
 	// -------------------------
 	const std::string& sel = StageSelection::GetSelected();
 	auto it = std::find(options_.begin(), options_.end(), sel);
@@ -79,11 +76,51 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		currentIndex_ = 0;
 	}
 
+	// -------------------------
+	// プレイヤー表示位置を自動配置（選択中を中央に固定）
+	// ただし index4<->5 の間だけギャップを specialGap にする
+	// -------------------------
+	stagePositions_.clear();
+	// ステージ間の通常間隔
+	const float spacing = 15.0f;
+	// ステージ5->6 の間だけこのギャップ
+	const float specialGap = 40.0f;
+	const float baseY = 3.3f;
+	const float baseZ = 0.0f;
+	const int n = static_cast<int>(options_.size());
+
+	if (n > 0) {
+		stagePositions_.resize(n);
+		// currentIndex_ を中心 (x = 0) に置く
+		stagePositions_[currentIndex_] = { 0.0f, baseY, baseZ };
+
+		// 右側を順に配置（currentIndex_ + 1 .. n-1）
+		for (int i = currentIndex_ + 1; i < n; ++i) {
+			// i-1 と i の間が 4->5（0-based）なら specialGap を使う
+			float gap = ((i - 1) == 4) ? specialGap : spacing;
+			float prevX = stagePositions_[i - 1].x;
+			stagePositions_[i] = { prevX + gap, baseY, baseZ };
+		}
+
+		// 左側を順に配置（currentIndex_ - 1 .. 0）
+		for (int i = currentIndex_ - 1; i >= 0; --i) {
+			// i と i+1 の間が 4->5（つまり i==4）なら specialGap
+			float gap = (i == 4) ? specialGap : spacing;
+			float nextX = stagePositions_[i + 1].x;
+			stagePositions_[i] = { nextX - gap, baseY, baseZ };
+		}
+	}
 
 	// カメラ生成
 	camera_ = std::make_unique<GameCamera>();
 	camera_->SetRotate({ 0.3f, 0.0f, 0.0f });
 	camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
+	camera_->SetFarClip(1000.0f);
+
+	cameraTargetTranslate_[0] = cameraTranslate_[0];
+	cameraTargetTranslate_[1] = cameraTranslate_[1];
+	cameraTargetTranslate_[2] = cameraTranslate_[2];
+	cameraMoving_ = false;
 
 	// デバッグカメラ
 	debugCamera_ = std::make_unique<DebugCamera>();
@@ -98,13 +135,18 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		}
 	}
 
-	// 表示するモデルを事前ロード
+	// --- ステージモデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("stageSelect.obj");
+	stage1Object3d_ = std::make_unique<Object3d>();
+	stage1Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stage1Object3d_->SetModel("stageSelect.obj");
 
-	// Object3d を生成してモデルを割り当て
-	object3d_ = std::make_unique<Object3d>();
-	object3d_->Initialize(engine_->GetObject3dRenderer());
-	object3d_->SetModel("stageSelect.obj");
+	ModelManager::GetInstance()->LoadModel("stageSelect2.obj");
+	stage2Object3d_ = std::make_unique<Object3d>();
+	stage2Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stage2Object3d_->SetModel("stageSelect2.obj");
+	stage2Object3d_->SetTranslation({ stage2Translate_[0], stage2Translate_[1], stage2Translate_[2] });
+	stage2Object3d_->SetScale({ stage2Scale_[0], stage2Scale_[1], stage2Scale_[2] });
 
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
@@ -123,11 +165,42 @@ void StageSelectScene::Initialize(EngineBase* engine)
 
 	// transformをstagePositions_に合わせて設定
 	const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
-	playerTranslate_[0] = sp.x; playerTranslate_[1] = sp.y; playerTranslate_[2] = sp.z;
+	playerTranslate_[0] = -30.0f;
+	playerTranslate_[1] = sp.y; playerTranslate_[2] = sp.z;
+
+	// オフセットを保存（以降の移動でも同じオフセットを使う）
+	playerXOffset_ = playerTranslate_[0] - sp.x;
+
+	// --- 変更点: プレイヤーのオフセットを使って各ステージUIを生成（Y を 10.0f に統一） ---
+	stageUIObjects_.clear();
+	ModelManager::GetInstance()->LoadModel("stageUI.obj");
+	stageUIObjects_.reserve(options_.size());
+	stageUIVisible_.clear();
+	stageUIAnimating_.clear();
+	stageUIAnimTimer_.clear();
+	stageUIBaseScale_.clear();
+	for (size_t i = 0; i < options_.size(); ++i) {
+		auto uiObj = std::make_unique<Object3d>();
+		uiObj->Initialize(engine_->GetObject3dRenderer());
+		uiObj->SetModel("stageUI.obj");
+		// X はステージ位置 + プレイヤーの X オフセット、Y は 10.0f に統一、Z はステージ位置に合わせる
+		float x = stagePositions_[i].x + playerXOffset_;
+		float y = 10.0f; // 統一された Y
+		float z = stagePositions_[i].z;
+		uiObj->SetTranslation({ x, y, z });
+		uiObj->SetScale({ stageUIScale_[0], stageUIScale_[1], stageUIScale_[2] });
+		stageUIBaseScale_.push_back(Vector3(stageUIScale_[0], stageUIScale_[1], stageUIScale_[2]));
+
+		stageUIObjects_.push_back(std::move(uiObj));
+		stageUIVisible_.push_back(false);
+		stageUIAnimating_.push_back(false);
+		stageUIAnimTimer_.push_back(0.0f);
+	}
 
 	// ターゲットを初期位置に設定（瞬間移動を防ぐ）
-	playerTargetTranslate_ = sp;
+	playerTargetTranslate_ = { playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] };
 	playerMoving_ = false;
+	prevPlayerMoving_ = false;
 
 	playerRotateDeg_[0] = 0.0f; playerRotateDeg_[1] = 180.0f; playerRotateDeg_[2] = 0.0f;
 	// 初期の正面角を保存
@@ -144,7 +217,15 @@ void StageSelectScene::Initialize(EngineBase* engine)
 void StageSelectScene::Finalize()
 {
 	// オブジェクトを解放
-	object3d_.reset();
+	stage1Object3d_.reset();
+	stage2Object3d_.reset();
+	stageUIObject3d_.reset();
+	// 配列も解放
+	stageUIObjects_.clear();
+	stageUIVisible_.clear();
+	stageUIAnimating_.clear();
+	stageUIAnimTimer_.clear();
+	stageUIBaseScale_.clear();
 	playerObject3d_.reset();
 	skyObject3d_.reset();
 	debugCamera_.reset();
@@ -161,34 +242,108 @@ void StageSelectScene::Update()
 	const float dt = 1.0f / 60.0f;
 	const float degToRad = 3.14159265358979323846f / 180.0f;
 
+	// カメラへ反映
+	if (useDebugCamera_) {
+		if (debugCamera_) {
+			debugCamera_->Update(*input);
+			engine_->GetObject3dRenderer()->SetDefaultCamera(debugCamera_->GetCamera());
+		}
 
+	} else {
 
-	if (object3d_) {
-		object3d_->Update();
+		if (camera_) {
+			// --- カメラを目標に向かって滑らかに補間 ---
+			{
+				const float dtLocal = dt;
+				// 補間係数
+				float alpha = std::min(1.0f, cameraMoveSpeed_ * dtLocal);
+
+				if (cameraMoving_) {
+					// X/Y/Z をそれぞれ補間
+					for (int i = 0; i < 3; ++i) {
+						float diff = cameraTargetTranslate_[i] - cameraTranslate_[i];
+						cameraTranslate_[i] += diff * alpha;
+					}
+					// スナップ判定
+					float dx = cameraTargetTranslate_[0] - cameraTranslate_[0];
+					float dy = cameraTargetTranslate_[1] - cameraTranslate_[1];
+					float dz = cameraTargetTranslate_[2] - cameraTranslate_[2];
+					float distSq = dx * dx + dy * dy + dz * dz;
+					if (distSq <= cameraSnapThreshold_ * cameraSnapThreshold_) {
+						// 到達：正確に合わせて移動フラグを解除
+						cameraTranslate_[0] = cameraTargetTranslate_[0];
+						cameraTranslate_[1] = cameraTargetTranslate_[1];
+						cameraTranslate_[2] = cameraTargetTranslate_[2];
+						cameraMoving_ = false;
+					}
+				}
+			}
+
+			// ImGui がある場合は UI の値を優先して反映する（UI と競合する場合は cameraTranslate_ を上書きする）
+			camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
+			camera_->SetRotate({ cameraRotateDeg_[0] * degToRad, cameraRotateDeg_[1] * degToRad, cameraRotateDeg_[2] * degToRad });
+			camera_->Update();
+			engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
+		}
 	}
-	
+
+	if (stage1Object3d_) {
+		stage1Object3d_->Update();
+	}
+
+	if (stage2Object3d_) {
+		stage2Object3d_->Update();
+	}
+
+	// 複数の Stage UI を更新（位置は必要に応じて選択中のものだけ同期）
+	for (auto& uiObj : stageUIObjects_) {
+		if (uiObj) uiObj->Update();
+	}
+
 	// プレイヤーのObject3dの更新	
 	if (playerObject3d_) {
 		playerObject3d_->Update();
 	}
 
 	// --- A/Dキーでステージ切替(プレイヤー表示位置を次/前のステージ位置へ)---
+	const float spacing = 15.0f;
+	const float specialGap = 40.0f;
+	const float gapDelta = specialGap - spacing;
 
 	if (playerObject3d_) {
 
-		if (input->IsTriggerKey(DIK_A)) {
-			// 左へ：前のステージ
-			if (currentIndex_ > 0) currentIndex_--;
-			else currentIndex_ = static_cast<int>(options_.size()) - 1;
+		// 左右キーでのステージ切替（共通処理）
+		if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT) ||
+			input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
+
+			int prevIndex = currentIndex_;
+			int newIndex = prevIndex;
+
+			// 左キー
+			if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT)) {
+				newIndex = (prevIndex > 0) ? prevIndex - 1 : static_cast<int>(options_.size()) - 1;
+			}
+			// 右キー
+			if (input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
+				newIndex = (prevIndex + 1) % static_cast<int>(options_.size());
+			}
+
+			// インデックス更新
+			currentIndex_ = newIndex;
 			const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
-			playerTargetTranslate_ = sp;
-			playerMoving_ = true;
-		}
-		if (input->IsTriggerKey(DIK_D)) {
-			// 右へ：次のステージ
-			currentIndex_ = (currentIndex_ + 1) % static_cast<int>(options_.size());
-			const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
-			playerTargetTranslate_ = sp;
+			const int n = static_cast<int>(options_.size());
+
+			// カメラ切り替えルール：
+			if ((prevIndex == 4 && newIndex == 5) || (prevIndex == 0 && newIndex == n - 1)) {
+				cameraTargetTranslate_[0] = 100.0f;
+				cameraMoving_ = true;
+			} else if ((prevIndex == 5 && newIndex == 4) || (prevIndex == n - 1 && newIndex == 0)) {
+				cameraTargetTranslate_[0] = 0.0f;
+				cameraMoving_ = true;
+			}
+
+			// 常にステージ中心 + オフセットをターゲットにする
+			playerTargetTranslate_ = { sp.x + playerXOffset_, sp.y, sp.z };
 			playerMoving_ = true;
 		}
 
@@ -293,6 +448,73 @@ void StageSelectScene::Update()
 
 		// 変更を反映（ImGui と競合しないよう即時反映）
 		playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
+
+		// --- 遷移検出: 移動が停止した瞬間に選択中の Stage UI を表示アニメーション開始、
+		//     移動開始したら非表示へ ---
+		bool justStopped = (!playerMoving_) && prevPlayerMoving_;
+		bool justStarted = playerMoving_ && !prevPlayerMoving_;
+
+		if (justStopped) {
+			// start show animation for current
+			if (!stageUIObjects_.empty()) {
+				size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
+				if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
+					stageUIVisible_[idx] = true;
+					stageUIAnimating_[idx] = true;
+					stageUIAnimTimer_[idx] = 0.0f;
+					// ensure start from zero scale
+					stageUIObjects_[idx]->SetScale({ 0.0f, 0.0f, 0.0f });
+					// position sync to player (Y fixed to 10.0f)
+					stageUIObjects_[idx]->SetTranslation({ playerTranslate_[0], 10.0f, playerTranslate_[2] });
+				}
+			}
+		} else if (justStarted) {
+			// hide current immediately (or you can animate out similarly)
+			if (!stageUIObjects_.empty()) {
+				size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
+				if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
+					stageUIVisible_[idx] = false;
+					stageUIAnimating_[idx] = false;
+					stageUIAnimTimer_[idx] = 0.0f;
+					// shrink to zero
+					stageUIObjects_[idx]->SetScale({ 0.0f, 0.0f, 0.0f });
+				}
+			}
+		}
+
+		// 常に選択中 UI の位置はプレイヤーの XZ に追従（Y は 10.0f）
+		if (!stageUIObjects_.empty()) {
+			size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
+			if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
+				stageUIObjects_[idx]->SetTranslation({ playerTranslate_[0], 10.0f, playerTranslate_[2] });
+			}
+		}
+	}
+
+	// アニメーション更新（選択中以外は通常非表示）
+	for (size_t i = 0; i < stageUIObjects_.size(); ++i) {
+		if (!stageUIObjects_[i]) continue;
+
+		if (stageUIAnimating_[i]) {
+			stageUIAnimTimer_[i] += dt;
+			float t = stageUIAnimTimer_[i] / stageUIAnimDuration_;
+			if (t >= 1.0f) {
+				t = 1.0f;
+				stageUIAnimating_[i] = false;
+			}
+			float e = EaseOutBack(t);
+			Vector3 base = stageUIBaseScale_[i];
+			stageUIObjects_[i]->SetScale({ base.x * e, base.y * e, base.z * e });
+		} else {
+			// ensure consistent visibility state
+			if (!stageUIVisible_[i]) {
+				stageUIObjects_[i]->SetScale({ 0.0f, 0.0f, 0.0f });
+			} else {
+				// ensure final scale
+				Vector3 base = stageUIBaseScale_[i];
+				stageUIObjects_[i]->SetScale({ base.x, base.y, base.z });
+			}
+		}
 	}
 
 	// Enterで決定 -> GamePlay シーンへ
@@ -306,7 +528,8 @@ void StageSelectScene::Update()
 		SceneManager::GetInstance()->ChangeScene("TITLE");
 	}
 
-
+	// Update prev flag
+	prevPlayerMoving_ = playerMoving_;
 
 	// 天球の更新
 	if (skyObject3d_) {
@@ -324,147 +547,100 @@ void StageSelectScene::Update()
 		skyObject3d_->Update();
 	}
 
-
-
-	//=================================================
-	// デバック表示
-	//=================================================
-
 #ifdef USE_IMGUI
+	// ImGui UI (省略せず既存のまま)
+	auto* renderer = engine_->GetObject3dRenderer();
 
-	// Pキーでデバッグカメラ切替
-	if (input->IsTriggerKey(DIK_P)) {
-		useDebugCamera_ = !useDebugCamera_;
-	}
+	static bool showDirectionalLight = true;
+	static bool showPointLight = false;
+	static bool showSpotLight = false;
+	static float directionalIntensityBackup = 1.0f;
+	static float pointIntensityBackup = 1.0f;
+	static float spotIntensityBackup = 4.0f;
 
-	// カメラへ反映（ImGui または通常更新）
-	if (useDebugCamera_) {
-		if (debugCamera_) {
-			debugCamera_->Update(*input);
-			engine_->GetObject3dRenderer()->SetDefaultCamera(debugCamera_->GetCamera());
-		}
-	} else {
-
-		if (camera_) {
-			// ImGui がある場合は UI の値を優先して反映
-			camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
-			camera_->SetRotate({ cameraRotateDeg_[0] * degToRad, cameraRotateDeg_[1] * degToRad, cameraRotateDeg_[2] * degToRad });
-			camera_->Update();
-			engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
-		}
-	}
-
-#endif // USE_IMGUI
-
-	// ImGui でカメラを操作（UIは度）
-#ifdef USE_IMGUI
 	ImGui::Begin("Camera Controls");
-
-	// Translate
 	ImGui::DragFloat3("Translate", cameraTranslate_, 0.1f);
-
-	// Rotate (deg)
 	ImGui::DragFloat3("Rotate (deg)", cameraRotateDeg_, 0.5f, -360.0f, 360.0f);
-
-	// オプション：リセットボタン
 	if (ImGui::Button("Reset")) {
 		cameraTranslate_[0] = 0.0f; cameraTranslate_[1] = 4.0f; cameraTranslate_[2] = -10.0f;
 		cameraRotateDeg_[0] = 17.1887f; cameraRotateDeg_[1] = 0.0f; cameraRotateDeg_[2] = 0.0f;
 	}
 	ImGui::End();
-#endif // USE_IMGUI
 
-	// プレイヤーの ImGui 操作パネル（位置・回転・スケール）
-#ifdef USE_IMGUI
 	if (playerObject3d_) {
 		ImGui::Begin("Player (Preview)");
-
 		ImGui::DragFloat3("Translate", playerTranslate_, 0.05f);
 		ImGui::DragFloat3("Rotate (deg)", playerRotateDeg_, 1.0f, -360.0f, 360.0f);
 		ImGui::DragFloat3("Scale", playerScale_, 0.05f, 0.01f, 20.0f);
-
-		// 設定を即時反映
 		playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
 		playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 		playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
-
 		ImGui::End();
 	}
-#endif // USE_IMGUI
 
-#ifdef USE_IMGUI
+	if (stage2Object3d_) {
+		ImGui::Begin("Stage2 (Preview)");
+		ImGui::DragFloat3("Translate##Stage2", stage2Translate_, 0.05f);
+		ImGui::DragFloat3("Rotate (deg)##Stage2", stage2RotateDeg_, 1.0f, -360.0f, 360.0f);
+		ImGui::DragFloat3("Scale##Stage2", stage2Scale_, 0.05f, 0.01f, 20.0f);
+		stage2Object3d_->SetTranslation({ stage2Translate_[0], stage2Translate_[1], stage2Translate_[2] });
+		stage2Object3d_->SetRotation({ stage2RotateDeg_[0] * degToRad, stage2RotateDeg_[1] * degToRad, stage2RotateDeg_[2] * degToRad });
+		stage2Object3d_->SetScale({ stage2Scale_[0], stage2Scale_[1], stage2Scale_[2] });
+		ImGui::End();
+	}
+
 	ImGui::Begin("StageSelect");
 	ImGui::Text("Selected: %s", options_[currentIndex_].c_str());
 	ImGui::Text("UseDebugCamera: %s", useDebugCamera_ ? "ON" : "OFF");
 	ImGui::End();
-#endif // USE_IMGUI
 
-#ifdef USE_IMGUI
-	// ライティング調整パネル（StageSelect 用）
-	{
-		auto* renderer = engine_->GetObject3dRenderer();
-		if (renderer) {
-			auto* dl = renderer->GetDirectionalLightData();
-			auto* pl = renderer->GetPointLightData();
-			auto* sl = renderer->GetSpotLightData();
+	// ライティングパネルは既存コードを維持（省略可能）
+	if (renderer) {
+		auto* dl = renderer->GetDirectionalLightData();
+		auto* pl = renderer->GetPointLightData();
+		auto* sl = renderer->GetSpotLightData();
 
-			ImGui::Begin("Lighting (StageSelect)");
-
-			if (dl) {
-				ImGui::Text("Directional Light");
-				ImGui::ColorEdit3("Dir Color", &dl->color.x);
-				ImGui::DragFloat3("Dir Direction", &dl->direction.x, 0.01f, -1.0f, 1.0f);
-				ImGui::DragFloat("Dir Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
-				// 正規化して向きを保つ
-				dl->direction = Normalize(dl->direction);
-			}
-
-			if (pl) {
-				ImGui::Separator();
-				ImGui::Text("Point Light");
-				ImGui::ColorEdit3("Point Color", &pl->color.x);
-				ImGui::DragFloat3("Point Position", &pl->position.x, 0.05f, -100.0f, 100.0f);
-				ImGui::DragFloat("Point Intensity", &pl->intensity, 0.01f, 0.0f, 10.0f);
-				ImGui::DragFloat("Point Radius", &pl->radius, 0.1f, 0.1f, 200.0f);
-				ImGui::DragFloat("Point Decay", &pl->decay, 0.01f, 0.01f, 8.0f);
-			}
-
-			if (sl) {
-				ImGui::Separator();
-				ImGui::Text("Spot Light");
-				ImGui::ColorEdit3("Spot Color", &sl->color.x);
-				ImGui::DragFloat3("Spot Position", &sl->position.x, 0.05f, -100.0f, 100.0f);
-				ImGui::DragFloat3("Spot Direction", &sl->direction.x, 0.01f, -1.0f, 1.0f);
-				ImGui::DragFloat("Spot Intensity", &sl->intensity, 0.01f, 0.0f, 10.0f);
-				ImGui::DragFloat("Spot Distance", &sl->distance, 0.1f, 0.01f, 200.0f);
-				ImGui::DragFloat("Spot Decay", &sl->decay, 0.01f, 0.01f, 8.0f);
-				// 余弦は UI 上では角度で操作するのが親切だがここは直接編集しない
-				sl->direction = Normalize(sl->direction);
-			}
-
-			// 天球を明るくするための簡易コントロール:
-			// カメラ位置に点光を置いて天球だけを明るく見せる用途に使えます。
-			static float skyBrightness = 0.0f;
-			if (ImGui::SliderFloat("Sky Brightness (point)", &skyBrightness, 0.0f, 5.0f)) {
-				if (pl) {
-					const ICamera* cam = renderer->GetDefaultCamera();
-					if (cam) {
-						// 点光をカメラ位置へ移動して天球を局所的に明るくする
-						pl->position = cam->GetTranslate();
-					}
-					pl->intensity = skyBrightness;
-					pl->radius = 30.0f * (0.5f + skyBrightness); // 明るさに応じて届く範囲を拡大
-				}
-				// ついでに平行光の最低照度を上げることで天球が暗くなり過ぎる問題を緩和
-				if (dl) {
-					dl->intensity = std::max(dl->intensity, 0.15f);
-				}
-			}
-
-			ImGui::End();
+		ImGui::Begin("Lighting (StageSelect)");
+		if (dl) {
+			ImGui::Text("Directional Light");
+			ImGui::ColorEdit3("Dir Color", &dl->color.x);
+			ImGui::DragFloat3("Dir Direction", &dl->direction.x, 0.01f, -1.0f, 1.0f);
+			ImGui::DragFloat("Dir Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
+			dl->direction = Normalize(dl->direction);
 		}
+		if (pl) {
+			ImGui::Separator();
+			ImGui::Text("Point Light");
+			ImGui::ColorEdit3("Point Color", &pl->color.x);
+			ImGui::DragFloat3("Point Position", &pl->position.x, 0.05f, -100.0f, 100.0f);
+			ImGui::DragFloat("Point Intensity", &pl->intensity, 0.01f, 0.0f, 10.0f);
+			ImGui::DragFloat("Point Radius", &pl->radius, 0.1f, 0.1f, 200.0f);
+			ImGui::DragFloat("Point Decay", &pl->decay, 0.01f, 0.01f, 8.0f);
+		}
+		if (sl) {
+			ImGui::Separator();
+			ImGui::Text("Spot Light");
+			ImGui::ColorEdit3("Spot Color", &sl->color.x);
+			ImGui::DragFloat3("Spot Position", &sl->position.x, 0.05f, -100.0f, 100.0f);
+			ImGui::DragFloat3("Spot Direction", &sl->direction.x, 0.01f, -1.0f, 1.0f);
+			ImGui::DragFloat("Spot Intensity", &sl->intensity, 0.01f, 0.0f, 10.0f);
+			ImGui::DragFloat("Spot Distance", &sl->distance, 0.1f, 0.01f, 200.0f);
+			ImGui::DragFloat("Spot Decay", &sl->decay, 0.01f, 0.01f, 8.0f);
+			sl->direction = Normalize(sl->direction);
+		}
+		static float skyBrightness = 0.0f;
+		if (ImGui::SliderFloat("Sky Brightness (point)", &skyBrightness, 0.0f, 5.0f)) {
+			if (pl) {
+				const ICamera* cam = renderer->GetDefaultCamera();
+				if (cam) pl->position = cam->GetTranslate();
+				pl->intensity = skyBrightness;
+				pl->radius = 30.0f * (0.5f + skyBrightness);
+			}
+			if (dl) dl->intensity = std::max(dl->intensity, 0.15f);
+		}
+		ImGui::End();
 	}
-#endif
+#endif // USE_IMGUI
 }
 
 void StageSelectScene::Draw()
@@ -486,9 +662,23 @@ void StageSelectScene::Draw3D()
 	if (playerObject3d_) {
 		playerObject3d_->Draw();
 	}
-	
-	if (object3d_) {
-		object3d_->Draw();
+
+	if (stage1Object3d_) {
+		stage1Object3d_->Draw();
+	}
+
+	if (stage2Object3d_) {
+		stage2Object3d_->Draw();
+	}
+
+	// 変更: 現状プレイヤーがいるステージの UI のみ描画（表示フラグまたはアニメーション中なら描画）
+	if (!stageUIObjects_.empty()) {
+		size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
+		if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
+			if (stageUIVisible_[idx] || stageUIAnimating_[idx]) {
+				stageUIObjects_[idx]->Draw();
+			}
+		}
 	}
 }
 
