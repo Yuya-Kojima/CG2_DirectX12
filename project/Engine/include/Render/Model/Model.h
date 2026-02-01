@@ -15,120 +15,108 @@ class Dx12Core;
 
 class Model {
 
-  struct VertexData {
-    Vector4 position;
-    Vector2 texcoord;
-    Vector3 normal;
-  };
+	struct VertexData {
+		Vector4 position;
+		Vector2 texcoord;
+		Vector3 normal;
+	};
+	struct MaterialData {
+		std::string textureFilePath;
+		// uint32_t textureIndex = 0;
+	};
 
-  struct Material {
-    Vector4 color;
-    int32_t enableLighting;
-    float padding[3];
-    Matrix4x4 uvTransform;
-    float shininess;
-    float padding2[3];
-  };
+	struct Node {
+		Matrix4x4 localMatrix;
+		std::string name;
+		std::vector<Node> children;
+	};
 
-  struct MaterialData {
-    std::string textureFilePath;
-    // uint32_t textureIndex = 0;
-  };
+	struct ModelData {
+		std::vector<VertexData> vertices;
+		MaterialData material;
+		Node rootNode;
+	};
 
-  struct Node {
-    Matrix4x4 localMatrix;
-    std::string name;
-    std::vector<Node> children;
-  };
-
-  struct ModelData {
-    std::vector<VertexData> vertices;
-    MaterialData material;
-    Node rootNode;
-  };
 
 public:
-  /// <summary>
-  /// 初期化
-  /// </summary>
-  void Initialize(ModelRenderer *modelRenderer,
-                  const std::string &directorypath,
-                  const std::string &filename);
+	struct Material {
+		Vector4 color;
+		int32_t enableLighting;
+		float padding[3];
+		Matrix4x4 uvTransform;
+		float shininess;
+		float padding2[3];
+	};
 
-  /// <summary>
-  /// 描画
-  /// </summary>
-  void Draw();
+	/// <summary>
+	/// 初期化
+	/// </summary>
+	void Initialize(ModelRenderer* modelRenderer,
+		const std::string& directorypath,
+		const std::string& filename);
+
+	/// <summary>
+	/// 描画
+	/// </summary>
+	void Draw();
 
 private:
-  ModelRenderer *modelRenderer_;
+	ModelRenderer* modelRenderer_;
 
-  Dx12Core *dx12Core_ = nullptr;
+	Dx12Core* dx12Core_ = nullptr;
 
-  // Objファイルのデータ
-  ModelData modelData_;
+	// Objファイルのデータ
+	ModelData modelData_;
 
-  /// <summary>
-  /// mtlファイルを読む
-  /// </summary>
-  /// <param name="directoryPath"></param>
-  /// <param name="filename"></param>
-  /// <returns></returns>
-  static MaterialData LoadMaterialTemplateFile(const std::string &directoryPath,
-                                               const std::string &filename);
+	/// <summary>
+	/// mtlファイルを読む
+	/// </summary>
+	/// <param name="directoryPath"></param>
+	/// <param name="filename"></param>
+	/// <returns></returns>
+	static MaterialData LoadMaterialTemplateFile(const std::string& directoryPath,
+		const std::string& filename);
 
 public:
-  /// <summary>
-  /// Objファイルを読む
-  /// </summary>
-  /// <param name="directoryPath"></param>
-  /// <param name="filename"></param>
-  /// <returns></returns>
-  void LoadModelFile(const std::string &directoryPath,
-                     const std::string &filename);
+	/// <summary>
+	/// Objファイルを読む
+	/// </summary>
+	/// <param name="directoryPath"></param>
+	/// <param name="filename"></param>
+	/// <returns></returns>
+	void LoadModelFile(const std::string& directoryPath,
+		const std::string& filename);
 
 private:
-  /* 頂点データ
-  -----------------------------*/
+	/* 頂点データ
+	-----------------------------*/
 
-  // バッファリソース
-  Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = nullptr;
+	// バッファリソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = nullptr;
 
-  // バッファリソース内のデータを指すポインタ
-  VertexData *vertexData = nullptr;
+	// バッファリソース内のデータを指すポインタ
+	VertexData* vertexData = nullptr;
 
-  // バッファリソースの使い道を補足するバッファビュー
-  D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+	// バッファリソースの使い道を補足するバッファビュー
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
 
-  /// <summary>
-  /// 頂点データを生成
-  /// </summary>
-  void CreateVertexData();
-
-  /* マテリアルデータ
-  ----------------------------*/
-
-  // マテリアルバッファリソース
-  Microsoft::WRL::ComPtr<ID3D12Resource> materialResource = nullptr;
-
-  // バッファリソース内のデータを指すポインタ
-  Material *materialData = nullptr;
-
-  /// <summary>
-  /// マテリアルデータを作成
-  /// </summary>
-  void CreateMaterialData();
-
-public:
-  Vector4 GetColor() const { return materialData->color; }
-
-  void SetColor(const Vector4 &color) { materialData->color = color; }
+	/// <summary>
+	/// 頂点データを生成
+	/// </summary>
+	void CreateVertexData();
 
 private:
-  Node ReadNode(aiNode *node);
+
+	Material defaultMaterial_;
 
 public:
-  const Matrix4x4 &GetRootLocalMatrix() const {
-    return modelData_.rootNode.localMatrix;
-  }
+	const Material& GetDefaultMaterial()const { return defaultMaterial_; }
+
+private:
+	Node ReadNode(aiNode* node);
+
+public:
+	const Matrix4x4& GetRootLocalMatrix() const {
+		return modelData_.rootNode.localMatrix;
+	}
 };

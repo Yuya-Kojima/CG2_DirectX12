@@ -192,6 +192,10 @@ void DebugScene::Update() {
 		sprites_[0]->ChangeTexture("resources/uvChecker.png");
 	}
 
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
+		object3dA_->SetColor(Vector4{1.0f,1.0f,0.0f,1.0f});
+	}
+
 	// デバッグカメラ切り替え
 	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
 		if (useDebugCamera_) {
