@@ -17,7 +17,7 @@ void SceneManager::Initialize(EngineBase *engine) {
   SpriteRenderer *spriteRenderer = engine_->GetSpriteRenderer();
   assert(spriteRenderer);
 
-  fade_.Initialize(spriteRenderer, "resources/uvChecker.png");
+  fade_.Initialize(spriteRenderer, "resources/white1x1.png");
 
   transitionState_ = TransitionState::None;
 }
