@@ -158,10 +158,11 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
 
 	// --- プレイヤーモデルの用意 ---
-	ModelManager::GetInstance()->LoadModel("player.obj");
+	ModelManager::GetInstance()->LoadModel("player_body.obj");
 	playerObject3d_ = std::make_unique<Object3d>();
 	playerObject3d_->Initialize(engine_->GetObject3dRenderer());
-	playerObject3d_->SetModel("player.obj");
+	playerObject3d_->SetModel("player_body.obj");
+	playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
 
 	// transformをstagePositions_に合わせて設定
 	const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
@@ -171,7 +172,7 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	// オフセットを保存（以降の移動でも同じオフセットを使う）
 	playerXOffset_ = playerTranslate_[0] - sp.x;
 
-	// --- 変更点: プレイヤーのオフセットを使って各ステージUIを生成（Y を 10.0f に統一） ---
+	// --- プレイヤーのオフセットを使って各ステージUIを生成 ---
 	stageUIObjects_.clear();
 	ModelManager::GetInstance()->LoadModel("stageUI.obj");
 	stageUIObjects_.reserve(options_.size());
@@ -183,9 +184,8 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		auto uiObj = std::make_unique<Object3d>();
 		uiObj->Initialize(engine_->GetObject3dRenderer());
 		uiObj->SetModel("stageUI.obj");
-		// X はステージ位置 + プレイヤーの X オフセット、Y は 10.0f に統一、Z はステージ位置に合わせる
 		float x = stagePositions_[i].x + playerXOffset_;
-		float y = 10.0f; // 統一された Y
+		float y = 10.0f;
 		float z = stagePositions_[i].z;
 		uiObj->SetTranslation({ x, y, z });
 		uiObj->SetScale({ stageUIScale_[0], stageUIScale_[1], stageUIScale_[2] });
@@ -197,7 +197,7 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		stageUIAnimTimer_.push_back(0.0f);
 	}
 
-	// ターゲットを初期位置に設定（瞬間移動を防ぐ）
+	// ターゲットを初期位置に設定
 	playerTargetTranslate_ = { playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] };
 	playerMoving_ = false;
 	prevPlayerMoving_ = false;
@@ -205,8 +205,6 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	playerRotateDeg_[0] = 0.0f; playerRotateDeg_[1] = 180.0f; playerRotateDeg_[2] = 0.0f;
 	// 初期の正面角を保存
 	playerInitialFrontDeg_ = playerRotateDeg_[1];
-
-	playerScale_[0] = 2.5f; playerScale_[1] = 2.5f; playerScale_[2] = 2.5f;
 
 	playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
 	const float degToRad = 3.14159265358979323846f / 180.0f;
@@ -220,7 +218,6 @@ void StageSelectScene::Finalize()
 	stage1Object3d_.reset();
 	stage2Object3d_.reset();
 	stageUIObject3d_.reset();
-	// 配列も解放
 	stageUIObjects_.clear();
 	stageUIVisible_.clear();
 	stageUIAnimating_.clear();
@@ -250,27 +247,22 @@ void StageSelectScene::Update()
 		}
 
 	} else {
-
 		if (camera_) {
 			// --- カメラを目標に向かって滑らかに補間 ---
 			{
 				const float dtLocal = dt;
-				// 補間係数
 				float alpha = std::min(1.0f, cameraMoveSpeed_ * dtLocal);
 
 				if (cameraMoving_) {
-					// X/Y/Z をそれぞれ補間
 					for (int i = 0; i < 3; ++i) {
 						float diff = cameraTargetTranslate_[i] - cameraTranslate_[i];
 						cameraTranslate_[i] += diff * alpha;
 					}
-					// スナップ判定
 					float dx = cameraTargetTranslate_[0] - cameraTranslate_[0];
 					float dy = cameraTargetTranslate_[1] - cameraTranslate_[1];
 					float dz = cameraTargetTranslate_[2] - cameraTranslate_[2];
 					float distSq = dx * dx + dy * dy + dz * dz;
 					if (distSq <= cameraSnapThreshold_ * cameraSnapThreshold_) {
-						// 到達：正確に合わせて移動フラグを解除
 						cameraTranslate_[0] = cameraTargetTranslate_[0];
 						cameraTranslate_[1] = cameraTargetTranslate_[1];
 						cameraTranslate_[2] = cameraTargetTranslate_[2];
@@ -279,7 +271,6 @@ void StageSelectScene::Update()
 				}
 			}
 
-			// ImGui がある場合は UI の値を優先して反映する（UI と競合する場合は cameraTranslate_ を上書きする）
 			camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
 			camera_->SetRotate({ cameraRotateDeg_[0] * degToRad, cameraRotateDeg_[1] * degToRad, cameraRotateDeg_[2] * degToRad });
 			camera_->Update();
@@ -287,6 +278,7 @@ void StageSelectScene::Update()
 		}
 	}
 
+	// 各オブジェクトの更新
 	if (stage1Object3d_) {
 		stage1Object3d_->Update();
 	}
@@ -295,23 +287,95 @@ void StageSelectScene::Update()
 		stage2Object3d_->Update();
 	}
 
-	// 複数の Stage UI を更新（位置は必要に応じて選択中のものだけ同期）
 	for (auto& uiObj : stageUIObjects_) {
-		if (uiObj) uiObj->Update();
+		if (uiObj) {
+			uiObj->Update();
+		}
 	}
 
-	// プレイヤーのObject3dの更新	
 	if (playerObject3d_) {
 		playerObject3d_->Update();
 	}
 
-	// --- A/Dキーでステージ切替(プレイヤー表示位置を次/前のステージ位置へ)---
-	const float spacing = 15.0f;
-	const float specialGap = 40.0f;
-	const float gapDelta = specialGap - spacing;
+	// --- 遷移アニメ優先処理 ---
+	if (transitionActive_) {
+		// 進行
+		transitionTimer_ += dt;
+		float t = std::min(1.0f, transitionTimer_ / transitionDuration_);
 
+		const float delayBeforeScale = 2.00f;
+
+		float scaleInput = 0.0f;
+
+		if (t <= delayBeforeScale) {
+			scaleInput = 0.0f;
+		} else {
+
+			scaleInput = (t - delayBeforeScale) / (1.0f - delayBeforeScale);
+
+			if (scaleInput < 0.0f) {
+				scaleInput = 0.0f;
+			}
+
+			if (scaleInput > 1.0f) {
+				scaleInput = 1.0f;
+			}
+		}
+
+		// スケールは EaseOutBack、Y の落下はイーズイン(quad)で表現
+		float scaleE = EaseOutBack(t);
+		float fallE = t * t;
+
+		// 位置：X/Zは固定、Yは下へ加速で落ちる
+		Vector3 pos;
+		pos.x = transitionStartPos_.x;
+		pos.z = transitionStartPos_.z;
+		pos.y = transitionStartPos_.y + (transitionTargetPos_.y - transitionStartPos_.y) * fallE;
+
+		// スケール：滑らかに縮小
+		Vector3 scale = Lerp(transitionStartScale_, transitionTargetScale_, scaleE);
+
+		playerTranslate_[0] = pos.x;
+		playerTranslate_[1] = pos.y;
+		playerTranslate_[2] = pos.z;
+
+		playerScale_[0] = scale.x;
+		playerScale_[1] = scale.y;
+		playerScale_[2] = scale.z;
+
+		// 回転：Y軸スピン ＋ X軸で少し前傾して吸い込まれ感を強調
+		playerRotateDeg_[1] = transitionStartRotateYDeg_ + transitionSpinDeg_ * t;
+
+
+		if (playerObject3d_) {
+			playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
+			playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
+			playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
+		}
+
+		// アニメ完了でシーン切替（フェードを使う場合はここで ChangeScene を遅延させてください）
+		if (t >= 1.0f) {
+			transitionActive_ = false;
+
+			playerTranslate_[0] = transitionTargetPos_.x;
+			playerTranslate_[1] = transitionTargetPos_.y;
+			playerTranslate_[2] = transitionTargetPos_.z;
+			playerScale_[0] = transitionTargetScale_.x;
+			playerScale_[1] = transitionTargetScale_.y;
+			playerScale_[2] = transitionTargetScale_.z;
+			playerRotateDeg_[1] = transitionStartRotateYDeg_ + transitionSpinDeg_;
+
+			StageSelection::SetSelected(options_[currentIndex_]);
+			SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+		}
+
+		// 遷移中は他の入力処理を無視してreturn（天球やImGuiは動かしておきたいならここを調整）
+		prevPlayerMoving_ = playerMoving_;
+		return;
+	}
+
+	// --- 通常入力（ステージ切替等） ---
 	if (playerObject3d_) {
-
 		// 左右キーでのステージ切替（共通処理）
 		if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT) ||
 			input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
@@ -319,21 +383,17 @@ void StageSelectScene::Update()
 			int prevIndex = currentIndex_;
 			int newIndex = prevIndex;
 
-			// 左キー
 			if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT)) {
 				newIndex = (prevIndex > 0) ? prevIndex - 1 : static_cast<int>(options_.size()) - 1;
 			}
-			// 右キー
 			if (input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
 				newIndex = (prevIndex + 1) % static_cast<int>(options_.size());
 			}
 
-			// インデックス更新
 			currentIndex_ = newIndex;
 			const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
 			const int n = static_cast<int>(options_.size());
 
-			// カメラ切り替えルール：
 			if ((prevIndex == 4 && newIndex == 5) || (prevIndex == 0 && newIndex == n - 1)) {
 				cameraTargetTranslate_[0] = 100.0f;
 				cameraMoving_ = true;
@@ -342,147 +402,110 @@ void StageSelectScene::Update()
 				cameraMoving_ = true;
 			}
 
-			// 常にステージ中心 + オフセットをターゲットにする
 			playerTargetTranslate_ = { sp.x + playerXOffset_, sp.y, sp.z };
 			playerMoving_ = true;
 		}
 
-		// --- 滑らか移動処理 ---
+		// --- プレイヤー滑らか移動 ---
 		if (playerMoving_) {
 			Vector3 curr{ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] };
-			// 補間率
 			float alpha = std::min(1.0f, playerMoveSpeed_ * dt);
 			Vector3 next = Lerp(curr, playerTargetTranslate_, alpha);
 
-			// スナップ判定
 			Vector3 diff = { next.x - playerTargetTranslate_.x, next.y - playerTargetTranslate_.y, next.z - playerTargetTranslate_.z };
 			float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
 			if (distSq <= playerSnapThreshold_ * playerSnapThreshold_) {
-				// 到達
 				next = playerTargetTranslate_;
 				playerMoving_ = false;
 			}
 
-			// --- プレイヤーの回転 ---
+			// 回転（移動方向に合わせる）
 			Vector3 moveVec = { playerTargetTranslate_.x - curr.x, 0.0f, playerTargetTranslate_.z - curr.z };
 			const float eps = 1e-6f;
 			if (std::abs(moveVec.x) > eps || std::abs(moveVec.z) > eps) {
 				int sideSign = 1;
-				if (std::abs(moveVec.x) > eps) {
-					sideSign = (moveVec.x > 0.0f) ? 1 : -1;
-				} else {
-					// X がほぼ 0 の場合は Z の方向で決める
-					sideSign = (moveVec.z >= 0.0f) ? 1 : -1;
-				}
+				if (std::abs(moveVec.x) > eps) sideSign = (moveVec.x > 0.0f) ? 1 : -1;
+				else sideSign = (moveVec.z >= 0.0f) ? 1 : -1;
 
-				// 初期正面を基準に ±90deg の相対角を作る
 				float sideDeg = playerInitialFrontDeg_ + (sideSign > 0 ? -90.0f : 90.0f);
-
-				// 残り距離を計算
 				float remainX = playerTargetTranslate_.x - curr.x;
 				float remainZ = playerTargetTranslate_.z - curr.z;
 				float remainDist = std::sqrt(remainX * remainX + remainZ * remainZ);
 
-				// 停止直前から正面へ補間を開始する
 				float desiredDeg = sideDeg;
 				if (remainDist < playerReturnStartDistance_) {
-					// 0 -> startDistance の範囲で t=0..1
 					float t = 1.0f - (remainDist / std::max(1e-6f, playerReturnStartDistance_));
 					if (t < 0.0f) t = 0.0f;
 					if (t > 1.0f) t = 1.0f;
-					// 線形補間
 					desiredDeg = sideDeg + (playerInitialFrontDeg_ - sideDeg) * t;
 				}
 
-				// 現在角度（Y軸、度）
 				float currentDeg = playerRotateDeg_[1];
-
-				// 差を [-180,180] に丸める
 				float delta = desiredDeg - currentDeg;
 				while (delta > 180.0f) delta -= 360.0f;
 				while (delta < -180.0f) delta += 360.0f;
 
-				// 回転速度は移動中と停止時で分けて扱う
 				float maxDelta = playerRotateSpeedDeg_ * dt;
-
 				if (remainDist < playerReturnStartDistance_ * 0.5f) {
-					// 近づいたらもう少し速く回す
 					float extra = playerReturnRotateSpeedDeg_ * dt * 0.5f;
 					maxDelta = std::max(maxDelta, extra);
 				}
 
-				if (std::abs(delta) <= maxDelta) {
-					currentDeg = desiredDeg;
-				} else {
-					currentDeg += (delta > 0.0f ? maxDelta : -maxDelta);
-				}
-				playerRotateDeg_[1] = currentDeg;
+				if (std::abs(delta) <= maxDelta) currentDeg = desiredDeg;
+				else currentDeg += (delta > 0.0f ? maxDelta : -maxDelta);
 
-				// 角度をラジアンにして Object3d に反映
+				playerRotateDeg_[1] = currentDeg;
 				playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 			}
 
 			playerTranslate_[0] = next.x;
 			playerTranslate_[1] = next.y;
 			playerTranslate_[2] = next.z;
-
 		} else {
-			// --- 移動完了後：初期正面に戻る処理（戻る速度を速く） ---
+			// 移動完了後に正面へ戻す
 			const float targetFrontDeg = playerInitialFrontDeg_;
 			float currentDeg = playerRotateDeg_[1];
 			float delta = targetFrontDeg - currentDeg;
 			while (delta > 180.0f) delta -= 360.0f;
 			while (delta < -180.0f) delta += 360.0f;
-			// ここで停止時専用の速さを使用する
 			float maxDelta = playerReturnRotateSpeedDeg_ * dt;
 
-			if (std::abs(delta) <= maxDelta) {
-				currentDeg = targetFrontDeg;
-			} else {
-				currentDeg += (delta > 0.0f ? maxDelta : -maxDelta);
-			}
+			if (std::abs(delta) <= maxDelta) currentDeg = targetFrontDeg;
+			else currentDeg += (delta > 0.0f ? maxDelta : -maxDelta);
 
 			playerRotateDeg_[1] = currentDeg;
 			playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 		}
 
-		// 変更を反映（ImGui と競合しないよう即時反映）
 		playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
 
-		// --- 遷移検出: 移動が停止した瞬間に選択中の Stage UI を表示アニメーション開始、
-		//     移動開始したら非表示へ ---
+		// 移動の停止/開始で Stage UI を表示/非表示
 		bool justStopped = (!playerMoving_) && prevPlayerMoving_;
 		bool justStarted = playerMoving_ && !prevPlayerMoving_;
 
 		if (justStopped) {
-			// start show animation for current
 			if (!stageUIObjects_.empty()) {
 				size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
 				if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
 					stageUIVisible_[idx] = true;
 					stageUIAnimating_[idx] = true;
 					stageUIAnimTimer_[idx] = 0.0f;
-					// ensure start from zero scale
 					stageUIObjects_[idx]->SetScale({ 0.0f, 0.0f, 0.0f });
-					// position sync to player (Y fixed to 10.0f)
 					stageUIObjects_[idx]->SetTranslation({ playerTranslate_[0], 10.0f, playerTranslate_[2] });
 				}
 			}
 		} else if (justStarted) {
-			// hide current immediately (or you can animate out similarly)
 			if (!stageUIObjects_.empty()) {
 				size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
 				if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
 					stageUIVisible_[idx] = false;
 					stageUIAnimating_[idx] = false;
 					stageUIAnimTimer_[idx] = 0.0f;
-					// shrink to zero
 					stageUIObjects_[idx]->SetScale({ 0.0f, 0.0f, 0.0f });
 				}
 			}
 		}
 
-		// 常に選択中 UI の位置はプレイヤーの XZ に追従（Y は 10.0f）
 		if (!stageUIObjects_.empty()) {
 			size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
 			if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
@@ -491,7 +514,7 @@ void StageSelectScene::Update()
 		}
 	}
 
-	// アニメーション更新（選択中以外は通常非表示）
+	// アニメーション更新（選択中以外は非表示）
 	for (size_t i = 0; i < stageUIObjects_.size(); ++i) {
 		if (!stageUIObjects_[i]) continue;
 
@@ -506,21 +529,30 @@ void StageSelectScene::Update()
 			Vector3 base = stageUIBaseScale_[i];
 			stageUIObjects_[i]->SetScale({ base.x * e, base.y * e, base.z * e });
 		} else {
-			// ensure consistent visibility state
 			if (!stageUIVisible_[i]) {
 				stageUIObjects_[i]->SetScale({ 0.0f, 0.0f, 0.0f });
 			} else {
-				// ensure final scale
 				Vector3 base = stageUIBaseScale_[i];
 				stageUIObjects_[i]->SetScale({ base.x, base.y, base.z });
 			}
 		}
 	}
 
-	// Enterで決定 -> GamePlay シーンへ
-	if (!playerMoving_ && input->IsTriggerKey(DIK_RETURN)) {
-		StageSelection::SetSelected(options_[currentIndex_]);
-		SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+	// SPACEで決定 -> 下に吸い込まれる遷移アニメ開始
+	if (!playerMoving_ && input->IsTriggerKey(DIK_SPACE) && !transitionActive_) {
+		transitionActive_ = true;
+		transitionTimer_ = 0.0f;
+		transitionDuration_ = 0.9f; // 調整可
+
+		transitionStartPos_ = { playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] };
+		transitionStartScale_ = { playerScale_[0], playerScale_[1], playerScale_[2] };
+		transitionStartRotateYDeg_ = playerRotateDeg_[1];
+
+		const float fallDepth = 8.0f; // 下にどれだけ吸い込むか
+		transitionTargetPos_ = { transitionStartPos_.x, transitionStartPos_.y - fallDepth, transitionStartPos_.z };
+
+		transitionTargetScale_ = { 0.05f, 0.05f, 0.05f };
+		transitionSpinDeg_ = 1080.0f; // スピン量
 	}
 
 	// Escでタイトルへ戻る
@@ -535,12 +567,9 @@ void StageSelectScene::Update()
 	if (skyObject3d_) {
 		const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
 		if (activeCam) {
-			playerObject3d_ ? void(0) : void(0);
-			// camera の位置を取得して天球の中心に設定
 			Vector3 camPos = activeCam->GetTranslate();
 			skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
 		}
-		// ゆっくり自転
 		skyRotate_ += 0.0005f;
 		if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
 		skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
@@ -548,7 +577,6 @@ void StageSelectScene::Update()
 	}
 
 #ifdef USE_IMGUI
-	// ImGui UI (省略せず既存のまま)
 	auto* renderer = engine_->GetObject3dRenderer();
 
 	static bool showDirectionalLight = true;
@@ -594,7 +622,6 @@ void StageSelectScene::Update()
 	ImGui::Text("UseDebugCamera: %s", useDebugCamera_ ? "ON" : "OFF");
 	ImGui::End();
 
-	// ライティングパネルは既存コードを維持（省略可能）
 	if (renderer) {
 		auto* dl = renderer->GetDirectionalLightData();
 		auto* pl = renderer->GetPointLightData();
@@ -653,12 +680,10 @@ void StageSelectScene::Draw3D()
 {
 	engine_->Begin3D();
 	// 3D の表示が必要ならここに記述
-	// 天球は最初に描画して常に背景に表示
 	if (skyObject3d_) {
 		skyObject3d_->Draw();
 	}
 
-	// プレイヤーモデルを先に描画してから背景などを描く
 	if (playerObject3d_) {
 		playerObject3d_->Draw();
 	}
@@ -671,7 +696,7 @@ void StageSelectScene::Draw3D()
 		stage2Object3d_->Draw();
 	}
 
-	// 変更: 現状プレイヤーがいるステージの UI のみ描画（表示フラグまたはアニメーション中なら描画）
+	// 現状プレイヤーがいるステージのUIのみ描画
 	if (!stageUIObjects_.empty()) {
 		size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
 		if (idx < stageUIObjects_.size() && stageUIObjects_[idx]) {
