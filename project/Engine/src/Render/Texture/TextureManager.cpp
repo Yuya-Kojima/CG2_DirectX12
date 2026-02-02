@@ -67,9 +67,6 @@ void TextureManager::LoadTexture(const std::string &filePath) {
                                 0, mipImages);
   assert(SUCCEEDED(hr));
 
-  // テクスチャデータを追加
-  // textureDatas.resize(textureDatas.size() + 1);
-
   // 追加したテクスチャデータの参照を取得する
   TextureData &textureData = textureDatas[filePath];
 
