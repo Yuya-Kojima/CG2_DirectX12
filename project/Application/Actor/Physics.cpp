@@ -191,4 +191,213 @@ bool SweepSphereAabb2D(const Vector3& start, const Vector3& delta, float r,
     return toi >= 0.0f && toi <= 1.0f;
 }
 
+// =====================================================
+// AABB/OBB helpers (XZ plane)
+// =====================================================
+
+// Helper: clamp
+static inline float ClampF(float v, float a, float b) { return std::max(a, std::min(b, v)); }
+
+// Static push-out: move AABB center out of OBB if overlapping (XZ only)
+void ResolveAabbObb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw) {
+    // convert aabb center into obb local space
+    Vector3 local = Subtract(aabbCenter, obbCenter);
+    local = RotateYInv(local, yaw);
+
+    // treat AABB in local space as AABB with extents aabbHalfExtents.x/z but centered at local.x/z
+    // we will compute overlap in X and Z and push the AABB center out along minimal axis
+    float aMinX = local.x - aabbHalfExtents.x;
+    float aMaxX = local.x + aabbHalfExtents.x;
+    float aMinZ = local.z - aabbHalfExtents.z;
+    float aMaxZ = local.z + aabbHalfExtents.z;
+
+    float bMinX = -obbHalfExtents.x;
+    float bMaxX = obbHalfExtents.x;
+    float bMinZ = -obbHalfExtents.z;
+    float bMaxZ = obbHalfExtents.z;
+
+    // check overlap
+    bool overlapX = !(aMaxX < bMinX || aMinX > bMaxX);
+    bool overlapZ = !(aMaxZ < bMinZ || aMinZ > bMaxZ);
+    if (!overlapX || !overlapZ) return; // no overlap
+
+    // compute penetration along X and Z
+    float penLeft = aMaxX - bMinX;   // push left
+    float penRight = bMaxX - aMinX;  // push right
+    float penDown = aMaxZ - bMinZ;   // push down (local z)
+    float penUp = bMaxZ - aMinZ;     // push up
+
+    // choose minimal penetration axis
+    float minPen = penLeft;
+    int axis = 0; // 0:x-, 1:x+, 2:z-, 3:z+
+    if (penRight < minPen) { minPen = penRight; axis = 1; }
+    if (penDown < minPen) { minPen = penDown; axis = 2; }
+    if (penUp < minPen) { minPen = penUp; axis = 3; }
+
+    // apply push in local space
+    if (axis == 0) {
+        // push aabb left (negative x)
+        local.x -= minPen + 0.02f;
+    } else if (axis == 1) {
+        local.x += minPen + 0.02f;
+    } else if (axis == 2) {
+        local.z -= minPen + 0.02f;
+    } else {
+        local.z += minPen + 0.02f;
+    }
+
+    // rotate back
+    Vector3 world = RotateY(local, yaw);
+    aabbCenter = Add(obbCenter, world);
+}
+
+void ResolveAabbObb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw, bool collisionEnabled) {
+    if (!collisionEnabled) return;
+    ResolveAabbObb2D(aabbCenter, aabbHalfExtents, obbCenter, obbHalfExtents, yaw);
+}
+
+// Sweep AABB vs OBB (moving AABB)
+bool SweepAabbObb2D(const Vector3& startCenter, const Vector3& delta, const Vector3& aabbHalfExtents,
+                    const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw,
+                    float& toi, Vector3& normal) {
+    // transform start into obb local
+    Vector3 localStart = Subtract(startCenter, obbCenter);
+    localStart = RotateYInv(localStart, yaw);
+    Vector3 localDelta = RotateYInv(delta, yaw);
+
+    // expanded target AABB (obb treated as AABB in local space)
+    Vector3 emin{ -obbHalfExtents.x - aabbHalfExtents.x, 0.0f, -obbHalfExtents.z - aabbHalfExtents.z };
+    Vector3 emax{ obbHalfExtents.x + aabbHalfExtents.x, 0.0f, obbHalfExtents.z + aabbHalfExtents.z };
+
+    float t0 = 0.0f, t1 = 1.0f;
+    normal = {0,0,0};
+    if (std::abs(localDelta.x) < 1e-6f) {
+        if (localStart.x < emin.x || localStart.x > emax.x) return false;
+    } else {
+        float inv = 1.0f / localDelta.x;
+        float tmin = (emin.x - localStart.x) * inv;
+        float tmax = (emax.x - localStart.x) * inv;
+        if (tmin > tmax) std::swap(tmin, tmax);
+        if (tmin > t0) { t0 = tmin; normal = { (inv < 0.0f) ? 1.0f : -1.0f, 0.0f, 0.0f }; }
+        if (tmax < t1) t1 = tmax;
+        if (t0 > t1) return false;
+    }
+
+    if (std::abs(localDelta.z) < 1e-6f) {
+        if (localStart.z < emin.z || localStart.z > emax.z) return false;
+    } else {
+        float inv = 1.0f / localDelta.z;
+        float tmin = (emin.z - localStart.z) * inv;
+        float tmax = (emax.z - localStart.z) * inv;
+        if (tmin > tmax) std::swap(tmin, tmax);
+        if (tmin > t0) { t0 = tmin; normal = { 0.0f, 0.0f, (inv < 0.0f) ? 1.0f : -1.0f }; }
+        if (tmax < t1) t1 = tmax;
+        if (t0 > t1) return false;
+    }
+
+    toi = t0;
+    if (toi < 0.0f || toi > 1.0f) return false;
+
+    // rotate normal back
+    Vector3 worldNormal = RotateY(normal, yaw);
+    normal = worldNormal;
+    return true;
+}
+
+// AABB-OBB overlap test (instant)
+bool AabbIntersectsObb2D(const Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                         const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw) {
+    // bring aabb center into obb local
+    Vector3 local = Subtract(aabbCenter, obbCenter);
+    local = RotateYInv(local, yaw);
+
+    // compute AABB extents in local
+    float aMinX = local.x - aabbHalfExtents.x;
+    float aMaxX = local.x + aabbHalfExtents.x;
+    float aMinZ = local.z - aabbHalfExtents.z;
+    float aMaxZ = local.z + aabbHalfExtents.z;
+
+    float bMinX = -obbHalfExtents.x;
+    float bMaxX = obbHalfExtents.x;
+    float bMinZ = -obbHalfExtents.z;
+    float bMaxZ = obbHalfExtents.z;
+
+    bool overlapX = !(aMaxX < bMinX || aMinX > bMaxX);
+    bool overlapZ = !(aMaxZ < bMinZ || aMinZ > bMaxZ);
+    return overlapX && overlapZ;
+}
+
+// AABB vs AABB resolve (static)
+void ResolveAabbAabb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& otherCenter, const Vector3& otherHalfExtents) {
+    // compute overlap in world XZ
+    float aMinX = aabbCenter.x - aabbHalfExtents.x;
+    float aMaxX = aabbCenter.x + aabbHalfExtents.x;
+    float aMinZ = aabbCenter.z - aabbHalfExtents.z;
+    float aMaxZ = aabbCenter.z + aabbHalfExtents.z;
+
+    float bMinX = otherCenter.x - otherHalfExtents.x;
+    float bMaxX = otherCenter.x + otherHalfExtents.x;
+    float bMinZ = otherCenter.z - otherHalfExtents.z;
+    float bMaxZ = otherCenter.z + otherHalfExtents.z;
+
+    if (aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ) return;
+
+    float penLeft = aMaxX - bMinX;
+    float penRight = bMaxX - aMinX;
+    float penDown = aMaxZ - bMinZ;
+    float penUp = bMaxZ - aMinZ;
+
+    float minPen = penLeft;
+    int axis = 0;
+    if (penRight < minPen) { minPen = penRight; axis = 1; }
+    if (penDown < minPen) { minPen = penDown; axis = 2; }
+    if (penUp < minPen) { minPen = penUp; axis = 3; }
+
+    if (axis == 0) aabbCenter.x -= minPen + 0.02f;
+    else if (axis == 1) aabbCenter.x += minPen + 0.02f;
+    else if (axis == 2) aabbCenter.z -= minPen + 0.02f;
+    else aabbCenter.z += minPen + 0.02f;
+}
+
+// Sweep AABB vs AABB (moving aabbCenter by delta)
+bool SweepAabbAabb2D(const Vector3& startCenter, const Vector3& delta, const Vector3& aabbHalfExtents,
+                     const Vector3& otherCenter, const Vector3& otherHalfExtents,
+                     float& toi, Vector3& normal) {
+    // expand other by aabbHalfExtents
+    Vector3 emin { otherCenter.x - otherHalfExtents.x - aabbHalfExtents.x, 0.0f, otherCenter.z - otherHalfExtents.z - aabbHalfExtents.z };
+    Vector3 emax { otherCenter.x + otherHalfExtents.x + aabbHalfExtents.x, 0.0f, otherCenter.z + otherHalfExtents.z + aabbHalfExtents.z };
+
+    float t0 = 0.0f, t1 = 1.0f;
+    normal = {0,0,0};
+    if (std::abs(delta.x) < 1e-6f) {
+        if (startCenter.x < emin.x || startCenter.x > emax.x) return false;
+    } else {
+        float inv = 1.0f / delta.x;
+        float tmin = (emin.x - startCenter.x) * inv;
+        float tmax = (emax.x - startCenter.x) * inv;
+        if (tmin > tmax) std::swap(tmin, tmax);
+        if (tmin > t0) { t0 = tmin; normal = { (inv < 0.0f) ? 1.0f : -1.0f, 0.0f, 0.0f }; }
+        if (tmax < t1) t1 = tmax;
+        if (t0 > t1) return false;
+    }
+
+    if (std::abs(delta.z) < 1e-6f) {
+        if (startCenter.z < emin.z || startCenter.z > emax.z) return false;
+    } else {
+        float inv = 1.0f / delta.z;
+        float tmin = (emin.z - startCenter.z) * inv;
+        float tmax = (emax.z - startCenter.z) * inv;
+        if (tmin > tmax) std::swap(tmin, tmax);
+        if (tmin > t0) { t0 = tmin; normal = { 0.0f, 0.0f, (inv < 0.0f) ? 1.0f : -1.0f }; }
+        if (tmax < t1) t1 = tmax;
+        if (t0 > t1) return false;
+    }
+
+    toi = t0;
+    return toi >= 0.0f && toi <= 1.0f;
+}
+
 } // namespace GamePhysics

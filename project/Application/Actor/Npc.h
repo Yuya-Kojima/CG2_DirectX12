@@ -43,6 +43,33 @@ public:
     // レベル参照を保持（追加クエリや衝突処理で使用）
     void AttachLevel(class Level* level) { level_ = level; }
 
+    // ===== 乗車状態情報（ログ表示用） =====
+    bool IsMounted() const { return mounted_; }
+    uint32_t GetMountedOwnerId() const { return mountedOwnerId_; }
+    // ===== 状態制御（State machine） =====
+    // NPCの行動状態を簡易的なStateで管理します
+    enum class State {
+        Idle,
+        Straight,      // 与えられた方向へ直進するモード
+        MoveToTarget,  // 経路探索に基づく移動
+        CarryToGoal,   // 所持アイテムをゴールへ運ぶ
+        ReturnToPlayer // プレイヤーへ戻る
+    };
+
+    // 状態の設定
+    void SetState(State s) { state_ = s; }
+
+    // 直進モードの方向ベクトルを設定（XZ成分を使用）
+    void SetStraightDirection(const Vector3& dir) { straightDir_ = dir; }
+
+    State GetState() const { return state_; }
+    // NPCがオブジェクト上に乗せられたときのYオフセット（モデル原点と足元の差を補正）
+    // もう少し上げて見た目の干渉を減らす
+    float mountOffsetY_ = 0.20f;
+
+public:
+    // マウント時のYオフセットを設定（単位: ワールド座標）
+    void SetMountYOffset(float v) { mountOffsetY_ = v; }
 private:
     Object3dRenderer* renderer_ = nullptr; // 描画レンダラー
     std::unique_ptr<Object3d> obj_; // 描画用3Dオブジェクト本体
@@ -61,6 +88,9 @@ private:
     static constexpr float kStepHeight = 0.3f;
     // 接地判定の追加余裕
     static constexpr float kStepExtra = 0.2f;
+
+    // マウント継続時間（秒）
+    static constexpr float kMountDuration = 0.8f;
 
 
     // ===== 移動関連パラメータ =====
@@ -90,4 +120,23 @@ private:
     uint32_t layer_ = 0; // 所属レイヤー
     uint32_t id_ = 0; // 固有ID
     std::string behavior_; // 行動タイプ識別子
+
+    // ===== State / Straight movement =====
+    // デフォルトは直進モードにする（経路探索を使わず単純移動させる）
+    State state_ = State::Straight; // 現在の状態
+    Vector3 straightDir_ { 0.0f, 0.0f, 1.0f }; // 直進モード時の方向
+    // 乗車状態フラグ（OBBに乗っているか）および該当OBBのownerId
+    bool mounted_ = false;
+    uint32_t mountedOwnerId_ = 0;
+    // マウント経過時間（秒）
+    float mountTimer_ = 0.0f;
+    // マウント解除後に地面へ落下するフラグ
+    bool fallingFromMount_ = false;
+    // 降下後に一時的に前進を止めるクールダウン
+    static constexpr float kPostFallCooldown = 1.0f;
+    float postFallCooldown_ = 0.0f;
+    // マウントしたOBBのパラメータを保持（アンマウント判定に使用）
+    Vector3 mountedObbCenter_ { 0.0f, 0.0f, 0.0f };
+    Vector3 mountedObbHalfExtents_ { 0.0f, 0.0f, 0.0f };
+    float mountedObbYaw_ = 0.0f;
 };

@@ -1,6 +1,7 @@
 #pragma once
 #include "Math/Vector3.h"
 #include <memory>
+#include <string>
 
 class Object3d;
 class Object3dRenderer;
@@ -11,7 +12,7 @@ public:
     ~Hazard();
 
     // 初期化: レンダラと位置・半径を与え視覚オブジェクトを生成
-    void Initialize(Object3dRenderer* renderer, const Vector3& pos, float radius);
+    void Initialize(Object3dRenderer* renderer, const Vector3& pos, float radius, const std::string& model = std::string());
     // 更新: 内部オブジェクトを更新
     void Update(float dt);
     // 描画: 内部の Object3d を描画

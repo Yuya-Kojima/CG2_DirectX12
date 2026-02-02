@@ -43,6 +43,14 @@ public:
     /// </summary>
     void Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float tileSize);
 
+    /// <summary>
+    /// タイル配列に基づいて床タイルを生成する。
+    /// tiles が空なら全グリッドに床を生成する。
+    /// 配列は行優先 (row-major) で z*tilesX + x の順で格納される想定。
+    /// 値が 0 のマップチップの位置に床を表示する仕様。
+    /// </summary>
+    void CreateFloorTiles(const std::vector<int>& tiles = std::vector<int>());
+
     /// <summary> 毎フレームの更新（可視範囲のタイルやハザードの更新） </summary>
     void Update(float dt);
 
@@ -64,6 +72,8 @@ public:
 
     /// <summary> 新しいハザードを追加します </summary>
     void AddHazard(const Vector3& pos, float radius);
+    /// <summary> 新しいハザードを追加します（表示用モデルを明示的に指定） </summary>
+    void AddHazard(const Vector3& pos, float radius, const std::string& model);
 
     /// <summary> 回転付きOBBを追加します（視覚表示は省略可能） </summary>
     void AddWallOBB(const OBB& obb, bool visual = false);
@@ -129,6 +139,8 @@ public:
 
     // デバッグ用: 登録されている OBB の一覧を取得
     const std::vector<OBB>& GetOBBs() const { return obbs_; }
+    // デバッグ/ユーティリティ: 登録されている軸整列AABB一覧を取得
+    const std::vector<AABB>& GetWalls() const { return walls_; }
 
 private:
     // --- 描画・アセット関連 ---

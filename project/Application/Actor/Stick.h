@@ -74,6 +74,11 @@ public:
 
     // Adjust held yaw (in radians) while the stick is held
     void AdjustHeldYaw(float delta);
+    // Continuous rotation of held yaw (no snapping)
+    void RotateHeldYaw(float delta);
+    // Non-destructive additive offset applied to the held rotation
+    void SetHeldYawOffset(float off) { heldYawOffset_ = off; }
+    void AddHeldYawOffset(float d) { heldYawOffset_ += d; }
 
     // 衝突判定無効化タイマーの更新（落とした直後の誤判定防止用）
     void UpdateCollisionTimer(float dt);
@@ -97,6 +102,11 @@ public:
     // 公開変数（便宜上publicに配置されている管理用データ）
     uint32_t layer_ = 0; // 衝突レイヤー
     uint32_t id_ = 0; // オブジェクト固有ID
+
+    // Provide OBB info for external queries (center, halfExtents, yaw)
+    void GetOBB(Vector3& outCenter, Vector3& outHalfExtents, float& outYaw) const;
+    // Provide conservative AABB (XZ plane) that contains the rotated OBB
+    void GetConservativeAABB(Vector3& outCenter, Vector3& outHalfExtents) const;
 
 private:
     // --- 内部メンバ変数 ---
@@ -129,8 +139,12 @@ private:
     // - heldRotation_: when held, keep roughly horizontal (can be adjusted by scene)
     // - dropRotation_: when dropped, lie flat on the ground
     Vector3 heldRotation_ { 0.0f, 0.0f, 0.0f };
-    Vector3 dropRotation_ { 0.0f, 0.0f, 0.0f };
+    // default: rotate 90 degrees around Y so the stick lies along X axis by default
+    Vector3 dropRotation_ { 0.0f, 3.14159265f * 0.5f, 0.0f };
     float rotationLerpSpeed_ = 10.0f; // 角度変化の補間速度
+
+    // Additional offset applied to held rotation (non-destructive)
+    float heldYawOffset_ = 0.0f;
 
     Level* level_ = nullptr; // 所属ステージへの参照
     // whether an OBB has been registered in the level for this stick
@@ -145,4 +159,5 @@ private:
 
     // Which side relative to player the stick should be held on: -1 left, +1 right
     int holdSideX = 1;
+
 };

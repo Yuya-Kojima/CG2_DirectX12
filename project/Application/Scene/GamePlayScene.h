@@ -29,7 +29,9 @@ private: // メンバ変数(ゲーム用)
 
   // デバッグカメラ使用
   bool useDebugCamera_ = false;
-  // when true, override camera each frame to a fixed safe position for debug
+  // ImGui表示フラグ
+  bool showImGui_ = false;
+  // 固定カメラ強制フラグ
   bool forceFixedCamera_ = false;
 
 public: // メンバ関数
@@ -76,7 +78,10 @@ private:
   Npc* npc_ = nullptr;
   Goal* goal_ = nullptr;
   bool goalReached_ = false;
+  Vector3 goalHalf_ = { 1.2f, 1.2f, 1.2f }; // goal AABB half extents
+  bool goalHasAABB_ = false;
   // level
   Level* level_ = nullptr;
+  float npcSpawnLeftOffset_ = 1.0f;
   // (probe removed) 
 };

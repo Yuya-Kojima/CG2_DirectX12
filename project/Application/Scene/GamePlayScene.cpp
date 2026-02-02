@@ -9,6 +9,7 @@
 #include "Debug/DebugCamera.h"
 #include "Debug/Logger.h"
 #include "Input/InputKeyState.h"
+#include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -16,6 +17,7 @@
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
 #include "Physics/CollisionSystem.h"
+#include "Actor/Physics.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
@@ -30,6 +32,7 @@
 #include <filesystem>
 #include <format>
 #include "Scene/StageSelection.h"
+#include <cctype>
 
 // ---------------------------------------------------------
 // 初期化
@@ -38,6 +41,8 @@ void GamePlayScene::Initialize(EngineBase* engine)
 {
     // エンジン本体への参照を保持
     engine_ = engine;
+    // this scene should not show ImGui windows by default
+    showImGui_ = false;
 
     //===========================
     // テクスチャ・オーディオ・スプライトの初期化
@@ -75,16 +80,55 @@ void GamePlayScene::Initialize(EngineBase* engine)
     if (loaded) {
         // ロード成功時はJSON内のグリッド設定で初期化
         level_->Initialize(engine_->GetObject3dRenderer(), sd.width, sd.height, sd.tileSize);
+        // Create floor tiles based on map data: draw only where map value == 0
+        level_->CreateFloorTiles(sd.tiles);
     } else {
         // ロード失敗時はデフォルト設定で初期化
         level_->Initialize(engine_->GetObject3dRenderer(), 16, 16, 1.0f);
+        // create full floor when no stage loaded
+        level_->CreateFloorTiles();
+    }
+
+    // Debug: report how many objects were parsed from stage and list classes/ids
+    if (loaded) {
+        try {
+            Logger::Log(std::format("[StageDebug] loaded objects count={}\n", (int)sd.objects.size()));
+        } catch (...) {
+            Logger::Log(std::string("[StageDebug] loaded objects count=") + std::to_string((int)sd.objects.size()) + "\n");
+        }
+        for (const auto &o : sd.objects) {
+            try {
+                Logger::Log(std::format("[StageDebug] object class='{}' id={} pos=({:.2f},{:.2f},{:.2f}) model='{}'\n",
+                    o.className, o.id, o.position.x, o.position.y, o.position.z, o.model));
+            } catch (...) {
+                Logger::Log(std::string("[StageDebug] object class='") + o.className + "' id=" + std::to_string(o.id) + "\n");
+            }
+        }
     }
 
     // --- フォールバック生成 (シーン側で個別初期化を行う) ---
     static uint32_t nextId = 1;
 
+    // If stage loaded, detect whether stage defines core actors so we can avoid
+    // spawning fallbacks unnecessarily. This prevents fallback instances from
+    // blocking stage-provided actors (fallback ran before we processed objects).
+    bool stageHasPlayer = false;
+    bool stageHasStick = false;
+    bool stageHasNpc = false;
+    bool stageHasGoal = false;
+    if (loaded) {
+        for (const auto &o : sd.objects) {
+            std::string cls = o.className;
+            for (auto &c : cls) c = (char)tolower(c);
+            if (cls == "player") stageHasPlayer = true;
+            if (cls == "stick") stageHasStick = true;
+            if (cls == "npc") stageHasNpc = true;
+            if (cls == "goal") stageHasGoal = true;
+        }
+    }
+
     // プレイヤー生成（フォールバック）
-    if (!player_) {
+    if (!player_ && !stageHasPlayer) {
         player_ = new Player();
         player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
         player_->SetLayer(CollisionMask::Player);
@@ -95,7 +139,7 @@ void GamePlayScene::Initialize(EngineBase* engine)
     }
 
     // 棒(Stick)生成（フォールバック）
-    if (!stick_) {
+    if (!stick_ && !stageHasStick) {
         Vector3 sp = { 0.0f, 0.1f, 2.0f };
         if (player_) {
             const Vector3& pp = player_->GetPosition();
@@ -110,34 +154,83 @@ void GamePlayScene::Initialize(EngineBase* engine)
     }
 
     // ゴール生成（フォールバック）
-    if (!goal_) {
+    if (!goal_ && !stageHasGoal) {
         goal_ = new Goal();
         goal_->Initialize(engine_->GetObject3dRenderer(), { 8.0f, 0.0f, 0.0f });
         Logger::Log("[Scene] Fallback: spawned Goal\n");
     }
 
     // NPC生成（フォールバック） - 同様の形式で作成
-    if (!npc_) {
-        // place NPC near player if possible, otherwise use a default position
+    if (!npc_ && !stageHasNpc) {
+        // place NPC so that it will run into the stick after starting to move
         Vector3 npPos = { 2.0f, 0.0f, 2.0f };
         if (player_) {
             const Vector3& pp = player_->GetPosition();
-            npPos = { pp.x + 1.5f, pp.y, pp.z + 1.5f };
+            // プレイヤーの左側（負X方向）に一旦配置
+            npPos = { pp.x - 1.5f, pp.y, pp.z };
         }
+
+        // If a stick exists, compute a spawn position a few meters away so NPC
+        // will move toward the stick and collide with it. Set straight direction
+        // toward the stick.
+        Vector3 desiredDir = { 1.0f, 0.0f, 0.0f };
+        if (stick_) {
+            Vector3 sp = stick_->GetPosition();
+            // 日本語: スティックの少し左（負X方向）にスポーンさせて、左から当てる挙動を見やすくする
+            // シーンのメンバ変数 npcSpawnLeftOffset_ を使って調整可能にする
+            float leftOffset = npcSpawnLeftOffset_;
+            npPos.x = sp.x - leftOffset;
+            npPos.z = sp.z;
+            // 地面にスナップしたうえで少し上に出しておく(見やすさのため)
+            float groundY = 0.0f;
+            if (level_ && level_->RaycastDown({ npPos.x, sp.y + 2.0f, npPos.z }, 4.0f, groundY)) {
+                // 少し上げて重なりを避ける
+                npPos.y = groundY + 0.5f;
+            } else {
+                npPos.y = sp.y + 0.5f;
+            }
+            // 進行方向はスティックの中心へ向かうように設定（左から当てる挙動）
+            float dx = sp.x - npPos.x;
+            float dz = sp.z - npPos.z;
+            float dlen = std::sqrt(dx*dx + dz*dz);
+            if (dlen > 1e-6f) {
+                desiredDir.x = dx / dlen;
+                desiredDir.z = dz / dlen;
+                desiredDir.y = 0.0f;
+            } else {
+                desiredDir = { 1.0f, 0.0f, 0.0f };
+            }
+        }
+
         npc_ = new Npc();
         npc_->Initialize(engine_->GetObject3dRenderer(), npPos);
         npc_->AttachLevel(level_);
         npc_->SetNavGrid(&level_->GetNavGrid());
         npc_->SetLayer(CollisionMask::NPC);
         npc_->SetId(nextId++);
-        // default behavior
-        npc_->SetBehavior("followPlayer");
+        // デフォルトは単純直進させる（経路探索不要）
+        npc_->SetStraightDirection(desiredDir);
+        npc_->SetState(Npc::State::Straight);
+        try {
+            Logger::Log(std::format("[Scene] Fallback: spawned Npc pos=({:.2f},{:.2f},{:.2f}) straightDir=({:.2f},{:.2f},{:.2f}) stick=({:.2f},{:.2f},{:.2f})\n",
+                npPos.x, npPos.y, npPos.z, desiredDir.x, desiredDir.y, desiredDir.z,
+                stick_? stick_->GetPosition().x : 0.0f, stick_? stick_->GetPosition().y : 0.0f, stick_? stick_->GetPosition().z : 0.0f));
+        } catch(...) {
+            Logger::Log(std::string("[Scene] Fallback: spawned Npc (format error)\n"));
+        }
         Logger::Log("[Scene] Fallback: spawned Npc\n");
     }
 
     // --- ステージ情報のログ出力 ---
+    // Decide whether the stage contains hazards coming from the tilemap.
+    // We intentionally treat hazards defined in the tiles array as the
+    // authoritative source. Stage object entries named "Hazard" are
+    // ignored because hazards/floor should be generated only from the
+    // tilemap.
     bool hadStageHazard = false;
     if (loaded) {
+        hadStageHazard = std::any_of(sd.tiles.begin(), sd.tiles.end(), [](int v) { return v == 1; });
+
         for (const auto& o : sd.objects) {
             try {
                 Logger::Log(std::format("[StageObjects] type='{}' class='{}' model='{}' id={}\n", o.type, o.className, o.model, o.id));
@@ -149,12 +242,133 @@ void GamePlayScene::Initialize(EngineBase* engine)
             } catch (...) {
                 Logger::Log(std::string("[Scene] object class='") + o.className + "'\n");
             }
-            // detect stage-defined hazards so we can skip fallback creation
-            if (o.className == "Hazard" || o.className == "hazard" || o.type == "hazard") {
-                hadStageHazard = true;
-            }
-            // Note: NPC spawning from stage object list is disabled here.
+            // Note: hazards defined as objects are intentionally ignored.
+            // NPC spawning from stage object list is disabled here.
             // NPC instances are created as fallbacks below if none exist.
+        }
+
+    // --- Stage-defined objects: create actors for known classes (Stick, Npc, Player, Goal) ---
+    if (loaded && level_) {
+        auto parseVec3 = [](const std::string &s)->Vector3 {
+            Vector3 v{0.0f,0.0f,0.0f};
+            size_t p1 = s.find(',');
+            if (p1==std::string::npos) return v;
+            size_t p2 = s.find(',', p1+1);
+            try {
+                v.x = std::stof(s.substr(0,p1));
+                v.y = std::stof(s.substr(p1+1, p2 - (p1+1)));
+                v.z = std::stof(s.substr(p2+1));
+            } catch(...) {}
+            return v;
+        };
+
+        auto allocateId = [&](uint32_t requested)->uint32_t {
+            if (requested != 0) {
+                if (requested >= nextId) nextId = requested + 1;
+                return requested;
+            }
+            return nextId++;
+        };
+
+        for (const auto &o : sd.objects) {
+            // normalize class name
+            std::string cls = o.className;
+            for (auto &c : cls) c = (char)tolower(c);
+
+            if (cls == "stick") {
+                if (!stick_) {
+                    stick_ = new Stick();
+                    stick_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                    stick_->SetLevel(level_);
+                    stick_->SetLayer(o.layer);
+                    uint32_t id = allocateId(o.id);
+                    stick_->SetId(id);
+                    Logger::Log("Stage: spawned Stick from JSON");
+                }
+                // OBB registration for the stick is handled inside Stick class
+                // (Stick::DropExternal / SetId). Do not register here to avoid
+                // duplicate / out-of-sync colliders that can cause invisible
+                // hitboxes. The Stick instance will register/update its OBB
+                // with the Level when appropriate.
+            } else if (cls == "npc") {
+                if (!npc_) {
+                    npc_ = new Npc();
+                    npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                    npc_->AttachLevel(level_);
+                    npc_->SetLayer(o.layer);
+                    uint32_t id = allocateId(o.id);
+                    npc_->SetId(id);
+                    // behavior property (store but do not force state)
+                    auto it = o.properties.find("behavior");
+                    if (it != o.properties.end()) {
+                        npc_->SetBehavior(it->second);
+                    }
+                    // optional straightDir property as "x,y,z"
+                    auto it2 = o.properties.find("straightDir");
+                    if (it2 != o.properties.end()) {
+                        Vector3 sdv = parseVec3(it2->second);
+                        npc_->SetStraightDirection(sdv);
+                        npc_->SetState(Npc::State::Straight);
+                    } else {
+                        // default: keep a consistent forward direction (positive X) so
+                        // stage NPCs always move in the expected straight direction
+                        npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
+                        npc_->SetState(Npc::State::Straight);
+                    }
+                    Logger::Log("Stage: spawned Npc from JSON");
+                }
+            } else if (cls == "player") {
+                if (!player_) {
+                    player_ = new Player();
+                    player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
+                    player_->AttachLevel(level_);
+                    player_->SetLayer(o.layer);
+                    uint32_t id = allocateId(o.id);
+                    player_->SetId(id);
+                    player_->SetPosition(o.position);
+                    Logger::Log("Stage: spawned Player from JSON");
+                }
+            } else if (cls == "goal") {
+                if (!goal_) {
+                    goal_ = new Goal();
+                    goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                    // assign id if provided (Goal doesn't store id but keep for level owner mapping)
+                    uint32_t gid = allocateId(o.id);
+                    (void)gid;
+                    Logger::Log("Stage: spawned Goal from JSON");
+                }
+                if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
+                    goalHalf_.x = o.obbHalfExtents.x;
+                    goalHalf_.z = o.obbHalfExtents.z;
+                    goalHalf_.y = o.obbHalfExtents.y > 0.0f ? o.obbHalfExtents.y : goalHalf_.y;
+                    goalHasAABB_ = true;
+                }
+            }
+        }
+    }
+    }
+
+    // If the stage defined an object with class "Goal" and provided obb info,
+    // use that to drive AABB-based goal checks instead of sphere radius.
+    if (loaded) {
+        for (const auto& o : sd.objects) {
+            if (o.className == "Goal" || o.type == "goal" || o.className == "goal") {
+                // place goal actor at provided position (if not already)
+                if (!goal_) {
+                    goal_ = new Goal();
+                    goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                }
+                // If OBB or half extents provided, set conservative AABB
+                if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
+                    // use XZ half extents; default Y to reasonable value
+                    goalHalf_.x = o.obbHalfExtents.x;
+                    goalHalf_.z = o.obbHalfExtents.z;
+                    goalHalf_.y = (o.obbHalfExtents.y > 0.0f) ? o.obbHalfExtents.y : 1.0f;
+                    goalHasAABB_ = true;
+                    Logger::Log("Stage-defined Goal AABB loaded.");
+                }
+                break;
+            }
         }
     }
 
@@ -297,19 +511,49 @@ void GamePlayScene::Update()
     // --- 3. 木の棒(Stick)の拾う・置く処理 ---
     auto input = engine_->GetInputManager();
     if (input && stick_) {
-        if (input->IsTriggerKey(DIK_SPACE)) {
+        // 日本語: キーボードのスペースキーまたはゲームパッドのAボタンで拾う/置くを行う
+        if (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) {
             if (!stick_->IsHeld()) {
                 // 未保持：プレイヤーが存在する場合のみ距離をチェックして拾う
                 if (player_) {
                     const Vector3& pp = player_->GetPosition();
-                    const Vector3& sp = stick_->GetPosition();
-                    float dx = pp.x - sp.x;
-                    float dy = pp.y - sp.y;
-                    float dz = pp.z - sp.z;
-                    float dist2 = dx * dx + dy * dy + dz * dz;
-                    const float pickupRadius = 1.5f;
+                    // Use AABB (player) vs OBB (stick) test for pickup
+                    Vector3 playerHalfExt = player_->GetHalfExtents();
 
-                    if (dist2 <= pickupRadius * pickupRadius) {
+                    // Use conservative AABB of stick for pickup to match Level conservative checks
+                    Vector3 stickCenter, stickHalf;
+                    stick_->GetConservativeAABB(stickCenter, stickHalf);
+
+                    // expand conservative AABB slightly to make pickup easier
+                    const float pickupExpand = 0.5f; // adjust this value to tune pickup ease
+                    stickHalf.x += pickupExpand;
+                    stickHalf.z += pickupExpand;
+
+                    bool picked = false;
+                    // AABB vs AABB quick test in XZ
+                    float aMinX = pp.x - playerHalfExt.x;
+                    float aMaxX = pp.x + playerHalfExt.x;
+                    float aMinZ = pp.z - playerHalfExt.z;
+                    float aMaxZ = pp.z + playerHalfExt.z;
+
+                    float bMinX = stickCenter.x - stickHalf.x;
+                    float bMaxX = stickCenter.x + stickHalf.x;
+                    float bMinZ = stickCenter.z - stickHalf.z;
+                    float bMaxZ = stickCenter.z + stickHalf.z;
+
+                    if (!(aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ)) {
+                        picked = true;
+                    } else {
+                        //// fallback distance check
+                        //const float pickupRadius = 1.5f;
+                        //float dx = pp.x - stickCenter.x;
+                        //float dy = pp.y - stickCenter.y;
+                        //float dz = pp.z - stickCenter.z;
+                        //float dist2 = dx*dx + dy*dy + dz*dz;
+                        //if (dist2 <= pickupRadius * pickupRadius) picked = true;
+                    }
+
+                    if (picked) {
                         // decide which side to hold based on current relative position
                         stick_->SetHoldSideFromPlayerPos(pp);
                         stick_->PickUpExternal();
@@ -459,23 +703,33 @@ void GamePlayScene::Update()
         stick_->SetHoldSideFromPlayerPos(pp);
         Vector3 offset = stick_->GetHoldOffset();
         Vector3 holdPos = { pp.x + offset.x, pp.y + offset.y, pp.z + offset.z };
-        // Keep the stick's rotation as the heldRotation (which was set on pickup to preserve lay angle)
+        // Ensure the stick rotation is the held rotation and that the stick lies horizontally on the held side
+        float yaw = (offset.x >= 0.0f) ? 3.14159265f * 0.5f : -3.14159265f * 0.5f;
+        // only update position here; heldRotation is set on pickup and adjusted via input (Q/E)
         stick_->SetPosition(holdPos);
-        stick_->SetRotation(stick_->GetRotation());
 
-        // Rotate held stick in discrete 15-degree steps on Q/E (triggered once per press)
-        constexpr float k15deg = 3.14159265f * (15.0f / 180.0f); // radians
-        if (engine_->GetInputManager()->IsTriggerKey(DIK_Q)) {
-            stick_->AdjustHeldYaw(-k15deg);
+        // Continuous small increments while held (キーボードQ/Eで回転)
+        constexpr float kRotateSpeed = 1.5f; // radians per second
+        if (engine_->GetInputManager()->IsPressKey(DIK_Q)) {
+            stick_->RotateHeldYaw(-kRotateSpeed * (1.0f / 60.0f));
         }
-        if (engine_->GetInputManager()->IsTriggerKey(DIK_E)) {
-            stick_->AdjustHeldYaw(k15deg);
+        if (engine_->GetInputManager()->IsPressKey(DIK_E)) {
+            stick_->RotateHeldYaw(kRotateSpeed * (1.0f / 60.0f));
+        }
+        // 日本語: ゲームパッドの右スティックX軸で回転制御（接続されている場合）
+        if (engine_->GetInputManager()->Pad(0).IsConnected()) {
+            float rx = engine_->GetInputManager()->Pad(0).GetRightX();
+            const float kDead = 0.15f; // デッドゾーン
+            if (std::fabs(rx) > kDead) {
+                // スティックの傾きに比例して回転。速度調整のためにkRotateSpeedを乗算
+                stick_->RotateHeldYaw(rx * kRotateSpeed * (1.0f / 60.0f));
+            }
         }
     }
 
 #ifdef USE_IMGUI
-    // ImGui: stick debug window
-    if (true) {
+    // ImGui: stick debug window (scene-local toggle)
+    if (showImGui_) {
         ImGui::Begin("Stick Debug");
         if (stick_) {
             const Vector3& sp = stick_->GetPosition();
@@ -535,28 +789,39 @@ void GamePlayScene::Update()
 
     // --- 7. ゴール(勝利)判定 ---
     if (goal_ && !goalReached_) {
-        const float goalRadius = 1.2f;
         const Vector3& gp = goal_->GetPosition();
 
-        // プレイヤーがゴールに接触
+        // Use conservative AABB/XZ check when available to avoid relying on pure distance
+        auto checkHit = [&](const Vector3& p)->bool {
+            // If scene-level goal AABB is provided, use XZ overlap + Y tolerance
+            if (goalHasAABB_) {
+                float minX = gp.x - goalHalf_.x;
+                float maxX = gp.x + goalHalf_.x;
+                float minZ = gp.z - goalHalf_.z;
+                float maxZ = gp.z + goalHalf_.z;
+                if (p.x < minX || p.x > maxX) return false;
+                if (p.z < minZ || p.z > maxZ) return false;
+                // allow some vertical tolerance
+                if (std::abs(p.y - gp.y) > goalHalf_.y + 0.5f) return false;
+                return true;
+            } else {
+                // fallback: spherical check on XZ plane (ignore Y)
+                const float r = 1.2f;
+                float dx = gp.x - p.x;
+                float dz = gp.z - p.z;
+                return (dx*dx + dz*dz) <= (r*r);
+            }
+        };
+
         if (player_) {
-            const Vector3& pp = player_->GetPosition();
-            float dx = gp.x - pp.x;
-            float dy = gp.y - pp.y;
-            float dz = gp.z - pp.z;
-            if ((dx * dx + dy * dy + dz * dz) <= goalRadius * goalRadius) {
+            if (checkHit(player_->GetPosition())) {
                 goalReached_ = true;
                 Logger::Log("Goal reached by Player!");
                 SceneManager::GetInstance()->ChangeScene("DEBUG");
             }
         }
-        // NPCがゴールに接触 (NPC救出目標などの想定)
         if (!goalReached_ && npc_) {
-            const Vector3& np = npc_->GetPosition();
-            float dx = gp.x - np.x;
-            float dy = gp.y - np.y;
-            float dz = gp.z - np.z;
-            if ((dx * dx + dy * dy + dz * dz) <= goalRadius * goalRadius) {
+            if (checkHit(npc_->GetPosition())) {
                 goalReached_ = true;
                 Logger::Log("Goal reached by NPC!");
                 SceneManager::GetInstance()->ChangeScene("DEBUG");
