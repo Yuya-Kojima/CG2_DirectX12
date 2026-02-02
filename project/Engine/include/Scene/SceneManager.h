@@ -1,4 +1,5 @@
 #pragma once
+#include "Sprite/Fade.h"
 #include <memory>
 #include <string>
 
@@ -15,6 +16,17 @@ private:
 
   EngineBase *engine_ = nullptr;
 
+  Fade fade_;
+
+  enum class TransitionState {
+    None,
+    FadeOut,
+    SwitchScene,
+    FadeIn,
+  };
+
+  TransitionState transitionState_ = TransitionState::None;
+
 public:
   static SceneManager *GetInstance();
 
@@ -25,14 +37,6 @@ public:
   void Update();
 
   void Draw();
-
-  //~SceneManager();
-
-  /// <summary>
-  /// 次のシーンを予約
-  /// </summary>
-  /// <param name="scene"></param>
-  // void SetNextScene(BaseScene *scene) { nextScene_ = scene; }
 
   void ChangeScene(const std::string &sceneName);
 

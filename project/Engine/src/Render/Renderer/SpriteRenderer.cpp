@@ -138,7 +138,7 @@ void SpriteRenderer::CreateSpritePSO() {
   blendDesc.RenderTarget[0].DestBlendAlpha =
       D3D12_BLEND_INV_SRC_ALPHA; // 背景の透明度は無視
 
-  // RasiterzerStateの設定
+  // RasterizerStateの設定
   D3D12_RASTERIZER_DESC rasterizerDesc{};
 
   // 裏面(時計回り)を表示しない
