@@ -3,13 +3,14 @@
 #include "Actor/Hazard.h"
 #include "Actor/Level.h"
 #include "Actor/Npc.h"
+#include "Actor/Physics.h"
 #include "Actor/Player.h"
 #include "Actor/Stick.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
 #include "Debug/Logger.h"
-#include "Input/InputKeyState.h"
 #include "Input/Input.h"
+#include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -17,7 +18,6 @@
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
 #include "Physics/CollisionSystem.h"
-#include "Actor/Physics.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
@@ -28,11 +28,11 @@
 #include "Debug/ImGuiManager.h"
 #include "imgui.h"
 #endif
+#include "Scene/StageSelection.h"
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <format>
-#include "Scene/StageSelection.h"
-#include <cctype>
 
 // ---------------------------------------------------------
 // 初期化
@@ -96,7 +96,7 @@ void GamePlayScene::Initialize(EngineBase* engine)
         } catch (...) {
             Logger::Log(std::string("[StageDebug] loaded objects count=") + std::to_string((int)sd.objects.size()) + "\n");
         }
-        for (const auto &o : sd.objects) {
+        for (const auto& o : sd.objects) {
             try {
                 Logger::Log(std::format("[StageDebug] object class='{}' id={} pos=({:.2f},{:.2f},{:.2f}) model='{}'\n",
                     o.className, o.id, o.position.x, o.position.y, o.position.z, o.model));
@@ -117,13 +117,18 @@ void GamePlayScene::Initialize(EngineBase* engine)
     bool stageHasNpc = false;
     bool stageHasGoal = false;
     if (loaded) {
-        for (const auto &o : sd.objects) {
+        for (const auto& o : sd.objects) {
             std::string cls = o.className;
-            for (auto &c : cls) c = (char)tolower(c);
-            if (cls == "player") stageHasPlayer = true;
-            if (cls == "stick") stageHasStick = true;
-            if (cls == "npc") stageHasNpc = true;
-            if (cls == "goal") stageHasGoal = true;
+            for (auto& c : cls)
+                c = (char)tolower(c);
+            if (cls == "player")
+                stageHasPlayer = true;
+            if (cls == "stick")
+                stageHasStick = true;
+            if (cls == "npc")
+                stageHasNpc = true;
+            if (cls == "goal")
+                stageHasGoal = true;
         }
     }
 
@@ -192,7 +197,7 @@ void GamePlayScene::Initialize(EngineBase* engine)
             // 進行方向はスティックの中心へ向かうように設定（左から当てる挙動）
             float dx = sp.x - npPos.x;
             float dz = sp.z - npPos.z;
-            float dlen = std::sqrt(dx*dx + dz*dz);
+            float dlen = std::sqrt(dx * dx + dz * dz);
             if (dlen > 1e-6f) {
                 desiredDir.x = dx / dlen;
                 desiredDir.z = dz / dlen;
@@ -214,8 +219,8 @@ void GamePlayScene::Initialize(EngineBase* engine)
         try {
             Logger::Log(std::format("[Scene] Fallback: spawned Npc pos=({:.2f},{:.2f},{:.2f}) straightDir=({:.2f},{:.2f},{:.2f}) stick=({:.2f},{:.2f},{:.2f})\n",
                 npPos.x, npPos.y, npPos.z, desiredDir.x, desiredDir.y, desiredDir.z,
-                stick_? stick_->GetPosition().x : 0.0f, stick_? stick_->GetPosition().y : 0.0f, stick_? stick_->GetPosition().z : 0.0f));
-        } catch(...) {
+                stick_ ? stick_->GetPosition().x : 0.0f, stick_ ? stick_->GetPosition().y : 0.0f, stick_ ? stick_->GetPosition().z : 0.0f));
+        } catch (...) {
             Logger::Log(std::string("[Scene] Fallback: spawned Npc (format error)\n"));
         }
         Logger::Log("[Scene] Fallback: spawned Npc\n");
@@ -247,105 +252,109 @@ void GamePlayScene::Initialize(EngineBase* engine)
             // NPC instances are created as fallbacks below if none exist.
         }
 
-    // --- Stage-defined objects: create actors for known classes (Stick, Npc, Player, Goal) ---
-    if (loaded && level_) {
-        auto parseVec3 = [](const std::string &s)->Vector3 {
-            Vector3 v{0.0f,0.0f,0.0f};
-            size_t p1 = s.find(',');
-            if (p1==std::string::npos) return v;
-            size_t p2 = s.find(',', p1+1);
-            try {
-                v.x = std::stof(s.substr(0,p1));
-                v.y = std::stof(s.substr(p1+1, p2 - (p1+1)));
-                v.z = std::stof(s.substr(p2+1));
-            } catch(...) {}
-            return v;
-        };
-
-        auto allocateId = [&](uint32_t requested)->uint32_t {
-            if (requested != 0) {
-                if (requested >= nextId) nextId = requested + 1;
-                return requested;
-            }
-            return nextId++;
-        };
-
-        for (const auto &o : sd.objects) {
-            // normalize class name
-            std::string cls = o.className;
-            for (auto &c : cls) c = (char)tolower(c);
-
-            if (cls == "stick") {
-                if (!stick_) {
-                    stick_ = new Stick();
-                    stick_->Initialize(engine_->GetObject3dRenderer(), o.position);
-                    stick_->SetLevel(level_);
-                    stick_->SetLayer(o.layer);
-                    uint32_t id = allocateId(o.id);
-                    stick_->SetId(id);
-                    Logger::Log("Stage: spawned Stick from JSON");
+        // --- Stage-defined objects: create actors for known classes (Stick, Npc, Player, Goal) ---
+        if (loaded && level_) {
+            auto parseVec3 = [](const std::string& s) -> Vector3 {
+                Vector3 v { 0.0f, 0.0f, 0.0f };
+                size_t p1 = s.find(',');
+                if (p1 == std::string::npos)
+                    return v;
+                size_t p2 = s.find(',', p1 + 1);
+                try {
+                    v.x = std::stof(s.substr(0, p1));
+                    v.y = std::stof(s.substr(p1 + 1, p2 - (p1 + 1)));
+                    v.z = std::stof(s.substr(p2 + 1));
+                } catch (...) {
                 }
-                // OBB registration for the stick is handled inside Stick class
-                // (Stick::DropExternal / SetId). Do not register here to avoid
-                // duplicate / out-of-sync colliders that can cause invisible
-                // hitboxes. The Stick instance will register/update its OBB
-                // with the Level when appropriate.
-            } else if (cls == "npc") {
-                if (!npc_) {
-                    npc_ = new Npc();
-                    npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
-                    npc_->AttachLevel(level_);
-                    npc_->SetLayer(o.layer);
-                    uint32_t id = allocateId(o.id);
-                    npc_->SetId(id);
-                    // behavior property (store but do not force state)
-                    auto it = o.properties.find("behavior");
-                    if (it != o.properties.end()) {
-                        npc_->SetBehavior(it->second);
+                return v;
+            };
+
+            auto allocateId = [&](uint32_t requested) -> uint32_t {
+                if (requested != 0) {
+                    if (requested >= nextId)
+                        nextId = requested + 1;
+                    return requested;
+                }
+                return nextId++;
+            };
+
+            for (const auto& o : sd.objects) {
+                // normalize class name
+                std::string cls = o.className;
+                for (auto& c : cls)
+                    c = (char)tolower(c);
+
+                if (cls == "stick") {
+                    if (!stick_) {
+                        stick_ = new Stick();
+                        stick_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                        stick_->SetLevel(level_);
+                        stick_->SetLayer(o.layer);
+                        uint32_t id = allocateId(o.id);
+                        stick_->SetId(id);
+                        Logger::Log("Stage: spawned Stick from JSON");
                     }
-                    // optional straightDir property as "x,y,z"
-                    auto it2 = o.properties.find("straightDir");
-                    if (it2 != o.properties.end()) {
-                        Vector3 sdv = parseVec3(it2->second);
-                        npc_->SetStraightDirection(sdv);
-                        npc_->SetState(Npc::State::Straight);
-                    } else {
-                        // default: keep a consistent forward direction (positive X) so
-                        // stage NPCs always move in the expected straight direction
-                        npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
-                        npc_->SetState(Npc::State::Straight);
+                    // OBB registration for the stick is handled inside Stick class
+                    // (Stick::DropExternal / SetId). Do not register here to avoid
+                    // duplicate / out-of-sync colliders that can cause invisible
+                    // hitboxes. The Stick instance will register/update its OBB
+                    // with the Level when appropriate.
+                } else if (cls == "npc") {
+                    if (!npc_) {
+                        npc_ = new Npc();
+                        npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                        npc_->AttachLevel(level_);
+                        npc_->SetLayer(o.layer);
+                        uint32_t id = allocateId(o.id);
+                        npc_->SetId(id);
+                        // behavior property (store but do not force state)
+                        auto it = o.properties.find("behavior");
+                        if (it != o.properties.end()) {
+                            npc_->SetBehavior(it->second);
+                        }
+                        // optional straightDir property as "x,y,z"
+                        auto it2 = o.properties.find("straightDir");
+                        if (it2 != o.properties.end()) {
+                            Vector3 sdv = parseVec3(it2->second);
+                            npc_->SetStraightDirection(sdv);
+                            npc_->SetState(Npc::State::Straight);
+                        } else {
+                            // default: keep a consistent forward direction (positive X) so
+                            // stage NPCs always move in the expected straight direction
+                            npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
+                            npc_->SetState(Npc::State::Straight);
+                        }
+                        Logger::Log("Stage: spawned Npc from JSON");
                     }
-                    Logger::Log("Stage: spawned Npc from JSON");
-                }
-            } else if (cls == "player") {
-                if (!player_) {
-                    player_ = new Player();
-                    player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
-                    player_->AttachLevel(level_);
-                    player_->SetLayer(o.layer);
-                    uint32_t id = allocateId(o.id);
-                    player_->SetId(id);
-                    player_->SetPosition(o.position);
-                    Logger::Log("Stage: spawned Player from JSON");
-                }
-            } else if (cls == "goal") {
-                if (!goal_) {
-                    goal_ = new Goal();
-                    goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
-                    // assign id if provided (Goal doesn't store id but keep for level owner mapping)
-                    uint32_t gid = allocateId(o.id);
-                    (void)gid;
-                    Logger::Log("Stage: spawned Goal from JSON");
-                }
-                if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
-                    goalHalf_.x = o.obbHalfExtents.x;
-                    goalHalf_.z = o.obbHalfExtents.z;
-                    goalHalf_.y = o.obbHalfExtents.y > 0.0f ? o.obbHalfExtents.y : goalHalf_.y;
-                    goalHasAABB_ = true;
+                } else if (cls == "player") {
+                    if (!player_) {
+                        player_ = new Player();
+                        player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
+                        player_->AttachLevel(level_);
+                        player_->SetLayer(o.layer);
+                        uint32_t id = allocateId(o.id);
+                        player_->SetId(id);
+                        player_->SetPosition(o.position);
+                        Logger::Log("Stage: spawned Player from JSON");
+                    }
+                } else if (cls == "goal") {
+                    if (!goal_) {
+                        goal_ = new Goal();
+                        goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                        // assign id if provided (Goal doesn't store id but keep for level owner mapping)
+                        uint32_t gid = allocateId(o.id);
+                        (void)gid;
+                        Logger::Log("Stage: spawned Goal from JSON");
+                    }
+                    if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
+                        goalHalf_.x = o.obbHalfExtents.x;
+                        goalHalf_.z = o.obbHalfExtents.z;
+                        goalHalf_.y = o.obbHalfExtents.y > 0.0f ? o.obbHalfExtents.y : goalHalf_.y;
+                        goalHasAABB_ = true;
+                    }
                 }
             }
         }
-    }
     }
 
     // If the stage defined an object with class "Goal" and provided obb info,
@@ -407,10 +416,10 @@ void GamePlayScene::Initialize(EngineBase* engine)
             // arrange hazards in a small cross pattern around base
             const Vector3 offs[] = {
                 { 0.0f, 0.0f, 0.0f },
-                {  spacing, 0.0f,  0.0f },
-                { -spacing, 0.0f,  0.0f },
-                {  0.0f,    0.0f,  spacing },
-                {  0.0f,    0.0f, -spacing }
+                { spacing, 0.0f, 0.0f },
+                { -spacing, 0.0f, 0.0f },
+                { 0.0f, 0.0f, spacing },
+                { 0.0f, 0.0f, -spacing }
             };
 
             int created = 0;
@@ -516,49 +525,56 @@ void GamePlayScene::Update()
             if (!stick_->IsHeld()) {
                 // 未保持：プレイヤーが存在する場合のみ距離をチェックして拾う
                 if (player_) {
-                    const Vector3& pp = player_->GetPosition();
-                    // Use AABB (player) vs OBB (stick) test for pickup
-                    Vector3 playerHalfExt = player_->GetHalfExtents();
-
-                    // Use conservative AABB of stick for pickup to match Level conservative checks
-                    Vector3 stickCenter, stickHalf;
-                    stick_->GetConservativeAABB(stickCenter, stickHalf);
-
-                    // expand conservative AABB slightly to make pickup easier
-                    const float pickupExpand = 0.5f; // adjust this value to tune pickup ease
-                    stickHalf.x += pickupExpand;
-                    stickHalf.z += pickupExpand;
-
-                    bool picked = false;
-                    // AABB vs AABB quick test in XZ
-                    float aMinX = pp.x - playerHalfExt.x;
-                    float aMaxX = pp.x + playerHalfExt.x;
-                    float aMinZ = pp.z - playerHalfExt.z;
-                    float aMaxZ = pp.z + playerHalfExt.z;
-
-                    float bMinX = stickCenter.x - stickHalf.x;
-                    float bMaxX = stickCenter.x + stickHalf.x;
-                    float bMinZ = stickCenter.z - stickHalf.z;
-                    float bMaxZ = stickCenter.z + stickHalf.z;
-
-                    if (!(aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ)) {
-                        picked = true;
+                    // NPCがスティックに乗っている場合は拾えないようにする
+                    if (npc_ && npc_->IsMounted() && npc_->GetMountedOwnerId() == stick_->GetId()) {
+                        Logger::Log("Cannot pick up: NPC is on the stick.");
+                        // do nothing
                     } else {
-                        //// fallback distance check
-                        //const float pickupRadius = 1.5f;
-                        //float dx = pp.x - stickCenter.x;
-                        //float dy = pp.y - stickCenter.y;
-                        //float dz = pp.z - stickCenter.z;
-                        //float dist2 = dx*dx + dy*dy + dz*dz;
-                        //if (dist2 <= pickupRadius * pickupRadius) picked = true;
-                    }
+                        const Vector3& pp = player_->GetPosition();
 
-                    if (picked) {
-                        // decide which side to hold based on current relative position
-                        stick_->SetHoldSideFromPlayerPos(pp);
-                        stick_->PickUpExternal();
-                        stick_->SetHeld(true);
-                        Logger::Log("Stick picked up.");
+                        // NPCが乗っていない場合は拾える
+                        Vector3 playerHalfExt = player_->GetHalfExtents();
+
+                        // プレイヤーのAABB半分の大きさ（XZのみ）
+                        Vector3 stickCenter, stickHalf;
+                        stick_->GetConservativeAABB(stickCenter, stickHalf);
+
+                        // StickのAABB半分の大きさ（XZのみ）
+                        const float pickupExpand = 0.5f; // adjust this value to tune pickup ease
+                        stickHalf.x += pickupExpand;
+                        stickHalf.z += pickupExpand;
+
+                        bool picked = false;
+                        // AABB vs AABB quick test in XZ
+                        float aMinX = pp.x - playerHalfExt.x;
+                        float aMaxX = pp.x + playerHalfExt.x;
+                        float aMinZ = pp.z - playerHalfExt.z;
+                        float aMaxZ = pp.z + playerHalfExt.z;
+
+                        float bMinX = stickCenter.x - stickHalf.x;
+                        float bMaxX = stickCenter.x + stickHalf.x;
+                        float bMinZ = stickCenter.z - stickHalf.z;
+                        float bMaxZ = stickCenter.z + stickHalf.z;
+
+                        if (!(aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ)) {
+                            picked = true;
+                        } else {
+                            //// fallback distance check
+                            // const float pickupRadius = 1.5f;
+                            // float dx = pp.x - stickCenter.x;
+                            // float dy = pp.y - stickCenter.y;
+                            // float dz = pp.z - stickCenter.z;
+                            // float dist2 = dx*dx + dy*dy + dz*dz;
+                            // if (dist2 <= pickupRadius * pickupRadius) picked = true;
+                        }
+
+                        if (picked) {
+                            // 拾う処理
+                            stick_->SetHoldSideFromPlayerPos(pp);
+                            stick_->PickUpExternal();
+                            stick_->SetHeld(true);
+                            Logger::Log("Stick picked up.");
+                        }
                     }
                 }
             } else {
@@ -582,24 +598,24 @@ void GamePlayScene::Update()
                 if (level_)
                     level_->ResolveCollision(dropPos, 0.3f, true);
 
-                // Ensure the stick rotation uses the held rotation when dropping
+                // ResolveCollision で壁への埋まりを解消
                 stick_->SetRotation(stick_->GetHeldRotation());
 
                 // If drop position overlaps the player, try nudging along the hold direction
                 // until we find a placeable position (or give up after a few attempts).
                 if (player_) {
                     const Vector3& pp = player_->GetPosition();
-                    const float minDropDist = 0.9f; // minimum allowed distance to player
+                    const float minDropDist = 0.9f;
 
-                    // Direction to push in XZ plane: prefer the hold offset direction
                     Vector3 off = stick_->GetHoldOffset();
                     Vector3 dir = { off.x, 0.0f, off.z };
-                    float dlen = std::sqrt(dir.x*dir.x + dir.z*dir.z);
+                    float dlen = std::sqrt(dir.x * dir.x + dir.z * dir.z);
                     if (dlen < 1e-6f) {
                         dir = { 1.0f, 0.0f, 0.0f };
                         dlen = 1.0f;
                     }
-                    dir.x /= dlen; dir.z /= dlen;
+                    dir.x /= dlen;
+                    dir.z /= dlen;
 
                     bool placed = false;
                     const int kMaxNudge = 8;
@@ -607,7 +623,6 @@ void GamePlayScene::Update()
                         float step = 0.25f * (i + 1); // increase step each attempt
                         Vector3 trial = { pp.x + dir.x * step, dropPos.y, pp.z + dir.z * step };
 
-                        // snap to ground
                         float hitY2;
                         if (level_ && level_->RaycastDown({ trial.x, trial.y + 1.0f, trial.z }, 2.0f, hitY2)) {
                             trial.y = hitY2;
@@ -619,7 +634,7 @@ void GamePlayScene::Update()
 
                         float dxp = trial.x - pp.x;
                         float dzp = trial.z - pp.z;
-                        if (dxp*dxp + dzp*dzp >= minDropDist * minDropDist) {
+                        if (dxp * dxp + dzp * dzp >= minDropDist * minDropDist) {
                             dropPos = trial;
                             placed = true;
                             break;
@@ -633,12 +648,43 @@ void GamePlayScene::Update()
                     }
                 }
 
-                // 位置を反映してから DropExternal を呼ぶ（OBB 登録が最新位置で行われるように）
-                stick_->SetPosition(dropPos);
-                stick_->DropExternal();
-                stick_->SetHeld(false);
+                
+                bool canPlace = true;
+                if (npc_) {
+                    const Vector3& np = npc_->GetPosition();
+                    // compute conservative XZ extents for the stick using its OBB half extents and yaw
+                    Vector3 obbCenter, obbHalf;
+                    float obbYaw = 0.0f;
+                    stick_->GetOBB(obbCenter, obbHalf, obbYaw);
+                    float cy = std::cos(obbYaw);
+                    float sy = std::sin(obbYaw);
+                    float absCy = std::fabs(cy);
+                    float absSy = std::fabs(sy);
+                    float extX = absCy * obbHalf.x + absSy * obbHalf.z;
+                    float extZ = absSy * obbHalf.x + absCy * obbHalf.z;
 
-                Logger::Log("Stick dropped.");
+                    // use dropPos as center for placement test
+                    float minX = dropPos.x - extX - 0.1f; // small margin
+                    float maxX = dropPos.x + extX + 0.1f;
+                    float minZ = dropPos.z - extZ - 0.1f;
+                    float maxZ = dropPos.z + extZ + 0.1f;
+
+                    if (np.x >= minX && np.x <= maxX && np.z >= minZ && np.z <= maxZ) {
+                        canPlace = false;
+                    }
+                }
+
+                if (!canPlace) {
+                    Logger::Log("Cannot drop: NPC is underneath the intended placement.");
+                    // Don't drop; keep held state
+                } else {
+                    // 位置を反映してから DropExternal を呼ぶ（OBB 登録が最新位置で行われるように）
+                    stick_->SetPosition(dropPos);
+                    stick_->DropExternal();
+                    stick_->SetHeld(false);
+
+                    Logger::Log("Stick dropped.");
+                }
             }
         }
     }
@@ -662,10 +708,10 @@ void GamePlayScene::Update()
     }
     if (goal_)
         goal_->Update(1.0f / 60.0f);
-  //=======================
-  // カメラの更新
-  //=======================
-  const ICamera *activeCamera = nullptr;
+    //=======================
+    // カメラの更新
+    //=======================
+    const ICamera* activeCamera = nullptr;
 
     // --- 5. カメラの状態確定 ---
     if (useDebugCamera_) {
@@ -792,24 +838,27 @@ void GamePlayScene::Update()
         const Vector3& gp = goal_->GetPosition();
 
         // Use conservative AABB/XZ check when available to avoid relying on pure distance
-        auto checkHit = [&](const Vector3& p)->bool {
+        auto checkHit = [&](const Vector3& p) -> bool {
             // If scene-level goal AABB is provided, use XZ overlap + Y tolerance
             if (goalHasAABB_) {
                 float minX = gp.x - goalHalf_.x;
                 float maxX = gp.x + goalHalf_.x;
                 float minZ = gp.z - goalHalf_.z;
                 float maxZ = gp.z + goalHalf_.z;
-                if (p.x < minX || p.x > maxX) return false;
-                if (p.z < minZ || p.z > maxZ) return false;
+                if (p.x < minX || p.x > maxX)
+                    return false;
+                if (p.z < minZ || p.z > maxZ)
+                    return false;
                 // allow some vertical tolerance
-                if (std::abs(p.y - gp.y) > goalHalf_.y + 0.5f) return false;
+                if (std::abs(p.y - gp.y) > goalHalf_.y + 0.5f)
+                    return false;
                 return true;
             } else {
                 // fallback: spherical check on XZ plane (ignore Y)
                 const float r = 1.2f;
                 float dx = gp.x - p.x;
                 float dz = gp.z - p.z;
-                return (dx*dx + dz*dz) <= (r*r);
+                return (dx * dx + dz * dz) <= (r * r);
             }
         };
 
