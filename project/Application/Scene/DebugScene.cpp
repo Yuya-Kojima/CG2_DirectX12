@@ -179,11 +179,21 @@ void DebugScene::Update() {
   SoundManager::GetInstance()->Update();
 
   // ゲームシーンに移行
+  // フェードはデフォで 0.35秒 & 黒色
   if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::Enter)) {
     SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
   if (input->IsPadTrigger(PadButton::A)) {
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+  }
+
+  // フェードにかかる時間とフェードタイプと色を指定してフェード
+  if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::C)) {
+    // 0.5秒 & WipeLeft(左から右へ塗りつぶし) & 白色フェード
+    SceneManager::GetInstance()->SetNextTransitionFade(
+        0.5f, Fade::FadeType::WipeLeft, Vector4{1.0f, 1.0f, 1.0f, 1.0f});
+
     SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
