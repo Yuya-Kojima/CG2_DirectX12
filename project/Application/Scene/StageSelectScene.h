@@ -45,7 +45,7 @@ private:
 
 	// ステージUI用Object3d (既存の単体保持は残す)
 	std::unique_ptr<Object3d> stageUIObject3d_;
-	// 単体設定用（従来）
+	// 単体設定用
 	float stageUITranslate_[3] = { 0.0f, 10.0f, 10.0f };
 	float stageUIRotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
 	float stageUIScale_[3] = { 3.5f, 3.5f, 3.5f };
@@ -56,23 +56,27 @@ private:
 	// アニメーション制御（各 UI ごと）
 	std::vector<bool> stageUIVisible_;
 	std::vector<bool> stageUIAnimating_;
-	std::vector<float> stageUIAnimTimer_; // seconds
+	std::vector<float> stageUIAnimTimer_; 
 	std::vector<Vector3> stageUIBaseScale_;
 
 	// プレイヤーモデル用Object3d
 	std::unique_ptr<Object3d> playerObject3d_;
 	float playerTranslate_[3] = { 0.0f, 0.0f, 0.0f };
 	float playerRotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
-	float playerScale_[3] = { 1.0f, 1.0f, 1.0f };
+	float playerScale_[3] = { 2.5f, 2.5f, 2.5f };
 
 	// 滑らか移動用ターゲットとフラグ
 	Vector3 playerTargetTranslate_{ 0.0f, 0.0f, 0.0f };
+	
+	// プレイヤーが移動中かどうか
 	bool playerMoving_ = false;
+	
 	// 前フレームの移動フラグ（停止検出用）
 	bool prevPlayerMoving_ = false;
 
 	// 補間スピード
 	float playerMoveSpeed_ = 6.0f;
+	
 	// この距離未満でスナップ
 	float playerSnapThreshold_ = 0.01f;
 
@@ -91,7 +95,7 @@ private:
 	// 各ステージに対応するプレイヤー表示位置（X,Y,Z）
 	std::vector<Vector3> stagePositions_;
 
-	// プレイヤーをステージ位置に対してオフセットして表示したい場合の X オフセット
+	// プレイヤーをステージ位置に対してオフセットして表示したい場合のxのオフセット
 	float playerXOffset_ = 0.0f;
 
 	// 天球（スカイドーム）
@@ -114,4 +118,15 @@ private:
 
 	// 表示アニメーション長さ（秒）
 	float stageUIAnimDuration_ = 0.5f;
+
+	// プレイヤー遷移(シーン移行演出)用
+	bool transitionActive_ = false;
+	float transitionTimer_ = 0.0f;
+	float transitionDuration_ = 0.9f; 
+	Vector3 transitionStartPos_;
+	Vector3 transitionTargetPos_;
+	Vector3 transitionStartScale_;
+	Vector3 transitionTargetScale_;
+	float transitionStartRotateYDeg_ = 0.0f;
+	float transitionSpinDeg_ = 720.0f; 
 };

@@ -72,7 +72,7 @@ void TitleScene::Update() {
 	SoundManager::GetInstance()->Update();
 
 	// タイトルシーンへ移行
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN))
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE))
 	{
 		SceneManager::GetInstance()->ChangeScene("STAGESELECT");
 	}
