@@ -18,6 +18,10 @@ private:
 
   Fade fade_;
 
+  float transitionDurationSec_ = 0.35f;
+  Vector4 transitionColor_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
+  Fade::FadeType transitionFadeType_ = Fade::FadeType::Solid;
+
   enum class TransitionState {
     None,
     FadeOut,
@@ -39,6 +43,9 @@ public:
   void Draw();
 
   void ChangeScene(const std::string &sceneName);
+
+  void SetNextTransitionFade(float durationSec, Fade::FadeType type,
+                             const Vector4 &color);
 
 private:
   SceneManager() = default;
