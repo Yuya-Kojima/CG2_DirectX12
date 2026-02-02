@@ -5,9 +5,13 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
+#include "Debug/Logger.h"
+#include <filesystem>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+
+namespace fs = std::filesystem;
 
 // Windows.h等で定義されるmin/maxマクロの干渉を防ぐ
 #ifdef min
@@ -37,19 +41,8 @@ void Level::Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float
     minZ_ = (-halfZ) * tileSize_;
     maxZ_ = (halfZ)*tileSize_;
 
-    // 床タイルの生成
-    for (int z = -halfZ; z <= halfZ; ++z) {
-        for (int x = -halfX; x <= halfX; ++x) {
-            auto obj = std::make_unique<Object3d>();
-            obj->Initialize(renderer_);
-            // 床タイルはブロック風の見た目にするため Block モデルを使用
-            ModelManager::GetInstance()->LoadModel("floor.obj");
-            obj->SetModel("floor.obj");
-            obj->SetScale({ tileSize_, 1.0f, tileSize_ });
-            obj->SetTranslation({ x * tileSize_, -1.5f * tileSize_, z * tileSize_ });
-            floorTiles_.push_back(std::move(obj));
-        }
-    }
+    // 床タイルの生成は CreateFloorTiles を用いて行う（マップチップ依存の生成に対応）
+    floorTiles_.clear();
 
     // 外周の壁AABBを配置（見えないがプレイヤーを閉じ込める壁）
     const float wallThickness = tileSize_;
@@ -62,6 +55,9 @@ void Level::Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float
         AddWallAABB({ x * tileSize_ - wallThickness * 0.5f, 0.0f, maxZ_ - wallThickness * 0.5f },
             { x * tileSize_ + wallThickness * 0.5f, wallHeight, maxZ_ + wallThickness * 0.5f }, false, 0, 0);
     }
+
+    
+
     for (int z = -halfZ; z <= halfZ; ++z) {
         // 左の壁
         AddWallAABB({ minX_ - wallThickness * 0.5f, 0.0f, z * tileSize_ - wallThickness * 0.5f },
@@ -259,9 +255,6 @@ void Level::BuildWallGrid()
             }
         }
     }
-
-    // 注: OBBはここで wallGrid_ に挿入しません。QueryOBBs は obbs_ を直接走査して
-    // 保守的な AABB チェックを行うため、wallGrid_ は軸整列壁専用に保持します。
 }
 
 // ---------------------------------------------------------
@@ -356,7 +349,7 @@ void Level::Update(float dt)
 
 void Level::Draw()
 {
-  const ICamera *cam = renderer_ ? renderer_->GetDefaultCamera() : nullptr;
+    const ICamera *cam = renderer_ ? renderer_->GetDefaultCamera() : nullptr;
     Vector3 camPos = cam ? cam->GetTranslate() : Vector3 { 0, 0, 0 };
     const float viewRadius2 = 80.0f * 80.0f;
 
@@ -401,6 +394,56 @@ void Level::AddHazard(const Vector3& pos, float radius)
     auto hz = std::make_unique<Hazard>();
     hz->Initialize(renderer_, pos, radius);
     hazards_.push_back(std::move(hz));
+    try {
+        std::string msg = std::string("[Level] AddHazard: pos=(") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + ") radius=" + std::to_string(radius) + "\n";
+        Logger::Log(msg);
+        OutputDebugStringA(msg.c_str());
+    } catch(...) {}
+}
+
+void Level::AddHazard(const Vector3& pos, float radius, const std::string& model)
+{
+    // Determine final model to use. Prefer the provided model if it resolves to an existing
+    // resource; otherwise try a set of sensible fallbacks (handle common typos / templates).
+    std::string chosen = model;
+    if (!chosen.empty()) {
+        std::string resolved = ModelManager::ResolveModelPath(chosen);
+        bool exists = false;
+        if (resolved.find('/') != std::string::npos || resolved.find('\\') != std::string::npos) {
+            exists = fs::exists(resolved);
+        } else {
+            exists = fs::exists(std::string("Application/resources/") + resolved) || fs::exists(std::string("resources/") + resolved);
+        }
+
+        if (exists) {
+            chosen = resolved;
+        } else {
+            const std::vector<std::string> candidates = { chosen, "needle.obj", "neadle.obj", "hazard.obj", "spike.obj", "Block.obj" };
+            for (const auto &c : candidates) {
+                std::string r = ModelManager::ResolveModelPath(c);
+                bool ok = false;
+                if (r.find('/') != std::string::npos || r.find('\\') != std::string::npos) {
+                    ok = fs::exists(r);
+                } else {
+                    ok = fs::exists(std::string("Application/resources/") + r) || fs::exists(std::string("resources/") + r);
+                }
+                if (ok) {
+                    chosen = r;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Create hazard and initialize with the chosen model (may be empty -> Hazard will pick fallback)
+    auto hz = std::make_unique<Hazard>();
+    hz->Initialize(renderer_, pos, radius, chosen);
+    hazards_.push_back(std::move(hz));
+    try {
+        std::string msg = std::string("[Level] AddHazard(model): pos=(") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + ") radius=" + std::to_string(radius) + " model='" + chosen + "'\n";
+        Logger::Log(msg);
+        OutputDebugStringA(msg.c_str());
+    } catch(...) {}
 }
 
 void Level::KeepInsideBounds(Vector3& pos, float halfSize) const
@@ -515,8 +558,72 @@ void Level::RemoveWallsByOwnerId(uint32_t ownerId)
     RebuildWallGrid();
 }
 
-
 void Level::RebuildWallGrid()
 {
     BuildWallGrid(); // 既存のロジックで再計算
+}
+
+void Level::CreateFloorTiles(const std::vector<int>& tiles)
+{
+    floorTiles_.clear();
+    if (!renderer_) return;
+
+    // preload model once
+    ModelManager::GetInstance()->LoadModel("floor.obj");
+
+    int halfX = tilesX_ / 2;
+    int halfZ = tilesZ_ / 2;
+
+    bool useMap = (int)tiles.size() == tilesX_ * tilesZ_;
+
+    // Iterate exactly tilesX_ x tilesZ_ cells centered around origin.
+    // Using <= produced (tilesX_+1)*(tilesZ_+1) iterations and caused
+    // index mismatches when mapping into the provided tiles array.
+    for (int z = -halfZ; z < halfZ; ++z) {
+        for (int x = -halfX; x < halfX; ++x) {
+            int tx = x + halfX;
+            int tz = z + halfZ;
+            int idx = tz * tilesX_ + tx;
+            bool draw = true;
+            bool inRange = false;
+            // evaluate map tile value (if present) and give hazards priority
+            if (useMap) {
+                if (idx < 0 || idx >= (int)tiles.size()) {
+                    draw = true;
+                    inRange = false;
+                } else {
+                    int v = tiles[idx];
+                    inRange = true;
+                    // tile value 1 => hazard. create and skip floor creation.
+                    if (v == 1) {
+                        const float hazardRadius = 0.5f;
+                        try {
+                            std::string r = ModelManager::ResolveModelPath("neadle.obj");
+                            ModelManager::GetInstance()->LoadModel(r);
+                        } catch(...) {}
+                        AddHazard({ x * tileSize_, 0.0f, z * tileSize_ }, hazardRadius, "neadle.obj");
+                        try {
+                            std::ostringstream oss;
+                            oss << "[Level] CreateFloorTiles: placed tile-hazard at (" << (x * tileSize_) << ",0," << (z * tileSize_) << ")\n";
+                            std::string msg = oss.str();
+                            Logger::Log(msg);
+                            OutputDebugStringA(msg.c_str());
+                        } catch(...) {}
+                        continue; // do not create floor under hazard
+                    }
+                    // otherwise draw only when tile==0
+                    draw = (v == 0);
+                }
+            }
+
+            if (!draw) continue;
+
+            auto obj = std::make_unique<Object3d>();
+            obj->Initialize(renderer_);
+            obj->SetModel("floor.obj");
+            obj->SetScale({ tileSize_, 1.0f, tileSize_ });
+            obj->SetTranslation({ x * tileSize_, -1.5f * tileSize_, z * tileSize_ });
+            floorTiles_.push_back(std::move(obj));
+        }
+    }
 }

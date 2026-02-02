@@ -30,4 +30,36 @@ bool SweepSphereObb2D(const Vector3& start, const Vector3& delta, float r,
                       const Vector3& obbCenter, const Vector3& halfExtents, float yaw,
                       float& toi, Vector3& normal);
 
+// =========================
+// AABB (XZ平面) support
+// =========================
+// AABB は中心と半幅で与える（center, halfExtents）
+
+// 静的押し出し（AABB vs OBB）
+void ResolveAabbObb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw);
+
+// 有効フラグ付きオーバーロード
+void ResolveAabbObb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw, bool collisionEnabled);
+
+// スイープ判定（AABB が移動）: startCenter から delta の移動で衝突するか。
+// 成功した場合は toi と法線を返す。両矩形は XZ 平面で評価。
+bool SweepAabbObb2D(const Vector3& startCenter, const Vector3& delta, const Vector3& aabbHalfExtents,
+                    const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw,
+                    float& toi, Vector3& normal);
+
+// 瞬間判定: AABB と OBB が重なっているか（XZ平面）
+bool AabbIntersectsObb2D(const Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                         const Vector3& obbCenter, const Vector3& obbHalfExtents, float yaw);
+
+// AABB vs AABB (static push-out)
+void ResolveAabbAabb2D(Vector3& aabbCenter, const Vector3& aabbHalfExtents,
+                      const Vector3& otherCenter, const Vector3& otherHalfExtents);
+
+// AABB sweep vs AABB (moving aabbCenter by delta)
+bool SweepAabbAabb2D(const Vector3& startCenter, const Vector3& delta, const Vector3& aabbHalfExtents,
+                     const Vector3& otherCenter, const Vector3& otherHalfExtents,
+                     float& toi, Vector3& normal);
+
 } // namespace GamePhysics

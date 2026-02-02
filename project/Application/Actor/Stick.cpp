@@ -30,9 +30,14 @@ void Stick::Initialize(Object3dRenderer* renderer, const Vector3& pos)
     ModelManager::GetInstance()->LoadModel("stick.obj");
     obj_->SetModel("stick.obj");
     obj_->SetScale({ 0.5f, 0.5f, 0.5f });
-    // デフォルト：地面に横たわる向き
-    obj_->SetRotation(dropRotation_);
+    // デフォルト：地面に横たわる向きを初期表示にする
+    rotation_ = dropRotation_;
+    obj_->SetRotation(rotation_);
+    // ensure heldRotation starts equal to resting orientation
+    heldRotation_ = rotation_;
     obj_->SetTranslation(pos_);
+    // Initialize heldRotation_ to match the resting orientation so rotation is consistent
+    heldRotation_ = dropRotation_;
     try {
         Logger::Log(std::format("[スティック] 初期化: pos=({:.2f},{:.2f},{:.2f})\n", pos_.x, pos_.y, pos_.z));
     } catch (...) {
@@ -102,7 +107,9 @@ void Stick::Update(float dt)
     //   補間せず heldRotation_ を直接反映する（遅延による違和感を防ぐ）。
     // - 地面に置かれている状態では、落ち着いた見た目のために補間で回転を戻す。
     if (held_) {
+        // apply held rotation plus any user offset; do not overwrite heldRotation_
         rotation_ = heldRotation_;
+        rotation_.y += heldYawOffset_;
     } else {
         // 2. 回転の線形補間（Lerp）処理
         // 持ち替えた時にパッと切り替わるのではなく、スムーズに回転させます
@@ -162,14 +169,14 @@ void Stick::PickUpExternal()
     held_ = true;
     collisionEnabled_ = false; // 持っている間は物理判定を無効化
 
-    // 拾った時はプレイヤーの横や頭上に置かれる想定（呼び出し側に依存）。
+    // 拾った時はプレイヤーの横に置かれる想定（呼び出し側に依存）。
     // 体と干渉しないよう少し持ち上げる。
     pos_.y += 0.25f;
     if (obj_) {
-    // 拾ったときは現在の横たわる角度を保持する
+        // Preserve the current world rotation when picked up so any rotation applied
+        // while the stick was on the ground (or previously held) is retained.
         heldRotation_ = rotation_;
         obj_->SetTranslation(pos_);
-        // Keep the model rotation as it was on ground
         obj_->SetRotation(heldRotation_);
     }
 
@@ -182,15 +189,26 @@ void Stick::PickUpExternal()
 
 void Stick::AdjustHeldYaw(float delta)
 {
-    // 持っている間にヨーを変える。15度刻みにスナップする
-    const float k15deg = 3.14159265f * (15.0f / 180.0f);
+    // 持っている間にヨーを変える（スナップ無し、連続的に加算）
     heldRotation_.y += delta;
-    // snap to nearest 15 degrees
-    float n = std::round(heldRotation_.y / k15deg);
-    heldRotation_.y = n * k15deg;
     rotation_.y = heldRotation_.y;
     if (obj_) obj_->SetRotation(rotation_);
+    try {
+        Logger::Log(std::format("[Stick] AdjustHeldYaw -> yaw={:.3f}\n", heldRotation_.y));
+    } catch (...) {}
 }
+
+void Stick::RotateHeldYaw(float delta)
+{
+    heldRotation_.y += delta;
+    if (obj_) {
+        rotation_ = heldRotation_;
+        rotation_.y += heldYawOffset_;
+        obj_->SetRotation(rotation_);
+    }
+}
+
+// (SetHeldYawOffset / AddHeldYawOffset are implemented inline in header)
 
 void Stick::SetHoldSideFromPlayerPos(const Vector3& playerPos)
 {
@@ -198,6 +216,8 @@ void Stick::SetHoldSideFromPlayerPos(const Vector3& playerPos)
     float dx = pos_.x - playerPos.x;
     holdSideX = (dx < 0.0f) ? -1 : 1;
 }
+
+// SetHeldYawOffset / AddHeldYawOffset implemented inline in header
 
 void Stick::DropExternal()
 {
@@ -288,6 +308,31 @@ void Stick::DropExternal()
 
     // モデルの位置は既に更新済み上記で更新済み
 }
+
+void Stick::GetOBB(Vector3& outCenter, Vector3& outHalfExtents, float& outYaw) const {
+    outCenter = pos_;
+    // when held, the OBB is not registered; return half extents matching drop size
+    Vector3 baseHalfExtents = { 0.75f, 0.5f, 4.0f };
+    Vector3 s = obj_ ? obj_->GetScale() : Vector3 { 1.0f, 1.0f, 1.0f };
+    outHalfExtents = { baseHalfExtents.x * s.x, baseHalfExtents.y * s.y, baseHalfExtents.z * s.z };
+    outYaw = rotation_.y;
+}
+
+void Stick::GetConservativeAABB(Vector3& outCenter, Vector3& outHalfExtents) const {
+    Vector3 center; Vector3 half; float yaw;
+    GetOBB(center, half, yaw);
+    // conservative AABB extents in XZ that contain rotated OBB
+    float cy = std::cos(yaw);
+    float sy = std::sin(yaw);
+    float absCy = std::fabs(cy);
+    float absSy = std::fabs(sy);
+    float extX = absCy * half.x + absSy * half.z;
+    float extZ = absSy * half.x + absCy * half.z;
+    outCenter = center;
+    outHalfExtents = { extX, half.y, extZ };
+}
+
+// (SetHeldYawOffset / AddHeldYawOffset are implemented inline in header)
 
 void Stick::UpdateCollisionTimer(float dt)
 {

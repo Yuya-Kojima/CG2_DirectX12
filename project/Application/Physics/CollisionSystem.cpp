@@ -29,8 +29,10 @@ QueryResult CollisionSystem::Query(const QueryParams& p, Level& level) {
     if (p.doSweep) {
         Vector3 a = p.start;
         Vector3 b = Vector3{p.start.x + p.delta.x, p.start.y + p.delta.y, p.start.z + p.delta.z};
-        Vector3 qmin { std::min(a.x,b.x) - p.radius, 0.0f, std::min(a.z,b.z) - p.radius };
-        Vector3 qmax { std::max(a.x,b.x) + p.radius, 0.0f, std::max(a.z,b.z) + p.radius };
+        // include vertical range in query bounds so AABB candidates are collected
+        // for the full swept capsule height rather than a fixed y=0 plane
+        Vector3 qmin { std::min(a.x,b.x) - p.radius, std::min(a.y,b.y) - p.radius, std::min(a.z,b.z) - p.radius };
+        Vector3 qmax { std::max(a.x,b.x) + p.radius, std::max(a.y,b.y) + p.radius, std::max(a.z,b.z) + p.radius };
         std::vector<const Level::AABB*> candidates;
         // ignoreId があればそれを渡し、当該所有者の壁を除外
         if (p.ignoreId != 0) level.QueryWalls(qmin, qmax, candidates, p.ignoreId);

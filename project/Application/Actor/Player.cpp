@@ -117,6 +117,18 @@ void Player::Update(float dt)
     if (input_->IsPressKey(DIK_S))
         az -= 1.0f; // 後
 
+    // 日本語: パッドの左スティックで移動制御（接続されている場合、キーボード入力を上書き）
+    // 左スティックのYは前方向(+)、Xは右方向(+)
+    if (input_->Pad(0).IsConnected()) {
+        float lx = input_->Pad(0).GetLeftX();
+        float ly = input_->Pad(0).GetLeftY();
+        // 小さなデッドゾーンを無視
+        if (std::abs(lx) > 0.05f || std::abs(ly) > 0.05f) {
+            ax = lx;
+            az = ly;
+        }
+    }
+
     float targetVX = ax * moveSpeed_;
     float targetVZ = az * moveSpeed_;
 
@@ -171,49 +183,47 @@ void Player::Update(float dt)
             const Level::OBB* bestO = nullptr;
             Vector3 bestN { 0, 0, 0 };
 
+            // prepare player's AABB half extents (XZ)
+            Vector3 aabbHalf { halfSize_, 0.0f, halfSize_ };
             for (const auto* a : candidates) {
-                // すでに壁にめり込んでいる場合の即時解決
-                float cx = std::max(a->min.x, std::min(position_.x, a->max.x));
-                float cz = std::max(a->min.z, std::min(position_.z, a->max.z));
-                float dx = position_.x - cx;
-                float dz = position_.z - cz;
-                if (dx * dx + dz * dz < halfSize_ * halfSize_) {
-                    GamePhysics::ResolveSphereAabb2D(position_, halfSize_, a->min, a->max);
+                // other AABB center/half
+                Vector3 otherCenter { (a->min.x + a->max.x) * 0.5f, 0.0f, (a->min.z + a->max.z) * 0.5f };
+                Vector3 otherHalf { (a->max.x - a->min.x) * 0.5f, 0.0f, (a->max.z - a->min.z) * 0.5f };
+
+                // immediate overlap: AABB vs AABB
+                if (!(position_.x + aabbHalf.x < a->min.x || position_.x - aabbHalf.x > a->max.x ||
+                      position_.z + aabbHalf.z < a->min.z || position_.z - aabbHalf.z > a->max.z)) {
+                    GamePhysics::ResolveAabbAabb2D(position_, aabbHalf, otherCenter, otherHalf);
                     bestA = nullptr;
                     best_t = 1.0f;
                     continue;
                 }
 
-            // OBB 候補に対する処理
-            for (const auto* o : obbCandidates) {
-                // まずめり込みの即時解決
-                // 近似的にローカルAABBでの最近接点を求める（回転は無視せず GamePhysics を使う）
-                float cx = std::max(o->center.x - o->halfExtents.x, std::min(position_.x, o->center.x + o->halfExtents.x));
-                float cz = std::max(o->center.z - o->halfExtents.z, std::min(position_.z, o->center.z + o->halfExtents.z));
-                float dx = position_.x - cx;
-                float dz = position_.z - cz;
-                if (dx * dx + dz * dz < halfSize_ * halfSize_) {
-                    GamePhysics::ResolveSphereObb2D(position_, halfSize_, o->center, o->halfExtents, o->yaw);
-                    continue;
-                }
+                // OBB candidates processing
+                for (const auto* o : obbCandidates) {
+                    // immediate overlap AABB vs OBB
+                    if (GamePhysics::AabbIntersectsObb2D(position_, aabbHalf, o->center, o->halfExtents, o->yaw)) {
+                        GamePhysics::ResolveAabbObb2D(position_, aabbHalf, o->center, o->halfExtents, o->yaw);
+                        continue;
+                    }
 
-                // スイープテスト
-                float toi = 0.0f;
-                Vector3 normal { 0, 0, 0 };
-                if (GamePhysics::SweepSphereObb2D(position_, remaining, halfSize_, o->center, o->halfExtents, o->yaw, toi, normal)) {
-                    if (toi >= 0.0f && toi < best_t) {
-                        best_t = toi;
-                        bestA = nullptr; // clear AABB
-                        bestO = o;       // record OBB
-                        bestN = normal;
+                    // sweep test AABB vs OBB
+                    float toi = 0.0f;
+                    Vector3 normal { 0, 0, 0 };
+                    if (GamePhysics::SweepAabbObb2D(position_, remaining, aabbHalf, o->center, o->halfExtents, o->yaw, toi, normal)) {
+                        if (toi >= 0.0f && toi < best_t) {
+                            best_t = toi;
+                            bestA = nullptr; // clear AABB
+                            bestO = o;       // record OBB
+                            bestN = normal;
+                        }
                     }
                 }
-            }
 
-                // スイープテスト（移動経路上の衝突確認）
+                // sweep test AABB vs AABB
                 float toi = 0.0f;
                 Vector3 normal { 0, 0, 0 };
-            if (GamePhysics::SweepSphereAabb2D(position_, remaining, halfSize_, a->min, a->max, toi, normal)) {
+                if (GamePhysics::SweepAabbAabb2D(position_, remaining, aabbHalf, otherCenter, otherHalf, toi, normal)) {
                     if (toi >= 0.0f && toi < best_t) {
                         best_t = toi;
                         bestA = a;
@@ -245,13 +255,14 @@ void Player::Update(float dt)
                 slide.x -= n.x * d;
                 slide.z -= n.z * d;
 
-                // 衝突対象ごとの再押し出し
+                // 衝突対象ごとの再押し出し (AABBベース)
                 if (bestA) {
-                    // AABBへの微調整
-                    GamePhysics::ResolveSphereAabb2D(position_, halfSize_, bestA->min, bestA->max);
+                    Vector3 otherCenter { (bestA->min.x + bestA->max.x) * 0.5f, 0.0f, (bestA->min.z + bestA->max.z) * 0.5f };
+                    Vector3 otherHalf { (bestA->max.x - bestA->min.x) * 0.5f, 0.0f, (bestA->max.z - bestA->min.z) * 0.5f };
+                    GamePhysics::ResolveAabbAabb2D(position_, aabbHalf, otherCenter, otherHalf);
                 } else if (bestO) {
                     // OBBへの微調整（回転を考慮）
-                    GamePhysics::ResolveSphereObb2D(position_, halfSize_, bestO->center, bestO->halfExtents, bestO->yaw);
+                    GamePhysics::ResolveAabbObb2D(position_, aabbHalf, bestO->center, bestO->halfExtents, bestO->yaw);
                 }
 
                 remaining = slide;
@@ -296,9 +307,21 @@ void Player::Update(float dt)
         // 最終移動後にレベルとのめり込みが発生していないかを必ず解消する
         // （OBB の候補検出が漏れた場合や、直前に設置されたオブジェクトで
         //  すり抜けが発生するのを防ぐための保険）
-        if (level_) {
-            level_->ResolveCollision(position_, halfSize_, true);
-        }
+                if (level_) {
+                    // resolve using AABB approach: iterate AABB walls and OBBs
+                    Vector3 aabbHalf { halfSize_, 0.0f, halfSize_ };
+                    // resolve against axis-aligned walls
+                    for (const auto& aabb : level_->GetWalls()) {
+                        Vector3 otherCenter{ (aabb.min.x + aabb.max.x) * 0.5f, 0.0f, (aabb.min.z + aabb.max.z) * 0.5f };
+                        Vector3 otherHalf{ (aabb.max.x - aabb.min.x) * 0.5f, 0.0f, (aabb.max.z - aabb.min.z) * 0.5f };
+                        GamePhysics::ResolveAabbAabb2D(position_, aabbHalf, otherCenter, otherHalf);
+                    }
+                    // resolve against obbs
+                    const auto& obbs = level_->GetOBBs();
+                    for (const auto& o : obbs) {
+                        GamePhysics::ResolveAabbObb2D(position_, aabbHalf, o.center, o.halfExtents, o.yaw);
+                    }
+                }
 
         // --- 5. 垂直方向の更新と接地判定 ---
     position_.y += velocity_.y * dt;

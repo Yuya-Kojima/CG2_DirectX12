@@ -3,6 +3,7 @@
 #include <cctype>
 #include <fstream>
 #include <sstream>
+#include "Debug/Logger.h"
 
 namespace {
 
@@ -62,13 +63,26 @@ static bool ExtractPropertiesFromObject(const std::string& obj, std::map<std::st
             ++vstart;
 
         std::string value;
-        if (body[vstart] == '"') {
+        if (vstart < body.size() && body[vstart] == '"') {
+            // quoted string
             size_t vend = body.find('"', vstart + 1);
             if (vend == std::string::npos)
                 break;
             value = body.substr(vstart + 1, vend - vstart - 1);
             cur = vend + 1;
+        } else if (vstart < body.size() && body[vstart] == '[') {
+            // array value: capture until matching ] and store as comma separated string
+            size_t vend = body.find(']', vstart + 1);
+            if (vend == std::string::npos)
+                break;
+            value = body.substr(vstart + 1, vend - vstart - 1);
+            // remove spaces
+            std::string tmp;
+            for (char c : value) if (!std::isspace((unsigned char)c)) tmp.push_back(c);
+            value = tmp;
+            cur = vend + 1;
         } else {
+            // unquoted primitive (number / bool / identifier)
             size_t vend = vstart;
             while (vend < body.size() && body[vend] != ',')
                 ++vend;
@@ -163,7 +177,21 @@ static bool ExtractIntArray(const std::string& json, const std::string& key, std
     if (start == std::string::npos)
         return false;
 
-    size_t end = json.find(']', start);
+    // find matching ']' for the objects array (skip inner arrays [])
+    size_t i = start;
+    int depth = 0;
+    size_t end = std::string::npos;
+    for (; i < json.size(); ++i) {
+        if (json[i] == '[') {
+            depth++;
+        } else if (json[i] == ']') {
+            depth--;
+            if (depth == 0) {
+                end = i;
+                break;
+            }
+        }
+    }
     if (end == std::string::npos)
         return false;
 
@@ -207,7 +235,21 @@ static bool ExtractObjectsArray(const std::string& json, std::vector<std::string
     if (start == std::string::npos)
         return false;
 
-    size_t end = json.find(']', start);
+    // find matching ']' for the objects array, taking nested brackets/arrays into account
+    size_t i = start;
+    int depth = 0;
+    size_t end = std::string::npos;
+    for (; i < json.size(); ++i) {
+        if (json[i] == '[') {
+            depth++;
+        } else if (json[i] == ']') {
+            depth--;
+            if (depth == 0) {
+                end = i;
+                break;
+            }
+        }
+    }
     if (end == std::string::npos)
         return false;
 
@@ -337,13 +379,31 @@ bool StageLoader::LoadStage(const std::string& path, StageData& out)
 {
     out = StageData(); // 既存データを初期化
 
+    // Debug: report which path is being attempted
+    {
+        std::ostringstream oss;
+        oss << "[StageLoader] LoadStage try path='" << path << "'\n";
+        Logger::Log(oss.str());
+    }
+
     std::ifstream ifs(path);
-    if (!ifs.is_open())
+    if (!ifs.is_open()) {
+        try { Logger::Log(std::string("[StageLoader] LoadStage: failed to open file='") + path + "\n"); } catch(...) {}
         return false;
+    }
 
     std::stringstream buf;
     buf << ifs.rdbuf();
     std::string s = buf.str();
+
+    // Debug: log loaded file size and a small preview of its content
+    {
+        size_t sz = s.size();
+        std::string preview = s.substr(0, std::min<size_t>(sz, 512));
+        std::ostringstream oss;
+        oss << "[StageLoader] loaded size=" << sz << " preview='" << preview << "'\n";
+        Logger::Log(oss.str());
+    }
 
     // 基本情報
     ExtractStringValue(s, "name", out.name);
@@ -362,7 +422,24 @@ bool StageLoader::LoadStage(const std::string& path, StageData& out)
 
     // オブジェクト情報
     std::vector<std::string> objBodies;
-    if (ExtractObjectsArray(s, objBodies)) {
+    bool hasObjects = ExtractObjectsArray(s, objBodies);
+    // Debug: report number of extracted object blocks and small previews
+    try {
+        std::ostringstream oss;
+        if (!hasObjects) {
+            oss << "[StageLoader] ExtractObjectsArray: no objects found\n";
+        } else {
+            oss << "[StageLoader] ExtractObjectsArray count=" << objBodies.size() << "\n";
+            for (size_t i = 0; i < objBodies.size(); ++i) {
+                const std::string &body = objBodies[i];
+                std::string preview = body.substr(0, std::min<size_t>(body.size(), 256));
+                oss << "[StageLoader] obj[" << i << "] preview='" << preview << "'\n";
+            }
+        }
+        Logger::Log(oss.str());
+    } catch (...) {}
+
+    if (hasObjects) {
         for (const auto& b : objBodies) {
             StageObject o;
 
@@ -391,13 +468,14 @@ bool StageLoader::LoadStage(const std::string& path, StageData& out)
 
             // --- OBB追加情報読み取り ---
             Vector3 tmpv;
-            if (ExtractFloatArrayFromObject(b, "obb_center", tmpv))
+            // accept multiple naming styles from JSON (snake_case or camelCase)
+            if (ExtractFloatArrayFromObject(b, "obb_center", tmpv) || ExtractFloatArrayFromObject(b, "obbCenter", tmpv))
                 out.objects.back().obbCenter = tmpv;
-            if (ExtractFloatArrayFromObject(b, "obb_halfExtents", tmpv))
+            if (ExtractFloatArrayFromObject(b, "obb_halfExtents", tmpv) || ExtractFloatArrayFromObject(b, "obbHalfExtents", tmpv))
                 out.objects.back().obbHalfExtents = tmpv;
 
             float yawv;
-            if (ExtractNumberValue(b, "obb_yaw", yawv))
+            if (ExtractNumberValue(b, "obb_yaw", yawv) || ExtractNumberValue(b, "obbYaw", yawv))
                 out.objects.back().obbYaw = yawv;
         }
     }

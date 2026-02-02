@@ -42,6 +42,11 @@ public:
     /// <summary> ワールド座標を直接設定（描画オブジェクトにも即座に反映） </summary>
     void SetPosition(const Vector3& pos);
 
+    /// <summary> 衝突判定に使う半幅（XZ平面）を取得 </summary>
+    float GetHalfSize() const { return halfSize_; }
+    /// <summary> 衝突判定に使う半幅ベクトル（XZ平面）を取得 </summary>
+    Vector3 GetHalfExtents() const { return Vector3{ halfSize_, 0.0f, halfSize_ }; }
+
     // --- カメラ制御関連 ---
 
     /// <summary> プレイヤーを追跡するカメラを登録 </summary>

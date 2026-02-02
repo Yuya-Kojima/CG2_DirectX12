@@ -3,9 +3,11 @@
 #include "Actor/Physics.h"
 #include "Camera/GameCamera.h"
 #include "Model/ModelManager.h"
+#include "Model/Model.h"
 #include "Object3d/Object3d.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Debug/Logger.h"
+#include "Math/MathUtil.h"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -43,225 +45,291 @@ void Npc::Initialize(Object3dRenderer* renderer, const Vector3& startPos)
 
 void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 {
-    // --- 1. 到達行動 (Arrive) の計算 ---
-    // ターゲットまでの相対ベクトルと距離を算出
-    float tx = targetPos.x - pos_.x;
-    float tz = targetPos.z - pos_.z;
-    float dist = std::sqrt(tx * tx + tz * tz);
+    // Simple state: Straight movement tries to step onto OBB tops when detected.
+    if (state_ == State::Straight) {
+        // ensure straightDir is normalized in XZ
+        Vector3 dir = { straightDir_.x, 0.0f, straightDir_.z };
+        dir = SafeNormalize(dir);
 
-    float dirX = 0.0f, dirZ = 0.0f;
-    // ゼロ除算防止チェック
-    if (dist > 0.0001f) {
-        dirX = tx / dist;
-        dirZ = tz / dist;
-    }
+        // desired velocity
+        vel_.x = dir.x * moveSpeed_;
+        vel_.z = dir.z * moveSpeed_;
 
-    // 目的地周辺でのスムーズな減速処理
-    float targetSpeed = moveSpeed_;
-    if (dist < slowRadius_) {
-        // 距離に応じて速度を線形に落とす
-        targetSpeed = moveSpeed_ * (dist / slowRadius_);
-        // 停止許容範囲内なら速度を0にする
-        if (dist < desiredDistance_)
-            targetSpeed = 0.0f;
-    }
+        // probe point a little ahead — use a predicted position (pos + vel * dt)
+        // to avoid detecting obstacles based on the current frame's pre-collision
+        // position which may cause small oscillations (step forward then pushed
+        // back by collision resolve). Predicting a bit ahead reduces those false
+        // positives.
+        Vector3 predictedPos = { pos_.x + vel_.x * dt, pos_.y + vel_.y * dt, pos_.z + vel_.z * dt };
+        Vector3 probeEnd = { predictedPos.x + dir.x * 0.2f, predictedPos.y + 0.1f, predictedPos.z + dir.z * 0.2f };
 
-    // 目標速度ベクトルを算出
-    float targetVX = dirX * targetSpeed;
-    float targetVZ = dirZ * targetSpeed;
+        // query nearby walls and obb
+        Vector3 qmin { std::min(pos_.x, probeEnd.x) - kDefaultRadius, 0.0f, std::min(pos_.z, probeEnd.z) - kDefaultRadius };
+        Vector3 qmax { std::max(pos_.x, probeEnd.x) + kDefaultRadius, 2.0f, std::max(pos_.z, probeEnd.z) + kDefaultRadius };
 
-    // X軸の加減速: 現在の速度を目標速度に近づける
-    if (vel_.x < targetVX)
-        vel_.x = std::min(targetVX, vel_.x + accel_ * dt);
-    else
-        vel_.x = std::max(targetVX, vel_.x - decel_ * dt);
+        std::vector<const Level::AABB*> aabbCandidates;
+        level.QueryWalls(qmin, qmax, aabbCandidates);
+        std::vector<const Level::OBB*> obbCandidates;
+        level.QueryOBBs(qmin, qmax, obbCandidates);
 
-    // Z軸の加減速
-    if (vel_.z < targetVZ)
-        vel_.z = std::min(targetVZ, vel_.z + accel_ * dt);
-    else
-        vel_.z = std::max(targetVZ, vel_.z - decel_ * dt);
+        bool handled = false;
 
-    // --- 追加: 速度ベクトルの大きさを最大速度で制限する ---
-    // 斜め移動で速度が moveSpeed_ を超えないようにクランプする
-    float horizSpeed = std::sqrt(vel_.x * vel_.x + vel_.z * vel_.z);
-    if (horizSpeed > moveSpeed_ && horizSpeed > kSmallEpsilon) {
-        float s = moveSpeed_ / horizSpeed;
-        vel_.x *= s;
-        vel_.z *= s;
-    }
+        // Debug: log probe point and candidate counts
+        try {
+            Logger::Log(std::format("[Npc] Straight probeEnd=({:.3f},{:.3f},{:.3f}) aabbCandidates={} obbCandidates={}\n",
+                probeEnd.x, probeEnd.y, probeEnd.z, (int)aabbCandidates.size(), (int)obbCandidates.size()));
+        } catch(...) {}
 
-    // --- 2. 経路の再計画 (Path Re-planning) ---
-    replanTimer_ -= dt;
-    // 計算負荷を抑えるため、一定間隔ごとに実行。ただし開始/目標タイルが変わらない場合は再検索をスキップする
-    if (nav_ && replanTimer_ <= 0.0f) {
-        int sx, sz, gx, gz;
-        if (nav_->WorldToTile(pos_, sx, sz) && nav_->WorldToTile(targetPos, gx, gz)) {
-            // 前回と開始・目標タイルが同じなら再計算をスキップ
-            if (sx != lastSearchStartX_ || sz != lastSearchStartZ_ || gx != lastSearchGoalX_ || gz != lastSearchGoalZ_) {
-                // A*などのアルゴリズムで経路リストを生成
-                path_ = nav_->FindPath(sx, sz, gx, gz);
-                pathIndex_ = 0;
+        // Prefer OBB mounting: if probeEnd projects over OBB conservative area and raycast down hits top, mount
+        // But skip mounting while in post-fall cooldown or actively falling from a mount to avoid immediate re-mounts
+        if (postFallCooldown_ <= 0.0f && !fallingFromMount_) {
+            for (const Level::OBB* o : obbCandidates) {
+                float cy = std::cos(o->yaw);
+                float sy = std::sin(o->yaw);
+                float absCy = std::fabs(cy);
+                float absSy = std::fabs(sy);
+                float extX = absCy * o->halfExtents.x + absSy * o->halfExtents.z;
+                float extZ = absSy * o->halfExtents.x + absCy * o->halfExtents.z;
 
-                // 前回検索タイル位置を更新
-                lastSearchStartX_ = sx;
-                lastSearchStartZ_ = sz;
-                lastSearchGoalX_ = gx;
-                lastSearchGoalZ_ = gz;
-            }
-        }
-        replanTimer_ = kReplanInterval; // タイマーリセット（定数を使用）
-    }
+                // Debug: log OBB candidate info
+                try {
+                    Logger::Log(std::format("[Npc] OBB cand ownerId={} center=({:.3f},{:.3f},{:.3f}) half=({:.3f},{:.3f},{:.3f}) yaw={:.3f} extX={:.3f} extZ={:.3f}\n",
+                        o->ownerId, o->center.x, o->center.y, o->center.z, o->halfExtents.x, o->halfExtents.y, o->halfExtents.z, o->yaw, extX, extZ));
+                } catch(...) {}
 
-    // --- 3. ハザード（危険地帯）の早期検知と回避 ---
-    // 次のフレームで移動する予定の座標を計算
-    Vector3 next { pos_.x + vel_.x * dt, 0.0f, pos_.z + vel_.z * dt };
-    // 当たり判定半径には定数を使用
-    if (level.IsHazardHit(next, kDefaultRadius)) {
-        // 危険地帯に触れる場合は速度を大幅に減衰
-        vel_.x *= 0.2f;
-        vel_.z *= 0.2f;
-        // 進行方向に対して垂直なベクトルを計算し、横に避ける動きを加える
-        float avoidX = -dirZ;
-        float avoidZ = dirX;
-        pos_.x += avoidX * moveSpeed_ * 0.3f * dt;
-        pos_.z += avoidZ * moveSpeed_ * 0.3f * dt;
-    }
+                // allow a small margin so NPC can detect edges even when probeEnd is slightly outside
+                const float probeMargin = 0.3f;
+                if (probeEnd.x < o->center.x - extX - probeMargin || probeEnd.x > o->center.x + extX + probeMargin) {
+                    try { Logger::Log(std::format("[Npc] probeEnd.x outside extents (x={:.3f}, min={:.3f}, max={:.3f})\n", probeEnd.x, o->center.x - extX, o->center.x + extX)); } catch(...) {}
+                    continue;
+                }
+                if (probeEnd.z < o->center.z - extZ - probeMargin || probeEnd.z > o->center.z + extZ + probeMargin) {
+                    try { Logger::Log(std::format("[Npc] probeEnd.z outside extents (z={:.3f}, min={:.3f}, max={:.3f})\n", probeEnd.z, o->center.z - extZ, o->center.z + extZ)); } catch(...) {}
+                    continue;
+                }
 
-    // --- 4. 壁に対するスイープ移動と衝突解決 (2D/XZ平面) ---
-    // NPCの当たり判定半径
-    const float radius = kDefaultRadius;
-    Vector3 start = pos_;
-    Vector3 delta { vel_.x * dt, 0.0f, vel_.z * dt };
-
-    // 移動経路を包含する矩形領域(AABB)を作成し、周辺の壁のみを抽出
-    Vector3 qmin = Vector3 { std::min(start.x, start.x + delta.x) - radius, 0.0f, std::min(start.z, start.z + delta.z) - radius };
-    Vector3 qmax = Vector3 { std::max(start.x, start.x + delta.x) + radius, 0.0f, std::max(start.z, start.z + delta.z) + radius };
-    std::vector<const Level::AABB*> candidates;
-    level.QueryWalls(qmin, qmax, candidates);
-
-    // 衝突応答: 法線を使ったスライド処理
-    // 複数の衝突面に対応するため、短い反復で残り移動を接触面に沿って投影して滑らせる
-    Vector3 curStart = start;
-    Vector3 curDelta = delta;
-    const int kMaxSlideIter = 3; // 最大反復回数
-    const float kEpsilon = 1e-4f;
-    for (int iter = 0; iter < kMaxSlideIter; ++iter) {
-        float bestToi = 1.0f + 1e-6f;
-        Vector3 bestNormal = {0.0f, 0.0f, 0.0f};
-        const Level::AABB* hitBox = nullptr;
-
-        // 最も早く衝突する候補を探す
-        for (const Level::AABB* box : candidates) {
-            float toi;
-            Vector3 n;
-            if (GamePhysics::SweepSphereAabb2D(curStart, curDelta, radius, box->min, box->max, toi, n)) {
-                if (toi >= 0.0f && toi < bestToi) {
-                    bestToi = toi;
-                    bestNormal = n;
-                    hitBox = box;
+                // Sample multiple points across NPC footprint to detect face-vs-face contact.
+                const float sampleTol = 0.35f;
+                const float obbTopY = o->center.y + o->halfExtents.y;
+                const float samplesXZ[5][2] = {
+                    { 0.0f, 0.0f },
+                    { dir.x * kDefaultRadius, dir.z * kDefaultRadius },
+                    { -dir.x * kDefaultRadius, -dir.z * kDefaultRadius },
+                    { -dir.z * kDefaultRadius, dir.x * kDefaultRadius },
+                    { dir.z * kDefaultRadius, -dir.x * kDefaultRadius }
+                };
+                float foundHitY = 0.0f;
+                float foundHitX = 0.0f;
+                float foundHitZ = 0.0f;
+                bool anyHit = false;
+                for (int si = 0; si < 5; ++si) {
+                    // sample around the probeEnd (forward area) instead of NPC center
+                    float sx = probeEnd.x + samplesXZ[si][0];
+                    float sz = probeEnd.z + samplesXZ[si][1];
+                    float sampleHitY = 0.0f;
+                    if (!level.RaycastDown({ sx, probeEnd.y + kStepHeight + kStepExtra + 0.5f, sz }, kStepHeight + kStepExtra + 0.5f, sampleHitY)) {
+                        try { Logger::Log(std::format("[Npc] sample {} miss at ({:.2f},{:.2f})\n", si, sx, sz)); } catch(...) {}
+                        continue;
+                    }
+                    try { Logger::Log(std::format("[Npc] sample {} hit at ({:.2f},{:.2f}) hitY={:.3f}\n", si, sx, sz, sampleHitY)); } catch(...) {}
+                    // check vertical match with obb top
+                    if (std::fabs(sampleHitY - obbTopY) > sampleTol)
+                        continue;
+                    // ensure sample point projects into conservative extents
+                    if (sx < o->center.x - extX || sx > o->center.x + extX || sz < o->center.z - extZ || sz > o->center.z + extZ)
+                        continue;
+                    foundHitY = sampleHitY;
+                    foundHitX = sx;
+                    foundHitZ = sz;
+                    anyHit = true;
+                    break;
+                }
+                if (anyHit) {
+                    float stepH = foundHitY - pos_.y;
+                    // allow a larger climb tolerance: include step extra and some margin
+                    const float maxClimb = kStepHeight + kStepExtra + 0.6f;
+                    const float minDrop = -0.25f; // allow small drops
+                    if (stepH >= minDrop && stepH <= maxClimb) {
+                        float oy = o->yaw;
+                        float ax = std::sin(oy);
+                        float az = std::cos(oy);
+                        // snap horizontal position to the sample hit so NPC stands on top
+                        pos_.x = foundHitX;
+                        pos_.z = foundHitZ;
+                        // raise Y a bit more so model doesn't intersect with top surface
+                        const float mountRaise = 0.08f;
+                        pos_.y = foundHitY + mountOffsetY_ + mountRaise;
+                        if (obj_) obj_->SetTranslation(pos_);
+                        vel_.y = 0.0f;
+                        mounted_ = true;
+                        mountTimer_ = 0.0f;
+                        mountedOwnerId_ = o->ownerId;
+                        // store obb parameters to allow edge-aware unmounting
+                        mountedObbCenter_ = o->center;
+                        mountedObbHalfExtents_ = o->halfExtents;
+                        mountedObbYaw_ = o->yaw;
+                        straightDir_.x = ax; straightDir_.z = az;
+                        vel_.x = ax * moveSpeed_; vel_.z = az * moveSpeed_;
+                        handled = true;
+                        try { Logger::Log(std::format("[Npc] Mounted on OBB ownerId={} sampleHit=({:.2f},{:.2f})\n", o->ownerId, pos_.x, pos_.z)); } catch(...) {}
+                        break;
+                    } else {
+                        try { Logger::Log(std::format("[Npc] stepH out of range: stepH={:.3f} allowed=[{:.3f},{:.3f}]\n", stepH, minDrop, maxClimb)); } catch(...) {}
+                    }
                 }
             }
         }
 
-        if (!hitBox || bestToi > 1.0f) {
-            // 衝突なし: 残り移動を全て適用して終了
-            curStart.x += curDelta.x;
-            curStart.z += curDelta.z;
-            break;
+        if (!handled) {
+            // check simple AABB blocking
+            for (const Level::AABB* box : aabbCandidates) {
+                if (probeEnd.x >= box->min.x && probeEnd.x <= box->max.x && probeEnd.z >= box->min.z && probeEnd.z <= box->max.z) {
+                    // block
+                    vel_.x = 0.0f; vel_.z = 0.0f;
+                    break;
+                }
+            }
         }
 
-        // 衝突点まで移動
-        curStart.x += curDelta.x * bestToi;
-        curStart.z += curDelta.z * bestToi;
-
-        // 小さなオフセットで法線方向に押し出してめり込みを防止
-        curStart.x += bestNormal.x * kEpsilon;
-        curStart.z += bestNormal.z * kEpsilon;
-
-        // 残り移動を計算し、接触面に沿うように投影（スライド）
-        Vector3 remaining = { curDelta.x * (1.0f - bestToi), 0.0f, curDelta.z * (1.0f - bestToi) };
-        // 内積（X,Z 平面のみ）
-        float dot = remaining.x * bestNormal.x + remaining.z * bestNormal.z;
-        Vector3 slide = { remaining.x - bestNormal.x * dot, 0.0f, remaining.z - bestNormal.z * dot };
-
-        // 速度ベクトルから法線成分を除去して摩擦を適用
-        float vdot = vel_.x * bestNormal.x + vel_.z * bestNormal.z;
-        vel_.x -= bestNormal.x * vdot;
-        vel_.z -= bestNormal.z * vdot;
-        const float kSlideFriction = 0.9f; // スライド時の減衰係数
-        vel_.x *= kSlideFriction;
-        vel_.z *= kSlideFriction;
-
-        // 次の反復はスライドベクトルを移動量として扱う
-        curDelta = slide;
-
-        // 移動が微小なら終了
-        if (std::sqrt(curDelta.x * curDelta.x + curDelta.z * curDelta.z) < kEpsilon)
-            break;
-    }
-
-    // 反復後の位置を反映
-    pos_.x = curStart.x;
-    pos_.z = curStart.z;
-
-    // 最終的に微小なめり込みが残る可能性があるため、補正を行う
-    for (const Level::AABB* box : candidates) {
-        GamePhysics::ResolveSphereAabb2D(pos_, radius, box->min, box->max);
-    }
-
-    // --- 5. 経路追従 (Path Following) の更新 ---
-    if (!path_.empty() && pathIndex_ < (int)path_.size()) {
-        Vector3 wp = path_[pathIndex_]; // 現在目指している中継点
-        float dxp = wp.x - pos_.x;
-        float dzp = wp.z - pos_.z;
-        float distp = std::sqrt(dxp * dxp + dzp * dzp);
-
-        // 中継点に十分近づいたら、次の地点へターゲットを切り替える
-        if (distp < kWaypointThreshold) {
-            pathIndex_++;
-        } else {
-            // 到達行動の速度を上書きし、経路に沿って移動する
-            vel_.x = (dxp / distp) * moveSpeed_;
-            vel_.z = (dzp / distp) * moveSpeed_;
+        // integrate horizontal movement
+        // if in post-fall cooldown, stop horizontal progress
+        if (postFallCooldown_ > 0.0f) {
+            // decay cooldown
+            postFallCooldown_ = std::max(0.0f, postFallCooldown_ - dt);
+            // zero horizontal velocity so NPC doesn't move
+            vel_.x = 0.0f; vel_.z = 0.0f;
         }
+
+        pos_.x += vel_.x * dt;
+        pos_.z += vel_.z * dt;
+
+        // handle mount: stay mounted while still colliding with a blocking AABB in front (e.g., a stick)
+        if (mounted_) {
+            // probe a bit ahead in facing direction to detect a blocking AABB
+            Vector3 mdir = { straightDir_.x, 0.0f, straightDir_.z };
+            mdir = SafeNormalize(mdir);
+            Vector3 forwardProbe = { pos_.x + mdir.x * 0.5f, pos_.y, pos_.z + mdir.z * 0.5f };
+            Vector3 qminProbe { std::min(pos_.x, forwardProbe.x) - kDefaultRadius, 0.0f, std::min(pos_.z, forwardProbe.z) - kDefaultRadius };
+            Vector3 qmaxProbe { std::max(pos_.x, forwardProbe.x) + kDefaultRadius, 2.0f, std::max(pos_.z, forwardProbe.z) + kDefaultRadius };
+            std::vector<const Level::AABB*> nearAABBs;
+            level.QueryWalls(qminProbe, qmaxProbe, nearAABBs);
+            bool hasStick = false;
+            for (const Level::AABB* box : nearAABBs) {
+                if (forwardProbe.x >= box->min.x && forwardProbe.x <= box->max.x && forwardProbe.z >= box->min.z && forwardProbe.z <= box->max.z) {
+                    hasStick = true;
+                    break;
+                }
+            }
+            // determine if NPC is still above the mounted OBB (in local OBB XZ extents)
+            float cyo = std::cos(mountedObbYaw_);
+            float syo = std::sin(mountedObbYaw_);
+            float lx =  cyo * (pos_.x - mountedObbCenter_.x) + syo * (pos_.z - mountedObbCenter_.z);
+            float lz = -syo * (pos_.x - mountedObbCenter_.x) + cyo * (pos_.z - mountedObbCenter_.z);
+            const float stayMargin = 0.12f; // allow larger margin so we don't start unmounting early
+            bool stillOnObb = (lx >= -mountedObbHalfExtents_.x - stayMargin && lx <= mountedObbHalfExtents_.x + stayMargin
+                               && lz >= -mountedObbHalfExtents_.z - stayMargin && lz <= mountedObbHalfExtents_.z + stayMargin);
+            try {
+                Logger::Log(std::format("[Npc] mount check hasStick={} stillOnObb={} pos=({:.3f},{:.3f},{:.3f}) mountTimer={:.3f}\n",
+                    hasStick ? 1 : 0, stillOnObb ? 1 : 0, pos_.x, pos_.y, pos_.z, mountTimer_));
+            } catch(...) {}
+
+            if (hasStick || stillOnObb) {
+                // reset grace timer while still touching stick OR still clearly on top of OBB
+                if (mountTimer_ > 0.0f) {
+                    try { Logger::Log(std::format("[Npc] mountTimer reset (hasStick||stillOnObb)\n")); } catch(...) {}
+                }
+                mountTimer_ = 0.0f;
+            } else {
+                // Immediately unmount when stick is gone. Start a gentle descent (no hard snap).
+                mounted_ = false;
+                mountedOwnerId_ = 0;
+                mountTimer_ = 0.0f;
+                // begin smooth falling: slightly quicker descent
+                fallingFromMount_ = true;
+                vel_.y = -0.60f; // initial downward velocity (quicker)
+                try { Logger::Log(std::format("[Npc] Immediate unmount (stick lost), begin gentle fall, pos=({:.3f},{:.3f},{:.3f})\n", pos_.x, pos_.y, pos_.z)); } catch(...) {}
+            }
+        }
+
+        // simple collision resolve and bounds
+        level.ResolveCollision(pos_, kDefaultRadius, true);
+        level.KeepInsideBounds(pos_, kDefaultRadius);
+
+        if (!mounted_) {
+            float groundY = 0.0f;
+            if (fallingFromMount_) {
+                // Smooth falling: integrate vertical velocity with gentle gravity
+                const float gravity = -6.0f;         // m/s^2, a bit stronger for quicker descent
+                const float terminalVel = -3.5f;    // limit fall speed (more than before)
+
+                // integrate
+                vel_.y = std::max(terminalVel, vel_.y + gravity * dt);
+                pos_.y += vel_.y * dt;
+
+                // check for ground near current position; if close enough, snap and finish falling
+                if (level.RaycastDown({ pos_.x, pos_.y + 0.5f, pos_.z }, 50.0f, groundY)) {
+                    const float landingThreshold = 0.04f; // slightly larger threshold for earlier snap
+                    if (pos_.y <= groundY + landingThreshold) {
+                        pos_.y = groundY;
+                        fallingFromMount_ = false;
+                        vel_.y = 0.0f;
+                        // start cooldown to prevent immediate forward movement
+                        postFallCooldown_ = kPostFallCooldown;
+                        // stop movement and clear forward direction so NPC won't race back to the stick
+                        vel_.x = 0.0f; vel_.z = 0.0f;
+                        straightDir_ = { 0.0f, 0.0f, 0.0f };
+                        state_ = State::Idle;
+                    }
+                }
+            } else {
+                if (level.RaycastDown({ pos_.x, pos_.y + kStepHeight + kStepExtra, pos_.z }, kStepHeight + kStepExtra + 1.0f, groundY)) {
+                    pos_.y = groundY;
+                }
+            }
+        }
+
+        if (obj_) { obj_->SetTranslation(pos_); obj_->Update(); }
+        return;
     }
 
-    // --- 6. 接地判定 (Raycasting Down) ---
-    float hitY;
-    // 接地判定に使用するレイの高さはヘッダ定数を使用
-    if (level.RaycastDown({ pos_.x, pos_.y + kStepHeight, pos_.z }, kStepHeight + kStepExtra, hitY)) {
-        pos_.y = hitY; // 地面の高さにスナップ
-    } else {
-        pos_.y = 0.0f; // 下に何もなければデフォルトの高さ0へ
+    // MoveToTarget / Arrive behavior (simple)
+    float tx = targetPos.x - pos_.x;
+    float tz = targetPos.z - pos_.z;
+    float dist = std::sqrt(tx*tx + tz*tz);
+    Vector3 desired = {0.0f, 0.0f, 0.0f};
+    if (dist > 1e-4f) desired = { tx/dist, 0.0f, tz/dist };
+    float targetSpeed = (dist < slowRadius_) ? moveSpeed_ * (dist / slowRadius_) : moveSpeed_;
+    if (dist < desiredDistance_) targetSpeed = 0.0f;
+
+    // accelerate/decelerate toward target velocity
+    float targetVX = desired.x * targetSpeed;
+    float targetVZ = desired.z * targetSpeed;
+    if (vel_.x < targetVX) vel_.x = std::min(targetVX, vel_.x + accel_ * dt);
+    else vel_.x = std::max(targetVX, vel_.x - decel_ * dt);
+    if (vel_.z < targetVZ) vel_.z = std::min(targetVZ, vel_.z + accel_ * dt);
+    else vel_.z = std::max(targetVZ, vel_.z - decel_ * dt);
+
+    // clamp horizontal speed
+    float horiz = std::sqrt(vel_.x*vel_.x + vel_.z*vel_.z);
+    if (horiz > moveSpeed_ && horiz > kSmallEpsilon) {
+        float s = moveSpeed_ / horiz;
+        vel_.x *= s; vel_.z *= s;
     }
 
-    // 移動プラットフォーム追従: 現時点では未実装
+    // integrate
+    pos_.x += vel_.x * dt; pos_.z += vel_.z * dt;
 
-    // --- 7. 最終的な制約と描画への反映 ---
-    // ステージの境界外に出ないように制限
-    // ステージ境界内に位置を制限
-    level.KeepInsideBounds(pos_, kDefaultRadius);
-    // その他の一般的な衝突解決
-    level.ResolveCollision(pos_, kDefaultRadius);
+    // ground
+    float groundY;
+    if (level.RaycastDown({ pos_.x, pos_.y + kStepHeight + kStepExtra, pos_.z }, kStepHeight + kStepExtra + 1.0f, groundY)) pos_.y = groundY; else pos_.y = 0.0f;
 
-    // 算出した座標を3Dモデルに適用
-    obj_->SetTranslation(pos_);
+    if (obj_) { obj_->SetTranslation(pos_); obj_->Update(); }
 
-    // カメラが存在する場合のみ描画用行列などを更新
-    auto* cam = renderer_->GetDefaultCamera();
-    if (cam)
-        obj_->Update();
-
-    // --- 追加: 移動方向に応じて NPC モデルの向きを更新（yaw） ---
-    // 停止時には向きを変えない
-    float moveDirX = vel_.x;
-    float moveDirZ = vel_.z;
+    // update facing
+    float moveDirX = vel_.x; float moveDirZ = vel_.z;
     if (std::sqrt(moveDirX*moveDirX + moveDirZ*moveDirZ) > kSmallEpsilon) {
-        float yaw = std::atan2(moveDirX, moveDirZ); // Y 軸回転（ラジアン）
-        Vector3 rot = obj_->GetRotation();
-        rot.y = yaw;
-        obj_->SetRotation(rot);
+        float yaw = std::atan2(moveDirX, moveDirZ);
+        Vector3 rot = obj_->GetRotation(); rot.y = yaw; obj_->SetRotation(rot);
     }
 }
 
