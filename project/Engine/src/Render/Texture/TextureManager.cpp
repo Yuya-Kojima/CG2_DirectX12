@@ -1,7 +1,9 @@
 #include "Texture/TextureManager.h"
 // #include "Dx12Core.h"
 #include "Core/SrvManager.h"
+#include "Debug/Logger.h"
 #include "Util/StringUtil.h"
+#include <filesystem>
 
 TextureManager *TextureManager::instance = nullptr;
 
@@ -34,22 +36,9 @@ void TextureManager::Finalize() {
 
 void TextureManager::LoadTexture(const std::string &filePath) {
 
-  //// 読み込み済みテクスチャを検索
-  // auto it = std::find_if(textureDatas.begin(), textureDatas.end(),
-  //                        [&](TextureData &textureData) {
-  //                          return textureData.filePath == filePath;
-  //                        });
-
-  // if (it != textureDatas.end()) {
-  //   // 読み込み済みなら早期return
-  //   return;
-  // }
-
   if (textureDatas.contains(filePath)) {
     return;
   }
-
-  // assert(textureDatas.size() + kSRVIndexTop < Dx12Core::kMaxSRVCount);
 
   assert(srvManager_->CanAllocate());
 
@@ -60,12 +49,22 @@ void TextureManager::LoadTexture(const std::string &filePath) {
       filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
   assert(SUCCEEDED(hr));
 
+  const auto &meta = image.GetMetadata();
+
   // ミニマップの作成
   DirectX::ScratchImage mipImages{};
-  hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
-                                image.GetMetadata(), DirectX::TEX_FILTER_SRGB,
-                                0, mipImages);
-  assert(SUCCEEDED(hr));
+
+  bool needMip = (meta.mipLevels <= 1) && (meta.width > 1 || meta.height > 1);
+
+  if (needMip) {
+    hr =
+        DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), meta,
+                                 DirectX::TEX_FILTER_DEFAULT, 0, mipImages);
+    assert(SUCCEEDED(hr));
+  } else {
+    // 1x1など：そのまま使う
+    mipImages = std::move(image);
+  }
 
   // 追加したテクスチャデータの参照を取得する
   TextureData &textureData = textureDatas[filePath];
@@ -75,8 +74,6 @@ void TextureManager::LoadTexture(const std::string &filePath) {
 
   dx12Core_->UploadTextureData(textureData.resource, mipImages);
 
-  //   dx12Core_->UploadTextureData(textureData.resource, mipImages);
-  //
   // テクスチャデータの要素番号をSRVのインデックスとする
 
   textureData.srvIndex = srvManager_->Allocate();
@@ -84,42 +81,21 @@ void TextureManager::LoadTexture(const std::string &filePath) {
       srvManager_->GetCPUDescriptorHandle(textureData.srvIndex);
   textureData.srvHandleGPU =
       srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
-  //
-  //   ID3D12Device *device = dx12Core_->GetDevice();
-  //
+
   D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 
   // SRVの設定を行う
   srvDesc.Format = textureData.metadata.format;
   srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
   srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D; // 2Dテクスチャ
-  srvDesc.Texture2D.MipLevels = UINT(textureData.metadata.mipLevels);
+  srvDesc.Texture2D.MipLevels = textureData.metadata.mipLevels
+                                    ? UINT(textureData.metadata.mipLevels)
+                                    : 1u;
 
   // 設定をもとにSRVの作成
   dx12Core_->GetDevice()->CreateShaderResourceView(
       textureData.resource.Get(), &srvDesc, textureData.srvHandleCPU);
-  //   device->CreateShaderResourceView(textureData.resource.Get(), &srvDesc,
-  //                                    textureData.srvHandleCPU);
 }
-
-// uint32_t
-// TextureManager::GetTextureIndexByFilePath(const std::string &filePath) {
-//
-//   auto it = std::find_if(textureDatas.begin(), textureDatas.end(),
-//                          [&](TextureData &textureData) {
-//                            return textureData.filePath == filePath;
-//                          });
-//
-//   if (it != textureDatas.end()) {
-//     // 読み込み済みなら要素番号を返す
-//     uint32_t textureIndex =
-//         static_cast<uint32_t>(std::distance(textureDatas.begin(), it));
-//     return textureIndex;
-//   }
-//
-//   assert(0);
-//   return 0;
-// }
 
 D3D12_GPU_DESCRIPTOR_HANDLE
 TextureManager::GetSrvHandleGPU(const std::string &filePath) const {

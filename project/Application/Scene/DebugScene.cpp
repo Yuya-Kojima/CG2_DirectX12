@@ -22,9 +22,9 @@ void DebugScene::Initialize(EngineBase *engine) {
   //===========================
 
   // テクスチャの読み込み
-  TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
+  // TextureManager::GetInstance()->LoadTexture("resources/uvChecker.png");
 
-  TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
+  // TextureManager::GetInstance()->LoadTexture("resources/monsterball.png");
 
   //===========================
   // オーディオファイルの読み込み
@@ -48,7 +48,7 @@ void DebugScene::Initialize(EngineBase *engine) {
     auto sprite = std::make_unique<Sprite>();
     if (i % 2 == 1) {
       sprite->Initialize(engine_->GetSpriteRenderer(),
-                         "resources/uvChecker.png");
+                         "resources/white1x1.png");
     } else {
       sprite->Initialize(engine_->GetSpriteRenderer(),
                          "resources/monsterBall.png");
@@ -57,7 +57,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   }
 
   sprite_ = std::make_unique<Sprite>();
-  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/uvChecker.png");
+  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/white1x1.png");
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
     spritePositions_[i] = {i * 200.0f, 0.0f};
