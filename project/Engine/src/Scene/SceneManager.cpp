@@ -50,7 +50,8 @@ void SceneManager::Update() {
   if (transitionState_ == TransitionState::None) {
     if (nextScene_) {
       transitionState_ = TransitionState::FadeOut;
-      fade_.StartFadeOut(0.35f);
+      fade_.StartFadeOut(transitionDurationSec_, transitionFadeType_,
+                         transitionColor_);
     }
   }
 
@@ -78,7 +79,12 @@ void SceneManager::Update() {
 
     // フェードイン開始
     transitionState_ = TransitionState::FadeIn;
-    fade_.StartFadeIn(0.35f);
+    fade_.StartFadeIn(transitionDurationSec_, transitionFadeType_,
+                      transitionColor_);
+
+    transitionDurationSec_ = 0.35f;
+    transitionColor_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
+    transitionFadeType_ = Fade::FadeType::Solid;
   }
 
   // フェードイン完了待ち
@@ -123,4 +129,11 @@ void SceneManager::ChangeScene(const std::string &sceneName) {
 
   // 次シーンを生成
   nextScene_ = sceneFactory_->CreateScene(sceneName);
+}
+
+void SceneManager::SetNextTransitionFade(float durationSec, Fade::FadeType type,
+                                         const Vector4 &color) {
+  transitionDurationSec_ = (std::max)(durationSec, 0.0001f);
+  transitionFadeType_ = type;
+  transitionColor_ = color;
 }
