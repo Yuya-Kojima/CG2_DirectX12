@@ -141,7 +141,7 @@ void Sprite::Draw() {
   commandList_->SetGraphicsRootConstantBufferView(
       1, transformationMatrixResource->GetGPUVirtualAddress());
 
-  // SRVのDiscriptorTableの先頭を設定(描画に使うテクスチャの設定)
+  // SRVのDescriptorTableの先頭を設定(描画に使うテクスチャの設定)
   commandList_->SetGraphicsRootDescriptorTable(
       2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
 
@@ -195,11 +195,16 @@ void Sprite::CreateVertexData() {
 
 void Sprite::CreateMaterialData() {
 
+  UINT materialSize = (sizeof(Material) + 255) & ~255;
+
   // リソースを作る
-  materialResource = dx12Core_->CreateBufferResource(sizeof(Material));
+  materialResource = dx12Core_->CreateBufferResource(materialSize);
 
   // 書き込むためのアドレスを取得
-  materialResource->Map(0, nullptr, reinterpret_cast<void **>(&materialData));
+  HRESULT hr = materialResource->Map(0, nullptr,
+                                     reinterpret_cast<void **>(&materialData));
+  assert(SUCCEEDED(hr));
+  assert(materialData);
 
   // マテリアルデータの初期値を書き込む
   materialData->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);

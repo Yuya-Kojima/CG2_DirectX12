@@ -190,6 +190,8 @@ void DebugScene::Update() {
   // テクスチャ差し替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
     sprites_[0]->ChangeTexture("resources/uvChecker.png");
+
+    sprites_[1]->SetColor({0.0f, 0.0f, 0.0f, 1.0f});
   }
 
   if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {

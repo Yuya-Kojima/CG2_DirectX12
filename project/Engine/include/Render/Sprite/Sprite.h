@@ -5,6 +5,7 @@
 #include "Math/Vector2.h"
 #include "Math/Vector3.h"
 #include "Math/Vector4.h"
+#include <cassert>
 #include <d3d12.h>
 #include <string>
 #include <wrl.h>
@@ -156,7 +157,10 @@ public:
   /// colorのセッター
   /// </summary>
   /// <param name="rotation"></param>
-  void SetColor(const Vector4 &color) { materialData->color = color; }
+  void SetColor(const Vector4 &color) {
+    assert(materialData);
+    materialData->color = color;
+  }
 
   /// <summary>
   /// sizeのゲッター
