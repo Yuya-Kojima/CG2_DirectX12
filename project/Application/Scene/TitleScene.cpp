@@ -22,8 +22,9 @@
 #include <algorithm> // clamp
 #include <cmath>     // sin
 
-// イージング関数（EaseOutCubic）
-static inline float EaseOutCubic(float t) {
+// イージング関数（EaseOutCubic） — titleBot は等速運動へ切替のため使用しないが他オブジェクトで残す
+static inline float EaseOutCubic(float t)
+{
 	if (t <= 0.0f) return 0.0f;
 	if (t >= 1.0f) return 1.0f;
 	t = std::clamp(t, 0.0f, 1.0f);
@@ -61,6 +62,11 @@ void TitleScene::Initialize(EngineBase* engine)
 	pinSwayAmplitude_ = 0.10f;
 	pinSwayFrequency_ = 0.8f;
 	pinSwayPhase_ = 0.0f;
+
+	// タイトルのボビング初期値
+	titleBobAmplitude_ = 0.05f;
+	titleBobFrequency_ = 0.6f;
+	titleBobPhase_ = 0.0f;
 
 	//===========================
 	// 3Dオブジェクト関係の初期化
@@ -103,7 +109,10 @@ void TitleScene::Initialize(EngineBase* engine)
 	// 初期Transform（必要なら調整）
 	titleObject3d_->SetScale({ 0.5f, 0.5f, 0.5f });
 	titleObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
-	titleObject3d_->SetTranslation({ 0.0f, 1.3f, 0.0f });
+	titleObject3d_->SetTranslation({ 0.0f, 1.6f, 0.0f });
+
+	// 初期位置を基準として保存（ボビングの基準）
+	titleStartTranslation_ = titleObject3d_->GetTranslation();
 
 	// 初期色（マテリアル）
 	titleObject3d_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
@@ -147,6 +156,44 @@ void TitleScene::Initialize(EngineBase* engine)
 	pinObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
 	pinObject3d_->SetTranslation(pinStartTranslation_);
 
+	// モデルをロードしておく
+	ModelManager::GetInstance()->LoadModel("Title1.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	titleFloorObject3d_ = std::make_unique<Object3d>();
+	titleFloorObject3d_->Initialize(engine_->GetObject3dRenderer());
+	titleFloorObject3d_->SetModel("Title1.obj");
+
+	// 初期Transform（必要なら調整）
+	titleFloorObject3d_->SetScale({ 0.5f, 0.5f, 0.5f });
+	titleFloorObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	titleFloorObject3d_->SetTranslation({ 0.0f, 1.0f, 0.0f });
+
+	// モデルをロードしておく
+	ModelManager::GetInstance()->LoadModel("Title2.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	titleBotObject3d_ = std::make_unique<Object3d>();
+	titleBotObject3d_->Initialize(engine_->GetObject3dRenderer());
+	titleBotObject3d_->SetModel("Title2.obj");
+
+	// 初期Transform（必要なら調整） — 初期 X を 0.0f にしておく
+	titleBotObject3d_->SetScale({ 0.5f, 0.5f, 0.5f });
+	titleBotObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	titleBotObject3d_->SetTranslation({ 0.0f, 1.0f, 0.0f });
+
+	// モデルをロードしておく（Title3 は反転時に使用）
+	ModelManager::GetInstance()->LoadModel("Title3.obj");
+
+	// ----- TitleBot 等速直線運動初期化 -----
+	if (titleBotObject3d_) {
+		// 等速で左へ移動開始（X: 0.0 -> -7.1）
+		titleBotSpeed_ = 2.0f; // world units / sec（調整可能）
+		titleBotDirection_ = -1; // 左
+		titleBotIsMoving_ = true;
+		titleBotPhase_ = TitleBotPhase::FirstMove;
+	}
+
 	//===========================
 	// パーティクル関係の初期化
 	//===========================
@@ -189,7 +236,7 @@ void TitleScene::Update()
 			pinStartTranslation_ = pinObject3d_->GetTranslation();
 			pinTargetTranslation_ = (selectedButtonIndex_ == 0)
 				? Vector3{ -1.7f, -1.3f, 0.0f }
-				: Vector3{ -1.7f, -2.4f, 0.0f };
+			: Vector3{ -1.7f, -2.4f, 0.0f };
 			pinMoveTimer_ = 0.0f;
 			pinIsMoving_ = true;
 		}
@@ -200,13 +247,11 @@ void TitleScene::Update()
 		if (creditsActive_) {
 			// クレジット表示中はスペースで戻る
 			creditsActive_ = false;
-		}
-		else {
+		} else {
 			if (selectedButtonIndex_ == 0) {
 				// Start
 				SceneManager::GetInstance()->ChangeScene("STAGESELECT");
-			}
-			else {
+			} else {
 				// Credits をタイトル内で表示
 				creditsActive_ = true;
 			}
@@ -218,8 +263,7 @@ void TitleScene::Update()
 	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
 		if (useDebugCamera_) {
 			useDebugCamera_ = false;
-		}
-		else {
+		} else {
 			useDebugCamera_ = true;
 		}
 	}
@@ -229,8 +273,71 @@ void TitleScene::Update()
 	// 3Dオブジェクトの更新
 	//=======================
 	if (titleObject3d_) {
+		// タイトルの上下揺れ（サイン波）を適用
+		titleBobPhase_ += dt * titleBobFrequency_ * 2.0f * 3.14159265f;
+		float bob = std::sin(titleBobPhase_) * titleBobAmplitude_;
+
+		Vector3 tpos = titleStartTranslation_;
+		tpos.y += bob;
+		titleObject3d_->SetTranslation(tpos);
+
 		titleObject3d_->Update();
 	}
+
+	if (titleFloorObject3d_) {
+		titleFloorObject3d_->Update();
+	}
+
+	// --- titleBot の等速直線運動更新（ループ動作） ---
+	if (titleBotObject3d_ && titleBotIsMoving_) {
+		// 現在位置取得
+		Vector3 cur = titleBotObject3d_->GetTranslation();
+
+		// 移動量 = direction * speed * dt
+		float dx = static_cast<float>(titleBotDirection_) * titleBotSpeed_ * dt;
+		cur.x += dx;
+
+		// 左へ移動中に -7.1 を越えたら到達処理（到達時にモデルを Title3 に変更）
+		if (titleBotDirection_ == -1 && cur.x <= -7.1f) {
+			// 到達点にスナップ
+			cur.x = -7.1f;
+			titleBotObject3d_->SetTranslation(cur);
+
+			// モデルを差し替え（反転時に Title3.obj に変更）
+			titleBotObject3d_->SetModel("Title3.obj");
+
+			// モデル変更時の要望に合わせ、X を 0.0f にリセットして右方向へ等速移動を開始
+			cur.x = 0.0f;
+			titleBotObject3d_->SetTranslation(cur);
+			titleBotDirection_ = +1;
+			titleBotPhase_ = TitleBotPhase::SecondMove;
+		}
+		// 右へ移動中に +7.1 を越えたら到達処理（到達時にモデルを Title2 に戻し、再び左へ）
+		else if (titleBotDirection_ == +1 && cur.x >= 7.1f) {
+			// 到達点にスナップ
+			cur.x = 7.1f;
+			titleBotObject3d_->SetTranslation(cur);
+
+			// モデルを差し替え（反転時に元の Title2.obj に戻す）
+			titleBotObject3d_->SetModel("Title2.obj");
+
+			// モデル変更時に X を 0.0f にリセットして左方向へ等速移動を開始（ループ）
+			cur.x = 0.0f;
+			titleBotObject3d_->SetTranslation(cur);
+			titleBotDirection_ = -1;
+			titleBotPhase_ = TitleBotPhase::FirstMove;
+		} else {
+			// 通常更新
+			titleBotObject3d_->SetTranslation(cur);
+		}
+
+		titleBotObject3d_->Update();
+	} else if (titleBotObject3d_) {
+		// 移動していない場合でも Update は呼ぶ
+		titleBotObject3d_->Update();
+	}
+
+	// titleBot1Object3d_ は描画しない運用（生成は残すが Update は不要）
 
 	if (button1Object3d_) {
 		button1Object3d_->Update();
@@ -258,12 +365,11 @@ void TitleScene::Update()
 			}
 			float e = EaseOutCubic(t);
 			pos = Lerp(pinStartTranslation_, pinTargetTranslation_, e);
-		}
-		else {
+		} else {
 			// 移動していなければ選択に合わせて確実にロックしておく
 			pos = (selectedButtonIndex_ == 0)
 				? Vector3{ -1.7f, -1.3f, 0.0f }
-				: Vector3{ -1.7f, -2.4f, 0.0f };
+			: Vector3{ -1.7f, -2.4f, 0.0f };
 		}
 
 		// 揺れを X に合成
@@ -284,8 +390,7 @@ void TitleScene::Update()
 	if (useDebugCamera_) {
 		debugCamera_->Update(*engine_->GetInputManager());
 		activeCamera = debugCamera_->GetCamera();
-	}
-	else {
+	} else {
 		camera_->Update();
 		activeCamera = camera_;
 	}
@@ -324,8 +429,7 @@ void TitleScene::Update()
 				if (!showDirectionalLight) {
 					directionalIntensityBackup = dl->intensity;
 					dl->intensity = 0.0f;
-				}
-				else {
+				} else {
 					dl->intensity = (directionalIntensityBackup > 0.0f)
 						? directionalIntensityBackup
 						: 1.0f;
@@ -340,8 +444,7 @@ void TitleScene::Update()
 				if (!showPointLight) {
 					pointIntensityBackup = pl->intensity;
 					pl->intensity = 0.0f;
-				}
-				else {
+				} else {
 					pl->intensity =
 						(pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
 				}
@@ -355,8 +458,7 @@ void TitleScene::Update()
 				if (!showSpotLight) {
 					spotIntensityBackup = sl->intensity;
 					sl->intensity = 0.0f;
-				}
-				else {
+				} else {
 					sl->intensity =
 						(spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
 				}
@@ -429,6 +531,8 @@ void TitleScene::Update()
 		float transf[3] = { trans.x, trans.y, trans.z };
 		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
 			titleObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+			// 更新した基準位置も同期しておく
+			titleStartTranslation_ = titleObject3d_->GetTranslation();
 		}
 
 		// Rotation
@@ -455,25 +559,25 @@ void TitleScene::Update()
 		ImGui::End();
 	}
 
-	if (pinObject3d_) {
-		ImGui::Begin("pinObject3d_");
+	if (titleBotObject3d_) {
+		ImGui::Begin("titleBotObject3d_");
 
 		// Translation
-		Vector3 trans = pinObject3d_->GetTranslation();
+		Vector3 trans = titleBotObject3d_->GetTranslation();
 		float transf[3] = { trans.x, trans.y, trans.z };
 		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
-			pinObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+			titleBotObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
 		}
 
 		// Rotation
-		Vector3 rot = pinObject3d_->GetRotation();
+		Vector3 rot = titleBotObject3d_->GetRotation();
 		float rotDeg[3] = {
 			static_cast<float>(rot.x * 180.0f / 3.14159265f),
 			static_cast<float>(rot.y * 180.0f / 3.14159265f),
 			static_cast<float>(rot.z * 180.0f / 3.14159265f)
 		};
 		if (ImGui::DragFloat3("Rotation(deg)", rotDeg, 0.25f, -360.0f, 360.0f)) {
-			pinObject3d_->SetRotation({
+			titleBotObject3d_->SetRotation({
 				DegToRad(rotDeg[0]),
 				DegToRad(rotDeg[1]),
 				DegToRad(rotDeg[2])
@@ -481,10 +585,10 @@ void TitleScene::Update()
 		}
 
 		// Scale
-		Vector3 scale = pinObject3d_->GetScale();
+		Vector3 scale = titleBotObject3d_->GetScale();
 		float scalef[3] = { scale.x, scale.y, scale.z };
 		if (ImGui::DragFloat3("Scale", scalef, 0.01f, 0.001f, 100.0f)) {
-			pinObject3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
+			titleBotObject3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
 		}
 		ImGui::End();
 	}
@@ -516,8 +620,6 @@ void TitleScene::Update()
 		}
 
 		// FOV（UIは度、内部はラジアン）
-		// GameCamera::Get doesn't expose FOV getter; approximate by computing from projection matrix is overkill.
-		// Store temporary fov value locally on first open.
 		static float fovDeg = 0.0f;
 		static bool fovInitialized = false;
 		if (!fovInitialized) {
@@ -560,17 +662,25 @@ void TitleScene::Draw3D()
 	// クレジット表示中はタイトルとピンを非表示にする
 	if (!creditsActive_) {
 		// タイトル3Dモデルを描画
+
+		if (titleFloorObject3d_) {
+			titleFloorObject3d_->Draw();
+		}
+
+		if (titleBotObject3d_) {
+			titleBotObject3d_->Draw();
+		}
+
 		if (titleObject3d_) {
 			titleObject3d_->Draw();
 		}
-
+		
 		// 選択中のボタンのみ描画する
 		if (selectedButtonIndex_ == 0) {
 			if (button1Object3d_) {
 				button1Object3d_->Draw();
 			}
-		}
-		else {
+		} else {
 			if (button2Object3d_) {
 				button2Object3d_->Draw();
 			}
@@ -580,8 +690,7 @@ void TitleScene::Draw3D()
 		if (pinObject3d_) {
 			pinObject3d_->Draw();
 		}
-	}
-	else {
+	} else {
 		// クレジット表示中：ボタン等を描画しない（必要ならここにクレジット専用描画を追加）
 	}
 

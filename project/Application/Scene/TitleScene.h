@@ -67,6 +67,9 @@ private:
 
 	// タイトル用3Dオブジェクト
 	std::unique_ptr<Object3d> titleObject3d_;
+	std::unique_ptr<Object3d> titleFloorObject3d_;
+	std::unique_ptr<Object3d> titleBotObject3d_;
+	std::unique_ptr<Object3d> titleBot1Object3d_;
 
 	// ボタン用3Dオブジェクト
 	std::unique_ptr<Object3d> button1Object3d_;
@@ -106,4 +109,25 @@ private:
 	float pinSwayAmplitude_ = 0.10f; // X方向振幅（ワールド単位）
 	float pinSwayFrequency_ = 0.8f;  // 周波数（Hz）
 	float pinSwayPhase_ = 0.0f;      // 位相（内部）
+
+	// ----- title bobbing -----
+	// タイトルモデルの上下揺れ用パラメータ
+	float titleBobAmplitude_ = 0.05f; // Y方向振幅（ワールド単位）
+	float titleBobFrequency_ = 0.6f;  // 周波数（Hz）
+	float titleBobPhase_ = 0.0f;      // 位相（内部）
+	Vector3 titleStartTranslation_{};  // 基準位置（初期位置）
+
+	// ----- title bottom sequence -----
+	// titleBot のシーケンシャルな移動とモデル差し替えを行うための状態
+	enum class TitleBotPhase {
+		FirstMove,   // 最初に左へ移動（X: 0 -> -7.1）
+		SecondMove,  // モデル差替え後 0.0 から右へ移動（X: 0 -> +7.1）
+		Done
+	};
+	TitleBotPhase titleBotPhase_ = TitleBotPhase::FirstMove;
+
+	// 等速直線運動用パラメータ（titleBot）
+	float titleBotSpeed_ = 2.0f; // world units / sec（等速）
+	int titleBotDirection_ = -1; // -1 = 左へ, +1 = 右へ
+	bool titleBotIsMoving_ = false;
 };

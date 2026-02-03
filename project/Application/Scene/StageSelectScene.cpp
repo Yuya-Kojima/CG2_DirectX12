@@ -146,6 +146,11 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	stage2Object3d_->SetTranslation({ stage2Translate_[0], stage2Translate_[1], stage2Translate_[2] });
 	stage2Object3d_->SetScale({ stage2Scale_[0], stage2Scale_[1], stage2Scale_[2] });
 
+	ModelManager::GetInstance()->LoadModel("stageSelect_3.obj");
+	stage3Object3d_ = std::make_unique<Object3d>();
+	stage3Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stage3Object3d_->SetModel("stageSelect_3.obj");
+
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
 	skyObject3d_ = std::make_unique<Object3d>();
@@ -298,6 +303,10 @@ void StageSelectScene::Update()
 
 	if (stage2Object3d_) {
 		stage2Object3d_->Update();
+	}
+
+	if (stage3Object3d_) {
+		stage3Object3d_->Update();
 	}
 
 	for (auto& uiObj : stageUIObjects_) {
@@ -707,6 +716,10 @@ void StageSelectScene::Draw3D()
 
 	if (stage2Object3d_) {
 		stage2Object3d_->Draw();
+	}
+
+	if (stage3Object3d_) {
+		stage3Object3d_->Draw();
 	}
 
 	// 現状プレイヤーがいるステージのUIのみ描画

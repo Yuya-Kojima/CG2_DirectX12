@@ -39,6 +39,7 @@ private:
 	// ステージ選択画面用Object3d
 	std::unique_ptr<Object3d> stage1Object3d_;
 	std::unique_ptr<Object3d> stage2Object3d_;
+	std::unique_ptr<Object3d> stage3Object3d_;
 	float stage2Translate_[3] = { 100.0f, 0.0f, 0.0f };
 	float stage2RotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
 	float stage2Scale_[3] = { 1.0f, 1.0f, 1.0f };
