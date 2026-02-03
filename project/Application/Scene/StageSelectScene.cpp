@@ -125,10 +125,12 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	debugCamera_->Initialize({ 0.0f, 4.0f, -10.0f });
 
 	if (auto* renderer = engine_->GetObject3dRenderer()) {
-		// 平行光を少し斜め前方から当てる
+		// 平行光を画像の値に合わせる
 		if (auto* dl = renderer->GetDirectionalLightData()) {
-			dl->color = Vector4(1.0f, 0.98f, 0.92f, 1.0f);
-			dl->direction = Normalize(Vector3(-0.3f, -1.0f, -0.2f));
+			// 画像: R=255 G=250 B=235 -> 正規化: 1.0, 0.980392, 0.921569
+			dl->color = Vector4(1.0f, 0.980392f, 0.921569f, 1.0f);
+			// 画像の方向ベクトル
+			dl->direction = Vector3(-0.392f, -0.715f, 0.579f);
 			dl->intensity = 1.0f;
 		}
 	}
@@ -159,8 +161,8 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	skyObject3d_->SetTranslation({ 0.0f, 0.0f, 0.0f });
 	skyObject3d_->SetScale({ skyScale_, skyScale_, skyScale_ });
 	skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
-    skyObject3d_->SetEnableLighting(false);
-    skyObject3d_->SetColor(Vector4{3.0f,3.0f,3.0f,1.0f});
+	skyObject3d_->SetEnableLighting(false);
+	skyObject3d_->SetColor(Vector4{ 3.0f,3.0f,3.0f,1.0f });
 
 	// --- プレイヤーモデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("player_body.obj");
@@ -181,16 +183,32 @@ void StageSelectScene::Initialize(EngineBase* engine)
 
 	// --- プレイヤーのオフセットを使って各ステージUIを生成 ---
 	stageUIObjects_.clear();
-	ModelManager::GetInstance()->LoadModel("stageUI.obj");
+
+	// 明示的にステージごとのUIモデル名をここで指定
+	const std::vector<std::string> uiModelMapping = {
+		"stageUI_1.obj",     // stage 0
+		"stageUI_2.obj",     // stage 1
+		"stageUI_3.obj",     // stage 2
+		"stageUI_4.obj",     // stage 3
+		"stageUI_5.obj",     // stage 4
+	};
+
 	stageUIObjects_.reserve(options_.size());
 	stageUIVisible_.clear();
 	stageUIAnimating_.clear();
 	stageUIAnimTimer_.clear();
 	stageUIBaseScale_.clear();
 	for (size_t i = 0; i < options_.size(); ++i) {
+		// モデル名をマッピングから決定。足りない場合は index 0 をフォールバック。
+		const std::string& modelName = (i < uiModelMapping.size()) ? uiModelMapping[i] : uiModelMapping[0];
+
+		// 念のためモデルをロード（ModelManager は重複ロードを検知する）
+		ModelManager::GetInstance()->LoadModel(modelName);
+
 		auto uiObj = std::make_unique<Object3d>();
 		uiObj->Initialize(engine_->GetObject3dRenderer());
-		uiObj->SetModel("stageUI.obj");
+		uiObj->SetModel(modelName);
+
 		float x = stagePositions_[i].x + playerXOffset_;
 		float y = 10.0f;
 		float z = stagePositions_[i].z;

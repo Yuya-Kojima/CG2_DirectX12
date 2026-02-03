@@ -184,6 +184,17 @@ void TitleScene::Initialize(EngineBase* engine)
 		titleBotPhase_ = TitleBotPhase::FirstMove;
 	}
 
+	// --- 天球モデルの用意 ---
+	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
+	skyObject3d_ = std::make_unique<Object3d>();
+	skyObject3d_->Initialize(engine_->GetObject3dRenderer());
+	skyObject3d_->SetModel("SkyDome.obj");
+	skyObject3d_->SetTranslation({ 0.0f, 0.0f, 0.0f });
+	skyObject3d_->SetScale({ skyScale_, skyScale_, skyScale_ });
+	skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	skyObject3d_->SetEnableLighting(false);
+	skyObject3d_->SetColor(Vector4{ 3.0f,3.0f,3.0f,1.0f });
+
 	//===========================
 	// パーティクル関係の初期化
 	//===========================
@@ -258,6 +269,19 @@ void TitleScene::Update()
 		}
 	}
 #endif
+
+	// 天球の更新
+	if (skyObject3d_) {
+		const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
+		if (activeCam) {
+			Vector3 camPos = activeCam->GetTranslate();
+			skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
+		}
+		skyRotate_ += 0.0005f;
+		if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
+		skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
+		skyObject3d_->Update();
+	}
 
 	//=======================
 	// 3Dオブジェクトの更新
@@ -648,6 +672,10 @@ void TitleScene::Draw()
 void TitleScene::Draw3D()
 {
 	engine_->Begin3D();
+
+	if (skyObject3d_) {
+		skyObject3d_->Draw();
+	}
 
 	// クレジット表示中はタイトルとピンを非表示にする
 	if (!creditsActive_) {
