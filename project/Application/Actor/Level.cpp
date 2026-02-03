@@ -25,6 +25,10 @@ namespace fs = std::filesystem;
 // 初期化
 // ---------------------------------------------------------
 
+void Level::SetFloorYOffset(float v) { floorYOffset_ = v; }
+float Level::GetFloorYOffset() const { return floorYOffset_; }
+
+
 void Level::Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float tileSize)
 {
     renderer_ = renderer;
@@ -44,28 +48,9 @@ void Level::Initialize(Object3dRenderer* renderer, int tilesX, int tilesZ, float
     // 床タイルの生成は CreateFloorTiles を用いて行う（マップチップ依存の生成に対応）
     floorTiles_.clear();
 
-    // 外周の壁AABBを配置（見えないがプレイヤーを閉じ込める壁）
-    const float wallThickness = tileSize_;
-    const float wallHeight = 2.0f;
-    for (int x = -halfX; x <= halfX; ++x) {
-        // 奥の壁
-        AddWallAABB({ x * tileSize_ - wallThickness * 0.5f, 0.0f, minZ_ - wallThickness * 0.5f },
-            { x * tileSize_ + wallThickness * 0.5f, wallHeight, minZ_ + wallThickness * 0.5f }, false, 0, 0);
-        // 手前の壁
-        AddWallAABB({ x * tileSize_ - wallThickness * 0.5f, 0.0f, maxZ_ - wallThickness * 0.5f },
-            { x * tileSize_ + wallThickness * 0.5f, wallHeight, maxZ_ + wallThickness * 0.5f }, false, 0, 0);
-    }
-
-    
-
-    for (int z = -halfZ; z <= halfZ; ++z) {
-        // 左の壁
-        AddWallAABB({ minX_ - wallThickness * 0.5f, 0.0f, z * tileSize_ - wallThickness * 0.5f },
-            { minX_ + wallThickness * 0.5f, wallHeight, z * tileSize_ + wallThickness * 0.5f }, false, 0, 0);
-        // 右の壁
-        AddWallAABB({ maxX_ - wallThickness * 0.5f, 0.0f, z * tileSize_ - wallThickness * 0.5f },
-            { maxX_ + wallThickness * 0.5f, wallHeight, z * tileSize_ + wallThickness * 0.5f }, false, 0, 0);
-    }
+    // NOTE: Outer boundary walls removed so players/NPCs can fall off the stage.
+    // Stage-specific walls (from tile collision / objects) are still added elsewhere
+    // (e.g. Scene/GamePlayScene.cpp based on stage collision data).
 
     // （開発用のサンプルハザード配置は削除しました）
     // ハザードはステージデータ(JSON)から追加する運用に統一します。
@@ -377,14 +362,35 @@ void Level::Draw()
 
 bool Level::IsHazardHit(const Vector3& pos, float radius) const
 {
+    // Reduce false positives by using a slightly smaller effective hazard radius
+    // (visual model may be larger than collision intent). Tunable constant below.
+    constexpr float kHazardShrink = 0.15f; // reduce hazard radius by this amount
+    // If player is horizontally over the hazard's area and near its top surface,
+    // consider that a hit. This helps when the visual model's origin/pivot
+    // causes the 3D-center-based sphere test to miss 'standing on top' cases.
+    constexpr float kTopTolerance = 1.0f; // how far above hazard top to still count as hit
     for (const auto& h : hazards_) {
         Vector3 hp = h->GetPosition();
         float dx = pos.x - hp.x;
+        float dy = pos.y - hp.y;
         float dz = pos.z - hp.z;
-        float dist2 = dx * dx + dz * dz;
-        float rr = radius + h->GetRadius(); // 半径の合計と比較
+        // use full 3D distance so vertical separation reduces collision chance
+        float dist2 = dx * dx + dy * dy + dz * dz;
+        float effectiveHazardRadius = h->GetRadius() - kHazardShrink;
+        if (effectiveHazardRadius < 0.0f) effectiveHazardRadius = 0.0f;
+        float rr = radius + effectiveHazardRadius; // 合算半径で判定
         if (dist2 < rr * rr)
             return true;
+
+        // Additional XZ-plane based check: if horizontally within radius and
+        // player's vertical position is near or slightly above the hazard top,
+        // treat as hit. Hazard top is approximated as hp.y + effectiveHazardRadius
+        float horizDist2 = dx * dx + dz * dz;
+        if (horizDist2 < rr * rr) {
+            float hazardTopY = hp.y + effectiveHazardRadius;
+            if (pos.y <= hazardTopY + kTopTolerance)
+                return true;
+        }
     }
     return false;
 }
@@ -602,7 +608,7 @@ void Level::CreateFloorTiles(const std::vector<int>& tiles)
                             ModelManager::GetInstance()->LoadModel(r);
                         } catch(...) {}
                         // Place hazard at the same Y as floor visuals so it appears flush with ground
-                        float floorY = -1.5f * tileSize_;
+                        float floorY = floorYOffset_ * tileSize_;
                         AddHazard({ x * tileSize_, floorY, z * tileSize_ }, hazardRadius, "neadle.obj");
                         try {
                             std::ostringstream oss;
@@ -624,7 +630,7 @@ void Level::CreateFloorTiles(const std::vector<int>& tiles)
             obj->Initialize(renderer_);
             obj->SetModel("floor.obj");
             obj->SetScale({ tileSize_, 1.0f, tileSize_ });
-            obj->SetTranslation({ x * tileSize_, -1.5f * tileSize_, z * tileSize_ });
+            obj->SetTranslation({ x * tileSize_, floorYOffset_ * tileSize_, z * tileSize_ });
             floorTiles_.push_back(std::move(obj));
         }
     }

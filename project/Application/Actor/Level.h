@@ -103,6 +103,13 @@ public:
     float GetMinZ() const { return minZ_; }
     float GetMaxZ() const { return maxZ_; }
 
+    /// <summary>
+    /// Floor vertical offset multiplier (applied as floorYOffset_ * tileSize when creating floor/hazard Y)
+    /// Default = -1.5f (existing behaviour)
+    /// </summary>
+    void SetFloorYOffset(float v);
+    float GetFloorYOffset() const;
+
     // ---------------------------------------------------------
     // 動的な壁の管理
     // ---------------------------------------------------------
@@ -165,4 +172,7 @@ private:
 
     /// <summary> 内部用：空間分割グリッドの構築メソッド </summary>
     void BuildWallGrid();
+    
+    // vertical offset multiplier for floor/hazard placement (multiplied by tileSize_)
+    float floorYOffset_ = -1.0f;
 };

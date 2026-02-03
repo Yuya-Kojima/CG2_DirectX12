@@ -83,5 +83,11 @@ private:
   // level
   Level* level_ = nullptr;
   float npcSpawnLeftOffset_ = 1.0f;
+  // player spawn point saved from stage (used for respawn)
+  Vector3 playerSpawn_ = { 0.0f, 0.0f, 0.0f };
+  bool havePlayerSpawn_ = false;
+  // last safe player position (inside stage and not on hazard)
+  Vector3 lastSafePlayerPos_ = { 0.0f, 0.0f, 0.0f };
+  bool haveLastSafePlayerPos_ = false;
   // (probe removed) 
 };

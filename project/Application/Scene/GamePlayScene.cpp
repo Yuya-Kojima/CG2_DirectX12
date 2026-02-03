@@ -335,6 +335,9 @@ void GamePlayScene::Initialize(EngineBase* engine)
                         uint32_t id = allocateId(o.id);
                         player_->SetId(id);
                         player_->SetPosition(o.position);
+                        // record spawn point from JSON
+                        playerSpawn_ = o.position;
+                        havePlayerSpawn_ = true;
                         Logger::Log("Stage: spawned Player from JSON");
                     }
                 } else if (cls == "goal") {
@@ -403,33 +406,7 @@ void GamePlayScene::Initialize(EngineBase* engine)
             // 壁データをグリッドに反映
             level_->RebuildWallGrid();
         }
-        // Hazards: create multiple fallback hazards only if stage didn't define any
-        if (!hadStageHazard && level_) {
-            const float defaultRadius = 0.5f;
-            const float spacing = 2.0f;
-            Vector3 base = { 4.0f, 0.0f, 4.0f };
-            if (player_) {
-                const Vector3& pp = player_->GetPosition();
-                base = { pp.x + spacing, pp.y, pp.z + spacing };
-            }
-
-            // arrange hazards in a small cross pattern around base
-            const Vector3 offs[] = {
-                { 0.0f, 0.0f, 0.0f },
-                { spacing, 0.0f, 0.0f },
-                { -spacing, 0.0f, 0.0f },
-                { 0.0f, 0.0f, spacing },
-                { 0.0f, 0.0f, -spacing }
-            };
-
-            int created = 0;
-            for (const auto& off : offs) {
-                Vector3 p = { base.x + off.x, base.y + off.y, base.z + off.z };
-                level_->AddHazard(p, defaultRadius);
-                ++created;
-            }
-            Logger::Log(std::string("[Scene] Fallback: spawned ") + std::to_string(created) + " Hazards\n");
-        }
+        // Note: fallback hazard spawning removed. Hazards should be provided by stage JSON.
     }
 }
 
@@ -478,6 +455,13 @@ void GamePlayScene::Update()
     // デバッグ用：Enterでシーン遷移
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
         SceneManager::GetInstance()->ChangeScene("STAGESELECT");
+    }
+
+    // デバッグ用：Rでステージリセット（再読み込み）
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_R)) {
+        try { Logger::Log("Debug: R pressed - resetting stage\n"); } catch(...) {}
+        SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+        return;
     }
 
     // Pキーでデバッグカメラをトグル
@@ -740,6 +724,83 @@ void GamePlayScene::Update()
     }
     if (goal_)
         goal_->Update(1.0f / 60.0f);
+    
+    // --- Hazard / Out-of-bounds handling ---
+    if (level_) {
+        // update last safe player position: record when player is inside XZ bounds and not on hazard
+        if (player_) {
+            const Vector3& pp = player_->GetPosition();
+            bool insideXZ = (pp.x >= level_->GetMinX() && pp.x <= level_->GetMaxX() && pp.z >= level_->GetMinZ() && pp.z <= level_->GetMaxZ());
+            if (insideXZ && !level_->IsHazardHit(pp, player_->GetHalfExtents().x)) {
+                lastSafePlayerPos_ = pp;
+                haveLastSafePlayerPos_ = true;
+            }
+        }
+        // helper: find nearest walkable tile center and its ground Y
+        auto findSafeRespawn = [&](const Vector3& ref) -> Vector3 {
+            Vector3 fallback = ref;
+            const NavigationGrid& nav = level_->GetNavGrid();
+            int nx = nav.GetNX();
+            int nz = nav.GetNZ();
+            float bestDist2 = FLT_MAX;
+            Vector3 bestCenter = fallback;
+            for (int z = 0; z < nz; ++z) {
+                for (int x = 0; x < nx; ++x) {
+                    if (!nav.IsWalkable(x, z)) continue;
+                    Vector3 c = nav.TileCenter(x, z);
+                    float dx = c.x - ref.x;
+                    float dz = c.z - ref.z;
+                    float d2 = dx*dx + dz*dz;
+                    if (d2 < bestDist2) {
+                        bestDist2 = d2;
+                        bestCenter = c;
+                    }
+                }
+            }
+            float hitY = 0.0f;
+            if (level_->RaycastDown({ bestCenter.x, ref.y + 2.0f, bestCenter.z }, 4.0f, hitY)) {
+                bestCenter.y = hitY;
+            } else {
+                bestCenter.y = 0.0f;
+            }
+            return bestCenter;
+        };
+
+        // NPC: hazard or XZ out-of-bounds -> reset stage
+        if (npc_) {
+            const float npcCheckRadius = 0.1f;
+            if (level_->IsHazardHit(npc_->GetPosition(), npcCheckRadius)) {
+                Logger::Log("NPC hit hazard: resetting stage\n");
+                SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+                return;
+            }
+            const Vector3& np = npc_->GetPosition();
+            if (np.x < level_->GetMinX() || np.x > level_->GetMaxX() || np.z < level_->GetMinZ() || np.z > level_->GetMaxZ()) {
+                Logger::Log("NPC out of XZ bounds: resetting stage\n");
+                SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+                return;
+            }
+        }
+
+        // Player: hazard -> respawn near safe tile; XZ out-of-bounds -> respawn
+        if (player_) {
+            if (level_->IsHazardHit(player_->GetPosition(), player_->GetHalfExtents().x)) {
+                Logger::Log("Player hit hazard: respawning near safe tile\n");
+                Vector3 respawn = player_->GetPosition();
+                if (havePlayerSpawn_) respawn = findSafeRespawn(playerSpawn_);
+                else respawn = findSafeRespawn(player_->GetPosition());
+                player_->SetPosition(respawn);
+            }
+            const Vector3& pp = player_->GetPosition();
+            if (pp.x < level_->GetMinX() || pp.x > level_->GetMaxX() || pp.z < level_->GetMinZ() || pp.z > level_->GetMaxZ()) {
+                Logger::Log("Player out of XZ bounds: respawning near safe tile\n");
+                Vector3 respawn = player_->GetPosition();
+                if (havePlayerSpawn_) respawn = findSafeRespawn(playerSpawn_);
+                else respawn = findSafeRespawn(player_->GetPosition());
+                player_->SetPosition(respawn);
+            }
+        }
+    }
     //=======================
     // カメラの更新
     //=======================

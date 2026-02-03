@@ -198,6 +198,14 @@ void Player::Update(float dt)
         }
     }
 
+    // Normalize digital (keyboard) diagonal input so diagonal isn't faster.
+    // For analog sticks (magnitude <= 1) this preserves magnitude.
+    float inLen = std::sqrt(ax * ax + az * az);
+    if (inLen > 1.0f) {
+        ax /= inLen;
+        az /= inLen;
+    }
+
     float targetVX = ax * moveSpeed_;
     float targetVZ = az * moveSpeed_;
 
