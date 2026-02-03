@@ -34,6 +34,13 @@ public:
     /// </summary>
     void Draw();
 
+    // --- 手(腕)のポーズ制御 ---
+    /// <summary> 棒を持っているときの手の配置を設定（シーンから呼び出す） </summary>
+    void SetHandPoseHeld(bool sideRight);
+
+    /// <summary> 棒を持っていないときのリラックスポーズ（下ろした状態） </summary>
+    void SetHandPoseDropped();
+
     // --- 座標・トランスフォーム関連 ---
 
     /// <summary> 現在のワールド座標を取得 </summary>
@@ -82,6 +89,7 @@ private:
     GameCamera* camera_ = nullptr; // 使用中のカメラ
     Input* input_ = nullptr; // キーボード/パッド入力
     Object3d* obj_ = nullptr; // 描画用モデル実体
+    Object3d* objHand_ = nullptr; // 手用モデル（任意）
 
     // --- 動力学パラメータ ---
     Vector3 position_ { 0.0f, 0.0f, 0.0f }; // 現在地
@@ -114,4 +122,13 @@ private:
     float attachDuration_ = 0.3f; // 補間にかける時間
     Vector3 attachStart_ {}; // 補間開始地点
     Vector3 attachTarget_ {}; // 補間目標地点
+
+    // --- 手(腕)のポーズ状態 ---
+    bool handHeld_ = false; // 手が物を持っている状態
+    // 手の位置オフセット（プレイヤー基準）
+    // X: 横方向（右正）、 Y: 高さ、 Z: 前方向
+    // 値を調整してプレイヤーの横に来るように設定
+    Vector3 handOffset_ = { 0.0f, 0.0f, 0.0f };
+    Vector3 handRotation_ = { 0.0f, 0.0f, 0.0f }; // 手の目標回転
+    bool handSideRight_ = true; // 手が右側かどうか
 };
