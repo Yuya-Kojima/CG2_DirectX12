@@ -14,23 +14,53 @@
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include "Debug/ImGuiManager.h"
+#include "Core/WindowSystem.h"
+#include <memory>
+#include <cstring>
+#include <string>
+#include <chrono>
+#include <algorithm> // clamp
+#include <cmath>     // sin
 
-void TitleScene::Initialize(EngineBase *engine) {
+// イージング関数（EaseOutCubic）
+static inline float EaseOutCubic(float t) {
+	if (t <= 0.0f) return 0.0f;
+	if (t >= 1.0f) return 1.0f;
+	t = std::clamp(t, 0.0f, 1.0f);
+	t = t - 1.0f;
+	return (t * t * t) + 1.0f;
+}
 
+void TitleScene::Initialize(EngineBase* engine)
+{
 	// 参照をコピー
 	engine_ = engine;
 
 	//===========================
-	// テクスチャファイルの読み込み
+	// 初期選択・クレジットフラグ初期化
 	//===========================
+	selectedButtonIndex_ = 0; // Start を初期選択
+	creditsActive_ = false;
 
-	//===========================
-	// オーディオファイルの読み込み
-	//===========================
+	// 初回時刻を設定
+	lastUpdateTime_ = std::chrono::steady_clock::now();
+	pinYaw_ = 0.0f;
+	pinElapsed_ = 0.0f;
+	// 必要ならここでピンの速度や振幅を調整する
+	pinSpinSpeed_ = 1.5f;
+	pinBobAmplitude_ = 0.05f;
+	pinBobFrequency_ = 2.0f;
 
-	//===========================
-	// スプライト関係の初期化
-	//===========================
+	// イージング用初期化（デフォルトでピンは Start の位置）
+	pinStartTranslation_ = Vector3{ -1.7f, -1.3f, 0.0f };
+	pinTargetTranslation_ = pinStartTranslation_;
+	pinMoveTimer_ = 0.0f;
+	pinIsMoving_ = false;
+
+	// 揺れ用初期化
+	pinSwayAmplitude_ = 0.10f;
+	pinSwayFrequency_ = 0.8f;
+	pinSwayPhase_ = 0.0f;
 
 	//===========================
 	// 3Dオブジェクト関係の初期化
@@ -38,8 +68,8 @@ void TitleScene::Initialize(EngineBase *engine) {
 
 	// カメラの生成と初期化
 	camera_ = new GameCamera();
-	camera_->SetRotate({ 0.3f, 0.0f, 0.0f });
-	camera_->SetTranslate({ 0.0f, 4.0f, -10.0f });
+	camera_->SetRotate({ 0.0f, 0.0f, 0.0f });
+	camera_->SetTranslate({ 0.0f, 0.0f, -15.0f });
 
 	// デバッグカメラ
 	debugCamera_ = new DebugCamera();
@@ -48,17 +78,82 @@ void TitleScene::Initialize(EngineBase *engine) {
 	// デフォルトカメラのセット
 	engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
 
-	// モデルの読み込み
+	// ===== ライティング設定を追加 =====
+	auto* renderer = engine_->GetObject3dRenderer();
 
-	// オブジェクトの生成と初期化
+	// Directional Light（主光源）
+	if (auto* dl = renderer->GetDirectionalLightData()) {
+		dl->color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }; // やや暖色寄り
+		dl->direction = Normalize(Vector3{ -0.3f, -1.0f, -0.5f });
+		dl->intensity = 10.0f;
+	}
+
+	//===========================
+	// タイトル3Dモデル初期化
+	//===========================
+
+	// モデルをロードしておく
+	ModelManager::GetInstance()->LoadModel("Title.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	titleObject3d_ = std::make_unique<Object3d>();
+	titleObject3d_->Initialize(engine_->GetObject3dRenderer());
+	titleObject3d_->SetModel("Title.obj");
+
+	// 初期Transform（必要なら調整）
+	titleObject3d_->SetScale({ 0.5f, 0.5f, 0.5f });
+	titleObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	titleObject3d_->SetTranslation({ 0.0f, 1.3f, 0.0f });
+
+	// 初期色（マテリアル）
+	titleObject3d_->SetColor({ 1.0f, 1.0f, 1.0f, 1.0f });
+
+	// ボタン用3Dオブジェクトの初期化
+	// モデルをロードしておく
+	ModelManager::GetInstance()->LoadModel("button1.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	button1Object3d_ = std::make_unique<Object3d>();
+	button1Object3d_->Initialize(engine_->GetObject3dRenderer());
+	button1Object3d_->SetModel("button1.obj");
+
+	// 初期Transform
+	button1Object3d_->SetScale({ 1.0f, 1.0f, 1.0f });
+	button1Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	button1Object3d_->SetTranslation({ 0.0f, -1.8f, 0.0f });
+
+	// モデルをロードしておく
+	ModelManager::GetInstance()->LoadModel("button2.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	button2Object3d_ = std::make_unique<Object3d>();
+	button2Object3d_->Initialize(engine_->GetObject3dRenderer());
+	button2Object3d_->SetModel("button2.obj");
+
+	// 初期Transform
+	button2Object3d_->SetScale({ 1.0f, 1.0f, 1.0f });
+	button2Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	button2Object3d_->SetTranslation({ 0.0f, -1.8f, 0.0f });
+
+	ModelManager::GetInstance()->LoadModel("pin.obj");
+
+	// オブジェクトを生成・初期化してモデルを割り当てる
+	pinObject3d_ = std::make_unique<Object3d>();
+	pinObject3d_->Initialize(engine_->GetObject3dRenderer());
+	pinObject3d_->SetModel("pin.obj");
+
+	// 初期Transform
+	pinObject3d_->SetScale({ 1.0f, 1.0f, 1.0f });
+	pinObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	pinObject3d_->SetTranslation(pinStartTranslation_);
 
 	//===========================
 	// パーティクル関係の初期化
 	//===========================
 }
 
-void TitleScene::Finalize() {
-
+void TitleScene::Finalize()
+{
 	delete debugCamera_;
 	debugCamera_ = nullptr;
 
@@ -66,47 +161,134 @@ void TitleScene::Finalize() {
 	camera_ = nullptr;
 }
 
-void TitleScene::Update() {
+void TitleScene::Update()
+{
 
 	// Sound更新
 	SoundManager::GetInstance()->Update();
 
-	// タイトルシーンへ移行
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE))
-	{
-		SceneManager::GetInstance()->ChangeScene("STAGESELECT");
+	// 時間差分計算（dt: 秒）
+	auto now = std::chrono::steady_clock::now();
+	float dt = std::chrono::duration<float>(now - lastUpdateTime_).count();
+	// clamp 不要に大きくならないようにフォールバック
+	if (dt <= 0.0f || dt > 0.5f) {
+		dt = 1.0f / 60.0f;
 	}
+	lastUpdateTime_ = now;
 
-	//デバッグカメラ切り替え
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
-		if (useDebugCamera_) {
-			useDebugCamera_ = false;
-		} else {
-			useDebugCamera_ = true;
+	// ===========================
+	// 入力：選択（W / S）および決定（SPACE）
+	// ===========================
+	// W または S を押すと選択をトグル（0 <-> 1）
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_W) ||
+		engine_->GetInputManager()->IsTriggerKey(DIK_S)) {
+		selectedButtonIndex_ = 1 - selectedButtonIndex_;
+
+		// イージング移動開始
+		if (pinObject3d_) {
+			pinStartTranslation_ = pinObject3d_->GetTranslation();
+			pinTargetTranslation_ = (selectedButtonIndex_ == 0)
+				? Vector3{ -1.7f, -1.3f, 0.0f }
+				: Vector3{ -1.7f, -2.4f, 0.0f };
+			pinMoveTimer_ = 0.0f;
+			pinIsMoving_ = true;
 		}
 	}
 
-	//=======================
-	// スプライトの更新
-	//=======================
+	// 決定
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
+		if (creditsActive_) {
+			// クレジット表示中はスペースで戻る
+			creditsActive_ = false;
+		}
+		else {
+			if (selectedButtonIndex_ == 0) {
+				// Start
+				SceneManager::GetInstance()->ChangeScene("STAGESELECT");
+			}
+			else {
+				// Credits をタイトル内で表示
+				creditsActive_ = true;
+			}
+		}
+	}
+
+#ifdef USE_IMGUI
+	//デバッグカメラ切替
+	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+		if (useDebugCamera_) {
+			useDebugCamera_ = false;
+		}
+		else {
+			useDebugCamera_ = true;
+		}
+	}
+#endif
 
 	//=======================
 	// 3Dオブジェクトの更新
 	//=======================
+	if (titleObject3d_) {
+		titleObject3d_->Update();
+	}
 
+	if (button1Object3d_) {
+		button1Object3d_->Update();
+	}
+
+	if (button2Object3d_) {
+		button2Object3d_->Update();
+	}
+
+	if (pinObject3d_) {
+
+		// サイン波位相更新（左右揺れ）
+		pinSwayPhase_ += dt * pinSwayFrequency_ * 2.0f * 3.14159265f;
+		// オフセット X
+		float sway = std::sin(pinSwayPhase_) * pinSwayAmplitude_;
+
+		// ピン移動の更新（イージング）
+		Vector3 pos;
+		if (pinIsMoving_) {
+			pinMoveTimer_ += dt;
+			float t = pinMoveTimer_ / pinMoveDuration_;
+			if (t >= 1.0f) {
+				t = 1.0f;
+				pinIsMoving_ = false;
+			}
+			float e = EaseOutCubic(t);
+			pos = Lerp(pinStartTranslation_, pinTargetTranslation_, e);
+		}
+		else {
+			// 移動していなければ選択に合わせて確実にロックしておく
+			pos = (selectedButtonIndex_ == 0)
+				? Vector3{ -1.7f, -1.3f, 0.0f }
+				: Vector3{ -1.7f, -2.4f, 0.0f };
+		}
+
+		// 揺れを X に合成
+		pos.x += sway;
+		pinObject3d_->SetTranslation(pos);
+
+		// 少し傾けて見た目を強調（Z軸回転）
+		pinObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+
+		pinObject3d_->Update();
+	}
 
 	//=======================
 	// カメラの更新
 	//=======================
 	const ICamera* activeCamera = nullptr;
 
-    if (useDebugCamera_) {
-        debugCamera_->Update(*engine_->GetInputManager());
-        activeCamera = debugCamera_->GetCamera();
-    } else {
-        camera_->Update();
-        activeCamera = camera_;
-    }
+	if (useDebugCamera_) {
+		debugCamera_->Update(*engine_->GetInputManager());
+		activeCamera = debugCamera_->GetCamera();
+	}
+	else {
+		camera_->Update();
+		activeCamera = camera_;
+	}
 
 	//アクティブカメラを描画で使用する
 	engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
@@ -120,24 +302,295 @@ void TitleScene::Update() {
 	ImGui::Begin("Scene Info");
 	ImGui::Text("TitleScene");
 	ImGui::End();
+
+	// ===== ライティング UI（既存） =====
+	{
+		auto* renderer = engine_->GetObject3dRenderer();
+
+		static bool showDirectionalLight = true;
+		static bool showPointLight = false;
+		static bool showSpotLight = false;
+		static float directionalIntensityBackup = 1.0f;
+		static float pointIntensityBackup = 1.0f;
+		static float spotIntensityBackup = 4.0f;
+
+		ImGui::Begin("Lighting");
+
+		// DirectionalLight
+		bool changedDirectional =
+			ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight);
+		if (changedDirectional) {
+			if (auto* dl = renderer->GetDirectionalLightData()) {
+				if (!showDirectionalLight) {
+					directionalIntensityBackup = dl->intensity;
+					dl->intensity = 0.0f;
+				}
+				else {
+					dl->intensity = (directionalIntensityBackup > 0.0f)
+						? directionalIntensityBackup
+						: 1.0f;
+				}
+			}
+		}
+
+		// PointLight
+		bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
+		if (changedPoint) {
+			if (auto* pl = renderer->GetPointLightData()) {
+				if (!showPointLight) {
+					pointIntensityBackup = pl->intensity;
+					pl->intensity = 0.0f;
+				}
+				else {
+					pl->intensity =
+						(pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
+				}
+			}
+		}
+
+		// SpotLight
+		bool changedSpot = ImGui::Checkbox("Enable SpotLight", &showSpotLight);
+		if (changedSpot) {
+			if (auto* sl = renderer->GetSpotLightData()) {
+				if (!showSpotLight) {
+					spotIntensityBackup = sl->intensity;
+					sl->intensity = 0.0f;
+				}
+				else {
+					sl->intensity =
+						(spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
+				}
+			}
+		}
+
+		ImGui::End();
+
+		// Directional
+		if (auto* dl = renderer->GetDirectionalLightData()) {
+			if (showDirectionalLight) {
+				ImGui::Begin("DirectionalLight");
+				ImGui::ColorEdit3("Color", &dl->color.x);
+				ImGui::DragFloat("Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
+				ImGui::End();
+			}
+		}
+
+		// Point
+		if (auto* pl = renderer->GetPointLightData()) {
+			if (showPointLight) {
+				ImGui::Begin("PointLight");
+				ImGui::ColorEdit3("Color", &pl->color.x);
+				ImGui::DragFloat3("Position", &pl->position.x, 0.05f, -20.0f, 20.0f);
+				ImGui::DragFloat("Intensity", &pl->intensity, 0.05f, 0.0f, 10.0f);
+				ImGui::DragFloat("Radius", &pl->radius, 0.1f, 0.01f, 100.0f);
+				ImGui::DragFloat("Decay", &pl->decay, 0.05f, 0.01f, 8.0f);
+				ImGui::End();
+			}
+		}
+
+		// Spot
+		if (auto* sl = renderer->GetSpotLightData()) {
+			if (showSpotLight) {
+				ImGui::Begin("SpotLight");
+				ImGui::ColorEdit3("Color", &sl->color.x);
+				ImGui::DragFloat3("Position", &sl->position.x, 0.05f, -20.0f, 20.0f);
+				ImGui::DragFloat("Intensity", &sl->intensity, 0.05f, 0.0f, 10.0f);
+
+				static float yawDeg = 0.0f;
+				static float pitchDeg = -20.0f;
+				ImGui::SliderFloat("Yaw(deg)", &yawDeg, -180.0f, 180.0f);
+				ImGui::SliderFloat("Pitch(deg)", &pitchDeg, -89.0f, 89.0f);
+
+				float yaw = DegToRad(yawDeg);
+				float pitch = DegToRad(pitchDeg);
+				sl->direction = {
+					std::cos(pitch) * std::sin(yaw),
+					std::sin(pitch),
+					std::cos(pitch) * std::cos(yaw),
+				};
+
+				ImGui::DragFloat("Distance", &sl->distance, 0.1f, 0.01f, 100.0f);
+				ImGui::DragFloat("Decay", &sl->decay, 0.05f, 0.01f, 8.0f);
+
+				static float spotAngleDeg = 30.0f;
+				ImGui::DragFloat("Angle(deg)", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
+				sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
+				ImGui::End();
+			}
+		}
+	}
+
+	// ===== タイトル3Dモデル編集 UI =====
+	if (titleObject3d_) {
+		ImGui::Begin("Title 3D");
+
+		// Translation
+		Vector3 trans = titleObject3d_->GetTranslation();
+		float transf[3] = { trans.x, trans.y, trans.z };
+		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
+			titleObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+		}
+
+		// Rotation
+		Vector3 rot = titleObject3d_->GetRotation();
+		float rotDeg[3] = {
+			static_cast<float>(rot.x * 180.0f / 3.14159265f),
+			static_cast<float>(rot.y * 180.0f / 3.14159265f),
+			static_cast<float>(rot.z * 180.0f / 3.14159265f)
+		};
+		if (ImGui::DragFloat3("Rotation(deg)", rotDeg, 0.25f, -360.0f, 360.0f)) {
+			titleObject3d_->SetRotation({
+				DegToRad(rotDeg[0]),
+				DegToRad(rotDeg[1]),
+				DegToRad(rotDeg[2])
+				});
+		}
+
+		// Scale
+		Vector3 scale = titleObject3d_->GetScale();
+		float scalef[3] = { scale.x, scale.y, scale.z };
+		if (ImGui::DragFloat3("Scale", scalef, 0.01f, 0.001f, 100.0f)) {
+			titleObject3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
+		}
+		ImGui::End();
+	}
+
+	if (pinObject3d_) {
+		ImGui::Begin("pinObject3d_");
+
+		// Translation
+		Vector3 trans = pinObject3d_->GetTranslation();
+		float transf[3] = { trans.x, trans.y, trans.z };
+		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
+			pinObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+		}
+
+		// Rotation
+		Vector3 rot = pinObject3d_->GetRotation();
+		float rotDeg[3] = {
+			static_cast<float>(rot.x * 180.0f / 3.14159265f),
+			static_cast<float>(rot.y * 180.0f / 3.14159265f),
+			static_cast<float>(rot.z * 180.0f / 3.14159265f)
+		};
+		if (ImGui::DragFloat3("Rotation(deg)", rotDeg, 0.25f, -360.0f, 360.0f)) {
+			pinObject3d_->SetRotation({
+				DegToRad(rotDeg[0]),
+				DegToRad(rotDeg[1]),
+				DegToRad(rotDeg[2])
+				});
+		}
+
+		// Scale
+		Vector3 scale = pinObject3d_->GetScale();
+		float scalef[3] = { scale.x, scale.y, scale.z };
+		if (ImGui::DragFloat3("Scale", scalef, 0.01f, 0.001f, 100.0f)) {
+			pinObject3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
+		}
+		ImGui::End();
+	}
+
+	// ===== カメラ編集 UI =====
+	if (camera_) {
+		ImGui::Begin("Camera");
+
+		// 翻訳（ワールド座標）
+		Vector3 camTrans = camera_->GetTranslate();
+		float camTransF[3] = { camTrans.x, camTrans.y, camTrans.z };
+		if (ImGui::DragFloat3("Position", camTransF, 0.01f, -1000.0f, 1000.0f)) {
+			camera_->SetTranslate({ camTransF[0], camTransF[1], camTransF[2] });
+		}
+
+		// 回転（内部はラジアンだが UI は度で扱う）
+		const Vector3 camRot = camera_->GetRotate();
+		float camRotDeg[3] = {
+			static_cast<float>(camRot.x * 180.0f / 3.14159265f),
+			static_cast<float>(camRot.y * 180.0f / 3.14159265f),
+			static_cast<float>(camRot.z * 180.0f / 3.14159265f)
+		};
+		if (ImGui::DragFloat3("Rotation (deg)", camRotDeg, 0.1f, -360.0f, 360.0f)) {
+			camera_->SetRotate({
+				DegToRad(camRotDeg[0]),
+				DegToRad(camRotDeg[1]),
+				DegToRad(camRotDeg[2])
+				});
+		}
+
+		// FOV（UIは度、内部はラジアン）
+		// GameCamera::Get doesn't expose FOV getter; approximate by computing from projection matrix is overkill.
+		// Store temporary fov value locally on first open.
+		static float fovDeg = 0.0f;
+		static bool fovInitialized = false;
+		if (!fovInitialized) {
+			// Default approximate: 0.45 rad -> ~25.8 deg
+			fovDeg = 0.45f * 180.0f / 3.14159265f;
+			fovInitialized = true;
+		}
+		if (ImGui::DragFloat("FOV (deg)", &fovDeg, 0.1f, 1.0f, 179.0f)) {
+			camera_->SetFovY(DegToRad(fovDeg));
+		}
+
+		// near / far
+		// No getters provided; keep local caches.
+		static float nearClip = 0.1f;
+		static float farClip = 100.0f;
+		if (ImGui::DragFloat("Near Clip", &nearClip, 0.001f, 0.001f, 100.0f)) {
+			camera_->SetNearClip(nearClip);
+		}
+		if (ImGui::DragFloat("Far Clip", &farClip, 0.1f, 0.1f, 10000.0f)) {
+			camera_->SetFarClip(farClip);
+		}
+
+		ImGui::End();
+	}
+
 #endif // USE_IMGUI
 
 }
 
-void TitleScene::Draw() {
+void TitleScene::Draw()
+{
 	Draw3D();
 	Draw2D();
 }
 
-void TitleScene::Draw3D() {
+void TitleScene::Draw3D()
+{
 	engine_->Begin3D();
+
+	// クレジット表示中はタイトルとピンを非表示にする
+	if (!creditsActive_) {
+		// タイトル3Dモデルを描画
+		if (titleObject3d_) {
+			titleObject3d_->Draw();
+		}
+
+		// 選択中のボタンのみ描画する
+		if (selectedButtonIndex_ == 0) {
+			if (button1Object3d_) {
+				button1Object3d_->Draw();
+			}
+		}
+		else {
+			if (button2Object3d_) {
+				button2Object3d_->Draw();
+			}
+		}
+
+		// ピンを描画
+		if (pinObject3d_) {
+			pinObject3d_->Draw();
+		}
+	}
+	else {
+		// クレジット表示中：ボタン等を描画しない（必要ならここにクレジット専用描画を追加）
+	}
 
 	//ここから下で3DオブジェクトのDrawを呼ぶ
 }
 
-void TitleScene::Draw2D() {
+void TitleScene::Draw2D()
+{
 	engine_->Begin2D();
 
 	//ここから下で2DオブジェクトのDrawを呼ぶ
-
 }
