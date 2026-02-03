@@ -22,9 +22,13 @@ private:
   Vector4 transitionColor_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
   Fade::FadeType transitionFadeType_ = Fade::FadeType::Solid;
 
+  float holdSec_ = 0.0f;
+  float holdDurationSec_ = 0.20f;
+
   enum class TransitionState {
     None,
     FadeOut,
+    BlackHold,
     SwitchScene,
     FadeIn,
   };

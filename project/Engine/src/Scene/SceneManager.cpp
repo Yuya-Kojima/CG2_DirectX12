@@ -58,6 +58,15 @@ void SceneManager::Update() {
   // フェードアウト完了待ち
   if (transitionState_ == TransitionState::FadeOut) {
     if (fade_.IsBlack()) {
+      transitionState_ = TransitionState::BlackHold;
+      holdSec_ = 0.0f;
+    }
+  }
+
+  // 黒保持
+  if (transitionState_ == TransitionState::BlackHold) {
+    holdSec_ += dt;
+    if (holdSec_ >= holdDurationSec_) {
       transitionState_ = TransitionState::SwitchScene;
     }
   }
