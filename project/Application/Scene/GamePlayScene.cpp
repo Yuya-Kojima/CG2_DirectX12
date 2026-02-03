@@ -573,6 +573,12 @@ void GamePlayScene::Update()
                             stick_->SetHoldSideFromPlayerPos(pp);
                             stick_->PickUpExternal();
                             stick_->SetHeld(true);
+                            // 手のポーズを持っている状態に切り替え
+                            if (player_) {
+                                Vector3 hoff = stick_->GetHoldOffset();
+                                bool sideRight = (hoff.x >= 0.0f);
+                                player_->SetHandPoseHeld(sideRight);
+                            }
                             Logger::Log("Stick picked up.");
                         }
                     }
@@ -683,6 +689,11 @@ void GamePlayScene::Update()
                     stick_->DropExternal();
                     stick_->SetHeld(false);
 
+                    // 手のポーズを下ろした状態へ
+                    if (player_) {
+                        player_->SetHandPoseDropped();
+                    }
+
                     Logger::Log("Stick dropped.");
                 }
             }
@@ -753,6 +764,12 @@ void GamePlayScene::Update()
         float yaw = (offset.x >= 0.0f) ? 3.14159265f * 0.5f : -3.14159265f * 0.5f;
         // only update position here; heldRotation is set on pickup and adjusted via input (Q/E)
         stick_->SetPosition(holdPos);
+
+        // update player's hand pose every frame to follow held offset
+        if (player_) {
+            bool sideRight = (offset.x >= 0.0f);
+            player_->SetHandPoseHeld(sideRight);
+        }
 
         // Continuous small increments while held (キーボードQ/Eで回転)
         constexpr float kRotateSpeed = 1.5f; // radians per second

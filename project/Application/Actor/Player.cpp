@@ -8,6 +8,7 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Physics/CollisionSystem.h"
+#include "Actor/Stick.h"
 #include <format>
 #include <algorithm>
 #include <filesystem>
@@ -30,12 +31,45 @@ Player::Player()
     // メンバ初期化子リストで初期化されるため空
 }
 
+void Player::SetHandPoseHeld(bool sideRight)
+{
+    handHeld_ = true;
+    handSideRight_ = sideRight;
+    // only change rotation: when held, raise hand (pitch up) and match body yaw
+    float yaw = rotate_;
+    // raise hand by tilting on X axis (negative to lift forward)
+    float raisePitch = -0.7f; // adjust amount of raise
+    // if left side, mirror yaw sign for slight offset
+    if (!sideRight) yaw = rotate_;
+    handRotation_ = { raisePitch, yaw, 0.0f };
+    if (objHand_) {
+        objHand_->SetRotation(handRotation_);
+        objHand_->Update();
+    }
+}
+
+void Player::SetHandPoseDropped()
+{
+    handHeld_ = false;
+    // only change rotation; keep translation offset constant so hand position
+    // remains fixed relative to the player model root.
+    handRotation_ = { 0.0f, rotate_, 0.0f };
+    if (objHand_) {
+        objHand_->SetRotation(handRotation_);
+        objHand_->Update();
+    }
+}
+
 Player::~Player()
 {
     // 生成したObject3dを適切に破棄
     if (obj_) {
         delete obj_;
         obj_ = nullptr;
+    }
+    if (objHand_) {
+        delete objHand_;
+        objHand_ = nullptr;
     }
 }
 
@@ -53,36 +87,70 @@ void Player::Initialize(Input* input, Object3dRenderer* object3dRenderer)
         obj_ = new Object3d();
         obj_->Initialize(object3dRenderer);
 
-        // モデルアセットの検索とロード
-        // 優先的に拡張子付きファイル名を試し、クラス名などの生文字列でのResolve呼び出しを減らす
-        std::vector<std::string> candidates = { "player.obj", "models/player.obj", "Player", "player" };
-        bool loadedModel = false;
-        for (const auto& c : candidates) {
-            if (c.find('.') != std::string::npos || c.find('/') != std::string::npos || c.find('\\') != std::string::npos) {
-                // ファイル名っぽい候補はそのまま解決を試みる
-                std::string resolved = ModelManager::ResolveModelPath(c);
-                if (resolved != c || std::filesystem::exists(resolved)) {
-                    ModelManager::GetInstance()->LoadModel(resolved);
-                    obj_->SetModel(resolved);
-                    loadedModel = true;
-                    break;
-                }
-            } else {
-                // 生のクラス名などの場合は、まず小文字+拡張子で試す（不要な ResolveModelPath のログを減らすため）
-                std::string lower = c;
-                std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) { return std::tolower(ch); });
-                std::vector<std::string> tryList = { lower + ".obj", lower + ".gltf", std::string("models/") + lower + ".obj" };
-                for (const auto& t : tryList) {
-                    std::string resolved = ModelManager::ResolveModelPath(t);
-                    if (resolved != t || std::filesystem::exists(resolved)) {
+        // Try to load body and hand models separately if present.
+        // Prefer specific filenames placed in resources (or Application/resources).
+        auto tryLoadModel = [&](const std::string& name) -> std::string {
+            std::string resolved = ModelManager::ResolveModelPath(name);
+            if (resolved != name || std::filesystem::exists(resolved)) {
+                ModelManager::GetInstance()->LoadModel(resolved);
+                return resolved;
+            }
+            return std::string();
+        };
+
+        std::string bodyCandidates[] = { "player_body.obj", "player.obj", "models/player_body.obj", "models/player.obj" };
+        std::string handCandidates[] = { "player_hand.obj", "models/player_hand.obj" };
+
+        std::string bodyModelPath;
+        for (auto &c : bodyCandidates) {
+            bodyModelPath = tryLoadModel(c);
+            if (!bodyModelPath.empty()) break;
+        }
+
+        if (!bodyModelPath.empty()) {
+            obj_->SetModel(bodyModelPath);
+        } else {
+            // fallback to previous heuristic
+            std::vector<std::string> candidates = { "player.obj", "models/player.obj", "Player", "player" };
+            bool loadedModel = false;
+            for (const auto& c : candidates) {
+                if (c.find('.') != std::string::npos || c.find('/') != std::string::npos || c.find('\\') != std::string::npos) {
+                    std::string resolved = ModelManager::ResolveModelPath(c);
+                    if (resolved != c || std::filesystem::exists(resolved)) {
                         ModelManager::GetInstance()->LoadModel(resolved);
                         obj_->SetModel(resolved);
                         loadedModel = true;
                         break;
                     }
+                } else {
+                    std::string lower = c;
+                    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char ch) { return std::tolower(ch); });
+                    std::vector<std::string> tryList = { lower + ".obj", lower + ".gltf", std::string("models/") + lower + ".obj" };
+                    for (const auto& t : tryList) {
+                        std::string resolved = ModelManager::ResolveModelPath(t);
+                        if (resolved != t || std::filesystem::exists(resolved)) {
+                            ModelManager::GetInstance()->LoadModel(resolved);
+                            obj_->SetModel(resolved);
+                            loadedModel = true;
+                            break;
+                        }
+                    }
+                    if (loadedModel) break;
                 }
-                if (loadedModel) break;
             }
+        }
+
+        // Try load hand model into a separate Object3d
+        std::string handModelPath;
+        for (auto &c : handCandidates) {
+            handModelPath = tryLoadModel(c);
+            if (!handModelPath.empty()) break;
+        }
+
+        if (!handModelPath.empty()) {
+            objHand_ = new Object3d();
+            objHand_->Initialize(object3dRenderer);
+            objHand_->SetModel(handModelPath);
         }
 
         // 描画オブジェクトの初期トランスフォームを設定
@@ -382,6 +450,51 @@ void Player::Update(float dt)
         obj_->SetTranslation(position_);
         obj_->Update();
     }
+    if (objHand_) {
+        // 手オブジェクトは内部のハンドポーズ情報に従って配置する
+        // プレイヤーの回転( yaw )に合わせて横方向オフセットを回転させる
+        // use player's facing yaw (rotate_) to position hand relative to player
+        float yaw = rotate_;
+        float cy = std::cos(yaw);
+        float sy = std::sin(yaw);
+        // base local offset in player's local space
+        Vector3 local = handOffset_;
+        // mirror X if on left side
+        if (!handSideRight_) local.x = -local.x;
+        // rotate local offset by yaw to world XZ
+        Vector3 worldOff;
+        worldOff.x = local.x * cy - local.z * sy;
+        worldOff.z = local.x * sy + local.z * cy;
+        worldOff.y = local.y;
+        // Adjust by model's root local translation (if model has root offset) so hand aligns with mesh origin
+        Vector3 handPos = { position_.x + worldOff.x, position_.y + worldOff.y, position_.z + worldOff.z };
+        if (obj_) {
+            Model* m = obj_->GetModel();
+            if (m != nullptr) {
+                const Matrix4x4& root = m->GetRootLocalMatrix();
+                Vector3 s = obj_->GetScale();
+                // root.m[3][0..2] is model-local translation; scale it
+                Vector3 rootOffsetLocal = { root.m[3][0] * s.x, root.m[3][1] * s.y, root.m[3][2] * s.z };
+                // rotate root offset into world XZ using same yaw as player
+                float ry = obj_->GetRotation().y;
+                float rcy = std::cos(ry);
+                float rsy = std::sin(ry);
+                Vector3 rootOffsetWorld;
+                rootOffsetWorld.x = rootOffsetLocal.x * rcy - rootOffsetLocal.z * rsy;
+                rootOffsetWorld.z = rootOffsetLocal.x * rsy + rootOffsetLocal.z * rcy;
+                rootOffsetWorld.y = rootOffsetLocal.y;
+                // add (not subtract) so hand aligns to the visible mesh origin
+                handPos.x += rootOffsetWorld.x;
+                handPos.y += rootOffsetWorld.y;
+                handPos.z += rootOffsetWorld.z;
+            }
+        }
+        objHand_->SetTranslation(handPos);
+        // 回転は handRotation_ を使う（SetHandPoseHeld/SetHandPoseDropped で設定される）
+        objHand_->SetRotation(handRotation_);
+        objHand_->SetScale(obj_->GetScale());
+        objHand_->Update();
+    }
 }
 
 // ---------------------------------------------------------
@@ -392,6 +505,9 @@ void Player::Draw()
 {
     if (obj_) {
         obj_->Draw();
+    }
+    if (objHand_) {
+        objHand_->Draw();
     }
 }
 
