@@ -110,14 +110,11 @@ private:
   void CreateTransformationMatrixData();
 
 private:
-  // Position
-  Vector2 position{0.0f, 0.0f};
-
-  // Rotation
-  float rotation = 0.0f;
-
-  // size
-  Vector2 size{640.0f, 360.0f};
+  Transform transform_{
+      {640.0f, 360.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
 
   // アンカーポイント
   Vector2 anchorPoint = {0.0f, 0.0f};
@@ -127,31 +124,39 @@ public:
   /// positionのゲッター
   /// </summary>
   /// <returns></returns>
-  const Vector2 &GetPosition() const { return position; }
+  Vector2 GetPosition() const {
+    return {transform_.translate.x, transform_.translate.y};
+  }
 
   /// <summary>
   /// positionのセッター
   /// </summary>
   /// <param name="position"></param>
-  void SetPosition(const Vector2 &position) { this->position = position; }
+  void SetPosition(const Vector2 &position) {
+    transform_.translate = {position.x, position.y, 0.0f};
+  }
 
   /// <summary>
   /// rotationのゲッター
   /// </summary>
   /// <returns></returns>
-  const float GetRotation() const { return rotation; }
+  float GetRotation() const { return transform_.rotate.z; }
 
   /// <summary>
   /// rotationのセッター
   /// </summary>
   /// <param name="rotation"></param>
-  void SetRotation(float rotation) { this->rotation = rotation; }
+  void SetRotation(float rotation) {
+    transform_.rotate = {0.0f, 0.0f, rotation};
+  }
 
   /// <summary>
   /// colorのゲッター
   /// </summary>
   /// <param name="rotation"></param>
-  const Vector4 &GetColor() const { return materialData->color; }
+  Vector4 GetColor() const {
+    return materialData ? materialData->color : Vector4(1, 1, 1, 1);
+  }
 
   /// <summary>
   /// colorのセッター
@@ -166,13 +171,15 @@ public:
   /// sizeのゲッター
   /// </summary>
   /// <returns></returns>
-  const Vector2 &GetSize() const { return size; }
+  Vector2 GetSize() const { return {transform_.scale.x, transform_.scale.y}; }
 
   /// <summary>
   /// sizeのセッター
   /// </summary>
   /// <param name="position"></param>
-  void SetSize(const Vector2 &size) { this->size = size; }
+  void SetSize(const Vector2 &size) {
+    transform_.scale = {size.x, size.y, 1.0f};
+  }
 
   /// <summary>
   /// アンカーポイントのゲッター

@@ -1,4 +1,5 @@
 #include "Sprite/Sprite.h"
+#include "Debug/Logger.h"
 #include "Math/MathUtil.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Texture/TextureManager.h"
@@ -6,19 +7,26 @@
 void Sprite::Initialize(SpriteRenderer *spriteRenderer,
                         const std::string &textureFilePath) {
 
+  if (!spriteRenderer) {
+    Logger::Log("[Sprite] Initialize: spriteRenderer is null\n");
+    assert(false && "Sprite::Initialize: spriteRenderer is null");
+    return;
+  }
+
   spriteRenderer_ = spriteRenderer;
 
   dx12Core_ = spriteRenderer->GetDx12Core();
 
-  // textureIndex_ =
-  //   TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
+  if (!dx12Core_) {
+    Logger::Log("[Sprite] Initialize: dx12Core is null\n");
+    assert(false && "Sprite::Initialize: dx12Core is null");
+    return;
+  }
 
   // テクスチャをロードしてファイルパスを保持
   TextureManager::GetInstance()->LoadTexture(textureFilePath);
 
   textureFilePath_ = textureFilePath;
-
-  // textureSrvHandleGPU_ = textureSrvHandleGPU;
 
   CreateVertexData();
 
@@ -30,6 +38,12 @@ void Sprite::Initialize(SpriteRenderer *spriteRenderer,
 }
 
 void Sprite::Update(Transform uvTransform) {
+
+  assert(dx12Core_ && "Sprite::Update: not initialized");
+  assert(vertexData && "Sprite::Update: vertexData is null");
+  assert(materialData && "Sprite::Update: materialData is null");
+  assert(transformationMatrixData &&
+         "Sprite::Update: transformationMatrixData is null");
 
   // アンカーポイントを設定
   float left = 0.0f - anchorPoint.x;
@@ -71,32 +85,9 @@ void Sprite::Update(Transform uvTransform) {
   vertexData[3].position = {right, top, 0.0f, 1.0f}; // 右上
   vertexData[3].texcoord = {texRight, texTop};
 
-  // インデックスリソースにデータを書き込む(6点分)
-
-  indexData[0] = 0; // 左下
-  indexData[1] = 1; // 左上
-  indexData[2] = 2; // 右下
-  indexData[3] = 1;
-  indexData[4] = 3; // 右上
-  indexData[5] = 2;
-
-  // Transform情報を作る
-  Transform transform{
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-  };
-
-  transform.scale = {size.x, size.y, 1.0f};
-
-  // 回転(スプライトなので基本Z回転のみ)
-  transform.rotate = {0.0f, 0.0f, rotation};
-
-  transform.translate = {position.x, position.y, 0.0f};
-
   // TransformからWorldMatrixを作る
-  Matrix4x4 worldMatrix =
-      MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
+  Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
+                                           transform_.translate);
 
   // ViewMatrixを作って単位行列を代入
   Matrix4x4 viewMatrix = MakeIdentity4x4();
@@ -123,6 +114,13 @@ void Sprite::Update(Transform uvTransform) {
 }
 
 void Sprite::Draw() {
+
+  assert(dx12Core_ && "Sprite::Draw: not initialized");
+  assert(materialResource && "Sprite::Draw: materialResource is null");
+  assert(transformationMatrixResource &&
+         "Sprite::Draw: transformationMatrixResource is null");
+  assert(vertexResource && "Sprite::Draw: vertexResource is null");
+  assert(indexResource && "Sprite::Draw: indexResource is null");
 
   ID3D12GraphicsCommandList *commandList_ = dx12Core_->GetCommandList();
 
@@ -183,14 +181,25 @@ void Sprite::CreateVertexData() {
 
   // VertexResourceにデータを書き込むためのアドレスを取得してvertexDataに割り当てる
   //==========================================================================
-
   // 頂点データ設定
-  vertexResource->Map(0, nullptr, reinterpret_cast<void **>(&vertexData));
+  HRESULT hr =
+      vertexResource->Map(0, nullptr, reinterpret_cast<void **>(&vertexData));
+  assert(SUCCEEDED(hr));
+  assert(vertexData);
 
   // IndexResourceにデータを書き込むためのアドレスを取得してindexDataに割り当てる
   //==========================================================================
+  hr = indexResource->Map(0, nullptr, reinterpret_cast<void **>(&indexData));
+  assert(SUCCEEDED(hr));
+  assert(indexData);
 
-  indexResource->Map(0, nullptr, reinterpret_cast<void **>(&indexData));
+  // インデックスリソースにデータを書き込む(6点分)
+  indexData[0] = 0; // 左下
+  indexData[1] = 1; // 左上
+  indexData[2] = 2; // 右下
+  indexData[3] = 1;
+  indexData[4] = 3; // 右上
+  indexData[5] = 2;
 }
 
 void Sprite::CreateMaterialData() {
@@ -221,8 +230,10 @@ void Sprite::CreateTransformationMatrixData() {
       dx12Core_->CreateBufferResource(transformationMatrixSize);
 
   // 書き込むためのアドレスを取得
-  transformationMatrixResource->Map(
+  HRESULT hr = transformationMatrixResource->Map(
       0, nullptr, reinterpret_cast<void **>(&transformationMatrixData));
+  assert(SUCCEEDED(hr));
+  assert(transformationMatrixData);
 
   // 単位行列を書き込んでおく
   transformationMatrixData->WVP = MakeIdentity4x4();
@@ -232,10 +243,6 @@ void Sprite::ChangeTexture(const std::string &textureFilePath) {
 
   // まだ読み込まれていないテクスチャであれば読み込む
   TextureManager::GetInstance()->LoadTexture(textureFilePath);
-
-  // テクスチャ番号を取得して差し替える
-  // textureIndex_ =
-  //    TextureManager::GetInstance()->GetTextureIndexByFilePath(textureFilePath);
 
   // テクスチャの差し替え
   textureFilePath_ = textureFilePath;
@@ -252,5 +259,5 @@ void Sprite::AdjustTextureSize() {
   textureSize.x = static_cast<float>(metadata.width);
   textureSize.y = static_cast<float>(metadata.height);
 
-  size = textureSize;
+  transform_.scale = {textureSize.x, textureSize.y, 1.0f};
 }
