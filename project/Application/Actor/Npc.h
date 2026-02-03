@@ -96,9 +96,9 @@ private:
     // ===== 移動関連パラメータ =====
     Vector3 pos_ { 0, 0, 0 }; // 現在位置
     Vector3 vel_ { 0, 0, 0 }; // 現在速度
-    float moveSpeed_ = 3.5f; // 最大移動速度
-    float accel_ = 15.0f; // 加速度
-    float decel_ = 20.0f; // 減速度
+    float moveSpeed_ = 2.7f; // 最大移動速度（少し増加）
+    float accel_ = 12.0f; // 加速度（少し増やす）
+    float decel_ = 14.0f; // 減速度
     float desiredDistance_ = 1.5f; // 目標地点に到達とみなす距離
     float slowRadius_ = 3.0f; // 減速開始半径
 
@@ -156,7 +156,7 @@ public:
 
     // Smooth facing control
     float targetYaw_ = 0.0f;
-    float yawSmoothSpeed_ = 8.0f; // radians per second
+    float yawSmoothSpeed_ = 4.5f; // radians per second（やや速め）
 
     // 配達完了・帰還制御
     void BeginReturnToSpawn();

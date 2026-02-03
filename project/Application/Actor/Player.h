@@ -99,12 +99,14 @@ private:
     Vector3 velocity_ { 0.0f, 0.0f, 0.0f }; // 現在速度ベクトル
     float rotate_ = 0.0f; // 向き（ラジアン）
     // 回転のスムージング速度（ラジアン/秒）: 移動方向へ向くときの旋回速さ
-    float rotateSmoothSpeed_ = 10.0f;
+    // 下げることで旋回の補間がゆったりになります
+    // 少しだけ旋回を速くして操作感を改善
+    float rotateSmoothSpeed_ = 5.5f;
 
     // --- 移動定数（調整用） ---
-    float moveSpeed_ = 6.0f; // 最高速度
-    float accel_ = 20.0f; // 加速度（0から最高速まで）
-    float decel_ = 25.0f; // 減速度（入力なし時の止まりやすさ）
+    float moveSpeed_ = 4.8f; // 最高速度（少し速め）
+    float accel_ = 14.0f; // 加速度（少し増やす）
+    float decel_ = 18.0f; // 減速度
     float gravity_ = 30.0f; // 下向きの重力
     float jumpSpeed_ = 12.0f; // ジャンプした瞬間の上向き速度
     bool onGround_ = true; // 接地状態フラグ

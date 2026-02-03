@@ -104,7 +104,8 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
         // back by collision resolve). Predicting a bit ahead reduces those false
         // positives.
         Vector3 predictedPos = { pos_.x + vel_.x * dt, pos_.y + vel_.y * dt, pos_.z + vel_.z * dt };
-        Vector3 probeEnd = { predictedPos.x + dir.x * 0.2f, predictedPos.y + 0.1f, predictedPos.z + dir.z * 0.2f };
+        // Reduce lookahead so detection happens closer to NPC
+        Vector3 probeEnd = { predictedPos.x + dir.x * 0.08f, predictedPos.y + 0.1f, predictedPos.z + dir.z * 0.08f };
 
         // query nearby walls and obb
         Vector3 qmin { std::min(pos_.x, probeEnd.x) - kDefaultRadius, 0.0f, std::min(pos_.z, probeEnd.z) - kDefaultRadius };
@@ -227,6 +228,45 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
         }
 
         if (!handled) {
+            // Prefer sliding along OBB obstacles (e.g. sticks) using their yaw
+            for (const Level::OBB* o : obbCandidates) {
+                // conservative extents in XZ after rotation
+                float cy = std::cos(o->yaw);
+                float sy = std::sin(o->yaw);
+                float absCy = std::fabs(cy);
+                float absSy = std::fabs(sy);
+                float extX = absCy * o->halfExtents.x + absSy * o->halfExtents.z;
+                float extZ = absSy * o->halfExtents.x + absCy * o->halfExtents.z;
+
+                // tighten margin to require closer proximity before steering along OBB
+                const float probeMargin = 0.02f;
+                // require the OBB center to be reasonably close to the NPC before considering steering
+                const float detectDist = 1.25f; // world units
+                float dxC = o->center.x - pos_.x;
+                float dzC = o->center.z - pos_.z;
+                if (dxC * dxC + dzC * dzC > detectDist * detectDist) {
+                    continue; // too far, skip this OBB
+                }
+                if (probeEnd.x >= o->center.x - extX - probeMargin && probeEnd.x <= o->center.x + extX + probeMargin
+                    && probeEnd.z >= o->center.z - extZ - probeMargin && probeEnd.z <= o->center.z + extZ + probeMargin) {
+                    // steer along the OBB's forward (yaw) direction
+                    Vector3 newDir = { std::sin(o->yaw), 0.0f, std::cos(o->yaw) };
+                    // preserve forward sign relative to previous straightDir_
+                    float dot = newDir.x * straightDir_.x + newDir.z * straightDir_.z;
+                    if (dot < 0.0f) { newDir.x = -newDir.x; newDir.z = -newDir.z; }
+                    newDir = SafeNormalize(newDir);
+                    straightDir_ = newDir;
+                    vel_.x = straightDir_.x * moveSpeed_;
+                    vel_.z = straightDir_.z * moveSpeed_;
+                    if (obj_) {
+                        float yaw = std::atan2(vel_.x, vel_.z);
+                        Vector3 rot = obj_->GetRotation(); rot.y = yaw; obj_->SetRotation(rot);
+                    }
+                    handled = true;
+                    break;
+                }
+            }
+
             // check simple AABB blocking
             for (const Level::AABB* box : aabbCandidates) {
                 if (probeEnd.x >= box->min.x && probeEnd.x <= box->max.x && probeEnd.z >= box->min.z && probeEnd.z <= box->max.z) {
