@@ -187,11 +187,15 @@ void Object3dRenderer::CreatePSO() {
 
   // shaderをcompileする
   IDxcBlob *vertexShaderBlob = dx12Core_->CompileShader(
-      L"resources/shaders/Object3D.VS.hlsl", L"vs_6_0");
+      L"resources/shaders/Object3d.VS.hlsl", L"vs_6_0");
   assert(vertexShaderBlob != nullptr);
 
+  IDxcBlob *geometryShaderBlob = dx12Core_->CompileShader(
+      L"resources/shaders/Object3d.GS.hlsl", L"gs_6_0");
+  assert(geometryShaderBlob != nullptr);
+
   IDxcBlob *pixelShaderBlob = dx12Core_->CompileShader(
-      L"resources/shaders/Object3D.PS.hlsl", L"ps_6_0");
+      L"resources/shaders/Object3d.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   // DepthStencilStateの設定
@@ -214,6 +218,9 @@ void Object3dRenderer::CreatePSO() {
   graphicsPipeLineStateDesc.VS = {
       vertexShaderBlob->GetBufferPointer(),
       vertexShaderBlob->GetBufferSize()}; // VertexShader
+  graphicsPipeLineStateDesc.GS = {
+      geometryShaderBlob->GetBufferPointer(),
+      geometryShaderBlob->GetBufferSize()}; // geometryShader
   graphicsPipeLineStateDesc.PS = {
       pixelShaderBlob->GetBufferPointer(),
       pixelShaderBlob->GetBufferSize()};                      // PixelShader

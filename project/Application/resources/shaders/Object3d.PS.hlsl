@@ -53,7 +53,7 @@ struct SpotLight {
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
 
 PixelShaderOutput main(
-VertexShaderOutput input) {
+GeometryShaderOutput input) {
 	
 	//=========================
     // UV transform & sampling
