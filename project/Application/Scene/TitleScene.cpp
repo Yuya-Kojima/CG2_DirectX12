@@ -22,16 +22,6 @@
 #include <algorithm> // clamp
 #include <cmath>     // sin
 
-// イージング関数（EaseOutCubic） — titleBot は等速運動へ切替のため使用しないが他オブジェクトで残す
-static inline float EaseOutCubic(float t)
-{
-	if (t <= 0.0f) return 0.0f;
-	if (t >= 1.0f) return 1.0f;
-	t = std::clamp(t, 0.0f, 1.0f);
-	t = t - 1.0f;
-	return (t * t * t) + 1.0f;
-}
-
 void TitleScene::Initialize(EngineBase* engine)
 {
 	// 参照をコピー
