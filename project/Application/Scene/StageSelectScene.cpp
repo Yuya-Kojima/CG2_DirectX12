@@ -77,13 +77,12 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	}
 
 	// -------------------------
-	// プレイヤー表示位置を自動配置（選択中を中央に固定）
-	// ただし index4<->5 の間だけギャップを specialGap にする
+	// プレイヤー表示位置を自動配置
 	// -------------------------
 	stagePositions_.clear();
 	// ステージ間の通常間隔
 	const float spacing = 15.0f;
-	// ステージ5->6 の間だけこのギャップ
+	// ステージ5->6 の間だけこのギャップ（index4 -> index5）
 	const float specialGap = 40.0f;
 	const float baseY = 3.3f;
 	const float baseZ = 0.0f;
@@ -91,24 +90,23 @@ void StageSelectScene::Initialize(EngineBase* engine)
 
 	if (n > 0) {
 		stagePositions_.resize(n);
-		// currentIndex_ を中心 (x = 0) に置く
-		stagePositions_[currentIndex_] = { 0.0f, baseY, baseZ };
+		// 絶対起点: stage1 の x
+		const float startX = -30.0f;
+		stagePositions_[0] = { startX, baseY, baseZ };
 
-		// 右側を順に配置（currentIndex_ + 1 .. n-1）
-		for (int i = currentIndex_ + 1; i < n; ++i) {
-			// i-1 と i の間が 4->5（0-based）なら specialGap を使う
-			float gap = ((i - 1) == 4) ? specialGap : spacing;
+		for (int i = 1; i < n; ++i) {
+			// i-1 と i の間が index4->5（つまり i==5）なら specialGap を使う
+			float gap = (i == 5) ? specialGap : spacing;
 			float prevX = stagePositions_[i - 1].x;
 			stagePositions_[i] = { prevX + gap, baseY, baseZ };
 		}
+	}
 
-		// 左側を順に配置（currentIndex_ - 1 .. 0）
-		for (int i = currentIndex_ - 1; i >= 0; --i) {
-			// i と i+1 の間が 4->5（つまり i==4）なら specialGap
-			float gap = (i == 4) ? specialGap : spacing;
-			float nextX = stagePositions_[i + 1].x;
-			stagePositions_[i] = { nextX - gap, baseY, baseZ };
-		}
+	// --- カメラ初期位置: 選択中ステージに合わせる ---
+	if (currentIndex_ >= 5) {
+		cameraTranslate_[0] = 100.0f;
+	} else {
+		cameraTranslate_[0] = 0.0f;
 	}
 
 	// カメラ生成
@@ -166,11 +164,13 @@ void StageSelectScene::Initialize(EngineBase* engine)
 
 	// transformをstagePositions_に合わせて設定
 	const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
-	playerTranslate_[0] = -30.0f;
+	// player x は選択中ステージの絶対 x に合わせる（以前の -30.0f のハードコーディングを廃止）
+	playerTranslate_[0] = sp.x;
 	playerTranslate_[1] = sp.y; playerTranslate_[2] = sp.z;
 
 	// オフセットを保存（以降の移動でも同じオフセットを使う）
-	playerXOffset_ = playerTranslate_[0] - sp.x;
+	// ここでは stagePositions が絶対座標なのでオフセットは 0 にする
+	playerXOffset_ = 0.0f;
 
 	// --- プレイヤーのオフセットを使って各ステージUIを生成 ---
 	stageUIObjects_.clear();
@@ -195,6 +195,19 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		stageUIVisible_.push_back(false);
 		stageUIAnimating_.push_back(false);
 		stageUIAnimTimer_.push_back(0.0f);
+	}
+
+	// 戻ってきたときに選択中のステージ UI を表示・アニメ開始する
+	if (!stageUIObjects_.empty()) {
+		size_t idx = static_cast<size_t>(std::max(0, std::min(currentIndex_, static_cast<int>(stageUIObjects_.size() - 1))));
+		stageUIVisible_[idx] = true;
+		stageUIAnimating_[idx] = true;
+		stageUIAnimTimer_[idx] = 0.0f;
+		// UI はプレイヤー位置の上にセットして最初はゼロスケールにする（アニメで拡大）
+		if (stageUIObjects_[idx]) {
+			stageUIObjects_[idx]->SetTranslation({ playerTranslate_[0], 10.0f, playerTranslate_[2] });
+			stageUIObjects_[idx]->SetScale({ 0.0f, 0.0f, 0.0f });
+		}
 	}
 
 	// ターゲットを初期位置に設定
