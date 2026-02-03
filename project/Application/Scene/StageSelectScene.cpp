@@ -159,6 +159,8 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	skyObject3d_->SetTranslation({ 0.0f, 0.0f, 0.0f });
 	skyObject3d_->SetScale({ skyScale_, skyScale_, skyScale_ });
 	skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+    skyObject3d_->SetEnableLighting(false);
+    skyObject3d_->SetColor(Vector4{3.0f,3.0f,3.0f,1.0f});
 
 	// --- プレイヤーモデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("player_body.obj");
