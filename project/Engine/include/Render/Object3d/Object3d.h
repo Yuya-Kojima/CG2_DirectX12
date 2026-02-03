@@ -132,6 +132,16 @@ public:
     }
   }
 
+  bool GetEnableLighting() const {
+    return materialData ? (materialData->enableLighting != 0) : true;
+  }
+
+  void SetEnableLighting(bool enable) {
+    if (materialData) {
+      materialData->enableLighting = enable ? 1 : 0;
+    }
+  }
+
 private:
   const ICamera *camera_ = nullptr;
 
