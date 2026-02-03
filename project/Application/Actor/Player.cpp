@@ -155,7 +155,8 @@ void Player::Initialize(Input* input, Object3dRenderer* object3dRenderer)
 
         // 描画オブジェクトの初期トランスフォームを設定
         obj_->SetTranslation(position_);
-        obj_->SetScale({ 1.0f, 1.0f, 1.0f });
+        // Slightly reduce visual scale so player appears a bit smaller
+        obj_->SetScale({ 0.9f, 0.9f, 0.9f });
         obj_->SetRotation({ 0.0f, rotate_, 0.0f });
         try {
             Logger::Log(std::format("[プレイヤー] 初期化: pos=({:.2f},{:.2f},{:.2f})\n", position_.x, position_.y, position_.z));
@@ -448,6 +449,39 @@ void Player::Update(float dt)
     // --- 7. モデルデータの同期 ---
     if (obj_) {
         obj_->SetTranslation(position_);
+
+        // Determine desired facing direction.
+        // Priority: direct input direction (ax,az) when present, otherwise use actual velocity.
+        Vector3 desiredDir { 0.0f, 0.0f, 0.0f };
+        const float kInputEps = 1e-3f;
+        const float kVelEps = 1e-5f;
+
+        if (std::abs(ax) > kInputEps || std::abs(az) > kInputEps) {
+            desiredDir.x = ax;
+            desiredDir.z = az;
+        } else {
+            desiredDir.x = velocity_.x;
+            desiredDir.z = velocity_.z;
+        }
+
+        float desiredYaw = rotate_;
+        if (std::abs(desiredDir.x) > kVelEps || std::abs(desiredDir.z) > kVelEps) {
+            desiredYaw = std::atan2(desiredDir.x, desiredDir.z);
+        }
+
+        // Smoothly rotate toward desired yaw
+        if (desiredYaw != rotate_) {
+            const float PI = 3.14159265f;
+            float diff = desiredYaw - rotate_;
+            while (diff > PI) diff -= 2.0f * PI;
+            while (diff < -PI) diff += 2.0f * PI;
+
+            float maxStep = rotateSmoothSpeed_ * dt;
+            float step = std::max(-maxStep, std::min(maxStep, diff));
+            rotate_ += step;
+        }
+
+        obj_->SetRotation({ 0.0f, rotate_, 0.0f });
         obj_->Update();
     }
     if (objHand_) {
@@ -491,8 +525,15 @@ void Player::Update(float dt)
         }
         objHand_->SetTranslation(handPos);
         // 回転は handRotation_ を使う（SetHandPoseHeld/SetHandPoseDropped で設定される）
-        objHand_->SetRotation(handRotation_);
-        objHand_->SetScale(obj_->GetScale());
+        // Ensure hand faces same yaw as body when not explicitly held-rotationified
+        // handRotation_.y is set by SetHandPoseHeld/SetHandPoseDropped, but we want
+        // the hand yaw to follow the player's rotate_. Combine them.
+        Vector3 combinedHandRot = handRotation_;
+        combinedHandRot.y = rotate_;
+        objHand_->SetRotation(combinedHandRot);
+        // ensure hand matches reduced body scale
+        Vector3 bodyScale = obj_->GetScale();
+        objHand_->SetScale(bodyScale);
         objHand_->Update();
     }
 }

@@ -189,23 +189,34 @@ void Stick::PickUpExternal()
 
 void Stick::AdjustHeldYaw(float delta)
 {
-    // 持っている間にヨーを変える（スナップ無し、連続的に加算）
-    heldRotation_.y += delta;
-    rotation_.y = heldRotation_.y;
-    if (obj_) obj_->SetRotation(rotation_);
-    try {
-        Logger::Log(std::format("[Stick] AdjustHeldYaw -> yaw={:.3f}\n", heldRotation_.y));
-    } catch (...) {}
-}
-
-void Stick::RotateHeldYaw(float delta)
-{
-    heldRotation_.y += delta;
+    // 持っている間のヨー変更を、base heldRotation_ に直接加えるのではなく
+    // heldYawOffset_ を使って非破壊的に加算する。これによりプレイヤー追従の
+    // 基本角度は維持しつつプレイヤーの入力で相対回転できる。
+    AddHeldYawOffset(delta);
+    // reflect immediately to object
     if (obj_) {
         rotation_ = heldRotation_;
         rotation_.y += heldYawOffset_;
         obj_->SetRotation(rotation_);
     }
+    try {
+        Logger::Log(std::format("[Stick] AdjustHeldYaw -> offset={:.3f}\n", heldYawOffset_));
+    } catch (...) {}
+}
+
+void Stick::RotateHeldYaw(float delta)
+{
+    // Continuous rotation while held should apply as an additive offset so
+    // that base heldRotation_ (e.g. following player yaw) is preserved.
+    AddHeldYawOffset(delta);
+    if (obj_) {
+        rotation_ = heldRotation_;
+        rotation_.y += heldYawOffset_;
+        obj_->SetRotation(rotation_);
+    }
+    try {
+        Logger::Log(std::format("[Stick] RotateHeldYaw delta={:.3f} offset={:.3f}\n", delta, heldYawOffset_));
+    } catch (...) {}
 }
 
 // (SetHeldYawOffset / AddHeldYawOffset are implemented inline in header)
@@ -276,9 +287,11 @@ void Stick::DropExternal()
         // 当たり判定の大きさを、スケーリング後のモデルサイズと一致させる
         obb.halfExtents = actualHalfExtents;
 
-        // モデルの回転は保持中に調整した heldRotation_ を優先して使う
+        // モデルの回転は保持中に調整した heldRotation_ に、
+        // ユーザーが加えた heldYawOffset_ を合成して使う
         // これにより、持ち上げた状態で回転させた角度でそのまま置ける
         rotation_ = heldRotation_;
+        rotation_.y += heldYawOffset_;
         if (obj_) {
             obj_->SetRotation(rotation_);
         }

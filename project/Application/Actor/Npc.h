@@ -48,12 +48,10 @@ public:
     uint32_t GetMountedOwnerId() const { return mountedOwnerId_; }
     // ===== 状態制御（State machine） =====
     // NPCの行動状態を簡易的なStateで管理します
+    // 現在は単純な直進モードとアイドルのみを保持します。
     enum class State {
         Idle,
-        Straight,      // 与えられた方向へ直進するモード
-        MoveToTarget,  // 経路探索に基づく移動
-        CarryToGoal,   // 所持アイテムをゴールへ運ぶ
-        ReturnToPlayer // プレイヤーへ戻る
+        Straight      // 与えられた方向へ直進するモード
     };
 
     // 状態の設定
@@ -63,9 +61,11 @@ public:
     void SetStraightDirection(const Vector3& dir) { straightDir_ = dir; }
 
     State GetState() const { return state_; }
+    // もう少し上げて見た目の干渉を減らす
     // NPCがオブジェクト上に乗せられたときのYオフセット（モデル原点と足元の差を補正）
     // もう少し上げて見た目の干渉を減らす
-    float mountOffsetY_ = 0.20f;
+    // デフォルト値を若干増やして、メッシュのサイズ変更で低く見える場合に備える
+    float mountOffsetY_ = 0.40f;
 
 public:
     // マウント時のYオフセットを設定（単位: ワールド座標）
@@ -133,10 +133,36 @@ private:
     // マウント解除後に地面へ落下するフラグ
     bool fallingFromMount_ = false;
     // 降下後に一時的に前進を止めるクールダウン
-    static constexpr float kPostFallCooldown = 1.0f;
+    static constexpr float kPostFallCooldown = 0.01f;
     float postFallCooldown_ = 0.0f;
     // マウントしたOBBのパラメータを保持（アンマウント判定に使用）
     Vector3 mountedObbCenter_ { 0.0f, 0.0f, 0.0f };
     Vector3 mountedObbHalfExtents_ { 0.0f, 0.0f, 0.0f };
     float mountedObbYaw_ = 0.0f;
+    // ===== 配達物（表示用） =====
+    std::unique_ptr<class Object3d> packageObj_; // 持ち物モデル
+    bool carrying_ = false; // 最初は持っていないが外から指定できる
+    Vector3 packageOffset_ = { 0.0f, 0.0f, 0.0f }; // NPC基準のオフセット
+public:
+    // 配達物表示の制御
+    void SetCarrying(bool v) { carrying_ = v; }
+    bool IsCarrying() const { return carrying_; }
+    
+    // ===== 配達 / 帰還フラグ =====
+    // スポーン地点（戻る場所）
+    Vector3 spawnPos_ { 0.0f, 0.0f, 0.0f };
+    // NPCが配達後にスポーンへ戻っているかどうか
+    bool returning_ = false;
+
+    // Smooth facing control
+    float targetYaw_ = 0.0f;
+    float yawSmoothSpeed_ = 8.0f; // radians per second
+
+    // 配達完了・帰還制御
+    void BeginReturnToSpawn();
+    bool IsReturning() const { return returning_; }
+    bool HasReturnedToSpawn() const;
+    
+    // target yaw for smooth rotation and smoothing speed (radians/sec)
+    void SetYawSmoothSpeed(float s) { yawSmoothSpeed_ = s; }
 };

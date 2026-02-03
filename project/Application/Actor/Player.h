@@ -49,6 +49,9 @@ public:
     /// <summary> ワールド座標を直接設定（描画オブジェクトにも即座に反映） </summary>
     void SetPosition(const Vector3& pos);
 
+    /// <summary> プレイヤーの現在の向き（ヨー角、ラジアン）を取得 </summary>
+    float GetYaw() const { return rotate_; }
+
     /// <summary> 衝突判定に使う半幅（XZ平面）を取得 </summary>
     float GetHalfSize() const { return halfSize_; }
     /// <summary> 衝突判定に使う半幅ベクトル（XZ平面）を取得 </summary>
@@ -95,6 +98,8 @@ private:
     Vector3 position_ { 0.0f, 0.0f, 0.0f }; // 現在地
     Vector3 velocity_ { 0.0f, 0.0f, 0.0f }; // 現在速度ベクトル
     float rotate_ = 0.0f; // 向き（ラジアン）
+    // 回転のスムージング速度（ラジアン/秒）: 移動方向へ向くときの旋回速さ
+    float rotateSmoothSpeed_ = 10.0f;
 
     // --- 移動定数（調整用） ---
     float moveSpeed_ = 6.0f; // 最高速度
@@ -103,7 +108,8 @@ private:
     float gravity_ = 30.0f; // 下向きの重力
     float jumpSpeed_ = 12.0f; // ジャンプした瞬間の上向き速度
     bool onGround_ = true; // 接地状態フラグ
-    float halfSize_ = 0.5f; // キャラクターの当たり判定半径
+    float halfSize_ = 0.45f; // キャラクターの当たり判定半径 (やや小さめに調整)
+    // Adjust halfSize_ if visual scale changes to keep collision consistent.
 
     // --- レベル・ID情報 ---
     Level* level_ = nullptr; // 地形情報への参照
