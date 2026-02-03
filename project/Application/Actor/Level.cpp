@@ -601,7 +601,9 @@ void Level::CreateFloorTiles(const std::vector<int>& tiles)
                             std::string r = ModelManager::ResolveModelPath("neadle.obj");
                             ModelManager::GetInstance()->LoadModel(r);
                         } catch(...) {}
-                        AddHazard({ x * tileSize_, 0.0f, z * tileSize_ }, hazardRadius, "neadle.obj");
+                        // Place hazard at the same Y as floor visuals so it appears flush with ground
+                        float floorY = -1.5f * tileSize_;
+                        AddHazard({ x * tileSize_, floorY, z * tileSize_ }, hazardRadius, "neadle.obj");
                         try {
                             std::ostringstream oss;
                             oss << "[Level] CreateFloorTiles: placed tile-hazard at (" << (x * tileSize_) << ",0," << (z * tileSize_) << ")\n";

@@ -67,7 +67,11 @@ public:
     void SetHeldRotation(const Vector3& r)
     {
         heldRotation_ = r;
-        SetRotation(r);
+        // reflect current held rotation including any user-added offset immediately
+        rotation_ = heldRotation_;
+        rotation_.y += heldYawOffset_;
+        if (obj_)
+            obj_->SetRotation(rotation_);
     }
 
     const Vector3& GetHeldRotation() const { return heldRotation_; }

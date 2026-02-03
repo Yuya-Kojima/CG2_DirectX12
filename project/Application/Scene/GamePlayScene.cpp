@@ -501,9 +501,10 @@ void GamePlayScene::Update()
             if (player_)
                 targetPos = player_->GetPosition();
         } else if (beh == "gotoGoal") {
-            if (goal_)
-                targetPos = goal_->GetPosition();
-            else if (player_)
+            // gotoGoal behavior: do NOT automatically steer the NPC toward the goal.
+            // The player should influence NPC movement (via stick/interaction) to guide it.
+            // Leave NPC straightDir_ unchanged here; keep a safety fallback target if needed.
+            if (player_)
                 targetPos = player_->GetPosition();
         } else if (beh == "idle") {
             targetPos = npc_->GetPosition();
@@ -515,6 +516,13 @@ void GamePlayScene::Update()
                 targetPos = goal_->GetPosition();
         }
         npc_->Update(1.0f / 60.0f, targetPos, *level_);
+    }
+
+    // If NPC has returned to spawn after reaching goal, end the level
+    if (npc_ && npc_->IsReturning() && npc_->HasReturnedToSpawn() && !goalReached_) {
+        goalReached_ = true;
+        Logger::Log("Goal reached by NPC (returned to spawn)!");
+        SceneManager::GetInstance()->ChangeScene("DEBUG");
     }
 
     // --- 3. 木の棒(Stick)の拾う・置く処理 ---
@@ -589,7 +597,16 @@ void GamePlayScene::Update()
                 if (player_) {
                     Vector3 p = player_->GetPosition();
                     Vector3 off = stick_->GetHoldOffset();
-                    dropPos = { p.x + off.x, p.y + off.y - 0.4f, p.z + off.z };
+                    // rotate local hold offset into world by player's yaw (same as held positioning)
+                    float pyaw = player_->GetYaw();
+                    float cy = std::cos(pyaw);
+                    float sy = std::sin(pyaw);
+                    Vector3 worldOff;
+                    worldOff.x = off.x * cy + off.z * sy;
+                    worldOff.z = -off.x * sy + off.z * cy;
+                    worldOff.y = off.y;
+
+                    dropPos = { p.x + worldOff.x, p.y + worldOff.y - 0.4f, p.z + worldOff.z };
                 } else {
                     dropPos = stick_->GetPosition();
                 }
@@ -614,7 +631,11 @@ void GamePlayScene::Update()
                     const float minDropDist = 0.9f;
 
                     Vector3 off = stick_->GetHoldOffset();
-                    Vector3 dir = { off.x, 0.0f, off.z };
+                    // rotate local hold offset to world for direction used to nudge drop position
+                    float pyaw = player_->GetYaw();
+                    float cy = std::cos(pyaw);
+                    float sy = std::sin(pyaw);
+                    Vector3 dir = { off.x * cy + off.z * sy, 0.0f, -off.x * sy + off.z * cy };
                     float dlen = std::sqrt(dir.x * dir.x + dir.z * dir.z);
                     if (dlen < 1e-6f) {
                         dir = { 1.0f, 0.0f, 0.0f };
@@ -756,13 +777,33 @@ void GamePlayScene::Update()
     // --- 6. 掴んでいる棒をプレイヤーに追従させる ---
     if (stick_ && stick_->IsHeld() && player_) {
         const Vector3& pp = player_->GetPosition();
-        // decide hold offset based on which side the stick was relative to player
-        stick_->SetHoldSideFromPlayerPos(pp);
+        // Use the hold offset determined at pickup time. Avoid recomputing
+        // the hold side each frame because that can flip when the stick's
+        // world X crosses the player's X and cause jitter.
         Vector3 offset = stick_->GetHoldOffset();
-        Vector3 holdPos = { pp.x + offset.x, pp.y + offset.y, pp.z + offset.z };
-        // Ensure the stick rotation is the held rotation and that the stick lies horizontally on the held side
-        float yaw = (offset.x >= 0.0f) ? 3.14159265f * 0.5f : -3.14159265f * 0.5f;
-        // only update position here; heldRotation is set on pickup and adjusted via input (Q/E)
+        // Rotate the local hold offset by player's yaw so the stick is positioned
+        // relative to player's facing direction (not world axes).
+        // Note: player's yaw is defined as atan2(x,z), so the rotation mapping
+        // from local (x,z) -> world (x,z) must use a swapped-sign matrix.
+        float pyaw = player_->GetYaw();
+        float cy = std::cos(pyaw);
+        float sy = std::sin(pyaw);
+        Vector3 worldOff;
+        // Corrected mapping so forward (0,0,1) at yaw=pi/2 maps to +X
+        worldOff.x = offset.x * cy + offset.z * sy;
+        worldOff.z = -offset.x * sy + offset.z * cy;
+        worldOff.y = offset.y;
+        Vector3 holdPos = { pp.x + worldOff.x, pp.y + worldOff.y, pp.z + worldOff.z };
+        // Ensure the stick rotation follows the player's facing yaw while held.
+        // Compute desired yaw so the stick lies roughly perpendicular to player's forward
+        // direction and offset it based on which side the player holds the stick.
+        float playerYaw = player_->GetYaw();
+        float sideSign = (offset.x >= 0.0f) ? 1.0f : -1.0f;
+        // base perpendicular is +90 degrees; apply side sign so right side gives +90, left -90
+        float desiredYaw = playerYaw + sideSign * 3.14159265f * 0.5f;
+        // adopt into heldRotation so Stick::Update will apply it next frame
+        stick_->SetHeldRotation({ 0.0f, desiredYaw, 0.0f });
+        // only update position here; heldRotation is set above and can be further adjusted via input (Q/E)
         stick_->SetPosition(holdPos);
 
         // update player's hand pose every frame to follow held offset
@@ -888,9 +929,13 @@ void GamePlayScene::Update()
         }
         if (!goalReached_ && npc_) {
             if (checkHit(npc_->GetPosition())) {
-                goalReached_ = true;
-                Logger::Log("Goal reached by NPC!");
-                SceneManager::GetInstance()->ChangeScene("DEBUG");
+                // When NPC reaches the goal, begin its return to spawn instead of
+                // immediately ending the level. The scene will transition when
+                // npc_->HasReturnedToSpawn() becomes true (checked earlier).
+                if (!npc_->IsReturning()) {
+                    npc_->BeginReturnToSpawn();
+                    try { Logger::Log("NPC reached goal: begin return to spawn\n"); } catch(...) {}
+                }
             }
         }
     }

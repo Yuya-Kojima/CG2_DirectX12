@@ -24,23 +24,66 @@ void Npc::Initialize(Object3dRenderer* renderer, const Vector3& startPos)
 {
     renderer_ = renderer;
     pos_ = startPos;
+    // record spawn position for delivery tasks
+    spawnPos_ = startPos;
 
     // 描画オブジェクトの生成と初期化
     obj_ = std::make_unique<Object3d>();
     obj_->Initialize(renderer_);
 
     // モデルマネージャを介してNPC用モデルをロードし適用
-    ModelManager::GetInstance()->LoadModel("breakableBlock.obj");
-    obj_->SetModel("breakableBlock.obj");
+    ModelManager::GetInstance()->LoadModel("NPC.obj");
+    obj_->SetModel("NPC.obj");
 
     // スケール調整と初期位置の設定
-    obj_->SetScale({ 0.6f, 0.6f, 0.6f });
+    obj_->SetScale({ 1.0f, 1.0f, 1.0f });
+    obj_->SetRotation({ 0.0f, 1.5f, 0.0f });
     obj_->SetTranslation(pos_);
     try {
         Logger::Log(std::format("[Npc] Initialize: pos=({:.2f},{:.2f},{:.2f})\n", pos_.x, pos_.y, pos_.z));
     } catch (...) {
         Logger::Log(std::string("[Npc] Initialize: pos=(") + std::to_string(pos_.x) + "," + std::to_string(pos_.y) + "," + std::to_string(pos_.z) + ")\n");
     }
+
+    // package object: optional carried item. Load model but do not fail if missing.
+    packageObj_ = std::make_unique<Object3d>();
+    packageObj_->Initialize(renderer_);
+    // Try to load a package model file; it's okay if not found — ModelManager will log.
+    ModelManager::GetInstance()->LoadModel("NPC_carry.obj");
+    try {
+        packageObj_->SetModel("NPC_carry.obj");
+        packageObj_->SetScale({ 1.0f, 1.0f, 1.0f });
+    } catch (...) {
+        // If SetModel asserts in debug, we ignore here to allow builds without the model.
+    }
+    // Initially carrying as requested by user — set true so package appears
+    carrying_ = true;
+    // set initial package translation
+    Vector3 packagePos = { pos_.x + packageOffset_.x, pos_.y + packageOffset_.y, pos_.z + packageOffset_.z };
+    packageObj_->SetTranslation(packagePos);
+}
+
+// Begin returning to spawn (used after reaching goal)
+void Npc::BeginReturnToSpawn() {
+    returning_ = true;
+    // set straight direction toward spawn
+    Vector3 dir = { spawnPos_.x - pos_.x, 0.0f, spawnPos_.z - pos_.z };
+    float len = std::sqrt(dir.x*dir.x + dir.z*dir.z);
+    if (len > 1e-6f) { dir.x /= len; dir.z /= len; }
+    else { dir = { 0.0f, 0.0f, 1.0f }; }
+    straightDir_ = dir;
+    state_ = State::Straight;
+    // drop carried item when returning
+    carrying_ = false;
+
+    // compute desired facing (yaw) toward spawn and store for smooth rotation
+    targetYaw_ = std::atan2(dir.x, dir.z);
+}
+
+bool Npc::HasReturnedToSpawn() const {
+    float dx = pos_.x - spawnPos_.x;
+    float dz = pos_.z - spawnPos_.z;
+    return (dx*dx + dz*dz) <= (desiredDistance_ * desiredDistance_);
 }
 
 void Npc::Update(float dt, const Vector3& targetPos, Level& level)
@@ -157,8 +200,11 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                         pos_.x = foundHitX;
                         pos_.z = foundHitZ;
                         // raise Y a bit more so model doesn't intersect with top surface
+                        // Add a small extra raise proportional to the OBB half-height to handle
+                        // cases where the model was scaled up and the original offset is too low.
                         const float mountRaise = 0.08f;
-                        pos_.y = foundHitY + mountOffsetY_ + mountRaise;
+                        const float obbExtraRaise = std::max(0.0f, o->halfExtents.y * 0.1f);
+                        pos_.y = foundHitY + mountOffsetY_ + mountRaise + obbExtraRaise;
                         if (obj_) obj_->SetTranslation(pos_);
                         vel_.y = 0.0f;
                         mounted_ = true;
@@ -184,8 +230,38 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
             // check simple AABB blocking
             for (const Level::AABB* box : aabbCandidates) {
                 if (probeEnd.x >= box->min.x && probeEnd.x <= box->max.x && probeEnd.z >= box->min.z && probeEnd.z <= box->max.z) {
-                    // block
-                    vel_.x = 0.0f; vel_.z = 0.0f;
+                    // Instead of stopping, change travel axis to run along the obstacle
+                    // Compute conservative box center in XZ
+                    float bx = 0.5f * (box->min.x + box->max.x);
+                    float bz = 0.5f * (box->min.z + box->max.z);
+                    float dx = pos_.x - bx;
+                    float dz = pos_.z - bz;
+
+                    // Decide which axis to align to based on which separation is larger
+                    Vector3 newDir = {0.0f, 0.0f, 0.0f};
+                    if (std::fabs(dx) > std::fabs(dz)) {
+                        // obstacle lies more to left/right -> run along Z axis
+                        // choose sign that preserves forward component of previous direction
+                        newDir.z = (straightDir_.z >= 0.0f) ? 1.0f : -1.0f;
+                    } else {
+                        // obstacle lies more to front/back -> run along X axis
+                        newDir.x = (straightDir_.x >= 0.0f) ? 1.0f : -1.0f;
+                    }
+
+                    // normalize newDir (it's unit on chosen axis)
+                    newDir = SafeNormalize(newDir);
+
+                    straightDir_ = newDir;
+                    vel_.x = straightDir_.x * moveSpeed_;
+                    vel_.z = straightDir_.z * moveSpeed_;
+
+                    // apply rotation to model so it faces movement direction
+                    if (obj_) {
+                        float yaw = std::atan2(vel_.x, vel_.z);
+                        Vector3 rot = obj_->GetRotation(); rot.y = yaw; obj_->SetRotation(rot);
+                    }
+
+                    handled = true;
                     break;
                 }
             }
@@ -275,10 +351,10 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                         vel_.y = 0.0f;
                         // start cooldown to prevent immediate forward movement
                         postFallCooldown_ = kPostFallCooldown;
-                        // stop movement and clear forward direction so NPC won't race back to the stick
+                        // stop current velocity; keep straightDir_ so NPC can resume after cooldown
                         vel_.x = 0.0f; vel_.z = 0.0f;
-                        straightDir_ = { 0.0f, 0.0f, 0.0f };
-                        state_ = State::Idle;
+                        // resume Straight state; movement will remain disabled while postFallCooldown_ > 0
+                        state_ = State::Straight;
                     }
                 }
             } else {
@@ -288,49 +364,36 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
             }
         }
 
-        if (obj_) { obj_->SetTranslation(pos_); obj_->Update(); }
+        // Smoothly interpolate facing yaw toward targetYaw_ only when returning.
+        if (obj_) {
+            if (returning_) {
+                float currentYaw = obj_->GetRotation().y;
+                const float PI = 3.14159265f;
+                float delta = targetYaw_ - currentYaw;
+                while (delta > PI) delta -= 2.0f * PI;
+                while (delta < -PI) delta += 2.0f * PI;
+                float maxStep = yawSmoothSpeed_ * dt;
+                float step = std::max(-maxStep, std::min(maxStep, delta));
+                float newYaw = currentYaw + step;
+                Vector3 rot = obj_->GetRotation(); rot.y = newYaw; obj_->SetRotation(rot);
+            }
+            // always update translation and object
+            obj_->SetTranslation(pos_);
+            obj_->Update();
+        }
+    // update package transform to follow NPC when carrying
+    if (carrying_ && packageObj_) {
+        Vector3 packagePos = { pos_.x + packageOffset_.x, pos_.y + packageOffset_.y, pos_.z + packageOffset_.z };
+        packageObj_->SetTranslation(packagePos);
+        // face same rotation as NPC
+        packageObj_->SetRotation(obj_ ? obj_->GetRotation() : Vector3{0.0f,0.0f,0.0f});
+        packageObj_->Update();
+    }
         return;
     }
 
-    // MoveToTarget / Arrive behavior (simple)
-    float tx = targetPos.x - pos_.x;
-    float tz = targetPos.z - pos_.z;
-    float dist = std::sqrt(tx*tx + tz*tz);
-    Vector3 desired = {0.0f, 0.0f, 0.0f};
-    if (dist > 1e-4f) desired = { tx/dist, 0.0f, tz/dist };
-    float targetSpeed = (dist < slowRadius_) ? moveSpeed_ * (dist / slowRadius_) : moveSpeed_;
-    if (dist < desiredDistance_) targetSpeed = 0.0f;
-
-    // accelerate/decelerate toward target velocity
-    float targetVX = desired.x * targetSpeed;
-    float targetVZ = desired.z * targetSpeed;
-    if (vel_.x < targetVX) vel_.x = std::min(targetVX, vel_.x + accel_ * dt);
-    else vel_.x = std::max(targetVX, vel_.x - decel_ * dt);
-    if (vel_.z < targetVZ) vel_.z = std::min(targetVZ, vel_.z + accel_ * dt);
-    else vel_.z = std::max(targetVZ, vel_.z - decel_ * dt);
-
-    // clamp horizontal speed
-    float horiz = std::sqrt(vel_.x*vel_.x + vel_.z*vel_.z);
-    if (horiz > moveSpeed_ && horiz > kSmallEpsilon) {
-        float s = moveSpeed_ / horiz;
-        vel_.x *= s; vel_.z *= s;
-    }
-
-    // integrate
-    pos_.x += vel_.x * dt; pos_.z += vel_.z * dt;
-
-    // ground
-    float groundY;
-    if (level.RaycastDown({ pos_.x, pos_.y + kStepHeight + kStepExtra, pos_.z }, kStepHeight + kStepExtra + 1.0f, groundY)) pos_.y = groundY; else pos_.y = 0.0f;
-
-    if (obj_) { obj_->SetTranslation(pos_); obj_->Update(); }
-
-    // update facing
-    float moveDirX = vel_.x; float moveDirZ = vel_.z;
-    if (std::sqrt(moveDirX*moveDirX + moveDirZ*moveDirZ) > kSmallEpsilon) {
-        float yaw = std::atan2(moveDirX, moveDirZ);
-        Vector3 rot = obj_->GetRotation(); rot.y = yaw; obj_->SetRotation(rot);
-    }
+    // MoveToTarget behaviour removed: scene currently uses Straight/Idle only.
+    // If future pathfinding/arrive is needed, reintroduce logic here.
 }
 
 void Npc::Draw()
@@ -338,4 +401,7 @@ void Npc::Draw()
     // 3Dオブジェクトの描画実行
     if (obj_)
         obj_->Draw();
+    // draw carried package after NPC so it appears on top
+    if (carrying_ && packageObj_)
+        packageObj_->Draw();
 }

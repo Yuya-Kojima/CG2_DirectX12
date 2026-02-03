@@ -80,6 +80,12 @@ void Hazard::Initialize(Object3dRenderer* renderer, const Vector3& pos, float ra
         } catch(...) {}
         // モデルは直径に合わせてスケールを設定
         obj_->SetScale({radius*2.0f, radius*2.0f, radius*2.0f});
+
+        // If the provided position had a Y of 0 (default ground), try to snap to level floor
+        // so hazards sit flush with the floor visuals. Use Level::RaycastDown semantics
+        // by probing slightly above and asking Level (if available) — but Level isn't
+        // directly accessible here. We keep the position as given, but log a hint
+        // if Y==0 so callers can place hazards at floor height.
         obj_->SetTranslation(position_);
     }
 }
