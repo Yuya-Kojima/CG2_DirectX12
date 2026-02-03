@@ -51,13 +51,13 @@ void SceneManager::Update() {
     if (nextScene_) {
       transitionState_ = TransitionState::FadeOut;
       fade_.StartFadeOut(transitionDurationSec_, transitionFadeType_,
-                         transitionColor_);
+                         transitionColor_, transitionEasing_);
     }
   }
 
   // フェードアウト完了待ち
   if (transitionState_ == TransitionState::FadeOut) {
-    if (fade_.IsBlack()) {
+    if (fade_.IsCovered()) {
       transitionState_ = TransitionState::BlackHold;
       holdSec_ = 0.0f;
     }
@@ -89,11 +89,12 @@ void SceneManager::Update() {
     // フェードイン開始
     transitionState_ = TransitionState::FadeIn;
     fade_.StartFadeIn(transitionDurationSec_, transitionFadeType_,
-                      transitionColor_);
+                      transitionColor_, transitionEasing_);
 
     transitionDurationSec_ = 0.35f;
     transitionColor_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
     transitionFadeType_ = Fade::FadeType::Solid;
+    transitionEasing_ = Fade::EasingType::EaseInOutCubic;
   }
 
   // フェードイン完了待ち
@@ -120,6 +121,8 @@ void SceneManager::Draw() {
   engine_->Begin2D();
 
   fade_.Draw();
+
+  engine_->End2D();
 }
 
 void SceneManager::ChangeScene(const std::string &sceneName) {
@@ -141,8 +144,10 @@ void SceneManager::ChangeScene(const std::string &sceneName) {
 }
 
 void SceneManager::SetNextTransitionFade(float durationSec, Fade::FadeType type,
-                                         const Vector4 &color) {
+                                         const Vector4 &color,
+                                         Fade::EasingType easing) {
   transitionDurationSec_ = (std::max)(durationSec, 0.0001f);
   transitionFadeType_ = type;
   transitionColor_ = color;
+  transitionEasing_ = easing;
 }
