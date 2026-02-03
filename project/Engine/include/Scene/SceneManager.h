@@ -21,6 +21,7 @@ private:
   float transitionDurationSec_ = 0.35f;
   Vector4 transitionColor_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
   Fade::FadeType transitionFadeType_ = Fade::FadeType::Solid;
+  Fade::EasingType transitionEasing_ = Fade::EasingType::EaseOutCubic;
 
   float holdSec_ = 0.0f;
   float holdDurationSec_ = 0.20f;
@@ -48,8 +49,10 @@ public:
 
   void ChangeScene(const std::string &sceneName);
 
-  void SetNextTransitionFade(float durationSec, Fade::FadeType type,
-                             const Vector4 &color);
+  void SetNextTransitionFade(
+      float durationSec, Fade::FadeType type = Fade::FadeType::Solid,
+      const Vector4 &color = Vector4{0.0f, 0.0f, 0.0f, 1.0f},
+      Fade::EasingType easing = Fade::EasingType::EaseOutCubic);
 
 private:
   SceneManager() = default;

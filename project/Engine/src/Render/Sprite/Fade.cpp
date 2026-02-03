@@ -45,44 +45,24 @@ void Fade::Finalize() {
   color_ = Vector4{0.0f, 0.0f, 0.0f, 1.0f};
 }
 
-// void Fade::StartFadeOut(float durationSec) {
-//   if (!sprite_) {
-//     return;
-//   }
-//
-//   durationSec = (std::max)(durationSec, 0.0001f);
-//   state_ = State::FadingOut;
-//
-//   // 0→1 へ
-//   target_ = 1.0f;
-//   speed_ = 1.0f / durationSec;
-// }
-//
-// void Fade::StartFadeIn(float durationSec) {
-//   if (!sprite_) {
-//     return;
-//   }
-//
-//   durationSec = (std::max)(durationSec, 0.0001f);
-//   state_ = State::FadingIn;
-//
-//   // 1→0 へ
-//   target_ = 0.0f;
-//   speed_ = 1.0f / durationSec;
-//
-//   if (alpha_ <= 0.0f) {
-//     alpha_ = 1.0f;
-//     ApplyToSprite_();
-//   }
-// }
+void Fade::StartFadeOut(float durationSec) {
+  StartFadeOut(durationSec, type_, Vector4{0, 0, 0, 1},
+               EasingType::EaseOutCubic);
+}
 
-void Fade::StartFadeOut(float durationSec, FadeType type,
-                        const Vector4 &color) {
+void Fade::StartFadeIn(float durationSec) {
+  StartFadeIn(durationSec, type_, Vector4{0, 0, 0, 1},
+              EasingType::EaseOutCubic);
+}
+
+void Fade::StartFadeOut(float durationSec, FadeType type, const Vector4 &color,
+                        EasingType easing) {
   if (!sprite_)
     return;
 
   type_ = type;
   color_ = color;
+  easing_ = easing;
 
   durationSec = (std::max)(durationSec, 0.0001f);
   state_ = State::FadingOut;
@@ -92,13 +72,14 @@ void Fade::StartFadeOut(float durationSec, FadeType type,
   ApplyToSprite_();
 }
 
-void Fade::StartFadeIn(float durationSec, FadeType type, const Vector4 &color) {
-
+void Fade::StartFadeIn(float durationSec, FadeType type, const Vector4 &color,
+                       EasingType easing) {
   if (!sprite_)
     return;
 
   type_ = type;
   color_ = color;
+  easing_ = easing;
 
   durationSec = (std::max)(durationSec, 0.0001f);
   state_ = State::FadingIn;
@@ -110,14 +91,6 @@ void Fade::StartFadeIn(float durationSec, FadeType type, const Vector4 &color) {
   }
 
   ApplyToSprite_();
-}
-
-void Fade::StartFadeOut(float durationSec) {
-  StartFadeOut(durationSec, type_, Vector4{0, 0, 0, 1});
-}
-
-void Fade::StartFadeIn(float durationSec) {
-  StartFadeIn(durationSec, type_, Vector4{0, 0, 0, 1});
 }
 
 void Fade::Update(float deltaTime) {
@@ -170,9 +143,11 @@ Fade::Fade() = default;
 
 Fade::~Fade() = default;
 
-void Fade::ApplySolid_() {
+void Fade::ApplySolid_(float eased) {
+  sprite_->SetAnchorPoint({0.0f, 0.0f});
+
   Vector4 c = color_;
-  c.w = alpha_;
+  c.w = eased;
   sprite_->SetColor(c);
 
   // フルスクリーン
@@ -181,15 +156,60 @@ void Fade::ApplySolid_() {
       {float(WindowSystem::kClientWidth), float(WindowSystem::kClientHeight)});
 }
 
-void Fade::ApplyWipeLeft_() {
+void Fade::ApplyWipeLeft_(float eased) {
+  sprite_->SetAnchorPoint({0.0f, 0.0f});
+
   Vector4 c = color_;
   c.w = 1.0f;
   sprite_->SetColor(c);
 
-  float width = WindowSystem::kClientWidth * alpha_;
+  float width = WindowSystem::kClientWidth * eased;
 
+  // 左上から右に伸びる
   sprite_->SetPosition({0.0f, 0.0f});
   sprite_->SetSize({width, float(WindowSystem::kClientHeight)});
+}
+
+void Fade::ApplyWipeRight_(float eased) {
+  Vector4 c = color_;
+  c.w = 1.0f;
+  sprite_->SetColor(c);
+
+  float w = float(WindowSystem::kClientWidth) * eased;
+  float h = float(WindowSystem::kClientHeight);
+
+  // 右上から左に伸びる（右端を固定）
+  sprite_->SetAnchorPoint({1.0f, 0.0f});
+  sprite_->SetPosition({float(WindowSystem::kClientWidth), 0.0f});
+  sprite_->SetSize({w, h});
+}
+
+void Fade::ApplyWipeUp_(float eased) {
+  Vector4 c = color_;
+  c.w = 1.0f;
+  sprite_->SetColor(c);
+
+  float w = float(WindowSystem::kClientWidth);
+  float h = float(WindowSystem::kClientHeight) * eased;
+
+  // 下から上に伸びる（下端を固定）
+  sprite_->SetAnchorPoint({0.0f, 1.0f});
+  sprite_->SetPosition({0.0f, float(WindowSystem::kClientHeight)});
+  sprite_->SetSize({w, h});
+}
+
+void Fade::ApplyWipeDown_(float eased) {
+  Vector4 c = color_;
+  c.w = 1.0f;
+  sprite_->SetColor(c);
+
+  float w = float(WindowSystem::kClientWidth);
+  float h = float(WindowSystem::kClientHeight) * eased;
+
+  // 上から下に伸びる
+  sprite_->SetAnchorPoint({0.0f, 0.0f});
+  sprite_->SetPosition({0.0f, 0.0f});
+  sprite_->SetSize({w, h});
 }
 
 void Fade::ApplyToSprite_() {
@@ -197,17 +217,47 @@ void Fade::ApplyToSprite_() {
     return;
   }
 
+  float t = std::clamp(alpha_, 0.0f, 1.0f);
+  float eased = ApplyEasing_(t, easing_);
+
+  ApplyByType_(eased);
+}
+
+float Fade::ApplyEasing_(float t, EasingType easing) {
+  t = std::clamp(t, 0.0f, 1.0f);
+  switch (easing) {
+  case EasingType::Linear:
+    return t;
+  case EasingType::EaseOutCubic:
+    return EaseOutCubic(t);
+  case EasingType::EaseInOutCubic:
+    return EaseInOutCubic(t);
+  case EasingType::EaseOutQuint:
+    return EaseOutQuint(t);
+  }
+  return t;
+}
+
+void Fade::ApplyByType_(float eased) {
   switch (type_) {
   case FadeType::Solid:
-    ApplySolid_();
+    ApplySolid_(eased);
     break;
 
   case FadeType::WipeLeft:
-    ApplyWipeLeft_();
+    ApplyWipeLeft_(eased);
+    break;
+
+  case FadeType::WipeRight:
+    ApplyWipeRight_(eased);
+    break;
+
+  case FadeType::WipeUp:
+    ApplyWipeUp_(eased);
+    break;
+
+  case FadeType::WipeDown:
+    ApplyWipeDown_(eased);
     break;
   }
-
-  Vector4 c = color_;
-  c.w = alpha_;
-  sprite_->SetColor(c);
 }

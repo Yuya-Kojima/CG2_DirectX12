@@ -143,3 +143,46 @@ Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
 Matrix4x4 Transpose(Matrix4x4 matrix);
 
 static float DegToRad(float deg) { return deg * 3.14159265f / 180.0f; }
+
+//=========================
+// Easing
+//=========================
+
+// 線形
+inline float EaseLinear(float t) { return t; }
+
+// 加速
+inline float EaseInQuad(float t) { return t * t; }
+
+// 減速
+inline float EaseOutQuad(float t) { return 1.0f - (1.0f - t) * (1.0f - t); }
+
+// 加速 → 減速
+inline float EaseInOutQuad(float t) {
+  if (t < 0.5f) {
+    return 2.0f * t * t;
+  }
+  return 1.0f - std::pow(-2.0f * t + 2.0f, 2.0f) * 0.5f;
+}
+
+// -------- cubic --------
+inline float EaseInCubic(float t) { return t * t * t; }
+
+inline float EaseOutCubic(float t) {
+  float u = 1.0f - t;
+  return 1.0f - u * u * u;
+}
+
+inline float EaseInOutCubic(float t) {
+  if (t < 0.5f) {
+    return 4.0f * t * t * t;
+  }
+  float u = -2.0f * t + 2.0f;
+  return 1.0f - (u * u * u) * 0.5f;
+}
+
+// -------- quint --------
+inline float EaseOutQuint(float t) {
+  float u = 1.0f - t;
+  return 1.0f - u * u * u * u * u;
+}
