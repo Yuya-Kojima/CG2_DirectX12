@@ -90,25 +90,6 @@ void GamePlayScene::Initialize(EngineBase* engine)
 		level_->CreateFloorTiles();
 	}
 
-	// Debug: report how many objects were parsed from stage and list classes/ids
-	if (loaded) {
-		try {
-			Logger::Log(std::format("[StageDebug] loaded objects count={}\n", (int)sd.objects.size()));
-		}
-		catch (...) {
-			Logger::Log(std::string("[StageDebug] loaded objects count=") + std::to_string((int)sd.objects.size()) + "\n");
-		}
-		for (const auto& o : sd.objects) {
-			try {
-				Logger::Log(std::format("[StageDebug] object class='{}' id={} pos=({:.2f},{:.2f},{:.2f}) model='{}'\n",
-					o.className, o.id, o.position.x, o.position.y, o.position.z, o.model));
-			}
-			catch (...) {
-				Logger::Log(std::string("[StageDebug] object class='") + o.className + "' id=" + std::to_string(o.id) + "\n");
-			}
-		}
-	}
-
 	// --- フォールバック生成 (シーン側で個別初期化を行う) ---
 	static uint32_t nextId = 1;
 
@@ -143,7 +124,6 @@ void GamePlayScene::Initialize(EngineBase* engine)
 		player_->AttachCameraImmediate(camera_);
 		player_->SetId(nextId++);
 		player_->AttachLevel(level_);
-		Logger::Log("[Scene] Fallback: spawned Player\n");
 	}
 
 	// 棒(Stick)生成（フォールバック） - single default stick becomes one element in sticks_
@@ -159,14 +139,12 @@ void GamePlayScene::Initialize(EngineBase* engine)
 		s->SetLayer(CollisionMask::Item);
 		s->SetId(nextId++);
 		sticks_.push_back(s);
-		Logger::Log("[Scene] Fallback: spawned Stick\n");
 	}
 
 	// ゴール生成（フォールバック）
 	if (!goal_ && !stageHasGoal) {
 		goal_ = new Goal();
 		goal_->Initialize(engine_->GetObject3dRenderer(), { 8.0f, 0.0f, 0.0f });
-		Logger::Log("[Scene] Fallback: spawned Goal\n");
 	}
 
 	// NPC生成（フォールバック） - 同様の形式で作成
@@ -220,16 +198,6 @@ void GamePlayScene::Initialize(EngineBase* engine)
 		// デフォルトは単純直進させる（経路探索不要）
 		npc_->SetStraightDirection(desiredDir);
 		npc_->SetState(Npc::State::Straight);
-		try {
-			float sx = 0.0f, sy = 0.0f, sz = 0.0f;
-			if (!sticks_.empty() && sticks_[0]) { auto p = sticks_[0]->GetPosition(); sx = p.x; sy = p.y; sz = p.z; }
-			Logger::Log(std::format("[Scene] Fallback: spawned Npc pos=({:.2f},{:.2f},{:.2f}) straightDir=({:.2f},{:.2f},{:.2f}) stick=({:.2f},{:.2f},{:.2f})\n",
-				npPos.x, npPos.y, npPos.z, desiredDir.x, desiredDir.y, desiredDir.z, sx, sy, sz));
-		}
-		catch (...) {
-			Logger::Log(std::string("[Scene] Fallback: spawned Npc (format error)\n"));
-		}
-		Logger::Log("[Scene] Fallback: spawned Npc\n");
 	}
 
 	// --- ステージ情報のログ出力 ---
@@ -586,10 +554,10 @@ void GamePlayScene::Update()
 	misson2Sprite_->Update(uvMisson2SpriteTransform_);
 	operationSprite_->Update(uvOperationTransform_);
 
-	// Pキーでデバッグカメラをトグル
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
-		useDebugCamera_ = !useDebugCamera_;
-	}
+	//// Pキーでデバッグカメラをトグル
+	//if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
+	//	useDebugCamera_ = !useDebugCamera_;
+	//}
 
 	// --- 1. アクターと環境の更新 ---
 	if (player_)
@@ -1040,15 +1008,6 @@ void GamePlayScene::Update()
 				}
 			};
 
-		if (player_) {
-			if (checkHit(player_->GetPosition())) {
-				goalReached_ = true;
-				Logger::Log("Goal reached by Player!");
-				// ここで選択中ステージをクリア済みにマーク
-				StageSelection::SetCleared(StageSelection::GetSelected(), true);
-				SceneManager::GetInstance()->ChangeScene("CLEAR");
-			}
-		}
 		if (!goalReached_ && npc_) {
 			if (checkHit(npc_->GetPosition())) {
 				// When NPC reaches the goal, begin its return to spawn instead of
