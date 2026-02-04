@@ -50,6 +50,9 @@ private:
 	std::unique_ptr<Object3d> stageFloor4Object3d_;
 	std::unique_ptr<Object3d> stageFloor5Object3d_;
 
+	std::unique_ptr<Object3d> controls1Object3d_;
+	std::unique_ptr<Object3d> controls2Object3d_;
+
 	// ステージUI用Object3d (既存の単体保持は残す)
 	std::unique_ptr<Object3d> stageUIObject3d_;
 	// 単体設定用
@@ -136,4 +139,8 @@ private:
 	Vector3 transitionTargetScale_;
 	float transitionStartRotateYDeg_ = 0.0f;
 	float transitionSpinDeg_ = 720.0f;
+
+	// --- pad previous axis values (for trigger detection on axes) ---
+	// 左スティックの前フレーム X（左右選択判定用）
+	float prevPadLeftX_ = 0.0f;
 };

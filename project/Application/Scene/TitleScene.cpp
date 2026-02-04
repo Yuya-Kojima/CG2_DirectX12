@@ -2,6 +2,7 @@
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
 #include "Input/InputKeyState.h"
+#include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -193,6 +194,23 @@ void TitleScene::Initialize(EngineBase* engine)
 	Credits3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
 	Credits3d_->SetTranslation({ 0.0f, 2.1f, 0.0f });
 
+	// -- 操作方法用3Dオブジェクトの初期化 ---
+	ModelManager::GetInstance()->LoadModel("operation1_UI.obj");
+	controls1Object3d_ = std::make_unique<Object3d>();
+	controls1Object3d_->Initialize(engine_->GetObject3dRenderer());
+	controls1Object3d_->SetModel("operation1_UI.obj");
+	controls1Object3d_->SetScale({ 0.45f, 0.45f, 0.45f });
+	controls1Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	controls1Object3d_->SetTranslation({ 3.85f, -2.9f, 0.0f });
+
+	ModelManager::GetInstance()->LoadModel("operation3_UI.obj");
+	controls2Object3d_ = std::make_unique<Object3d>();
+	controls2Object3d_->Initialize(engine_->GetObject3dRenderer());
+	controls2Object3d_->SetModel("operation3_UI.obj");
+	controls2Object3d_->SetScale({ 0.45, 0.45, 0.45 });
+	controls2Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	controls2Object3d_->SetTranslation({ 3.85f, -2.9f, 0.0f });
+
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
 	skyObject3d_ = std::make_unique<Object3d>();
@@ -224,6 +242,9 @@ void TitleScene::Update()
 	// Sound更新
 	SoundManager::GetInstance()->Update();
 
+	// デバイス入力参照
+	auto* input = engine_->GetInputManager();
+
 	// 時間差分計算（dt: 秒）
 	auto now = std::chrono::steady_clock::now();
 	float dt = std::chrono::duration<float>(now - lastUpdateTime_).count();
@@ -234,11 +255,23 @@ void TitleScene::Update()
 	lastUpdateTime_ = now;
 
 	// ===========================
-	// 入力：選択（W / S）および決定（SPACE）
+	// 入力：選択（W / S）および決定（SPACE） + PAD
 	// ===========================
-	// W または S を押すと選択をトグル（0 <-> 1）
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_W) ||
-		engine_->GetInputManager()->IsTriggerKey(DIK_S)) {
+	// 左スティック Y の値取得（プレイヤー 0 のパッドを参照）
+	float leftY = input->Pad(0).GetLeftY();
+	constexpr float kPadAxisTrigger = 0.5f;
+
+	// W または S / 上下キー / DPad / 左スティック上下 を押すと選択をトグル（0 <-> 1）
+	if (input->IsTriggerKey(DIK_W) ||
+		input->IsTriggerKey(DIK_S) ||
+		input->IsTriggerKey(DIK_UP) ||
+		input->IsTriggerKey(DIK_DOWN) ||
+		// D-Pad 上下
+		input->IsPadTrigger(PadButton::DPadUp) ||
+		input->IsPadTrigger(PadButton::DPadDown) ||
+		// 左スティック上下の軸で瞬間的に倒した場合（閾値越えの瞬間を検出）
+		((leftY > kPadAxisTrigger && prevPadLeftY_ <= kPadAxisTrigger) ||
+			(leftY < -kPadAxisTrigger && prevPadLeftY_ >= -kPadAxisTrigger))) {
 		selectedButtonIndex_ = 1 - selectedButtonIndex_;
 
 		// イージング移動開始
@@ -252,8 +285,8 @@ void TitleScene::Update()
 		}
 	}
 
-	// 決定
-	if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
+	// 決定（SPACE または Aボタン）
+	if (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) {
 		if (creditsActive_) {
 			// クレジット表示中はスペースで戻る
 			creditsActive_ = false;
@@ -278,6 +311,9 @@ void TitleScene::Update()
 		}
 	}
 #endif
+
+	// 左スティックの前フレーム値を保存しておく（次フレームで瞬間越えを検出するため）
+	prevPadLeftY_ = leftY;
 
 	// 天球の更新
 	if (skyObject3d_) {
@@ -372,6 +408,14 @@ void TitleScene::Update()
 
 	if (Credits3d_) {
 		Credits3d_->Update();
+	}
+
+	if (controls1Object3d_) {
+		controls1Object3d_->Update();
+	}
+
+	if (controls2Object3d_) {
+		controls2Object3d_->Update();
 	}
 
 	if (pinObject3d_) {
@@ -587,24 +631,24 @@ void TitleScene::Update()
 	}
 
 	if (titleBotObject3d_) {
-		ImGui::Begin("titleBotObject3d_");
+		ImGui::Begin("controls1Object3d_");
 
 		// Translation
-		Vector3 trans = titleBotObject3d_->GetTranslation();
+		Vector3 trans = controls2Object3d_->GetTranslation();
 		float transf[3] = { trans.x, trans.y, trans.z };
 		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
-			titleBotObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+			controls2Object3d_->SetTranslation({ transf[0], transf[1], transf[2] });
 		}
 
 		// Rotation
-		Vector3 rot = titleBotObject3d_->GetRotation();
+		Vector3 rot = controls2Object3d_->GetRotation();
 		float rotDeg[3] = {
 			static_cast<float>(rot.x * 180.0f / 3.14159265f),
 			static_cast<float>(rot.y * 180.0f / 3.14159265f),
 			static_cast<float>(rot.z * 180.0f / 3.14159265f)
 		};
 		if (ImGui::DragFloat3("Rotation(deg)", rotDeg, 0.25f, -360.0f, 360.0f)) {
-			titleBotObject3d_->SetRotation({
+			controls2Object3d_->SetRotation({
 				DegToRad(rotDeg[0]),
 				DegToRad(rotDeg[1]),
 				DegToRad(rotDeg[2])
@@ -612,10 +656,10 @@ void TitleScene::Update()
 		}
 
 		// Scale
-		Vector3 scale = titleBotObject3d_->GetScale();
+		Vector3 scale = controls2Object3d_->GetScale();
 		float scalef[3] = { scale.x, scale.y, scale.z };
 		if (ImGui::DragFloat3("Scale", scalef, 0.01f, 0.001f, 100.0f)) {
-			titleBotObject3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
+			controls2Object3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
 		}
 		ImGui::End();
 	}
@@ -690,6 +734,8 @@ void TitleScene::Draw3D()
 		skyObject3d_->Draw();
 	}
 
+
+
 	// クレジット表示中はタイトルとピンを非表示にする
 	if (!creditsActive_) {
 		// タイトル3Dモデルを描画
@@ -705,7 +751,7 @@ void TitleScene::Draw3D()
 		if (titleObject3d_) {
 			titleObject3d_->Draw();
 		}
-		
+
 		// 選択中のボタンのみ描画する
 		if (selectedButtonIndex_ == 0) {
 			if (button1Object3d_) {
@@ -721,10 +767,19 @@ void TitleScene::Draw3D()
 		if (pinObject3d_) {
 			pinObject3d_->Draw();
 		}
+
+		if (controls1Object3d_) {
+			controls1Object3d_->Draw();
+		}
+
 	} else {
 		// クレジット表示中：ボタン等を描画しない（必要ならここにクレジット専用描画を追加）
 		if (Credits3d_) {
 			Credits3d_->Draw();
+		}
+
+		if (controls2Object3d_) {
+			controls2Object3d_->Draw();
 		}
 	}
 
