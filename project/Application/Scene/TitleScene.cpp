@@ -194,6 +194,15 @@ void TitleScene::Initialize(EngineBase* engine)
 	Credits3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
 	Credits3d_->SetTranslation({ 0.0f, 2.1f, 0.0f });
 
+	//-- クレジット用2Dオブジェクトの初期化 ---
+	ModelManager::GetInstance()->LoadModel("Credits_Sounds.obj");
+	CreditsSounds3d_ = std::make_unique<Object3d>();
+	CreditsSounds3d_->Initialize(engine_->GetObject3dRenderer());
+	CreditsSounds3d_->SetModel("Credits_Sounds.obj");
+	CreditsSounds3d_->SetScale({ 2.0f, 2.0f, 2.0f });
+	CreditsSounds3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	CreditsSounds3d_->SetTranslation({ 0.0f, -0.3f, 0.0f });
+
 	// -- 操作方法用3Dオブジェクトの初期化 ---
 	ModelManager::GetInstance()->LoadModel("operation1_UI.obj");
 	controls1Object3d_ = std::make_unique<Object3d>();
@@ -225,10 +234,31 @@ void TitleScene::Initialize(EngineBase* engine)
 	//===========================
 	// パーティクル関係の初期化
 	//===========================
+	// (現状特になし)
+
+	//===========================
+	// オーディオ：BGM/SEの読み込みと再生
+	//===========================
+
+	auto* sm = SoundManager::GetInstance();
+	// キー名は "title_bgm" / "title_se"
+	// resources配下のファイルを指定
+	sm->Load("title_bgm", "resources/sounds/BGM/TitleBGM.mp3");
+	sm->Load("select_se", "resources/sounds/SE/select.mp3");
+	sm->Load("push_se", "resources/sounds/SE/push.mp3");
+	// タイトル開始時にBGMをループ再生
+	sm->PlayBGM("title_bgm");
+
 }
 
 void TitleScene::Finalize()
 {
+	auto* sm = SoundManager::GetInstance();
+	sm->StopAllSE();
+	// 登録したキーをアンロード
+	sm->Unload("push_se");
+	sm->Unload("select_se");
+
 	delete debugCamera_;
 	debugCamera_ = nullptr;
 
@@ -274,6 +304,8 @@ void TitleScene::Update()
 			(leftY < -kPadAxisTrigger && prevPadLeftY_ >= -kPadAxisTrigger))) {
 		selectedButtonIndex_ = 1 - selectedButtonIndex_;
 
+		SoundManager::GetInstance()->PlaySE("select_se");
+
 		// イージング移動開始
 		if (pinObject3d_) {
 			pinStartTranslation_ = pinObject3d_->GetTranslation();
@@ -287,6 +319,9 @@ void TitleScene::Update()
 
 	// 決定（SPACE または Aボタン）
 	if (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) {
+		// SE 再生（押下判定時に鳴らす）
+		SoundManager::GetInstance()->PlaySE("push_se");
+
 		if (creditsActive_) {
 			// クレジット表示中はスペースで戻る
 			creditsActive_ = false;
@@ -396,8 +431,6 @@ void TitleScene::Update()
 		titleBotObject3d_->Update();
 	}
 
-	// titleBot1Object3d_ は描画しない運用（生成は残すが Update は不要）
-
 	if (button1Object3d_) {
 		button1Object3d_->Update();
 	}
@@ -408,6 +441,10 @@ void TitleScene::Update()
 
 	if (Credits3d_) {
 		Credits3d_->Update();
+	}
+
+	if (CreditsSounds3d_) {
+		CreditsSounds3d_->Update();
 	}
 
 	if (controls1Object3d_) {
@@ -630,25 +667,25 @@ void TitleScene::Update()
 		ImGui::End();
 	}
 
-	if (titleBotObject3d_) {
-		ImGui::Begin("controls1Object3d_");
+	if (CreditsSounds3d_) {
+		ImGui::Begin("CreditsSounds3d_");
 
 		// Translation
-		Vector3 trans = controls2Object3d_->GetTranslation();
+		Vector3 trans = CreditsSounds3d_->GetTranslation();
 		float transf[3] = { trans.x, trans.y, trans.z };
 		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
-			controls2Object3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+			CreditsSounds3d_->SetTranslation({ transf[0], transf[1], transf[2] });
 		}
 
 		// Rotation
-		Vector3 rot = controls2Object3d_->GetRotation();
+		Vector3 rot = CreditsSounds3d_->GetRotation();
 		float rotDeg[3] = {
 			static_cast<float>(rot.x * 180.0f / 3.14159265f),
 			static_cast<float>(rot.y * 180.0f / 3.14159265f),
 			static_cast<float>(rot.z * 180.0f / 3.14159265f)
 		};
 		if (ImGui::DragFloat3("Rotation(deg)", rotDeg, 0.25f, -360.0f, 360.0f)) {
-			controls2Object3d_->SetRotation({
+			CreditsSounds3d_->SetRotation({
 				DegToRad(rotDeg[0]),
 				DegToRad(rotDeg[1]),
 				DegToRad(rotDeg[2])
@@ -656,10 +693,10 @@ void TitleScene::Update()
 		}
 
 		// Scale
-		Vector3 scale = controls2Object3d_->GetScale();
+		Vector3 scale = CreditsSounds3d_->GetScale();
 		float scalef[3] = { scale.x, scale.y, scale.z };
 		if (ImGui::DragFloat3("Scale", scalef, 0.01f, 0.001f, 100.0f)) {
-			controls2Object3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
+			CreditsSounds3d_->SetScale({ scalef[0], scalef[1], scalef[2] });
 		}
 		ImGui::End();
 	}
@@ -780,6 +817,10 @@ void TitleScene::Draw3D()
 
 		if (controls2Object3d_) {
 			controls2Object3d_->Draw();
+		}
+
+		if (CreditsSounds3d_) {
+			CreditsSounds3d_->Draw();
 		}
 	}
 
