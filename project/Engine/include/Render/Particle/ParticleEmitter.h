@@ -52,6 +52,12 @@ public:
 
   void SetColor(const Vector4 &color) { color_ = color; }
 
+  void SetBaseScale(const Vector3 &s) { baseScale_ = s; }
+  void SetScaleRandom(const Vector3 &s) { scaleRandom_ = s; }
+
+  void SetBaseRotate(const Vector3 &r) { baseRotate_ = r; }
+  void SetRotateRandom(const Vector3 &r) { rotateRandom_ = r; }
+
 private:
   std::string name_;
   Vector3 center_;   // 中心座標
@@ -67,4 +73,8 @@ private:
   float lifeMax_;
 
   Vector4 color_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  Vector3 baseScale_{1.0f, 1.0f, 1.0f};
+  Vector3 scaleRandom_{};
+  Vector3 baseRotate_{};
+  Vector3 rotateRandom_{};
 };

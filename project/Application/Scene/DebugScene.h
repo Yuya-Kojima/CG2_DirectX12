@@ -61,6 +61,7 @@ private: // メンバ変数(ゲーム用)
 
   std::unique_ptr<ParticleEmitter> particleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> clearParticleEmitter_ = nullptr;
+  std::unique_ptr<ParticleEmitter> hitParticleEmitter_ = nullptr;
 
 public: // メンバ関数
   /// <summary>
