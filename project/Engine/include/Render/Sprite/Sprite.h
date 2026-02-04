@@ -111,13 +111,15 @@ private:
 
 private:
   Transform transform_{
-      {640.0f, 360.0f, 1.0f},
+      {1.0f, 1.0f, 1.0f},
       {0.0f, 0.0f, 0.0f},
       {0.0f, 0.0f, 0.0f},
   };
 
   // アンカーポイント
   Vector2 anchorPoint = {0.0f, 0.0f};
+
+  Vector2 size_{100.0f, 100.0f};
 
 public:
   /// <summary>
@@ -133,7 +135,8 @@ public:
   /// </summary>
   /// <param name="position"></param>
   void SetPosition(const Vector2 &position) {
-    transform_.translate = {position.x, position.y, 0.0f};
+    transform_.translate.x = position.x;
+    transform_.translate.y = position.y;
   }
 
   /// <summary>
@@ -146,8 +149,18 @@ public:
   /// rotationのセッター
   /// </summary>
   /// <param name="rotation"></param>
-  void SetRotation(float rotation) {
-    transform_.rotate = {0.0f, 0.0f, rotation};
+  void SetRotation(float rotation) { transform_.rotate.z = rotation; }
+
+  /// <summary>
+  /// scale のゲッター（倍率）
+  /// </summary>
+  Vector2 GetScale() const { return {transform_.scale.x, transform_.scale.y}; }
+
+  /// <summary>
+  /// scale のセッター（倍率）
+  /// </summary>
+  void SetScale(const Vector2 &scale) {
+    transform_.scale = {scale.x, scale.y, 1.0f};
   }
 
   /// <summary>
@@ -167,19 +180,24 @@ public:
     materialData->color = color;
   }
 
-  /// <summary>
-  /// sizeのゲッター
-  /// </summary>
-  /// <returns></returns>
-  Vector2 GetSize() const { return {transform_.scale.x, transform_.scale.y}; }
+  ///// <summary>
+  ///// sizeのゲッター
+  ///// </summary>
+  ///// <returns></returns>
+  // Vector2 GetSize() const { return {transform_.scale.x, transform_.scale.y};
+  // }
 
-  /// <summary>
-  /// sizeのセッター
-  /// </summary>
-  /// <param name="position"></param>
-  void SetSize(const Vector2 &size) {
-    transform_.scale = {size.x, size.y, 1.0f};
-  }
+  ///// <summary>
+  ///// sizeのセッター
+  ///// </summary>
+  ///// <param name="position"></param>
+  // void SetSize(const Vector2 &size) {
+  //   transform_.scale = {size.x, size.y, 1.0f};
+  // }
+
+  Vector2 GetSize() const { return size_; }
+
+  void SetSize(const Vector2 &size) { size_ = size; }
 
   /// <summary>
   /// アンカーポイントのゲッター
