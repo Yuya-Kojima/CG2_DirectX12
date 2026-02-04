@@ -91,8 +91,20 @@ private:
 	bool haveLastSafePlayerPos_ = false;
 	// (probe removed) 
 
-	  // 天球（スカイドーム）
+	 // 天球（スカイドーム）
 	std::unique_ptr<Object3d> skyObject3d_;
 	float skyScale_ = 1.0f;
 	float skyRotate_ = 0.0f;
+
+	std::unique_ptr<Sprite> missonSprite_ = nullptr;
+	Transform uvMissonfontSpriteTransform_{};
+
+	std::unique_ptr<Sprite> misson1Sprite_ = nullptr;
+	Transform uvMisson1SpriteTransform_{};
+
+	std::unique_ptr<Sprite> misson2Sprite_ = nullptr;
+	Transform uvMisson2SpriteTransform_{};
+
+	std::unique_ptr<Sprite> operationSprite_ = nullptr;
+	Transform uvOperationTransform_{};
 };
