@@ -80,6 +80,7 @@ private:
 
 	// クレジット用3Dオブジェクト
 	std::unique_ptr<Object3d> Credits3d_;
+	std::unique_ptr<Object3d> CreditsSounds3d_;
 
 	// 操作方法用3Dオブジェクト
 	std::unique_ptr<Object3d> controls1Object3d_;

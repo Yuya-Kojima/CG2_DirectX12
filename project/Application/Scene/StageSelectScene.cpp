@@ -1,5 +1,6 @@
 #define NOMINMAX
 #include "StageSelectScene.h"
+#include "Audio/SoundManager.h"
 #include "Scene/SceneManager.h"
 #include "Scene/StageSelection.h"
 #include "Input/Input.h"
@@ -327,10 +328,28 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	const float degToRad = 3.14159265358979323846f / 180.0f;
 	playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 	playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
+
+	//===========================
+	// オーディオ：BGM/SEの読み込みと再生
+	//===========================
+	auto* sm = SoundManager::GetInstance();
+	sm->Load("select_se", "resources/sounds/SE/select.mp3");
+	sm->Load("push_se", "resources/sounds/SE/push.mp3");
 }
 
 void StageSelectScene::Finalize()
 {
+	// オーディオ停止・解放
+
+	auto* sm = SoundManager::GetInstance();
+	sm->StopBGM();
+	sm->StopAllSE();
+	// 登録したキーをアンロード
+	sm->Unload("title_bgm");
+	sm->Unload("push_se");
+	sm->Unload("select_se");
+
+
 	// オブジェクトを解放
 	stage1Object3d_.reset();
 	stage2Object3d_.reset();
@@ -516,6 +535,8 @@ void StageSelectScene::Update()
 			((leftX < -kPadAxisTrigger && prevPadLeftX_ >= -kPadAxisTrigger) ||
 				(leftX > kPadAxisTrigger && prevPadLeftX_ <= kPadAxisTrigger))) {
 
+			SoundManager::GetInstance()->PlaySE("select_se");
+
 			int prevIndex = currentIndex_;
 			int newIndex = prevIndex;
 
@@ -670,6 +691,10 @@ void StageSelectScene::Update()
 
 	// SPACEで決定 -> 下に吸い込まれる遷移アニメ開始
 	if (!playerMoving_ && (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) && !transitionActive_) {
+		
+		// SE 再生（押下判定時に鳴らす）
+		SoundManager::GetInstance()->PlaySE("push_se");
+
 		transitionActive_ = true;
 		transitionTimer_ = 0.0f;
 		transitionDuration_ = 0.9f; // 調整可
@@ -687,6 +712,8 @@ void StageSelectScene::Update()
 
 	// Escでタイトルへ戻る（コントローラ：Startボタンも追加）
 	if (input->IsTriggerKey(DIK_ESCAPE) || input->IsPadTrigger(PadButton::Start)) {
+		// SE 再生（押下判定時に鳴らす）
+		SoundManager::GetInstance()->PlaySE("push_se");
 		SceneManager::GetInstance()->ChangeScene("TITLE");
 	}
 
