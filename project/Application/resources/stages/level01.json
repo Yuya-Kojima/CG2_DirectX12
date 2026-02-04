@@ -26,6 +26,7 @@
     { "type": "actor", "class": "Hazard", "model": "neadle.obj", "position": [0.0, 0.0, 2.0], "id": 1001 },
     { "type": "actor", "class": "floor", "model": "floor.obj", "position": [4.0, 1.0, 0.0], "scale": [2.0, 2.0, 1.0], "id": 3001 },
     { "type": "actor", "class": "Npc", "model": "npc.obj", "position": [-10.0, 0.0, 2.0], "id": 2001, "properties": { "behavior": "gotoGoal" } },
+    { "type": "actor", "class": "spawn", "model": "spawn.obj", "position": [-10.0, 0.0, 2.0], "id": 2101 },
     { "type": "actor", "class": "Goal", "model": "goal.obj", "position": [8.0, 0.0, 2.0], "id": 2002,
       "obbCenter": [8.0, 0.0, 0.0], "obbHalfExtents": [1.2, 1.0, 1.2], "obbYaw": 0.0 },
     { "type": "actor", "class": "Stick", "model": "stick.obj", "position": [-4.0, 0.0, 2.0], "id": 2003,

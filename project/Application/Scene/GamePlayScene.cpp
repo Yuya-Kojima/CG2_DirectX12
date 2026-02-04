@@ -24,6 +24,7 @@
 #include "Sprite/Sprite.h"
 #include "Stage/StageLoader.h"
 #include "Texture/TextureManager.h"
+#include "Model/ModelManager.h"
 #ifdef USE_IMGUI
 #include "Debug/ImGuiManager.h"
 #include "imgui.h"
@@ -326,8 +327,27 @@ void GamePlayScene::Initialize(EngineBase* engine)
                             npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
                             npc_->SetState(Npc::State::Straight);
                         }
-                        Logger::Log("Stage: spawned Npc from JSON");
+                    Logger::Log("Stage: spawned Npc from JSON");
                     }
+                }
+                else if (cls == "spawn" || (!o.model.empty() && o.model.find("spawn") != std::string::npos)) {
+                    std::string modelName = o.model.empty() ? std::string("spawn.obj") : o.model;
+                    ModelManager::GetInstance()->LoadModel(modelName);
+                    auto marker = std::make_unique<Object3d>();
+                    marker->Initialize(engine_->GetObject3dRenderer());
+                    marker->SetModel(modelName);
+                    // adjust marker Y to sit above ground so it's visible
+                    Vector3 pos = o.position;
+                    marker->SetTranslation(pos);
+                    marker->SetScale({ 1.0f, 1.0f, 1.0f });
+                    marker->SetEnableLighting(false);
+                    marker->SetColor(Vector4{1.0f, 1.0f, 1.0f, 1.0f});
+                    try {
+                        Logger::Log(std::format("[Scene] spawn marker created at ({:.2f},{:.2f},{:.2f})\n", pos.x, pos.y, pos.z));
+                    } catch (...) {
+                        Logger::Log(std::string("[Scene] spawn marker created at (") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + ")\n");
+                    }
+                    spawnMarkers_.push_back(std::move(marker));
                 } else if (cls == "player") {
                     if (!player_) {
                         player_ = new Player();
@@ -421,6 +441,10 @@ void GamePlayScene::Initialize(EngineBase* engine)
     skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
     skyObject3d_->SetEnableLighting(false);
     skyObject3d_->SetColor(Vector4{ 3.0f,3.0f,3.0f,1.0f });
+
+    // --- spawn marker model: try to load a model named spawn.obj (optional)
+    // We'll create markers for NPC spawn points found in JSON objects
+    ModelManager::GetInstance()->LoadModel("spawn.obj");
 
     auto* sm = SoundManager::GetInstance();
     // キー名は "title_bgm" / "title_se"
@@ -854,6 +878,11 @@ void GamePlayScene::Update()
         skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
         skyObject3d_->Update();
     }
+    
+    // update spawn markers
+    for (auto &m : spawnMarkers_) {
+        if (m) m->Update();
+    }
 
 #ifdef USE_IMGUI
     // ImGui: stick debug window (scene-local toggle)
@@ -987,6 +1016,11 @@ void GamePlayScene::Draw3D()
 
     if (skyObject3d_) {
         skyObject3d_->Draw();
+    }
+
+    // draw spawn markers (if any)
+    for (auto &m : spawnMarkers_) {
+        if (m) m->Draw();
     }
 
     // 描画順：レベル環境 -> 各種アクター

@@ -4,6 +4,7 @@
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
 #include <vector>
+#include <memory>
 
 class Sprite;
 class Object3d;
@@ -95,4 +96,6 @@ private:
 	std::unique_ptr<Object3d> skyObject3d_;
 	float skyScale_ = 1.0f;
 	float skyRotate_ = 0.0f;
+    // SPAWN マーカー表示用のオブジェクト
+    std::vector<std::unique_ptr<Object3d>> spawnMarkers_;
 };
