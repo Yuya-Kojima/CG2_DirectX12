@@ -141,5 +141,9 @@
     <None Include="cpp.hint" />
     <None Include="resources\shaders\Sprite.hlsli" />
     <None Include="resources\stages\level01.json" />
+    <None Include="resources\stages\level02.json" />
+    <None Include="resources\stages\level03.json" />
+    <None Include="resources\stages\level04.json" />
+    <None Include="resources\stages\level05.json" />
   </ItemGroup>
 </Project>
