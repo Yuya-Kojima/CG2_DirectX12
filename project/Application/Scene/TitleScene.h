@@ -81,6 +81,10 @@ private:
 	// クレジット用3Dオブジェクト
 	std::unique_ptr<Object3d> Credits3d_;
 
+	// 操作方法用3Dオブジェクト
+	std::unique_ptr<Object3d> controls1Object3d_;
+	std::unique_ptr<Object3d> controls2Object3d_;
+
 	// 天球（スカイドーム）
 	std::unique_ptr<Object3d> skyObject3d_;
 	float skyScale_ = 1.0f;
@@ -138,4 +142,8 @@ private:
 	float titleBotSpeed_ = 2.0f; // world units / sec（等速）
 	int titleBotDirection_ = -1; // -1 = 左へ, +1 = 右へ
 	bool titleBotIsMoving_ = false;
+
+	// --- pad previous axis values (for trigger detection on axes) ---
+	// 左スティックの前フレーム Y（タイトル：上下入力判定用）
+	float prevPadLeftY_ = 0.0f;
 };

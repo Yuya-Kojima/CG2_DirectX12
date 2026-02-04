@@ -2,6 +2,7 @@
 #include "StageSelectScene.h"
 #include "Scene/SceneManager.h"
 #include "Scene/StageSelection.h"
+#include "Input/Input.h"
 #include "Input/InputKeyState.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Camera/GameCamera.h"
@@ -214,6 +215,23 @@ void StageSelectScene::Initialize(EngineBase* engine)
 		applyIfCleared(i);
 	}
 
+	// -- 操作方法用3Dオブジェクトの初期化 ---
+	ModelManager::GetInstance()->LoadModel("operation2_UI.obj");
+	controls1Object3d_ = std::make_unique<Object3d>();
+	controls1Object3d_->Initialize(engine_->GetObject3dRenderer());
+	controls1Object3d_->SetModel("operation2_UI.obj");
+	controls1Object3d_->SetScale({ 0.45f, 0.45f, 0.45f });
+	controls1Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	controls1Object3d_->SetTranslation({ 0.0f,  0.0f, 0.0f });
+
+	ModelManager::GetInstance()->LoadModel("operation4_UI.obj");
+	controls2Object3d_ = std::make_unique<Object3d>();
+	controls2Object3d_->Initialize(engine_->GetObject3dRenderer());
+	controls2Object3d_->SetModel("operation4_UI.obj");
+	controls2Object3d_->SetScale({ 0.45, 0.45, 0.45 });
+	controls2Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	controls2Object3d_->SetTranslation({ 0.0f,  0.0f, 0.0f });
+
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
 	skyObject3d_ = std::make_unique<Object3d>();
@@ -347,29 +365,7 @@ void StageSelectScene::Update()
 
 	} else {
 		if (camera_) {
-			// --- カメラを目標に向かって滑らかに補間 ---
-			{
-				const float dtLocal = dt;
-				float alpha = std::min(1.0f, cameraMoveSpeed_ * dtLocal);
-
-				if (cameraMoving_) {
-					for (int i = 0; i < 3; ++i) {
-						float diff = cameraTargetTranslate_[i] - cameraTranslate_[i];
-						cameraTranslate_[i] += diff * alpha;
-					}
-					float dx = cameraTargetTranslate_[0] - cameraTranslate_[0];
-					float dy = cameraTargetTranslate_[1] - cameraTranslate_[1];
-					float dz = cameraTargetTranslate_[2] - cameraTranslate_[2];
-					float distSq = dx * dx + dy * dy + dz * dz;
-					if (distSq <= cameraSnapThreshold_ * cameraSnapThreshold_) {
-						cameraTranslate_[0] = cameraTargetTranslate_[0];
-						cameraTranslate_[1] = cameraTargetTranslate_[1];
-						cameraTranslate_[2] = cameraTargetTranslate_[2];
-						cameraMoving_ = false;
-					}
-				}
-			}
-
+			// 固定カメラ: 補間やターゲット追従は行わない
 			camera_->SetTranslate({ cameraTranslate_[0], cameraTranslate_[1], cameraTranslate_[2] });
 			camera_->SetRotate({ cameraRotateDeg_[0] * degToRad, cameraRotateDeg_[1] * degToRad, cameraRotateDeg_[2] * degToRad });
 			camera_->Update();
@@ -410,6 +406,13 @@ void StageSelectScene::Update()
 		stageFloor5Object3d_->Update();
 	}
 
+	if (controls1Object3d_) {
+		controls1Object3d_->Update();
+	}
+
+	if (controls2Object3d_) {
+		controls2Object3d_->Update();
+	}
 
 	for (auto& uiObj : stageUIObjects_) {
 		if (uiObj) {
@@ -501,30 +504,33 @@ void StageSelectScene::Update()
 	// --- 通常入力（ステージ切替等） ---
 	if (playerObject3d_) {
 		// 左右キーでのステージ切替（共通処理）
+		// 左スティック X 値を取得して閾値越えの瞬間を検出
+		float leftX = input->Pad(0).GetLeftX();
+		constexpr float kPadAxisTrigger = 0.5f;
+
 		if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT) ||
-			input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
+			input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT) ||
+			// D-Pad 左右
+			input->IsPadTrigger(PadButton::DPadLeft) || input->IsPadTrigger(PadButton::DPadRight) ||
+			// 左スティック左右の瞬間的倒し（閾値越え）
+			((leftX < -kPadAxisTrigger && prevPadLeftX_ >= -kPadAxisTrigger) ||
+			 (leftX > kPadAxisTrigger && prevPadLeftX_ <= kPadAxisTrigger))) {
 
 			int prevIndex = currentIndex_;
 			int newIndex = prevIndex;
 
-			if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT)) {
+			// 左方向
+			if (input->IsTriggerKey(DIK_A) || input->IsTriggerKey(DIK_LEFT) || input->IsPadTrigger(PadButton::DPadLeft) || (leftX < -kPadAxisTrigger && prevPadLeftX_ >= -kPadAxisTrigger)) {
 				newIndex = (prevIndex > 0) ? prevIndex - 1 : static_cast<int>(options_.size()) - 1;
 			}
-			if (input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT)) {
+			// 右方向
+			if (input->IsTriggerKey(DIK_D) || input->IsTriggerKey(DIK_RIGHT) || input->IsPadTrigger(PadButton::DPadRight) || (leftX > kPadAxisTrigger && prevPadLeftX_ <= kPadAxisTrigger)) {
 				newIndex = (prevIndex + 1) % static_cast<int>(options_.size());
 			}
 
 			currentIndex_ = newIndex;
 			const Vector3& sp = stagePositions_[static_cast<size_t>(currentIndex_)];
-			const int n = static_cast<int>(options_.size());
-
-			if ((prevIndex == 4 && newIndex == 5) || (prevIndex == 0 && newIndex == n - 1)) {
-				cameraTargetTranslate_[0] = 100.0f;
-				cameraMoving_ = true;
-			} else if ((prevIndex == 5 && newIndex == 4) || (prevIndex == n - 1 && newIndex == 0)) {
-				cameraTargetTranslate_[0] = 0.0f;
-				cameraMoving_ = true;
-			}
+			// カメラ移動は不要なので cameraTargetTranslate_/cameraMoving_ の更新は行わない
 
 			playerTargetTranslate_ = { sp.x + playerXOffset_, sp.y, sp.z };
 			playerMoving_ = true;
@@ -663,7 +669,7 @@ void StageSelectScene::Update()
 	}
 
 	// SPACEで決定 -> 下に吸い込まれる遷移アニメ開始
-	if (!playerMoving_ && input->IsTriggerKey(DIK_SPACE) && !transitionActive_) {
+	if (!playerMoving_ && (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) && !transitionActive_) {
 		transitionActive_ = true;
 		transitionTimer_ = 0.0f;
 		transitionDuration_ = 0.9f; // 調整可
@@ -679,13 +685,16 @@ void StageSelectScene::Update()
 		transitionSpinDeg_ = 1080.0f; // スピン量
 	}
 
-	// Escでタイトルへ戻る
-	if (input->IsTriggerKey(DIK_ESCAPE)) {
+	// Escでタイトルへ戻る（コントローラ：Startボタンも追加）
+	if (input->IsTriggerKey(DIK_ESCAPE) || input->IsPadTrigger(PadButton::Start)) {
 		SceneManager::GetInstance()->ChangeScene("TITLE");
 	}
 
 	// Update prev flag
 	prevPlayerMoving_ = playerMoving_;
+
+	// 左スティック前フレーム値を保存（左右入力の瞬間判定用）
+	prevPadLeftX_ = input->Pad(0).GetLeftX();
 
 	// 天球の更新
 	if (skyObject3d_) {
@@ -845,6 +854,13 @@ void StageSelectScene::Draw3D()
 		stage3Object3d_->Draw();
 	}
 
+	if (controls1Object3d_) {
+		controls1Object3d_->Draw();
+	}
+
+	if (controls2Object3d_) {
+		controls2Object3d_->Draw();
+	}
 
 	// 現状プレイヤーがいるステージのUIのみ描画
 	if (!stageUIObjects_.empty()) {
