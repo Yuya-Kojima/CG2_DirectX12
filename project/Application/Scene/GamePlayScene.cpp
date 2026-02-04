@@ -522,6 +522,8 @@ void GamePlayScene::Update()
     if (npc_ && npc_->IsReturning() && npc_->HasReturnedToSpawn() && !goalReached_) {
         goalReached_ = true;
         Logger::Log("Goal reached by NPC (returned to spawn)!");
+        // ここで選択中ステージをクリア済みにマーク
+        StageSelection::SetCleared(StageSelection::GetSelected(), true);
         SceneManager::GetInstance()->ChangeScene("DEBUG");
     }
 
@@ -924,6 +926,8 @@ void GamePlayScene::Update()
             if (checkHit(player_->GetPosition())) {
                 goalReached_ = true;
                 Logger::Log("Goal reached by Player!");
+                // ここで選択中ステージをクリア済みにマーク
+                StageSelection::SetCleared(StageSelection::GetSelected(), true);
                 SceneManager::GetInstance()->ChangeScene("DEBUG");
             }
         }

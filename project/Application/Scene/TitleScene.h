@@ -78,6 +78,9 @@ private:
 	// ピン用3Dオブジェクト
 	std::unique_ptr<Object3d> pinObject3d_;
 
+	// クレジット用3Dオブジェクト
+	std::unique_ptr<Object3d> Credits3d_;
+
 	// 天球（スカイドーム）
 	std::unique_ptr<Object3d> skyObject3d_;
 	float skyScale_ = 1.0f;
