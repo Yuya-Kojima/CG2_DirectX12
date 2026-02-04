@@ -34,7 +34,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // Audioファイルを登録
   sm->Load("mokugyo", "resources/mokugyo.wav");
-  sm->Load("se", "resources/se.mp3");
+  sm->Load("se", "resources/fanfare.wav");
 
   // bgm再生
   sm->PlayBGM("mokugyo");
@@ -248,6 +248,11 @@ void DebugScene::Update() {
     SoundManager::GetInstance()->PlaySE("se");
   }
 
+  // Bキーで重複不可のSE
+  if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::B)) {
+    SoundManager::GetInstance()->PlaySE_Once("se");
+  }
+
   //=======================
   // スプライトの更新
   //=======================
@@ -274,7 +279,7 @@ void DebugScene::Update() {
     sprites_[i]->SetSize(spriteSizes_[i]);
   }
 
-  sprites_[0]->SetScale(Vector2{1.5f,1.5f});
+  sprites_[0]->SetScale(Vector2{1.5f, 1.5f});
 
   sprite_->Update(uvTransformSprite_);
 
