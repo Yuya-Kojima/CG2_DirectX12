@@ -143,18 +143,19 @@ void GamePlayScene::Initialize(EngineBase* engine)
         Logger::Log("[Scene] Fallback: spawned Player\n");
     }
 
-    // 棒(Stick)生成（フォールバック）
-    if (!stick_ && !stageHasStick) {
+    // 棒(Stick)生成（フォールバック） - single default stick becomes one element in sticks_
+    if (sticks_.empty() && !stageHasStick) {
         Vector3 sp = { 0.0f, 0.1f, 2.0f };
         if (player_) {
             const Vector3& pp = player_->GetPosition();
             sp = { pp.x + 0.6f, pp.y + 0.1f, pp.z + 0.6f };
         }
-        stick_ = new Stick();
-        stick_->Initialize(engine_->GetObject3dRenderer(), sp);
-        stick_->SetLevel(level_);
-        stick_->SetLayer(CollisionMask::Item);
-        stick_->SetId(nextId++);
+        Stick* s = new Stick();
+        s->Initialize(engine_->GetObject3dRenderer(), sp);
+        s->SetLevel(level_);
+        s->SetLayer(CollisionMask::Item);
+        s->SetId(nextId++);
+        sticks_.push_back(s);
         Logger::Log("[Scene] Fallback: spawned Stick\n");
     }
 
@@ -179,31 +180,31 @@ void GamePlayScene::Initialize(EngineBase* engine)
         // will move toward the stick and collide with it. Set straight direction
         // toward the stick.
         Vector3 desiredDir = { 1.0f, 0.0f, 0.0f };
-        if (stick_) {
-            Vector3 sp = stick_->GetPosition();
-            // 日本語: スティックの少し左（負X方向）にスポーンさせて、左から当てる挙動を見やすくする
-            // シーンのメンバ変数 npcSpawnLeftOffset_ を使って調整可能にする
-            float leftOffset = npcSpawnLeftOffset_;
-            npPos.x = sp.x - leftOffset;
-            npPos.z = sp.z;
-            // 地面にスナップしたうえで少し上に出しておく(見やすさのため)
-            float groundY = 0.0f;
-            if (level_ && level_->RaycastDown({ npPos.x, sp.y + 2.0f, npPos.z }, 4.0f, groundY)) {
-                // 少し上げて重なりを避ける
-                npPos.y = groundY + 0.5f;
-            } else {
-                npPos.y = sp.y + 0.5f;
-            }
-            // 進行方向はスティックの中心へ向かうように設定（左から当てる挙動）
-            float dx = sp.x - npPos.x;
-            float dz = sp.z - npPos.z;
-            float dlen = std::sqrt(dx * dx + dz * dz);
-            if (dlen > 1e-6f) {
-                desiredDir.x = dx / dlen;
-                desiredDir.z = dz / dlen;
-                desiredDir.y = 0.0f;
-            } else {
-                desiredDir = { 1.0f, 0.0f, 0.0f };
+        if (!sticks_.empty()) {
+            // use first stick as reference for fallback spawn
+            Stick* ref = sticks_[0];
+            if (ref) {
+                Vector3 sp = ref->GetPosition();
+                // 日本語: スティックの少し左（負X方向）にスポーンさせて、左から当てる挙動を見やすくする
+                float leftOffset = npcSpawnLeftOffset_;
+                npPos.x = sp.x - leftOffset;
+                npPos.z = sp.z;
+                float groundY = 0.0f;
+                if (level_ && level_->RaycastDown({ npPos.x, sp.y + 2.0f, npPos.z }, 4.0f, groundY)) {
+                    npPos.y = groundY + 0.5f;
+                } else {
+                    npPos.y = sp.y + 0.5f;
+                }
+                float dx = sp.x - npPos.x;
+                float dz = sp.z - npPos.z;
+                float dlen = std::sqrt(dx * dx + dz * dz);
+                if (dlen > 1e-6f) {
+                    desiredDir.x = dx / dlen;
+                    desiredDir.z = dz / dlen;
+                    desiredDir.y = 0.0f;
+                } else {
+                    desiredDir = { 1.0f, 0.0f, 0.0f };
+                }
             }
         }
 
@@ -216,13 +217,14 @@ void GamePlayScene::Initialize(EngineBase* engine)
         // デフォルトは単純直進させる（経路探索不要）
         npc_->SetStraightDirection(desiredDir);
         npc_->SetState(Npc::State::Straight);
-        try {
-            Logger::Log(std::format("[Scene] Fallback: spawned Npc pos=({:.2f},{:.2f},{:.2f}) straightDir=({:.2f},{:.2f},{:.2f}) stick=({:.2f},{:.2f},{:.2f})\n",
-                npPos.x, npPos.y, npPos.z, desiredDir.x, desiredDir.y, desiredDir.z,
-                stick_ ? stick_->GetPosition().x : 0.0f, stick_ ? stick_->GetPosition().y : 0.0f, stick_ ? stick_->GetPosition().z : 0.0f));
-        } catch (...) {
-            Logger::Log(std::string("[Scene] Fallback: spawned Npc (format error)\n"));
-        }
+                try {
+                    float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+                    if (!sticks_.empty() && sticks_[0]) { auto p = sticks_[0]->GetPosition(); sx = p.x; sy = p.y; sz = p.z; }
+                    Logger::Log(std::format("[Scene] Fallback: spawned Npc pos=({:.2f},{:.2f},{:.2f}) straightDir=({:.2f},{:.2f},{:.2f}) stick=({:.2f},{:.2f},{:.2f})\n",
+                        npPos.x, npPos.y, npPos.z, desiredDir.x, desiredDir.y, desiredDir.z, sx, sy, sz));
+                } catch (...) {
+                    Logger::Log(std::string("[Scene] Fallback: spawned Npc (format error)\n"));
+                }
         Logger::Log("[Scene] Fallback: spawned Npc\n");
     }
 
@@ -285,15 +287,15 @@ void GamePlayScene::Initialize(EngineBase* engine)
                     c = (char)tolower(c);
 
                 if (cls == "stick") {
-                    if (!stick_) {
-                        stick_ = new Stick();
-                        stick_->Initialize(engine_->GetObject3dRenderer(), o.position);
-                        stick_->SetLevel(level_);
-                        stick_->SetLayer(o.layer);
-                        uint32_t id = allocateId(o.id);
-                        stick_->SetId(id);
-                        Logger::Log("Stage: spawned Stick from JSON");
-                    }
+                    // allow multiple sticks: always create and append
+                    Stick* s = new Stick();
+                    s->Initialize(engine_->GetObject3dRenderer(), o.position);
+                    s->SetLevel(level_);
+                    s->SetLayer(o.layer);
+                    uint32_t id = allocateId(o.id);
+                    s->SetId(id);
+                    sticks_.push_back(s);
+                    Logger::Log("Stage: spawned Stick from JSON");
                     // OBB registration for the stick is handled inside Stick class
                     // (Stick::DropExternal / SetId). Do not register here to avoid
                     // duplicate / out-of-sync colliders that can cause invisible
@@ -421,8 +423,9 @@ void GamePlayScene::Finalize()
             level_->ClearOwnerId(player_->GetId());
         if (npc_)
             level_->ClearOwnerId(npc_->GetId());
-        if (stick_)
-            level_->ClearOwnerId(stick_->GetId());
+        for (auto s : sticks_) {
+            if (s) level_->ClearOwnerId(s->GetId());
+        }
     }
 
     // メモリの解放
@@ -436,8 +439,8 @@ void GamePlayScene::Finalize()
     player_ = nullptr;
     delete npc_;
     npc_ = nullptr;
-    delete stick_;
-    stick_ = nullptr;
+    for (auto s : sticks_) delete s;
+    sticks_.clear();
     delete goal_;
     goal_ = nullptr;
     delete level_;
@@ -513,194 +516,134 @@ void GamePlayScene::Update()
 
     // --- 3. 木の棒(Stick)の拾う・置く処理 ---
     auto input = engine_->GetInputManager();
-    if (input && stick_) {
-        // 日本語: キーボードのスペースキーまたはゲームパッドのAボタンで拾う/置くを行う
+    if (input && !sticks_.empty()) {
         if (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) {
-            if (!stick_->IsHeld()) {
-                // 未保持：プレイヤーが存在する場合のみ距離をチェックして拾う
+            // Determine if player currently holds a stick
+            Stick* heldStick = nullptr;
+            for (auto s : sticks_) { if (s && s->IsHeld()) { heldStick = s; break; } }
+
+            if (!heldStick) {
+                // Try to pick nearest eligible stick
                 if (player_) {
-                    // NPCがスティックに乗っている場合は拾えないようにする
-                    if (npc_ && npc_->IsMounted() && npc_->GetMountedOwnerId() == stick_->GetId()) {
-                        Logger::Log("Cannot pick up: NPC is on the stick.");
-                        // do nothing
+                    if (player_->IsHandHeld()) {
+                        Logger::Log("Cannot pick up: player is already holding an item.");
                     } else {
                         const Vector3& pp = player_->GetPosition();
-
-                        // NPCが乗っていない場合は拾える
                         Vector3 playerHalfExt = player_->GetHalfExtents();
-
-                        // プレイヤーのAABB半分の大きさ（XZのみ）
-                        Vector3 stickCenter, stickHalf;
-                        stick_->GetConservativeAABB(stickCenter, stickHalf);
-
-                        // StickのAABB半分の大きさ（XZのみ）
-                        const float pickupExpand = 0.5f; // adjust this value to tune pickup ease
-                        stickHalf.x += pickupExpand;
-                        stickHalf.z += pickupExpand;
-
-                        bool picked = false;
-                        // AABB vs AABB quick test in XZ
-                        float aMinX = pp.x - playerHalfExt.x;
-                        float aMaxX = pp.x + playerHalfExt.x;
-                        float aMinZ = pp.z - playerHalfExt.z;
-                        float aMaxZ = pp.z + playerHalfExt.z;
-
-                        float bMinX = stickCenter.x - stickHalf.x;
-                        float bMaxX = stickCenter.x + stickHalf.x;
-                        float bMinZ = stickCenter.z - stickHalf.z;
-                        float bMaxZ = stickCenter.z + stickHalf.z;
-
-                        if (!(aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ)) {
-                            picked = true;
-                        } else {
-                            //// fallback distance check
-                            // const float pickupRadius = 1.5f;
-                            // float dx = pp.x - stickCenter.x;
-                            // float dy = pp.y - stickCenter.y;
-                            // float dz = pp.z - stickCenter.z;
-                            // float dist2 = dx*dx + dy*dy + dz*dz;
-                            // if (dist2 <= pickupRadius * pickupRadius) picked = true;
-                        }
-
-                        if (picked) {
-                            // 拾う処理
-                            stick_->SetHoldSideFromPlayerPos(pp);
-                            stick_->PickUpExternal();
-                            stick_->SetHeld(true);
-                            // 手のポーズを持っている状態に切り替え
-                            if (player_) {
-                                Vector3 hoff = stick_->GetHoldOffset();
-                                bool sideRight = (hoff.x >= 0.0f);
-                                player_->SetHandPoseHeld(sideRight);
+                        Stick* best = nullptr; float bestDist2 = FLT_MAX;
+                        for (auto s : sticks_) {
+                            if (!s || s->IsHeld()) continue;
+                            // skip if NPC mounted
+                            if (npc_ && npc_->IsMounted() && npc_->GetMountedOwnerId() == s->GetId()) continue;
+                            Vector3 sc, sh; s->GetConservativeAABB(sc, sh);
+                            const float pickupExpand = 0.5f; sh.x += pickupExpand; sh.z += pickupExpand;
+                            float aMinX = pp.x - playerHalfExt.x; float aMaxX = pp.x + playerHalfExt.x;
+                            float aMinZ = pp.z - playerHalfExt.z; float aMaxZ = pp.z + playerHalfExt.z;
+                            float bMinX = sc.x - sh.x; float bMaxX = sc.x + sh.x;
+                            float bMinZ = sc.z - sh.z; float bMaxZ = sc.z + sh.z;
+                            if (!(aMaxX < bMinX || aMinX > bMaxX || aMaxZ < bMinZ || aMinZ > bMaxZ)) {
+                                float dx = sc.x - pp.x; float dz = sc.z - pp.z; float d2 = dx*dx + dz*dz;
+                                if (d2 < bestDist2) { bestDist2 = d2; best = s; }
                             }
+                        }
+                        if (best) {
+                            best->SetHoldSideFromPlayerPos(pp);
+                            best->PickUpExternal();
+                            best->SetHeld(true);
+                            Vector3 hoff = best->GetHoldOffset();
+                            player_->SetHandPoseHeld(hoff.x >= 0.0f);
                             Logger::Log("Stick picked up.");
                         }
                     }
                 }
             } else {
-                // 保持中：プレイヤーがいる場合は目の前に置く。いない場合は現位置に置く。
+                // Drop held stick
+                Stick* s = heldStick;
                 Vector3 dropPos;
                 if (player_) {
                     Vector3 p = player_->GetPosition();
-                    Vector3 off = stick_->GetHoldOffset();
-                    // rotate local hold offset into world by player's yaw (same as held positioning)
+                    Vector3 off = s->GetHoldOffset();
                     float pyaw = player_->GetYaw();
-                    float cy = std::cos(pyaw);
-                    float sy = std::sin(pyaw);
-                    Vector3 worldOff;
-                    worldOff.x = off.x * cy + off.z * sy;
-                    worldOff.z = -off.x * sy + off.z * cy;
-                    worldOff.y = off.y;
-
+                    float cy = std::cos(pyaw); float sy = std::sin(pyaw);
+                    Vector3 worldOff; worldOff.x = off.x * cy + off.z * sy; worldOff.z = -off.x * sy + off.z * cy; worldOff.y = off.y;
                     dropPos = { p.x + worldOff.x, p.y + worldOff.y - 0.4f, p.z + worldOff.z };
                 } else {
-                    dropPos = stick_->GetPosition();
+                    dropPos = s->GetPosition();
                 }
 
-                // 地面に接地させ、壁への埋まりを解消
                 float hitY;
-                if (level_ && level_->RaycastDown({ dropPos.x, dropPos.y + 1.0f, dropPos.z }, 2.0f, hitY)) {
-                    dropPos.y = hitY;
-                } else {
-                    dropPos.y = 0.0f;
-                }
-                if (level_)
-                    level_->ResolveCollision(dropPos, 0.3f, true);
+                if (level_ && level_->RaycastDown({ dropPos.x, dropPos.y + 1.0f, dropPos.z }, 2.0f, hitY)) dropPos.y = hitY; else dropPos.y = 0.0f;
+                if (level_) level_->ResolveCollision(dropPos, 0.3f, true);
 
-                // ResolveCollision で壁への埋まりを解消
-                stick_->SetRotation(stick_->GetHeldRotation());
+                s->SetRotation(s->GetHeldRotation());
 
-                // If drop position overlaps the player, try nudging along the hold direction
-                // until we find a placeable position (or give up after a few attempts).
+                // nudge away from player if overlapping
                 if (player_) {
                     const Vector3& pp = player_->GetPosition();
                     const float minDropDist = 0.9f;
-
-                    Vector3 off = stick_->GetHoldOffset();
-                    // rotate local hold offset to world for direction used to nudge drop position
-                    float pyaw = player_->GetYaw();
-                    float cy = std::cos(pyaw);
-                    float sy = std::sin(pyaw);
+                    Vector3 off = s->GetHoldOffset();
+                    float pyaw = player_->GetYaw(); float cy = std::cos(pyaw); float sy = std::sin(pyaw);
                     Vector3 dir = { off.x * cy + off.z * sy, 0.0f, -off.x * sy + off.z * cy };
-                    float dlen = std::sqrt(dir.x * dir.x + dir.z * dir.z);
-                    if (dlen < 1e-6f) {
-                        dir = { 1.0f, 0.0f, 0.0f };
-                        dlen = 1.0f;
-                    }
-                    dir.x /= dlen;
-                    dir.z /= dlen;
-
-                    bool placed = false;
-                    const int kMaxNudge = 8;
-                    for (int i = 0; i < kMaxNudge; ++i) {
-                        float step = 0.25f * (i + 1); // increase step each attempt
+                    float dlen = std::sqrt(dir.x*dir.x + dir.z*dir.z); if (dlen < 1e-6f) { dir = {1,0,0}; dlen = 1.0f; }
+                    dir.x /= dlen; dir.z /= dlen;
+                    bool placed = false; const int kMaxNudge = 8;
+                    for (int i=0;i<kMaxNudge;++i) {
+                        float step = 0.25f * (i+1);
                         Vector3 trial = { pp.x + dir.x * step, dropPos.y, pp.z + dir.z * step };
-
-                        float hitY2;
-                        if (level_ && level_->RaycastDown({ trial.x, trial.y + 1.0f, trial.z }, 2.0f, hitY2)) {
-                            trial.y = hitY2;
-                        }
-
-                        // make sure not colliding with walls/obbs
-                        if (level_)
-                            level_->ResolveCollision(trial, 0.3f, true);
-
-                        float dxp = trial.x - pp.x;
-                        float dzp = trial.z - pp.z;
-                        if (dxp * dxp + dzp * dzp >= minDropDist * minDropDist) {
-                            dropPos = trial;
-                            placed = true;
-                            break;
-                        }
+                        float hitY2; if (level_ && level_->RaycastDown({ trial.x, trial.y + 1.0f, trial.z }, 2.0f, hitY2)) trial.y = hitY2;
+                        if (level_) level_->ResolveCollision(trial, 0.3f, true);
+                        float dxp = trial.x - pp.x; float dzp = trial.z - pp.z; if (dxp*dxp + dzp*dzp >= minDropDist*minDropDist) { dropPos = trial; placed = true; break; }
                     }
-
-                    // fallback: small offset if nothing found
-                    if (!placed) {
-                        dropPos.x = pp.x + dir.x * 1.25f;
-                        dropPos.z = pp.z + dir.z * 1.25f;
-                    }
+                    if (!placed) { dropPos.x = pp.x + dir.x * 1.25f; dropPos.z = pp.z + dir.z * 1.25f; }
                 }
 
-                
+                // check placement overlaps
                 bool canPlace = true;
+                // compute conservative XZ extents for the stick using its OBB half extents and yaw
+                Vector3 center; Vector3 half; float yaw=0.0f; s->GetOBB(center, half, yaw);
+                float cy = std::cos(yaw); float sy = std::sin(yaw); float absCy = std::fabs(cy); float absSy = std::fabs(sy);
+                float extX = absCy * half.x + absSy * half.z; float extZ = absSy * half.x + absCy * half.z;
+                if (level_) {
+                    Vector3 qmin { dropPos.x - extX - 0.2f, 0.0f, dropPos.z - extZ - 0.2f };
+                    Vector3 qmax { dropPos.x + extX + 0.2f, 2.0f, dropPos.z + extZ + 0.2f };
+                    std::vector<const Level::OBB*> nearbyObbs; level_->QueryOBBs(qmin, qmax, nearbyObbs);
+                    for (const Level::OBB* o : nearbyObbs) {
+                        if (o->ownerId == s->GetId()) continue;
+                        float oy = o->yaw; float ocy = std::cos(oy); float osy = std::sin(oy);
+                        float oabsCy = std::fabs(ocy); float oabsSy = std::fabs(osy);
+                        float oExtX = oabsCy * o->halfExtents.x + oabsSy * o->halfExtents.z;
+                        float oExtZ = oabsSy * o->halfExtents.x + oabsCy * o->halfExtents.z;
+                        float minAx = dropPos.x - extX - 0.05f; float maxAx = dropPos.x + extX + 0.05f;
+                        float minAz = dropPos.z - extZ - 0.05f; float maxAz = dropPos.z + extZ + 0.05f;
+                        float minBx = o->center.x - oExtX - 0.05f; float maxBx = o->center.x + oExtX + 0.05f;
+                        float minBz = o->center.z - oExtZ - 0.05f; float maxBz = o->center.z + oExtZ + 0.05f;
+                        if (!(maxAx < minBx || minAx > maxBx || maxAz < minBz || minAz > maxBz)) { canPlace = false; break; }
+                    }
+                    if (canPlace) {
+                        std::vector<const Level::AABB*> nearbyAABBs; level_->QueryWalls(qmin, qmax, nearbyAABBs);
+                        for (const Level::AABB* a : nearbyAABBs) {
+                            float minAx = dropPos.x - extX - 0.05f; float maxAx = dropPos.x + extX + 0.05f;
+                            float minAz = dropPos.z - extZ - 0.05f; float maxAz = dropPos.z + extZ + 0.05f;
+                            float minBx = a->min.x - 0.05f; float maxBx = a->max.x + 0.05f;
+                            float minBz = a->min.z - 0.05f; float maxBz = a->max.z + 0.05f;
+                            if (!(maxAx < minBx || minAx > maxBx || maxAz < minBz || minAz > maxBz)) { canPlace = false; break; }
+                        }
+                    }
+                }
                 if (npc_) {
                     const Vector3& np = npc_->GetPosition();
-                    // compute conservative XZ extents for the stick using its OBB half extents and yaw
-                    Vector3 obbCenter, obbHalf;
-                    float obbYaw = 0.0f;
-                    stick_->GetOBB(obbCenter, obbHalf, obbYaw);
-                    float cy = std::cos(obbYaw);
-                    float sy = std::sin(obbYaw);
-                    float absCy = std::fabs(cy);
-                    float absSy = std::fabs(sy);
-                    float extX = absCy * obbHalf.x + absSy * obbHalf.z;
-                    float extZ = absSy * obbHalf.x + absCy * obbHalf.z;
-
-                    // use dropPos as center for placement test
-                    float minX = dropPos.x - extX - 0.1f; // small margin
-                    float maxX = dropPos.x + extX + 0.1f;
-                    float minZ = dropPos.z - extZ - 0.1f;
-                    float maxZ = dropPos.z + extZ + 0.1f;
-
-                    if (np.x >= minX && np.x <= maxX && np.z >= minZ && np.z <= maxZ) {
-                        canPlace = false;
-                    }
+                    float minX = dropPos.x - extX - 0.1f; float maxX = dropPos.x + extX + 0.1f;
+                    float minZ = dropPos.z - extZ - 0.1f; float maxZ = dropPos.z + extZ + 0.1f;
+                    if (np.x >= minX && np.x <= maxX && np.z >= minZ && np.z <= maxZ) canPlace = false;
                 }
 
                 if (!canPlace) {
-                    Logger::Log("Cannot drop: NPC is underneath the intended placement.");
-                    // Don't drop; keep held state
+                    Logger::Log("Cannot drop: placement blocked (NPC/OBJ overlap or wall). ");
                 } else {
-                    // 位置を反映してから DropExternal を呼ぶ（OBB 登録が最新位置で行われるように）
-                    stick_->SetPosition(dropPos);
-                    stick_->DropExternal();
-                    stick_->SetHeld(false);
-
-                    // 手のポーズを下ろした状態へ
-                    if (player_) {
-                        player_->SetHandPoseDropped();
-                    }
-
+                    s->SetPosition(dropPos);
+                    s->DropExternal();
+                    s->SetHeld(false);
+                    if (player_) player_->SetHandPoseDropped();
                     Logger::Log("Stick dropped.");
                 }
             }
@@ -708,17 +651,14 @@ void GamePlayScene::Update()
     }
 
     // --- 4. オブジェクトの状態更新 ---
-    if (stick_) {
-        // remember previous collision state to detect when collision becomes enabled
-        bool prevCollision = stick_->GetCollisionEnabled();
-        stick_->Update(1.0f / 60.0f);
-        stick_->UpdateCollisionTimer(1.0f / 60.0f);
-
-        // If collision was just enabled (OBB likely registered), ensure player is not
-        // overlapping the newly placed stick by resolving player position against level.
-        if (!prevCollision && stick_->GetCollisionEnabled() && level_ && player_) {
+    // update sticks
+    for (auto s : sticks_) {
+        if (!s) continue;
+        bool prevCollision = s->GetCollisionEnabled();
+        s->Update(1.0f / 60.0f);
+        s->UpdateCollisionTimer(1.0f / 60.0f);
+        if (!prevCollision && s->GetCollisionEnabled() && level_ && player_) {
             Vector3 ppos = player_->GetPosition();
-            // use player's approximate radius (matches Player::halfSize_ default)
             const float playerRadius = 0.5f;
             level_->ResolveCollision(ppos, playerRadius, true);
             player_->SetPosition(ppos);
@@ -837,60 +777,36 @@ void GamePlayScene::Update()
         engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
     }
 
-    // --- 6. 掴んでいる棒をプレイヤーに追従させる ---
-    if (stick_ && stick_->IsHeld() && player_) {
-        const Vector3& pp = player_->GetPosition();
-        // Use the hold offset determined at pickup time. Avoid recomputing
-        // the hold side each frame because that can flip when the stick's
-        // world X crosses the player's X and cause jitter.
-        Vector3 offset = stick_->GetHoldOffset();
-        // Rotate the local hold offset by player's yaw so the stick is positioned
-        // relative to player's facing direction (not world axes).
-        // Note: player's yaw is defined as atan2(x,z), so the rotation mapping
-        // from local (x,z) -> world (x,z) must use a swapped-sign matrix.
-        float pyaw = player_->GetYaw();
-        float cy = std::cos(pyaw);
-        float sy = std::sin(pyaw);
-        Vector3 worldOff;
-        // Corrected mapping so forward (0,0,1) at yaw=pi/2 maps to +X
-        worldOff.x = offset.x * cy + offset.z * sy;
-        worldOff.z = -offset.x * sy + offset.z * cy;
-        worldOff.y = offset.y;
-        Vector3 holdPos = { pp.x + worldOff.x, pp.y + worldOff.y, pp.z + worldOff.z };
-        // Ensure the stick rotation follows the player's facing yaw while held.
-        // Compute desired yaw so the stick lies roughly perpendicular to player's forward
-        // direction and offset it based on which side the player holds the stick.
-        float playerYaw = player_->GetYaw();
-        float sideSign = (offset.x >= 0.0f) ? 1.0f : -1.0f;
-        // base perpendicular is +90 degrees; apply side sign so right side gives +90, left -90
-        float desiredYaw = playerYaw + sideSign * 3.14159265f * 0.5f;
-        // adopt into heldRotation so Stick::Update will apply it next frame
-        stick_->SetHeldRotation({ 0.0f, desiredYaw, 0.0f });
-        // only update position here; heldRotation is set above and can be further adjusted via input (Q/E)
-        stick_->SetPosition(holdPos);
-
-        // update player's hand pose every frame to follow held offset
-        if (player_) {
-            bool sideRight = (offset.x >= 0.0f);
-            player_->SetHandPoseHeld(sideRight);
-        }
-
-        // Continuous small increments while held (キーボードQ/Eで回転)
-        constexpr float kRotateSpeed = 1.5f; // radians per second
-        if (engine_->GetInputManager()->IsPressKey(DIK_Q)) {
-            stick_->RotateHeldYaw(-kRotateSpeed * (1.0f / 60.0f));
-        }
-        if (engine_->GetInputManager()->IsPressKey(DIK_E)) {
-            stick_->RotateHeldYaw(kRotateSpeed * (1.0f / 60.0f));
-        }
-        // 日本語: ゲームパッドの右スティックX軸で回転制御（接続されている場合）
-        if (engine_->GetInputManager()->Pad(0).IsConnected()) {
-            float rx = engine_->GetInputManager()->Pad(0).GetRightX();
-            const float kDead = 0.15f; // デッドゾーン
-            if (std::fabs(rx) > kDead) {
-                // スティックの傾きに比例して回転。速度調整のためにkRotateSpeedを乗算
-                stick_->RotateHeldYaw(rx * kRotateSpeed * (1.0f / 60.0f));
+    // --- 6. 掴んでいる棒をプレイヤーに追従させる (複数対応) ---
+    if (!sticks_.empty() && player_) {
+        for (auto s : sticks_) {
+            if (!s) continue;
+            if (!s->IsHeld()) continue;
+            const Vector3& pp = player_->GetPosition();
+            Vector3 offset = s->GetHoldOffset();
+            float pyaw = player_->GetYaw();
+            float cy = std::cos(pyaw);
+            float sy = std::sin(pyaw);
+            Vector3 worldOff;
+            worldOff.x = offset.x * cy + offset.z * sy;
+            worldOff.z = -offset.x * sy + offset.z * cy;
+            worldOff.y = offset.y;
+            Vector3 holdPos = { pp.x + worldOff.x, pp.y + worldOff.y, pp.z + worldOff.z };
+            float playerYaw = player_->GetYaw();
+            float sideSign = (offset.x >= 0.0f) ? 1.0f : -1.0f;
+            float desiredYaw = playerYaw + sideSign * 3.14159265f * 0.5f;
+            s->SetHeldRotation({ 0.0f, desiredYaw, 0.0f });
+            s->SetPosition(holdPos);
+            if (player_) player_->SetHandPoseHeld(offset.x >= 0.0f);
+            constexpr float kRotateSpeed = 1.5f;
+            if (engine_->GetInputManager()->IsPressKey(DIK_Q)) s->RotateHeldYaw(-kRotateSpeed * (1.0f / 60.0f));
+            if (engine_->GetInputManager()->IsPressKey(DIK_E)) s->RotateHeldYaw(kRotateSpeed * (1.0f / 60.0f));
+            if (engine_->GetInputManager()->Pad(0).IsConnected()) {
+                float rx = engine_->GetInputManager()->Pad(0).GetRightX();
+                const float kDead = 0.15f;
+                if (std::fabs(rx) > kDead) s->RotateHeldYaw(rx * kRotateSpeed * (1.0f / 60.0f));
             }
+            // only support a single held stick visually for player's hand pose; multiple held sticks are rare
         }
     }
 
@@ -898,13 +814,15 @@ void GamePlayScene::Update()
     // ImGui: stick debug window (scene-local toggle)
     if (showImGui_) {
         ImGui::Begin("Stick Debug");
-        if (stick_) {
-            const Vector3& sp = stick_->GetPosition();
-            const Vector3& sr = stick_->GetRotation();
-            ImGui::Text("Stick id: %u", stick_->GetId());
-            ImGui::Text("Layer: %u", stick_->GetLayer());
-            ImGui::Text("Held: %s", stick_->IsHeld() ? "true" : "false");
-            ImGui::Text("Collision enabled: %s", stick_->GetCollisionEnabled() ? "true" : "false");
+        // show info for the first stick instance if any
+        if (!sticks_.empty() && sticks_[0]) {
+            Stick* stick = sticks_[0];
+            const Vector3& sp = stick->GetPosition();
+            const Vector3& sr = stick->GetRotation();
+            ImGui::Text("Stick id: %u", stick->GetId());
+            ImGui::Text("Layer: %u", stick->GetLayer());
+            ImGui::Text("Held: %s", stick->IsHeld() ? "true" : "false");
+            ImGui::Text("Collision enabled: %s", stick->GetCollisionEnabled() ? "true" : "false");
             ImGui::Separator();
             ImGui::Text("Position");
             ImGui::Text("  x: %.3f", sp.x);
@@ -1029,8 +947,7 @@ void GamePlayScene::Draw3D()
         level_->Draw();
     if (npc_)
         npc_->Draw();
-    if (stick_)
-        stick_->Draw();
+    for (auto s : sticks_) if (s) s->Draw();
     if (goal_)
         goal_->Draw();
 }

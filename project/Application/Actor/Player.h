@@ -41,6 +41,9 @@ public:
     /// <summary> 棒を持っていないときのリラックスポーズ（下ろした状態） </summary>
     void SetHandPoseDropped();
 
+    /// <summary> 手が物を持っているかどうかを取得 </summary>
+    bool IsHandHeld() const { return handHeld_; }
+
     // --- 座標・トランスフォーム関連 ---
 
     /// <summary> 現在のワールド座標を取得 </summary>

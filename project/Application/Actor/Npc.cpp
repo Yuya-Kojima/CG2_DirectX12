@@ -104,8 +104,12 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
         // back by collision resolve). Predicting a bit ahead reduces those false
         // positives.
         Vector3 predictedPos = { pos_.x + vel_.x * dt, pos_.y + vel_.y * dt, pos_.z + vel_.z * dt };
-        // Reduce lookahead so detection happens closer to NPC
-        Vector3 probeEnd = { predictedPos.x + dir.x * 0.08f, predictedPos.y + 0.1f, predictedPos.z + dir.z * 0.08f };
+        // Resolve collisions on the predicted position first so subsequent probes use a physically
+        // plausible position (avoids probing where physics will immediately push the NPC away).
+        Vector3 resolvedPred = predictedPos;
+        level.ResolveCollision(resolvedPred, kDefaultRadius, true);
+        // Reduce lookahead so detection happens closer to NPC. Use resolved predicted pos for probe.
+        Vector3 probeEnd = { resolvedPred.x + dir.x * 0.30f, resolvedPred.y + 0.1f, resolvedPred.z + dir.z * 0.30f };
 
         // query nearby walls and obb
         Vector3 qmin { std::min(pos_.x, probeEnd.x) - kDefaultRadius, 0.0f, std::min(pos_.z, probeEnd.z) - kDefaultRadius };
@@ -115,6 +119,11 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
         level.QueryWalls(qmin, qmax, aabbCandidates);
         std::vector<const Level::OBB*> obbCandidates;
         level.QueryOBBs(qmin, qmax, obbCandidates);
+
+        try {
+            Logger::Log(std::format("[Npc] OBB count = {}\n", (int)obbCandidates.size()));
+        } catch (...) {
+        }
 
         bool handled = false;
 
@@ -141,19 +150,17 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                         o->ownerId, o->center.x, o->center.y, o->center.z, o->halfExtents.x, o->halfExtents.y, o->halfExtents.z, o->yaw, extX, extZ));
                 } catch(...) {}
 
-                // allow a small margin so NPC can detect edges even when probeEnd is slightly outside
-                const float probeMargin = 0.3f;
-                if (probeEnd.x < o->center.x - extX - probeMargin || probeEnd.x > o->center.x + extX + probeMargin) {
-                    try { Logger::Log(std::format("[Npc] probeEnd.x outside extents (x={:.3f}, min={:.3f}, max={:.3f})\n", probeEnd.x, o->center.x - extX, o->center.x + extX)); } catch(...) {}
-                    continue;
-                }
-                if (probeEnd.z < o->center.z - extZ - probeMargin || probeEnd.z > o->center.z + extZ + probeMargin) {
-                    try { Logger::Log(std::format("[Npc] probeEnd.z outside extents (z={:.3f}, min={:.3f}, max={:.3f})\n", probeEnd.z, o->center.z - extZ, o->center.z + extZ)); } catch(...) {}
-                    continue;
+                // allow a larger margin so NPC can detect edges more easily when slightly off-center
+                const float looseMul = 1.5f;
+
+                if (probeEnd.x < o->center.x - extX * looseMul || probeEnd.x > o->center.x + extX * looseMul || probeEnd.z < o->center.z - extZ * looseMul || probeEnd.z > o->center.z + extZ * looseMul) {
+                    continue; // さすがに遠い
                 }
 
                 // Sample multiple points across NPC footprint to detect face-vs-face contact.
-                const float sampleTol = 0.35f;
+                // tolerance for height matching between raycast hit and OBB top
+                // increased to be more permissive for slightly mismatched geometry
+                const float sampleTol = 1.0f;
                 const float obbTopY = o->center.y + o->halfExtents.y;
                 const float samplesXZ[5][2] = {
                     { 0.0f, 0.0f },
@@ -171,16 +178,19 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                     float sx = probeEnd.x + samplesXZ[si][0];
                     float sz = probeEnd.z + samplesXZ[si][1];
                     float sampleHitY = 0.0f;
-                    if (!level.RaycastDown({ sx, probeEnd.y + kStepHeight + kStepExtra + 0.5f, sz }, kStepHeight + kStepExtra + 0.5f, sampleHitY)) {
+                    // Raycast from higher up with larger maxDist to be robust against tall/thick objects
+                    const float rayOriginY = pos_.y + 2.0f;
+                    const float rayMaxDist = 4.0f;
+                    if (!level.RaycastDown({ sx, rayOriginY, sz }, rayMaxDist, sampleHitY)) {
                         try { Logger::Log(std::format("[Npc] sample {} miss at ({:.2f},{:.2f})\n", si, sx, sz)); } catch(...) {}
                         continue;
                     }
                     try { Logger::Log(std::format("[Npc] sample {} hit at ({:.2f},{:.2f}) hitY={:.3f}\n", si, sx, sz, sampleHitY)); } catch(...) {}
-                    // check vertical match with obb top
-                    if (std::fabs(sampleHitY - obbTopY) > sampleTol)
+                    // OBB天面より大きくズレて下じゃなければOK
+                    if (sampleHitY < obbTopY - 0.25f)
                         continue;
-                    // ensure sample point projects into conservative extents
-                    if (sx < o->center.x - extX || sx > o->center.x + extX || sz < o->center.z - extZ || sz > o->center.z + extZ)
+                    const float sampleMargin = 0.25f;
+                    if (sx < o->center.x - extX - sampleMargin || sx > o->center.x + extX + sampleMargin || sz < o->center.z - extZ - sampleMargin || sz > o->center.z + extZ + sampleMargin)
                         continue;
                     foundHitY = sampleHitY;
                     foundHitX = sx;
@@ -188,25 +198,48 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                     anyHit = true;
                     break;
                 }
+                
+                // If no per-sample hit, also try a conservative center-top sample over the OBB
+                if (!anyHit) {
+                    float centerHitY = 0.0f;
+                    const float centerRayOriginY = pos_.y + 2.0f;
+                    const float centerRayMaxDist = 4.0f;
+                    if (level.RaycastDown({ o->center.x, centerRayOriginY, o->center.z }, centerRayMaxDist, centerHitY)) {
+                        try { Logger::Log(std::format("[Npc] center fallback hit for OBB ownerId={} hitY={:.3f}\n", o->ownerId, centerHitY)); } catch(...) {}
+                        if (std::fabs(centerHitY - obbTopY) <= sampleTol) {
+                            foundHitY = centerHitY;
+                            foundHitX = o->center.x;
+                            foundHitZ = o->center.z;
+                            anyHit = true;
+                        }
+                    }
+                }
+
                 if (anyHit) {
                     float stepH = foundHitY - pos_.y;
                     // allow a larger climb tolerance: include step extra and some margin
-                    const float maxClimb = kStepHeight + kStepExtra + 0.6f;
+                    // allow larger climbs to make mounting easier on higher objects
+                    const float maxClimb = kStepHeight + kStepExtra + 1.5f;
                     const float minDrop = -0.25f; // allow small drops
-                    if (stepH >= minDrop && stepH <= maxClimb) {
+                    if (stepH >= -0.4f) {
                         float oy = o->yaw;
                         float ax = std::sin(oy);
                         float az = std::cos(oy);
-                        // snap horizontal position to the sample hit so NPC stands on top
-                        pos_.x = foundHitX;
-                        pos_.z = foundHitZ;
-                        // raise Y a bit more so model doesn't intersect with top surface
-                        // Add a small extra raise proportional to the OBB half-height to handle
-                        // cases where the model was scaled up and the original offset is too low.
+                        // start mount interpolation: record start and target and enter mountEntering_ state
+                        mountStartPos_ = pos_;
+                        mountTargetPos_.x = foundHitX;
+                        mountTargetPos_.z = foundHitZ;
+                        // preserve current Y as start
+                        mountStartPos_.y = pos_.y;
+                        // compute raise values for mount target Y
                         const float mountRaise = 0.08f;
                         const float obbExtraRaise = std::max(0.0f, o->halfExtents.y * 0.1f);
-                        pos_.y = foundHitY + mountOffsetY_ + mountRaise + obbExtraRaise;
-                        if (obj_) obj_->SetTranslation(pos_);
+                        mountTargetPos_.y = foundHitY + mountOffsetY_ + mountRaise + obbExtraRaise;
+                        // store yaw targets so rotation can smoothly align
+                        if (obj_) mountStartYaw_ = obj_->GetRotation().y; else mountStartYaw_ = 0.0f;
+                        mountTargetYaw_ = std::atan2(ax * moveSpeed_, az * moveSpeed_);
+                        mountEntering_ = true;
+                        mountEnterTimer_ = 0.0f;
                         vel_.y = 0.0f;
                         mounted_ = true;
                         mountTimer_ = 0.0f;
@@ -216,7 +249,16 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                         mountedObbHalfExtents_ = o->halfExtents;
                         mountedObbYaw_ = o->yaw;
                         straightDir_.x = ax; straightDir_.z = az;
-                        vel_.x = ax * moveSpeed_; vel_.z = az * moveSpeed_;
+                        // set target horizontal velocity but apply acceleration limit to avoid sudden boost
+                        float targetVx = ax * moveSpeed_;
+                        float targetVz = az * moveSpeed_;
+                        float maxDelta = accel_ * dt; // max change per frame
+                        float dx = targetVx - vel_.x;
+                        if (dx > maxDelta) dx = maxDelta; else if (dx < -maxDelta) dx = -maxDelta;
+                        float dz = targetVz - vel_.z;
+                        if (dz > maxDelta) dz = maxDelta; else if (dz < -maxDelta) dz = -maxDelta;
+                        vel_.x += dx;
+                        vel_.z += dz;
                         handled = true;
                         try { Logger::Log(std::format("[Npc] Mounted on OBB ownerId={} sampleHit=({:.2f},{:.2f})\n", o->ownerId, pos_.x, pos_.z)); } catch(...) {}
                         break;
@@ -240,8 +282,10 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 
                 // tighten margin to require closer proximity before steering along OBB
                 const float probeMargin = 0.02f;
-                // require the OBB center to be reasonably close to the NPC before considering steering
-                const float detectDist = 1.25f; // world units
+                // allow detecting OBBs from a bit further away so steering can occur earlier
+                const float detectDist = 2.2f; // world units
+
+                
                 float dxC = o->center.x - pos_.x;
                 float dzC = o->center.z - pos_.z;
                 if (dxC * dxC + dzC * dzC > detectDist * detectDist) {
@@ -256,8 +300,31 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                     if (dot < 0.0f) { newDir.x = -newDir.x; newDir.z = -newDir.z; }
                     newDir = SafeNormalize(newDir);
                     straightDir_ = newDir;
-                    vel_.x = straightDir_.x * moveSpeed_;
-                    vel_.z = straightDir_.z * moveSpeed_;
+                    // Apply steering but resolve immediate penetration against OBB to avoid sliding into it
+                    Vector3 tempPos = pos_;
+                    const float smallStep = 0.1f;
+                    tempPos.x += straightDir_.x * smallStep;
+                    tempPos.z += straightDir_.z * smallStep;
+                    // push out of OBB/surrounding geometry
+                    GamePhysics::ResolveSphereObb2D(tempPos, kDefaultRadius, o->center, o->halfExtents, o->yaw);
+                    // move NPC toward the pushed position smoothly
+                    const float steerLerp = 0.35f; // smaller snap so not fully stopped
+                    pos_.x = pos_.x + (tempPos.x - pos_.x) * steerLerp;
+                    pos_.z = pos_.z + (tempPos.z - pos_.z) * steerLerp;
+                    // detect prolonged contact and reduce forward speed briefly to avoid burst-through
+                    // if already slowing, extend duration modestly instead of resetting
+                    if (contactTimer_ <= 0.0f) contactTimer_ = kContactSlowTime; else contactTimer_ = std::min(contactTimer_ + 0.05f, 0.6f);
+                    // update velocity toward desired direction smoothly
+                    // smoothly approach target slide velocity using acceleration limit
+                    float targetVx = straightDir_.x * moveSpeed_;
+                    float targetVz = straightDir_.z * moveSpeed_;
+                    float maxDeltaSlide = accel_ * dt;
+                    float ddx = targetVx - vel_.x;
+                    if (ddx > maxDeltaSlide) ddx = maxDeltaSlide; else if (ddx < -maxDeltaSlide) ddx = -maxDeltaSlide;
+                    float ddz = targetVz - vel_.z;
+                    if (ddz > maxDeltaSlide) ddz = maxDeltaSlide; else if (ddz < -maxDeltaSlide) ddz = -maxDeltaSlide;
+                    vel_.x += ddx;
+                    vel_.z += ddz;
                     if (obj_) {
                         float yaw = std::atan2(vel_.x, vel_.z);
                         Vector3 rot = obj_->GetRotation(); rot.y = yaw; obj_->SetRotation(rot);
@@ -277,23 +344,37 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                     float dx = pos_.x - bx;
                     float dz = pos_.z - bz;
 
-                    // Decide which axis to align to based on which separation is larger
-                    Vector3 newDir = {0.0f, 0.0f, 0.0f};
+                    // Decide which axis to align to based on which separation is larger.
+                    // Choose the sign that maximizes forward alignment with the previous
+                    // straightDir_ to avoid flipping to the opposite direction.
+                    Vector3 candA, candB;
                     if (std::fabs(dx) > std::fabs(dz)) {
                         // obstacle lies more to left/right -> run along Z axis
-                        // choose sign that preserves forward component of previous direction
-                        newDir.z = (straightDir_.z >= 0.0f) ? 1.0f : -1.0f;
+                        candA = Vector3{ 0.0f, 0.0f, 1.0f };
+                        candB = Vector3{ 0.0f, 0.0f, -1.0f };
                     } else {
                         // obstacle lies more to front/back -> run along X axis
-                        newDir.x = (straightDir_.x >= 0.0f) ? 1.0f : -1.0f;
+                        candA = Vector3{ 1.0f, 0.0f, 0.0f };
+                        candB = Vector3{ -1.0f, 0.0f, 0.0f };
                     }
 
-                    // normalize newDir (it's unit on chosen axis)
+                    // pick the candidate whose dot with previous direction is larger
+                    float dotA = candA.x * straightDir_.x + candA.z * straightDir_.z;
+                    float dotB = candB.x * straightDir_.x + candB.z * straightDir_.z;
+                    Vector3 newDir = (dotA >= dotB) ? candA : candB;
                     newDir = SafeNormalize(newDir);
 
                     straightDir_ = newDir;
-                    vel_.x = straightDir_.x * moveSpeed_;
-                    vel_.z = straightDir_.z * moveSpeed_;
+                    // smoothly approach target slide velocity to avoid instantaneous reversal
+                    float targetVx = straightDir_.x * moveSpeed_;
+                    float targetVz = straightDir_.z * moveSpeed_;
+                    float maxDelta = accel_ * dt;
+                    float ddx = targetVx - vel_.x;
+                    if (ddx > maxDelta) ddx = maxDelta; else if (ddx < -maxDelta) ddx = -maxDelta;
+                    float ddz = targetVz - vel_.z;
+                    if (ddz > maxDelta) ddz = maxDelta; else if (ddz < -maxDelta) ddz = -maxDelta;
+                    vel_.x += ddx;
+                    vel_.z += ddz;
 
                     // apply rotation to model so it faces movement direction
                     if (obj_) {
@@ -316,8 +397,48 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
             vel_.x = 0.0f; vel_.z = 0.0f;
         }
 
-        pos_.x += vel_.x * dt;
-        pos_.z += vel_.z * dt;
+        // apply contact slowdown if active (reduces forward speed briefly)
+        float contactFactor = 1.0f;
+        if (contactTimer_ > 0.0f) {
+            contactTimer_ = std::max(0.0f, contactTimer_ - dt);
+            contactFactor = kContactSlowFactor;
+        }
+
+        // If we're in mount entering smoothing, damp horizontal speed and delay steering a bit
+        if (mountEntering_) {
+            mountEnterTimer_ += dt;
+            float t = std::min(1.0f, mountEnterTimer_ / kMountEnterTime);
+            // smoothstep for nicer easing
+            float t2 = t * t * (3.0f - 2.0f * t);
+            // interpolate position and yaw smoothly from start to target
+            Vector3 newPos = Lerp(mountStartPos_, mountTargetPos_, t2);
+            pos_.x = newPos.x;
+            pos_.y = newPos.y;
+            pos_.z = newPos.z;
+            // allow residual forward velocity during the enter phase to avoid full stop
+            float enterForwardBlend = (1.0f - t2) * 0.6f;
+            pos_.x += vel_.x * enterForwardBlend * dt * contactFactor;
+            pos_.z += vel_.z * enterForwardBlend * dt * contactFactor;
+            // interpolate yaw with wrap handling
+            float dy = mountTargetYaw_ - mountStartYaw_;
+            const float PI = 3.14159265f;
+            while (dy > PI) dy -= 2.0f * PI;
+            while (dy < -PI) dy += 2.0f * PI;
+            float yaw = mountStartYaw_ + dy * t2;
+            if (obj_) {
+                Vector3 r = obj_->GetRotation(); r.y = yaw; obj_->SetRotation(r);
+            }
+            // finalize
+            if (mountEnterTimer_ >= kMountEnterTime) {
+                mountEntering_ = false;
+                // ensure velocity matches desired along OBB
+                vel_.x = straightDir_.x * moveSpeed_;
+                vel_.z = straightDir_.z * moveSpeed_;
+            }
+        } else {
+            pos_.x += vel_.x * contactFactor * dt;
+            pos_.z += vel_.z * contactFactor * dt;
+        }
 
         // handle mount: stay mounted while still colliding with a blocking AABB in front (e.g., a stick)
         if (mounted_) {
@@ -351,32 +472,34 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 
             if (hasStick || stillOnObb) {
                 // reset grace timer while still touching stick OR still clearly on top of OBB
-                if (mountTimer_ > 0.0f) {
-                    try { Logger::Log(std::format("[Npc] mountTimer reset (hasStick||stillOnObb)\n")); } catch(...) {}
-                }
                 mountTimer_ = 0.0f;
             } else {
-                // Immediately unmount when stick is gone. Start a gentle descent (no hard snap).
-                mounted_ = false;
-                mountedOwnerId_ = 0;
-                mountTimer_ = 0.0f;
-                // begin smooth falling: slightly quicker descent
-                fallingFromMount_ = true;
-                vel_.y = -0.60f; // initial downward velocity (quicker)
-                try { Logger::Log(std::format("[Npc] Immediate unmount (stick lost), begin gentle fall, pos=({:.3f},{:.3f},{:.3f})\n", pos_.x, pos_.y, pos_.z)); } catch(...) {}
+                // start grace timer before unmounting to avoid jitter when contact blips
+                mountTimer_ += 1.0f / 60.0f; // called at fixed timestep
+                if (mountTimer_ >= kMountGrace) {
+                    // unmount after grace period
+                    mounted_ = false;
+                    mountedOwnerId_ = 0;
+                    mountTimer_ = 0.0f;
+                    // begin smooth falling
+                    fallingFromMount_ = true;
+                    vel_.y = -0.60f; // initial downward velocity
+                    try { Logger::Log(std::format("[Npc] Unmount after grace, begin gentle fall, pos=({:.3f},{:.3f},{:.3f})\n", pos_.x, pos_.y, pos_.z)); } catch(...) {}
+                }
             }
         }
 
         // simple collision resolve and bounds
-        level.ResolveCollision(pos_, kDefaultRadius, true);
+        // When mounted, skip collision resolution to avoid being pushed off the object
+        level.ResolveCollision(pos_, kDefaultRadius, !mounted_);
         level.KeepInsideBounds(pos_, kDefaultRadius);
 
         if (!mounted_) {
             float groundY = 0.0f;
             if (fallingFromMount_) {
                 // Smooth falling: integrate vertical velocity with gentle gravity
-                const float gravity = -6.0f;         // m/s^2, a bit stronger for quicker descent
-                const float terminalVel = -3.5f;    // limit fall speed (more than before)
+                const float gravity = -4.0f;         // m/s^2, gentler descent
+                const float terminalVel = -2.5f;    // limit fall speed
 
                 // integrate
                 vel_.y = std::max(terminalVel, vel_.y + gravity * dt);
@@ -384,7 +507,7 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
 
                 // check for ground near current position; if close enough, snap and finish falling
                 if (level.RaycastDown({ pos_.x, pos_.y + 0.5f, pos_.z }, 50.0f, groundY)) {
-                    const float landingThreshold = 0.04f; // slightly larger threshold for earlier snap
+                    const float landingThreshold = 0.08f; // larger threshold for earlier snap
                     if (pos_.y <= groundY + landingThreshold) {
                         pos_.y = groundY;
                         fallingFromMount_ = false;
@@ -402,6 +525,14 @@ void Npc::Update(float dt, const Vector3& targetPos, Level& level)
                     pos_.y = groundY;
                 }
             }
+
+        // If mounted, keep vertical position locked to mounted OBB top to avoid jitter
+        if (mounted_) {
+            const float mountRaise = 0.08f;
+            const float obbExtraRaise = std::max(0.0f, mountedObbHalfExtents_.y * 0.1f);
+            pos_.y = mountedObbCenter_.y + mountedObbHalfExtents_.y + mountOffsetY_ + mountRaise + obbExtraRaise;
+            vel_.y = 0.0f;
+        }
         }
 
         // Smoothly interpolate facing yaw toward targetYaw_ only when returning.

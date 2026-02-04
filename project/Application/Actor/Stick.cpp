@@ -44,6 +44,7 @@ void Stick::Initialize(Object3dRenderer* renderer, const Vector3& pos)
         Logger::Log(std::string("[スティック] 初期化: pos=(") + std::to_string(pos_.x) + "," + std::to_string(pos_.y) + "," + std::to_string(pos_.z) + ")\n");
     }
 
+
 }
 
 void Stick::SetId(uint32_t id)
@@ -159,31 +160,37 @@ void Stick::Draw()
         obj_->Draw();
 }
 
+void Stick::SetHeld(bool v) {
+    held_ = v;
+    if (held_) {
+        // while held, disable collision and cancel pending registration
+        collisionEnabled_ = false;
+        collisionDisableTimer_ = 0.0f;
+        pendingRegister_ = false;
+        // remove any registered OBB from level
+        if (level_ && registeredOwnerId_ != 0) {
+            level_->RemoveOBBsByOwnerId(registeredOwnerId_);
+            registeredOwnerId_ = 0;
+            level_->RebuildWallGrid();
+        }
+    }
+}
+
     // 外部から拾う／落とすが呼ばれた際の委譲処理
 void Stick::PickUp() { PickUpExternal(); }
 void Stick::Drop() { DropExternal(); }
 
 void Stick::PickUpExternal()
 {
-    // 拾い上げた時の処理
-    held_ = true;
-    collisionEnabled_ = false; // 持っている間は物理判定を無効化
+    // Centralize held state logic via SetHeld so registrations/timers are cleared
+    SetHeld(true);
 
-    // 拾った時はプレイヤーの横に置かれる想定（呼び出し側に依存）。
-    // 体と干渉しないよう少し持ち上げる。
+    // Slightly raise so it doesn't intersect player's mesh
     pos_.y += 0.25f;
     if (obj_) {
-        // Preserve the current world rotation when picked up so any rotation applied
-        // while the stick was on the ground (or previously held) is retained.
         heldRotation_ = rotation_;
         obj_->SetTranslation(pos_);
         obj_->SetRotation(heldRotation_);
-    }
-
-    // 地面に置いた際にレベルに登録していた当たり判定(OBB)を削除
-    if (level_ && registeredOwnerId_ != 0) {
-        level_->RemoveOBBsByOwnerId(registeredOwnerId_);
-        registeredOwnerId_ = 0;
     }
 }
 
@@ -233,7 +240,8 @@ void Stick::SetHoldSideFromPlayerPos(const Vector3& playerPos)
 void Stick::DropExternal()
 {
     // 所持状態を終了して落とす：保持中の回転を使って配置する
-    held_ = false;
+    // Use SetHeld to update registration state
+    SetHeld(false);
     collisionEnabled_ = false;
     // 投げた直後に自分が当たらないようにタイマーを設定
     collisionDisableTimer_ = collisionDisableDuration_;

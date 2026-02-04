@@ -74,7 +74,7 @@ private:
   // player
   Player* player_ = nullptr;
   // actors
-  Stick* stick_ = nullptr;
+  std::vector<Stick*> sticks_;
   Npc* npc_ = nullptr;
   Goal* goal_ = nullptr;
   bool goalReached_ = false;
