@@ -335,6 +335,9 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	auto* sm = SoundManager::GetInstance();
 	sm->Load("select_se", "resources/sounds/SE/select.mp3");
 	sm->Load("push_se", "resources/sounds/SE/push.mp3");
+	sm->Load("title_bgm", "resources/sounds/BGM/TitleBGM.mp3");
+
+	sm->PlayBGM("title_bgm");
 }
 
 void StageSelectScene::Finalize()

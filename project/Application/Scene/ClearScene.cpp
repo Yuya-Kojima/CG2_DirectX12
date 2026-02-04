@@ -9,6 +9,7 @@
 #include "Render/Renderer/Object3dRenderer.h"
 #include "Render/Sprite/Sprite.h"
 #include "Scene/SceneManager.h"
+#include "Audio/SoundManager.h"
 
 void ClearScene::Initialize(EngineBase *engine) {
   engine_ = engine;
@@ -61,7 +62,7 @@ void ClearScene::Initialize(EngineBase *engine) {
   player_ = std::make_unique<Object3d>();
   player_->Initialize(engine_->GetObject3dRenderer());
   player_->SetModel("player_body.obj");
-  player_->SetRotation(Vector3{0.0f, 3.14, 0.0f});
+  player_->SetRotation(Vector3{0.0f, 3.14f, 0.0f});
   playerBasePos_ = {0.0f, 0.0f, 0.0f};
   player_->SetTranslation(playerBasePos_);
 
@@ -125,9 +126,26 @@ void ClearScene::Initialize(EngineBase *engine) {
   );
   clearGlitter_->SetBaseScale({0.22f, 0.22f, 0.22f});
   clearGlitter_->SetScaleRandom({0.12f, 0.12f, 0.12f});
+
+  auto* sm = SoundManager::GetInstance();
+  // キー名は "title_bgm" / "title_se"
+  // resources配下のファイルを指定
+  sm->Load("title_bgm", "resources/sounds/BGM/clearBGM.mp3");
+  sm->Load("select_se", "resources/sounds/SE/select.mp3");
+  sm->Load("push_se", "resources/sounds/SE/push.mp3");
+  // タイトル開始時にBGMをループ再生
+  sm->PlayBGM("title_bgm");
 }
 
 void ClearScene::Finalize() {
+
+    auto* sm = SoundManager::GetInstance();
+    sm->StopBGM();
+    sm->StopAllSE();
+    // 登録したキーをアンロード
+    sm->Unload("title_bgm");
+    sm->Unload("push_se");
+    sm->Unload("select_se");
 
   // 出ているパーティクルをすべてクリア
   ParticleManager::GetInstance()->ClearAllParticles();
@@ -142,9 +160,11 @@ void ClearScene::Update() {
 
   if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::Space) ||
       engine_->GetInputManager()->IsPadTrigger(PadButton::A)) {
+      SoundManager::GetInstance()->PlaySE("push_se");
     SceneManager::GetInstance()->ChangeScene("STAGESELECT");
   } else if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::T) ||
              engine_->GetInputManager()->IsPadTrigger(PadButton::Start)) {
+      SoundManager::GetInstance()->PlaySE("push_se");
     SceneManager::GetInstance()->ChangeScene("TITLE");
   }
 

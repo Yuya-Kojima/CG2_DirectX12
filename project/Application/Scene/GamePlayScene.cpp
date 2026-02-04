@@ -410,6 +410,26 @@ void GamePlayScene::Initialize(EngineBase* engine)
         }
         // Note: fallback hazard spawning removed. Hazards should be provided by stage JSON.
     }
+
+    // --- 天球モデルの用意 ---
+    ModelManager::GetInstance()->LoadModel("SkyDome.obj");
+    skyObject3d_ = std::make_unique<Object3d>();
+    skyObject3d_->Initialize(engine_->GetObject3dRenderer());
+    skyObject3d_->SetModel("SkyDome.obj");
+    skyObject3d_->SetTranslation({ 0.0f, 0.0f, 0.0f });
+    skyObject3d_->SetScale({ skyScale_, skyScale_, skyScale_ });
+    skyObject3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+    skyObject3d_->SetEnableLighting(false);
+    skyObject3d_->SetColor(Vector4{ 3.0f,3.0f,3.0f,1.0f });
+
+    auto* sm = SoundManager::GetInstance();
+    // キー名は "title_bgm" / "title_se"
+    // resources配下のファイルを指定
+    sm->Load("title_bgm", "resources/sounds/BGM/GameBGM.mp3");
+    sm->Load("select_se", "resources/sounds/SE/select.mp3");
+    sm->Load("push_se", "resources/sounds/SE/push.mp3");
+    // タイトル開始時にBGMをループ再生
+    sm->PlayBGM("title_bgm");
 }
 
 // ---------------------------------------------------------
@@ -417,6 +437,14 @@ void GamePlayScene::Initialize(EngineBase* engine)
 // ---------------------------------------------------------
 void GamePlayScene::Finalize()
 {
+    auto* sm = SoundManager::GetInstance();
+    sm->StopBGM();
+    sm->StopAllSE();
+    // 登録したキーをアンロード
+    sm->Unload("title_bgm");
+    sm->Unload("push_se");
+    sm->Unload("select_se");
+
     // オブジェクト破棄前に、レベルに登録されたID参照をクリア
     if (level_) {
         if (player_)
@@ -452,6 +480,9 @@ void GamePlayScene::Finalize()
 // ---------------------------------------------------------
 void GamePlayScene::Update()
 {
+    auto* input = engine_->GetInputManager();
+    assert(input);
+
     // オーディオ更新
     SoundManager::GetInstance()->Update();
 
@@ -461,9 +492,10 @@ void GamePlayScene::Update()
     }
 
     // デバッグ用：Rでステージリセット（再読み込み）
-    if (engine_->GetInputManager()->IsTriggerKey(DIK_R)) {
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_R) || input->IsPadTrigger(PadButton::Start)) {
         try { Logger::Log("Debug: R pressed - resetting stage\n"); } catch(...) {}
         SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+        SoundManager::GetInstance()->PlaySE("push_se");
         return;
     }
 
@@ -515,7 +547,6 @@ void GamePlayScene::Update()
     }
 
     // --- 3. 木の棒(Stick)の拾う・置く処理 ---
-    auto input = engine_->GetInputManager();
     if (input && !sticks_.empty()) {
         if (input->IsTriggerKey(DIK_SPACE) || input->IsPadTrigger(PadButton::A)) {
             // Determine if player currently holds a stick
@@ -810,6 +841,20 @@ void GamePlayScene::Update()
         }
     }
 
+
+    // 天球の更新
+    if (skyObject3d_) {
+        const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
+        if (activeCam) {
+            Vector3 camPos = activeCam->GetTranslate();
+            skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
+        }
+        skyRotate_ += 0.0005f;
+        if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
+        skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
+        skyObject3d_->Update();
+    }
+
 #ifdef USE_IMGUI
     // ImGui: stick debug window (scene-local toggle)
     if (showImGui_) {
@@ -939,6 +984,10 @@ void GamePlayScene::Draw()
 void GamePlayScene::Draw3D()
 {
     engine_->Begin3D();
+
+    if (skyObject3d_) {
+        skyObject3d_->Draw();
+    }
 
     // 描画順：レベル環境 -> 各種アクター
     if (player_)
