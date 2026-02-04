@@ -85,9 +85,12 @@ void Sprite::Update(Transform uvTransform) {
   vertexData[3].position = {right, top, 0.0f, 1.0f}; // 右上
   vertexData[3].texcoord = {texRight, texTop};
 
+  Vector3 finalScale = {size_.x * transform_.scale.x,
+                        size_.y * transform_.scale.y, 1.0f};
+
   // TransformからWorldMatrixを作る
-  Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
-                                           transform_.translate);
+  Matrix4x4 worldMatrix =
+      MakeAffineMatrix(finalScale, transform_.rotate, transform_.translate);
 
   // ViewMatrixを作って単位行列を代入
   Matrix4x4 viewMatrix = MakeIdentity4x4();
@@ -259,5 +262,5 @@ void Sprite::AdjustTextureSize() {
   textureSize.x = static_cast<float>(metadata.width);
   textureSize.y = static_cast<float>(metadata.height);
 
-  transform_.scale = {textureSize.x, textureSize.y, 1.0f};
+  size_ = textureSize;
 }
