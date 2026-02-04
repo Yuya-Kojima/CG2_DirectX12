@@ -511,7 +511,7 @@ void GamePlayScene::Update()
         Logger::Log("Goal reached by NPC (returned to spawn)!");
         // ここで選択中ステージをクリア済みにマーク
         StageSelection::SetCleared(StageSelection::GetSelected(), true);
-        SceneManager::GetInstance()->ChangeScene("DEBUG");
+        SceneManager::GetInstance()->ChangeScene("CLEAR");
     }
 
     // --- 3. 木の棒(Stick)の拾う・置く処理 ---
@@ -907,7 +907,7 @@ void GamePlayScene::Update()
                 Logger::Log("Goal reached by Player!");
                 // ここで選択中ステージをクリア済みにマーク
                 StageSelection::SetCleared(StageSelection::GetSelected(), true);
-                SceneManager::GetInstance()->ChangeScene("DEBUG");
+                SceneManager::GetInstance()->ChangeScene("CLEAR");
             }
         }
         if (!goalReached_ && npc_) {

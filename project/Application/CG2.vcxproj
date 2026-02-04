@@ -159,6 +159,7 @@
     <ClCompile Include="Actor\Npc.cpp" />
     <ClCompile Include="Actor\Physics.cpp" />
     <ClCompile Include="Actor\Stick.cpp" />
+    <ClCompile Include="Scene\ClearScene.cpp" />
     <ClCompile Include="Core\Game.cpp" />
     <ClCompile Include="Actor\Player.cpp" />
     <ClCompile Include="Navigation\NavigationGrid.cpp" />
@@ -221,6 +222,7 @@
     <ClInclude Include="Actor\Npc.h" />
     <ClInclude Include="Actor\Physics.h" />
     <ClInclude Include="Actor\Stick.h" />
+    <ClInclude Include="Scene\ClearScene.h" />
     <ClInclude Include="Core\Game.h" />
     <ClInclude Include="Actor\Player.h" />
     <ClInclude Include="Navigation\NavigationGrid.h" />

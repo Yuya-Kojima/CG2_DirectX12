@@ -293,7 +293,7 @@ void TitleScene::Update()
 		} else {
 			if (selectedButtonIndex_ == 0) {
 				// Start
-				SceneManager::GetInstance()->ChangeScene("STAGESELECT");
+				SceneManager::GetInstance()->ChangeScene("CLEAR");
 			} else {
 				// Credits をタイトル内で表示
 				creditsActive_ = true;
