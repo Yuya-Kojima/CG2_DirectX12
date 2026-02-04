@@ -101,26 +101,18 @@ void ParticleEmitter::Emit() {
   desc.lifeMin = lifeMin_;
   desc.lifeMax = lifeMax_;
   desc.color = color_;
+  desc.baseScale = baseScale_;
+  desc.scaleRandom = scaleRandom_;
+  desc.baseRotate = baseRotate_;
+  desc.rotateRandom = rotateRandom_;
 
   ParticleManager::GetInstance()->Emit(desc);
 }
 
 void ParticleEmitter::Emit(const Vector4 &overrideColor) {
 
-  if (count_ <= 0) {
-    return;
-  }
-
-  ParticleManager::ParticleEmitDesc desc{};
-  desc.name = name_;
-  desc.position = center_;
-  desc.count = static_cast<uint32_t>(count_);
-  desc.baseVelocity = baseVelocity_;
-  desc.velocityRandom = velocityRand_;
-  desc.spawnRandom = halfSize_;
-  desc.lifeMin = lifeMin_;
-  desc.lifeMax = lifeMax_;
-  desc.color = overrideColor;
-
-  ParticleManager::GetInstance()->Emit(desc);
+  auto tmp = color_;
+  color_ = overrideColor;
+  Emit();
+  color_ = tmp;
 }

@@ -138,6 +138,9 @@ void DebugScene::Initialize(EngineBase *engine) {
   ParticleManager::GetInstance()->CreateParticleGroup(
       "Clear", "resources/uvChecker.png");
 
+  ParticleManager::GetInstance()->CreateParticleGroup("Hit",
+                                                      "resources/circle.png");
+
   // 中心からXY方向にランダム速度
   particleEmitter_ = std::make_unique<ParticleEmitter>(
       "test",                    // グループ名
@@ -155,6 +158,13 @@ void DebugScene::Initialize(EngineBase *engine) {
   clearParticleEmitter_ = std::make_unique<ParticleEmitter>(
       "Clear", Vector3{1.0f, 0.0f, 2.0f}, Vector3{0.2f, 0.0f, 0.2f}, 8, 1.0f,
       Vector3{0.0f, 6.0f, 0.0f}, Vector3{1.5f, 1.0f, 1.5f}, 0.6f, 1.1f);
+
+  hitParticleEmitter_ = std::make_unique<ParticleEmitter>(
+      "Hit", Vector3{0.0f, 2.0f, 0.0f}, Vector3{}, 8, 3.0f,
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.3f, 0.55f);
+
+  hitParticleEmitter_->SetBaseScale(Vector3{0.05f, 1.0f, 1.0f});
+  hitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 2.0f});
 }
 
 void DebugScene::Finalize() {
@@ -291,6 +301,7 @@ void DebugScene::Update() {
   --------------------------------------------------*/
   particleEmitter_->Update();
   clearParticleEmitter_->Update();
+  hitParticleEmitter_->Update();
 
   /* 手動でパーティクルを生成することも可能
   -------------------------------------*/
@@ -465,8 +476,9 @@ void DebugScene::Draw3D() {
 
   object3d_->Draw();
   object3dA_->Draw();
-  ParticleManager::GetInstance()->Draw("test");
-  ParticleManager::GetInstance()->Draw("Clear");
+  // ParticleManager::GetInstance()->Draw("test");
+  // ParticleManager::GetInstance()->Draw("Clear");
+  ParticleManager::GetInstance()->Draw("Hit");
 }
 
 void DebugScene::Draw2D() {
