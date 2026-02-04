@@ -56,6 +56,7 @@ public:
   void Unload(const std::string &key);
 
   void PlaySE(const std::string &key);
+  void PlaySE_Once(const std::string &key);
 
   void PlayBGM(const std::string &key);
   void StopBGM();
@@ -110,4 +111,5 @@ private:
 
   // SE（使い捨てvoice。Updateで回収）
   std::vector<IXAudio2SourceVoice *> seVoices_;
+  std::unordered_map<IXAudio2SourceVoice *, std::string> seVoiceKeys_;
 };

@@ -177,6 +177,7 @@ void SoundManager::Finalize() {
     v->DestroyVoice();
   }
   seVoices_.clear();
+  seVoiceKeys_.clear();
 
   // WAV解放
   // for (auto &[key, sd] : sounds_) {
@@ -216,6 +217,9 @@ void SoundManager::Update() {
       v->Stop();
       v->FlushSourceBuffers();
       v->DestroyVoice();
+
+      seVoiceKeys_.erase(v);
+
       it = seVoices_.erase(it);
     } else {
       ++it;
@@ -391,6 +395,36 @@ void SoundManager::PlaySE(const std::string &key) {
 
   // 再生終了後Updateで回収
   seVoices_.push_back(voice);
+  seVoiceKeys_[voice] = key;
+}
+
+void SoundManager::PlaySE_Once(const std::string &key) {
+
+  for (IXAudio2SourceVoice *v : seVoices_) {
+    if (!v) {
+      continue;
+    }
+
+    auto it = seVoiceKeys_.find(v);
+    if (it == seVoiceKeys_.end()) {
+      continue;
+    }
+
+    // 同じkeyのvoiceだけ見る
+    if (it->second != key) {
+      continue;
+    }
+
+    XAUDIO2_VOICE_STATE st{};
+    v->GetState(&st);
+
+    // まだ鳴ってるなら無視
+    if (st.BuffersQueued > 0) {
+      return;
+    }
+  }
+
+  PlaySE(key);
 }
 
 void SoundManager::PlayBGM(const std::string &key) {
@@ -686,4 +720,5 @@ void SoundManager::StopAllSE() {
     v->DestroyVoice();
   }
   seVoices_.clear();
+  seVoiceKeys_.clear();
 }
