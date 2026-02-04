@@ -274,6 +274,8 @@ void DebugScene::Update() {
     sprites_[i]->SetSize(spriteSizes_[i]);
   }
 
+  sprites_[0]->SetScale(Vector2{1.5f,1.5f});
+
   sprite_->Update(uvTransformSprite_);
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {
