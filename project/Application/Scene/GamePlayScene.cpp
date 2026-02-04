@@ -24,6 +24,7 @@
 #include "Sprite/Sprite.h"
 #include "Stage/StageLoader.h"
 #include "Texture/TextureManager.h"
+#include "Model/ModelManager.h"
 #ifdef USE_IMGUI
 #include "Debug/ImGuiManager.h"
 #include "imgui.h"
@@ -294,81 +295,100 @@ void GamePlayScene::Initialize(EngineBase* engine)
 				for (auto& c : cls)
 					c = (char)tolower(c);
 
-				if (cls == "stick") {
-					// allow multiple sticks: always create and append
-					Stick* s = new Stick();
-					s->Initialize(engine_->GetObject3dRenderer(), o.position);
-					s->SetLevel(level_);
-					s->SetLayer(o.layer);
-					uint32_t id = allocateId(o.id);
-					s->SetId(id);
-					sticks_.push_back(s);
-					Logger::Log("Stage: spawned Stick from JSON");
-					// OBB registration for the stick is handled inside Stick class
-					// (Stick::DropExternal / SetId). Do not register here to avoid
-					// duplicate / out-of-sync colliders that can cause invisible
-					// hitboxes. The Stick instance will register/update its OBB
-					// with the Level when appropriate.
-				} else if (cls == "npc") {
-					if (!npc_) {
-						npc_ = new Npc();
-						npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
-						npc_->AttachLevel(level_);
-						npc_->SetLayer(o.layer);
-						uint32_t id = allocateId(o.id);
-						npc_->SetId(id);
-						// behavior property (store but do not force state)
-						auto it = o.properties.find("behavior");
-						if (it != o.properties.end()) {
-							npc_->SetBehavior(it->second);
-						}
-						// optional straightDir property as "x,y,z"
-						auto it2 = o.properties.find("straightDir");
-						if (it2 != o.properties.end()) {
-							Vector3 sdv = parseVec3(it2->second);
-							npc_->SetStraightDirection(sdv);
-							npc_->SetState(Npc::State::Straight);
-						} else {
-							// default: keep a consistent forward direction (positive X) so
-							// stage NPCs always move in the expected straight direction
-							npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
-							npc_->SetState(Npc::State::Straight);
-						}
-						Logger::Log("Stage: spawned Npc from JSON");
-					}
-				} else if (cls == "player") {
-					if (!player_) {
-						player_ = new Player();
-						player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
-						player_->AttachLevel(level_);
-						player_->SetLayer(o.layer);
-						uint32_t id = allocateId(o.id);
-						player_->SetId(id);
-						player_->SetPosition(o.position);
-						// record spawn point from JSON
-						playerSpawn_ = o.position;
-						havePlayerSpawn_ = true;
-						Logger::Log("Stage: spawned Player from JSON");
-					}
-				} else if (cls == "goal") {
-					if (!goal_) {
-						goal_ = new Goal();
-						goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
-						// assign id if provided (Goal doesn't store id but keep for level owner mapping)
-						uint32_t gid = allocateId(o.id);
-						(void)gid;
-						Logger::Log("Stage: spawned Goal from JSON");
-					}
-					if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
-						goalHalf_.x = o.obbHalfExtents.x;
-						goalHalf_.z = o.obbHalfExtents.z;
-						goalHalf_.y = o.obbHalfExtents.y > 0.0f ? o.obbHalfExtents.y : goalHalf_.y;
-						goalHasAABB_ = true;
-					}
-				}
-			}
-		}
-	}
+                if (cls == "stick") {
+                    // allow multiple sticks: always create and append
+                    Stick* s = new Stick();
+                    s->Initialize(engine_->GetObject3dRenderer(), o.position);
+                    s->SetLevel(level_);
+                    s->SetLayer(o.layer);
+                    uint32_t id = allocateId(o.id);
+                    s->SetId(id);
+                    sticks_.push_back(s);
+                    Logger::Log("Stage: spawned Stick from JSON");
+                    // OBB registration for the stick is handled inside Stick class
+                    // (Stick::DropExternal / SetId). Do not register here to avoid
+                    // duplicate / out-of-sync colliders that can cause invisible
+                    // hitboxes. The Stick instance will register/update its OBB
+                    // with the Level when appropriate.
+                } else if (cls == "npc") {
+                    if (!npc_) {
+                        npc_ = new Npc();
+                        npc_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                        npc_->AttachLevel(level_);
+                        npc_->SetLayer(o.layer);
+                        uint32_t id = allocateId(o.id);
+                        npc_->SetId(id);
+                        // behavior property (store but do not force state)
+                        auto it = o.properties.find("behavior");
+                        if (it != o.properties.end()) {
+                            npc_->SetBehavior(it->second);
+                        }
+                        // optional straightDir property as "x,y,z"
+                        auto it2 = o.properties.find("straightDir");
+                        if (it2 != o.properties.end()) {
+                            Vector3 sdv = parseVec3(it2->second);
+                            npc_->SetStraightDirection(sdv);
+                            npc_->SetState(Npc::State::Straight);
+                        } else {
+                            // default: keep a consistent forward direction (positive X) so
+                            // stage NPCs always move in the expected straight direction
+                            npc_->SetStraightDirection({ 1.0f, 0.0f, 0.0f });
+                            npc_->SetState(Npc::State::Straight);
+                        }
+                    Logger::Log("Stage: spawned Npc from JSON");
+                    }
+                }
+                else if (cls == "spawn" || (!o.model.empty() && o.model.find("spawn") != std::string::npos)) {
+                    std::string modelName = o.model.empty() ? std::string("spawn.obj") : o.model;
+                    ModelManager::GetInstance()->LoadModel(modelName);
+                    auto marker = std::make_unique<Object3d>();
+                    marker->Initialize(engine_->GetObject3dRenderer());
+                    marker->SetModel(modelName);
+                    // adjust marker Y to sit above ground so it's visible
+                    Vector3 pos = o.position;
+                    marker->SetTranslation(pos);
+                    marker->SetScale({ 1.0f, 1.0f, 1.0f });
+                    marker->SetEnableLighting(false);
+                    marker->SetColor(Vector4{1.0f, 1.0f, 1.0f, 1.0f});
+                    try {
+                        Logger::Log(std::format("[Scene] spawn marker created at ({:.2f},{:.2f},{:.2f})\n", pos.x, pos.y, pos.z));
+                    } catch (...) {
+                        Logger::Log(std::string("[Scene] spawn marker created at (") + std::to_string(pos.x) + "," + std::to_string(pos.y) + "," + std::to_string(pos.z) + ")\n");
+                    }
+                    spawnMarkers_.push_back(std::move(marker));
+                } else if (cls == "player") {
+                    if (!player_) {
+                        player_ = new Player();
+                        player_->Initialize(engine_->GetInputManager(), engine_->GetObject3dRenderer());
+                        player_->AttachLevel(level_);
+                        player_->SetLayer(o.layer);
+                        uint32_t id = allocateId(o.id);
+                        player_->SetId(id);
+                        player_->SetPosition(o.position);
+                        // record spawn point from JSON
+                        playerSpawn_ = o.position;
+                        havePlayerSpawn_ = true;
+                        Logger::Log("Stage: spawned Player from JSON");
+                    }
+                } else if (cls == "goal") {
+                    if (!goal_) {
+                        goal_ = new Goal();
+                        goal_->Initialize(engine_->GetObject3dRenderer(), o.position);
+                        // assign id if provided (Goal doesn't store id but keep for level owner mapping)
+                        uint32_t gid = allocateId(o.id);
+                        (void)gid;
+                        Logger::Log("Stage: spawned Goal from JSON");
+                    }
+                    if (o.obbHalfExtents.x != 0.0f || o.obbHalfExtents.z != 0.0f) {
+                        goalHalf_.x = o.obbHalfExtents.x;
+                        goalHalf_.z = o.obbHalfExtents.z;
+                        goalHalf_.y = o.obbHalfExtents.y > 0.0f ? o.obbHalfExtents.y : goalHalf_.y;
+                        goalHasAABB_ = true;
+                    }
+                }
+            }
+        }
+    }
 
 	// If the stage defined an object with class "Goal" and provided obb info,
 	// use that to drive AABB-based goal checks instead of sphere radius.
@@ -910,18 +930,23 @@ void GamePlayScene::Update()
 	}
 
 
-	// 天球の更新
-	if (skyObject3d_) {
-		const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
-		if (activeCam) {
-			Vector3 camPos = activeCam->GetTranslate();
-			skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
-		}
-		skyRotate_ += 0.0005f;
-		if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
-		skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
-		skyObject3d_->Update();
-	}
+    // 天球の更新
+    if (skyObject3d_) {
+        const ICamera* activeCam = engine_->GetObject3dRenderer()->GetDefaultCamera();
+        if (activeCam) {
+            Vector3 camPos = activeCam->GetTranslate();
+            skyObject3d_->SetTranslation({ camPos.x, camPos.y, camPos.z });
+        }
+        skyRotate_ += 0.0005f;
+        if (skyRotate_ > 3.14159265f * 2.0f) skyRotate_ -= 3.14159265f * 2.0f;
+        skyObject3d_->SetRotation({ 0.0f, skyRotate_, 0.0f });
+        skyObject3d_->Update();
+    }
+    
+    // update spawn markers
+    for (auto &m : spawnMarkers_) {
+        if (m) m->Update();
+    }
 
 #ifdef USE_IMGUI
 	// ImGui: stick debug window (scene-local toggle)
@@ -1059,16 +1084,21 @@ void GamePlayScene::Draw3D()
 		skyObject3d_->Draw();
 	}
 
-	// 描画順：レベル環境 -> 各種アクター
-	if (player_)
-		player_->Draw();
-	if (level_)
-		level_->Draw();
-	if (npc_)
-		npc_->Draw();
-	for (auto s : sticks_) if (s) s->Draw();
-	if (goal_)
-		goal_->Draw();
+    // draw spawn markers (if any)
+    for (auto &m : spawnMarkers_) {
+        if (m) m->Draw();
+    }
+
+    // 描画順：レベル環境 -> 各種アクター
+    if (player_)
+        player_->Draw();
+    if (level_)
+        level_->Draw();
+    if (npc_)
+        npc_->Draw();
+    for (auto s : sticks_) if (s) s->Draw();
+    if (goal_)
+        goal_->Draw();
 }
 
 // ---------------------------------------------------------
