@@ -220,17 +220,17 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	controls1Object3d_ = std::make_unique<Object3d>();
 	controls1Object3d_->Initialize(engine_->GetObject3dRenderer());
 	controls1Object3d_->SetModel("operation2_UI.obj");
-	controls1Object3d_->SetScale({ 0.45f, 0.45f, 0.45f });
-	controls1Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
-	controls1Object3d_->SetTranslation({ 0.0f,  0.0f, 0.0f });
+	controls1Object3d_->SetScale({ 2.5f, 2.5f, 2.5f });
+	controls1Object3d_->SetRotation({ 0.35f, 0.0f, 0.0f });
+	controls1Object3d_->SetTranslation({ 16.0f,  7.0f, -25.0f });
 
 	ModelManager::GetInstance()->LoadModel("operation4_UI.obj");
 	controls2Object3d_ = std::make_unique<Object3d>();
 	controls2Object3d_->Initialize(engine_->GetObject3dRenderer());
 	controls2Object3d_->SetModel("operation4_UI.obj");
-	controls2Object3d_->SetScale({ 0.45f, 0.45f, 0.45f });
-	controls2Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
-	controls2Object3d_->SetTranslation({ 0.0f,  0.0f, 0.0f });
+	controls2Object3d_->SetScale({ 2.5f, 2.5f,2.5f });
+	controls2Object3d_->SetRotation({ 0.35f, 0.0f, 0.0f });
+	controls2Object3d_->SetTranslation({ -20.0f,  7.0f, -25.0f });
 
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
@@ -514,7 +514,7 @@ void StageSelectScene::Update()
 			input->IsPadTrigger(PadButton::DPadLeft) || input->IsPadTrigger(PadButton::DPadRight) ||
 			// 左スティック左右の瞬間的倒し（閾値越え）
 			((leftX < -kPadAxisTrigger && prevPadLeftX_ >= -kPadAxisTrigger) ||
-			 (leftX > kPadAxisTrigger && prevPadLeftX_ <= kPadAxisTrigger))) {
+				(leftX > kPadAxisTrigger && prevPadLeftX_ <= kPadAxisTrigger))) {
 
 			int prevIndex = currentIndex_;
 			int newIndex = prevIndex;
@@ -736,6 +736,91 @@ void StageSelectScene::Update()
 		playerObject3d_->SetTranslation({ playerTranslate_[0], playerTranslate_[1], playerTranslate_[2] });
 		playerObject3d_->SetRotation({ playerRotateDeg_[0] * degToRad, playerRotateDeg_[1] * degToRad, playerRotateDeg_[2] * degToRad });
 		playerObject3d_->SetScale({ playerScale_[0], playerScale_[1], playerScale_[2] });
+		ImGui::End();
+	}
+
+	// ===== Controls 1 / Controls 2 編集 UI =====
+	// controls1Object3d_
+	if (controls1Object3d_) {
+		ImGui::Begin("Controls 1");
+
+		// Translation
+		{
+			Vector3 t = controls1Object3d_->GetTranslation();
+			float tf[3] = { t.x, t.y, t.z };
+			if (ImGui::DragFloat3("Translation##Controls1", tf, 0.01f, -100.0f, 100.0f)) {
+				controls1Object3d_->SetTranslation({ tf[0], tf[1], tf[2] });
+			}
+		}
+
+		// Rotation (deg)
+		{
+			Vector3 r = controls1Object3d_->GetRotation();
+			float rDeg[3] = {
+				static_cast<float>(r.x * 180.0f / 3.14159265f),
+				static_cast<float>(r.y * 180.0f / 3.14159265f),
+				static_cast<float>(r.z * 180.0f / 3.14159265f)
+			};
+			if (ImGui::DragFloat3("Rotation(deg)##Controls1", rDeg, 0.25f, -360.0f, 360.0f)) {
+				controls1Object3d_->SetRotation({
+					DegToRad(rDeg[0]),
+					DegToRad(rDeg[1]),
+					DegToRad(rDeg[2])
+					});
+			}
+		}
+
+		// Scale
+		{
+			Vector3 s = controls1Object3d_->GetScale();
+			float sf[3] = { s.x, s.y, s.z };
+			if (ImGui::DragFloat3("Scale##Controls1", sf, 0.01f, 0.001f, 100.0f)) {
+				controls1Object3d_->SetScale({ sf[0], sf[1], sf[2] });
+			}
+		}
+
+		ImGui::End();
+	}
+
+	// controls2Object3d_
+	if (controls2Object3d_) {
+		ImGui::Begin("Controls 2");
+
+		// Translation
+		{
+			Vector3 t = controls2Object3d_->GetTranslation();
+			float tf[3] = { t.x, t.y, t.z };
+			if (ImGui::DragFloat3("Translation##Controls2", tf, 0.01f, -100.0f, 100.0f)) {
+				controls2Object3d_->SetTranslation({ tf[0], tf[1], tf[2] });
+			}
+		}
+
+		// Rotation (deg)
+		{
+			Vector3 r = controls2Object3d_->GetRotation();
+			float rDeg[3] = {
+				static_cast<float>(r.x * 180.0f / 3.14159265f),
+				static_cast<float>(r.y * 180.0f / 3.14159265f),
+				static_cast<float>(r.z * 180.0f / 3.14159265f)
+			};
+			if (ImGui::DragFloat3("Rotation(deg)##Controls2", rDeg, 0.25f, -360.0f, 360.0f)) {
+				controls2Object3d_->SetRotation({
+					DegToRad(rDeg[0]),
+					DegToRad(rDeg[1]),
+					DegToRad(rDeg[2])
+					});
+			}
+		}
+
+		// Scale
+		{
+			Vector3 s = controls2Object3d_->GetScale();
+			float sf[3] = { s.x, s.y, s.z };
+			if (ImGui::DragFloat3("Scale##Controls2", sf, 0.01f, 0.001f, 100.0f)) {
+				controls2Object3d_->SetScale({ sf[0], sf[1], sf[2] });
+			}
+		}
+
 		ImGui::End();
 	}
 
