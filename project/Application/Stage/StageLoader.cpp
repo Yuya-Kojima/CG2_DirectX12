@@ -420,6 +420,38 @@ bool StageLoader::LoadStage(const std::string& path, StageData& out)
     ExtractIntArray(s, "tiles", out.tiles);
     ExtractIntArray(s, "collision", out.collision);
 
+    // 一部の制作ツールとゲームのZ軸方向が逆になっていることがあるため
+    // タイル配列（tiles / collision）は垂直方向（Z軸）で反転して読み替える。
+    // これによりオブジェクトの position 等はそのままに、マップタイルだけ前後を反転させる。
+    if (out.width > 0 && out.height > 0) {
+        const size_t expected = static_cast<size_t>(out.width) * static_cast<size_t>(out.height);
+        if (out.tiles.size() == expected) {
+            std::vector<int> flipped;
+            flipped.resize(expected);
+            for (int z = 0; z < out.height; ++z) {
+                for (int x = 0; x < out.width; ++x) {
+                    size_t srcIdx = static_cast<size_t>((out.height - 1 - z) * out.width + x);
+                    size_t dstIdx = static_cast<size_t>(z * out.width + x);
+                    flipped[dstIdx] = out.tiles[srcIdx];
+                }
+            }
+            out.tiles = std::move(flipped);
+        }
+
+        if (out.collision.size() == expected) {
+            std::vector<int> flippedC;
+            flippedC.resize(expected);
+            for (int z = 0; z < out.height; ++z) {
+                for (int x = 0; x < out.width; ++x) {
+                    size_t srcIdx = static_cast<size_t>((out.height - 1 - z) * out.width + x);
+                    size_t dstIdx = static_cast<size_t>(z * out.width + x);
+                    flippedC[dstIdx] = out.collision[srcIdx];
+                }
+            }
+            out.collision = std::move(flippedC);
+        }
+    }
+
     // オブジェクト情報
     std::vector<std::string> objBodies;
     bool hasObjects = ExtractObjectsArray(s, objBodies);

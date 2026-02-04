@@ -242,7 +242,16 @@
     </None>
     <None Include="resources\shaders\Object3d.hlsli" />
     <None Include="resources\stages\level01.json" />
+    <None Include="resources\stages\level02.json" />
+    <None Include="resources\stages\level03.json" />
+    <None Include="resources\stages\level04.json" />
+    <None Include="resources\stages\level05.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties resources_4stages_4level04_1json__JsonSchema="  " />
+    </VisualStudio>
+  </ProjectExtensions>
 </Project>
