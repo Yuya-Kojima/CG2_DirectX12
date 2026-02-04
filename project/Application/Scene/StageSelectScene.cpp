@@ -9,6 +9,7 @@
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Debug/ImGuiManager.h"
+#include "Particle/ParticleManager.h"
 #include <cassert>
 #include <cmath>
 #include <filesystem>
@@ -152,6 +153,66 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	stage3Object3d_ = std::make_unique<Object3d>();
 	stage3Object3d_->Initialize(engine_->GetObject3dRenderer());
 	stage3Object3d_->SetModel("stageSelect_3.obj");
+
+	// --- ステージ床モデルの用意 ---
+	ModelManager::GetInstance()->LoadModel("stage1.obj");
+	stageFloor1Object3d_ = std::make_unique<Object3d>();
+	stageFloor1Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stageFloor1Object3d_->SetModel("stage1.obj");
+
+	ModelManager::GetInstance()->LoadModel("stage2.obj");
+	stageFloor2Object3d_ = std::make_unique<Object3d>();
+	stageFloor2Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stageFloor2Object3d_->SetModel("stage2.obj");
+
+	ModelManager::GetInstance()->LoadModel("stage3.obj");
+	stageFloor3Object3d_ = std::make_unique<Object3d>();
+	stageFloor3Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stageFloor3Object3d_->SetModel("stage3.obj");
+
+	ModelManager::GetInstance()->LoadModel("stage4.obj");
+	stageFloor4Object3d_ = std::make_unique<Object3d>();
+	stageFloor4Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stageFloor4Object3d_->SetModel("stage4.obj");
+
+	ModelManager::GetInstance()->LoadModel("stage5.obj");
+	stageFloor5Object3d_ = std::make_unique<Object3d>();
+	stageFloor5Object3d_->Initialize(engine_->GetObject3dRenderer());
+	stageFloor5Object3d_->SetModel("stage5.obj");
+
+	const Vector4 blue = Vector4{ 0.0f, 0.0f, 1.0f, 1.0f };
+
+	auto applyIfCleared = [&](size_t idx)
+		{
+			if (idx >= options_.size()) return;
+			const std::string& stageFile = options_[idx];
+			if (!StageSelection::IsCleared(stageFile)) return;
+
+			// index 0 -> stage1, 1->stage2, 2->stage3, 3->stage4, 4->stage5
+			switch (idx) {
+			case 0:
+			if (stageFloor1Object3d_) stageFloor1Object3d_->SetColor(blue);
+			break;
+			case 1:
+			if (stageFloor2Object3d_) stageFloor2Object3d_->SetColor(blue);
+			break;
+			case 2:
+			if (stageFloor3Object3d_) stageFloor3Object3d_->SetColor(blue);
+			break;
+			case 3:
+			if (stageFloor4Object3d_) stageFloor4Object3d_->SetColor(blue);
+			break;
+			case 4:
+			if (stageFloor5Object3d_) stageFloor5Object3d_->SetColor(blue);
+			break;
+			default:
+			break;
+			}
+		};
+
+	for (size_t i = 0; i < 5 && i < options_.size(); ++i) {
+		applyIfCleared(i);
+	}
 
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
@@ -328,6 +389,27 @@ void StageSelectScene::Update()
 	if (stage3Object3d_) {
 		stage3Object3d_->Update();
 	}
+
+	if (stageFloor1Object3d_) {
+		stageFloor1Object3d_->Update();
+	}
+
+	if (stageFloor2Object3d_) {
+		stageFloor2Object3d_->Update();
+	}
+
+	if (stageFloor3Object3d_) {
+		stageFloor3Object3d_->Update();
+	}
+
+	if (stageFloor4Object3d_) {
+		stageFloor4Object3d_->Update();
+	}
+
+	if (stageFloor5Object3d_) {
+		stageFloor5Object3d_->Update();
+	}
+
 
 	for (auto& uiObj : stageUIObjects_) {
 		if (uiObj) {
@@ -709,6 +791,7 @@ void StageSelectScene::Update()
 		}
 		ImGui::End();
 	}
+
 #endif // USE_IMGUI
 }
 
@@ -738,9 +821,30 @@ void StageSelectScene::Draw3D()
 		stage2Object3d_->Draw();
 	}
 
+	if (stageFloor1Object3d_) {
+		stageFloor1Object3d_->Draw();
+	}
+
+	if (stageFloor2Object3d_) {
+		stageFloor2Object3d_->Draw();
+	}
+
+	if (stageFloor3Object3d_) {
+		stageFloor3Object3d_->Draw();
+	}
+
+	if (stageFloor4Object3d_) {
+		stageFloor4Object3d_->Draw();
+	}
+
+	if (stageFloor5Object3d_) {
+		stageFloor5Object3d_->Draw();
+	}
+
 	if (stage3Object3d_) {
 		stage3Object3d_->Draw();
 	}
+
 
 	// 現状プレイヤーがいるステージのUIのみ描画
 	if (!stageUIObjects_.empty()) {

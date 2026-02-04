@@ -44,6 +44,12 @@ private:
 	float stage2RotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
 	float stage2Scale_[3] = { 1.0f, 1.0f, 1.0f };
 
+	std::unique_ptr<Object3d> stageFloor1Object3d_;
+	std::unique_ptr<Object3d> stageFloor2Object3d_;
+	std::unique_ptr<Object3d> stageFloor3Object3d_;
+	std::unique_ptr<Object3d> stageFloor4Object3d_;
+	std::unique_ptr<Object3d> stageFloor5Object3d_;
+
 	// ステージUI用Object3d (既存の単体保持は残す)
 	std::unique_ptr<Object3d> stageUIObject3d_;
 	// 単体設定用
@@ -51,13 +57,13 @@ private:
 	float stageUIRotateDeg_[3] = { 0.0f, 0.0f, 0.0f };
 	float stageUIScale_[3] = { 3.5f, 3.5f, 3.5f };
 
-	// 追加: ステージ数分の Stage UI を保持する配列
+	// ステージ数分の Stage UI を保持する配列
 	std::vector<std::unique_ptr<Object3d>> stageUIObjects_;
 
 	// アニメーション制御（各 UI ごと）
 	std::vector<bool> stageUIVisible_;
 	std::vector<bool> stageUIAnimating_;
-	std::vector<float> stageUIAnimTimer_; 
+	std::vector<float> stageUIAnimTimer_;
 	std::vector<Vector3> stageUIBaseScale_;
 
 	// プレイヤーモデル用Object3d
@@ -68,16 +74,16 @@ private:
 
 	// 滑らか移動用ターゲットとフラグ
 	Vector3 playerTargetTranslate_{ 0.0f, 0.0f, 0.0f };
-	
+
 	// プレイヤーが移動中かどうか
 	bool playerMoving_ = false;
-	
+
 	// 前フレームの移動フラグ（停止検出用）
 	bool prevPlayerMoving_ = false;
 
 	// 補間スピード
 	float playerMoveSpeed_ = 6.0f;
-	
+
 	// この距離未満でスナップ
 	float playerSnapThreshold_ = 0.01f;
 
@@ -123,11 +129,11 @@ private:
 	// プレイヤー遷移(シーン移行演出)用
 	bool transitionActive_ = false;
 	float transitionTimer_ = 0.0f;
-	float transitionDuration_ = 0.9f; 
+	float transitionDuration_ = 0.9f;
 	Vector3 transitionStartPos_;
 	Vector3 transitionTargetPos_;
 	Vector3 transitionStartScale_;
 	Vector3 transitionTargetScale_;
 	float transitionStartRotateYDeg_ = 0.0f;
-	float transitionSpinDeg_ = 720.0f; 
+	float transitionSpinDeg_ = 720.0f;
 };

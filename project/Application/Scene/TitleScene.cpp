@@ -184,6 +184,15 @@ void TitleScene::Initialize(EngineBase* engine)
 		titleBotPhase_ = TitleBotPhase::FirstMove;
 	}
 
+	//-- クレジット用3Dオブジェクトの初期化 ---
+	ModelManager::GetInstance()->LoadModel("Credits.obj");
+	Credits3d_ = std::make_unique<Object3d>();
+	Credits3d_->Initialize(engine_->GetObject3dRenderer());
+	Credits3d_->SetModel("Credits.obj");
+	Credits3d_->SetScale({ 1.0f, 1.0f, 1.0f });
+	Credits3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	Credits3d_->SetTranslation({ 0.0f, 2.1f, 0.0f });
+
 	// --- 天球モデルの用意 ---
 	ModelManager::GetInstance()->LoadModel("SkyDome.obj");
 	skyObject3d_ = std::make_unique<Object3d>();
@@ -359,6 +368,10 @@ void TitleScene::Update()
 
 	if (button2Object3d_) {
 		button2Object3d_->Update();
+	}
+
+	if (Credits3d_) {
+		Credits3d_->Update();
 	}
 
 	if (pinObject3d_) {
@@ -541,12 +554,12 @@ void TitleScene::Update()
 		ImGui::Begin("Title 3D");
 
 		// Translation
-		Vector3 trans = titleObject3d_->GetTranslation();
+		Vector3 trans = Credits3d_->GetTranslation();
 		float transf[3] = { trans.x, trans.y, trans.z };
 		if (ImGui::DragFloat3("Translation", transf, 0.01f, -100.0f, 100.0f)) {
-			titleObject3d_->SetTranslation({ transf[0], transf[1], transf[2] });
+			Credits3d_->SetTranslation({ transf[0], transf[1], transf[2] });
 			// 更新した基準位置も同期しておく
-			titleStartTranslation_ = titleObject3d_->GetTranslation();
+			titleStartTranslation_ = Credits3d_->GetTranslation();
 		}
 
 		// Rotation
@@ -710,6 +723,9 @@ void TitleScene::Draw3D()
 		}
 	} else {
 		// クレジット表示中：ボタン等を描画しない（必要ならここにクレジット専用描画を追加）
+		if (Credits3d_) {
+			Credits3d_->Draw();
+		}
 	}
 
 	//ここから下で3DオブジェクトのDrawを呼ぶ
