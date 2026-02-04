@@ -228,7 +228,7 @@ void StageSelectScene::Initialize(EngineBase* engine)
 	controls2Object3d_ = std::make_unique<Object3d>();
 	controls2Object3d_->Initialize(engine_->GetObject3dRenderer());
 	controls2Object3d_->SetModel("operation4_UI.obj");
-	controls2Object3d_->SetScale({ 0.45, 0.45, 0.45 });
+	controls2Object3d_->SetScale({ 0.45f, 0.45f, 0.45f });
 	controls2Object3d_->SetRotation({ 0.0f, 0.0f, 0.0f });
 	controls2Object3d_->SetTranslation({ 0.0f,  0.0f, 0.0f });
 
