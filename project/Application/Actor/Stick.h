@@ -43,7 +43,7 @@ public:
 
     // 現在手に持たれているかどうかを取得
     bool IsHeld() const { return held_; }
-    void SetHeld(bool v) { held_ = v; }
+    void SetHeld(bool v);
 
     // 座標の取得と設定（設定時は即座に描画オブジェクトにも反映）
     const Vector3& GetPosition() const { return pos_; }

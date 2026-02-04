@@ -92,6 +92,23 @@ private:
     // マウント継続時間（秒）
     static constexpr float kMountDuration = 0.8f;
 
+    // mount entering: short smoothing period when NPC first lands on object
+    static constexpr float kMountEnterTime = 0.18f; // seconds
+    float mountEnterTimer_ = 0.0f;
+    bool mountEntering_ = false;
+    // mount interpolation targets
+    Vector3 mountStartPos_ {0.0f,0.0f,0.0f};
+    Vector3 mountTargetPos_ {0.0f,0.0f,0.0f};
+    float mountStartYaw_ = 0.0f;
+    float mountTargetYaw_ = 0.0f;
+
+    // Contact slowdown: when NPC is repeatedly steering or pushing against obstacles,
+    // temporarily reduce forward speed to avoid 'boost' through thin obstacles.
+    static constexpr float kContactSlowTime = 0.25f; // seconds
+    // make slowdown less severe so NPC doesn't come to a full stop
+    static constexpr float kContactSlowFactor = 0.9f; // multiplier to moveSpeed_
+    float contactTimer_ = 0.0f;
+
 
     // ===== 移動関連パラメータ =====
     Vector3 pos_ { 0, 0, 0 }; // 現在位置
@@ -133,8 +150,11 @@ private:
     // マウント解除後に地面へ落下するフラグ
     bool fallingFromMount_ = false;
     // 降下後に一時的に前進を止めるクールダウン
-    static constexpr float kPostFallCooldown = 0.01f;
+    static constexpr float kPostFallCooldown = 0.15f;
     float postFallCooldown_ = 0.0f;
+    // grace time before unmounting when contact is briefly lost (seconds)
+    // increased to be more tolerant of short contact blips
+    static constexpr float kMountGrace = 0.25f;
     // マウントしたOBBのパラメータを保持（アンマウント判定に使用）
     Vector3 mountedObbCenter_ { 0.0f, 0.0f, 0.0f };
     Vector3 mountedObbHalfExtents_ { 0.0f, 0.0f, 0.0f };
