@@ -138,8 +138,10 @@ void DebugScene::Initialize(EngineBase *engine) {
   ParticleManager::GetInstance()->CreateParticleGroup(
       "Clear", "resources/uvChecker.png");
 
-  ParticleManager::GetInstance()->CreateParticleGroup("Hit",
-                                                      "resources/circle.png");
+  //ParticleManager::GetInstance()->CreateParticleGroup("Hit",
+  //                                                    "resources/circle.png");
+
+  ParticleManager::GetInstance()->CreateRingParticleGroup("Hit","resources/white1x1.png", 64, 1.0f, 0.2f);
 
   // 中心からXY方向にランダム速度
   particleEmitter_ = std::make_unique<ParticleEmitter>(
