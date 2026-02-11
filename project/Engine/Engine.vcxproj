@@ -122,6 +122,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Render\Primitive\Ring.cpp" />
     <ClCompile Include="src\Render\Sprite\Fade.cpp" />
     <ClCompile Include="src\Input\InputPadState.cpp" />
     <ClCompile Include="src\Input\Input.cpp" />
@@ -202,6 +203,7 @@
     <ClInclude Include="include\Audio\SoundManager.h" />
     <ClInclude Include="include\Input\Input.h" />
     <ClInclude Include="include\Input\InputPadState.h" />
+    <ClInclude Include="include\Render\Primitive\Ring.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
