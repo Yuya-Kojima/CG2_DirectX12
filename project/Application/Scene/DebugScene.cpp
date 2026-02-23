@@ -143,6 +143,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   ParticleManager::GetInstance()->CreateRingParticleGroup("Hit","resources/white1x1.png", 64, 1.0f, 0.2f);
 
+  ParticleManager::GetInstance()->CreateCylinderParticleGroup("Cylinder","resources/gradationLine.png",32,1.0f,1.0f,3.0f);
+
   // 中心からXY方向にランダム速度
   particleEmitter_ = std::make_unique<ParticleEmitter>(
       "test",                    // グループ名
@@ -167,6 +169,17 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   hitParticleEmitter_->SetBaseScale(Vector3{0.05f, 1.0f, 1.0f});
   hitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 2.0f});
+
+  cylinderEmitter_ = std::make_unique<ParticleEmitter>(
+      "Cylinder",
+      Vector3{ 0.0f, 0.0f, 0.0f },
+      Vector3{},      
+      1,              
+      0.2f,           
+      Vector3{ 0,0,0 }, 
+      Vector3{ 0,0,0 }, 
+      0.5f, 0.6f      
+  );
 }
 
 void DebugScene::Finalize() {
@@ -311,6 +324,7 @@ void DebugScene::Update() {
   particleEmitter_->Update();
   clearParticleEmitter_->Update();
   hitParticleEmitter_->Update();
+  cylinderEmitter_->Update();
 
   /* 手動でパーティクルを生成することも可能
   -------------------------------------*/
@@ -488,6 +502,7 @@ void DebugScene::Draw3D() {
   // ParticleManager::GetInstance()->Draw("test");
   // ParticleManager::GetInstance()->Draw("Clear");
   ParticleManager::GetInstance()->Draw("Hit");
+  ParticleManager::GetInstance()->Draw("Cylinder");
 }
 
 void DebugScene::Draw2D() {

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <numbers>
 #include "Render/Primitive/Ring.h"
+#include "Render/Primitive/Cylinder.h"
 
 ParticleManager* ParticleManager::GetInstance() {
 	static ParticleManager instance;
@@ -680,6 +681,60 @@ void ParticleManager::CreateRingParticleGroup(const std::string& name,
 	VertexData* dst = nullptr;
 	group.vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&dst));
 	std::memcpy(dst, verts.data(), sizeof(VertexData) * verts.size());
+}
+
+void ParticleManager::CreateCylinderParticleGroup(const std::string& name, const std::string& textureFilePath, uint32_t divide, float topRadius, float bottomRadius, float height) {
+
+	if (HasGroup(name)) {
+		return;
+	}
+	assert(!particleGroups_.contains(name));
+
+	ParticleGroup& group = particleGroups_[name];
+
+	// material
+	group.materialData.filePath = textureFilePath;
+	TextureManager::GetInstance()->LoadTexture(group.materialData.filePath);
+	group.materialData.textureSrvIndex =
+		TextureManager::GetInstance()->GetSrvIndex(group.materialData.filePath);
+
+	// instancing
+	group.instancingResource = dx12Core_->CreateBufferResource(
+		sizeof(ParticleForGPU) * kNumMaxInstance_);
+
+	ParticleForGPU* instancingData = nullptr;
+	group.instancingResource->Map(0, nullptr,
+		reinterpret_cast<void**>(&instancingData));
+	group.instancingData = instancingData;
+
+	for (uint32_t i = 0; i < kNumMaxInstance_; ++i) {
+		instancingData[i].WVP = MakeIdentity4x4();
+		instancingData[i].World = MakeIdentity4x4();
+		instancingData[i].color = Vector4(1, 1, 1, 1);
+	}
+
+	group.instancingSrvIndex = srvManager_->Allocate();
+	srvManager_->CreateSRVforStructuredBuffer(group.instancingSrvIndex,
+		group.instancingResource.Get(),
+		kNumMaxInstance_,
+		sizeof(ParticleForGPU));
+
+	Cylinder cylinder;
+	cylinder.Build(divide, topRadius, bottomRadius, height);
+	const auto& verts = cylinder.GetVertices();
+
+	group.vertexCount = static_cast<uint32_t>(verts.size());
+	assert(group.vertexCount > 0);
+
+	group.vertexResource = dx12Core_->CreateBufferResource(sizeof(VertexData) * verts.size());
+	group.vertexBufferView.BufferLocation = group.vertexResource->GetGPUVirtualAddress();
+	group.vertexBufferView.SizeInBytes = UINT(sizeof(VertexData) * verts.size());
+	group.vertexBufferView.StrideInBytes = sizeof(VertexData);
+
+	VertexData* dst = nullptr;
+	group.vertexResource->Map(0, nullptr, reinterpret_cast<void**>(&dst));
+	std::memcpy(dst, verts.data(), sizeof(VertexData) * verts.size());
+
 }
 
 bool ParticleManager::HasGroup(const std::string& name) const {
