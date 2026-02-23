@@ -193,6 +193,13 @@ public:
 		float outerRadius,
 		float innerRadius);
 
+	void CreateCylinderParticleGroup(const std::string& name,
+		const std::string& textureFilePath,
+		uint32_t divide,
+		float topRadius,
+		float bottomRadius,
+		float height);
+
 	bool HasGroup(const std::string& name) const;
 
 private:
