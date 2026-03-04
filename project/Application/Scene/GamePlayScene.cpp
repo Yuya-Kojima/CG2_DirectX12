@@ -1,6 +1,7 @@
 #include "GamePlayScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/ImGuiManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -31,21 +32,53 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // スプライト関係の初期化
   //===========================
 
+  sprite_ = std::make_unique<Sprite>();
+  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/white1x1.png");
+
+  spritePosition_ = {
+      100.0f,
+      100.0f,
+  };
+
+  sprite_->SetPosition(spritePosition_);
+
+  uvTransformSprite_ = {
+      {1.0f, 1.0f, 1.0f},
+      {0.0f, 0.0f, 0.0f},
+      {0.0f, 0.0f, 0.0f},
+  };
+
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
 
   // カメラの生成と初期化
-  camera_ = new GameCamera();
+  // camera_ = new GameCamera();
+  // camera_->SetRotate({0.3f, 0.0f, 0.0f});
+  // camera_->SetTranslate({0.0f, 4.0f, -10.0f});
+
+  //// デバッグカメラ
+  // debugCamera_ = new DebugCamera();
+  // debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
+
+  //// デフォルトカメラのセット
+  // engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
+
+  // カメラの生成と初期化
+  camera_ = std::make_unique<GameCamera>();
   camera_->SetRotate({0.3f, 0.0f, 0.0f});
   camera_->SetTranslate({0.0f, 4.0f, -10.0f});
+  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
+
+  cameraTransform_ = {
+      {1.0f, 1.0f, 1.0f},
+      {0.3f, 0.0f, 0.0f},
+      {0.0f, 4.0f, -10.0f},
+  };
 
   // デバッグカメラ
-  debugCamera_ = new DebugCamera();
+  debugCamera_ = std::make_unique<DebugCamera>();
   debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
-
-  // デフォルトカメラのセット
-  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_);
 
   // モデルの読み込み
 
@@ -56,14 +89,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
 }
 
-void GamePlayScene::Finalize() {
-
-  delete debugCamera_;
-  debugCamera_ = nullptr;
-
-  delete camera_;
-  camera_ = nullptr;
-}
+void GamePlayScene::Finalize() {}
 
 void GamePlayScene::Update() {
 
@@ -87,6 +113,23 @@ void GamePlayScene::Update() {
   //=======================
   // スプライトの更新
   //=======================
+
+#ifdef USE_IMGUI
+  //========================
+  // Sprite座標をImGuiで操作
+  //========================
+  ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
+
+  ImGui::Begin("Sprite Pos");
+
+  ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%04.1f");
+
+  ImGui::End();
+#endif
+
+  sprite_->SetPosition(spritePosition_);
+  sprite_->SetSize({100.0f, 100.0f});
+  sprite_->Update(uvTransformSprite_);
 
   //=======================
   // 3Dオブジェクトの更新
@@ -124,4 +167,5 @@ void GamePlayScene::Draw2D() {
   engine_->Begin2D();
 
   // ここから下で2DオブジェクトのDrawを呼ぶ
+  sprite_->Draw();
 }
