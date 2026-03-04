@@ -17,13 +17,22 @@ class GamePlayScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
   // カメラ
-  GameCamera *camera_ = nullptr;
+  std::unique_ptr<GameCamera> camera_ = nullptr;
+
+  Transform cameraTransform_{};
 
   // デバッグカメラ
-  DebugCamera *debugCamera_ = nullptr;
+  std::unique_ptr<DebugCamera> debugCamera_ = nullptr;
 
   // デバッグカメラ使用
   bool useDebugCamera_ = false;
+
+  // ImGui確認用Sprite
+  std::unique_ptr<Sprite> sprite_ = nullptr;
+
+  Vector2 spritePosition_{};
+
+  Transform uvTransformSprite_{};
 
 public: // メンバ関数
   /// <summary>
