@@ -122,7 +122,7 @@ void GamePlayScene::Update() {
 
   ImGui::Begin("Sprite Pos");
 
-  ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%04.1f");
+  ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%.1f");
 
   ImGui::End();
 #endif
