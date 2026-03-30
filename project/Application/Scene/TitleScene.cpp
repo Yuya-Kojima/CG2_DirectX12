@@ -56,12 +56,7 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
 }
 
-void TitleScene::Finalize() {
-
-  debugCamera_ = nullptr;
-
-  camera_ = nullptr;
-}
+void TitleScene::Finalize() {}
 
 void TitleScene::Update() {
 
@@ -100,7 +95,7 @@ void TitleScene::Update() {
     activeCamera = debugCamera_->GetCamera();
   } else {
     camera_->Update();
-    activeCamera = debugCamera_->GetCamera();
+    activeCamera = camera_.get();
   }
 
   // アクティブカメラを描画で使用する

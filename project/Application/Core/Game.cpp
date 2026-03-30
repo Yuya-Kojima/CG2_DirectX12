@@ -61,14 +61,9 @@ void Game::Initialize() {
 void Game::Finalize() {
 
   imGuiManager_->Finalize();
-  // delete imGuiManager_;
-  // imGuiManager_ = nullptr;
 
   // シーンの解放
   SceneManager::GetInstance()->Finalize();
-
-  // シーンファクトリー解放
-  // delete sceneFactory_;
 
   // 基底クラスの終了処理
   EngineBase::Finalize();
