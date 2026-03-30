@@ -5,7 +5,6 @@
 #include "Util/StringUtil.h"
 #include <filesystem>
 
-
 // ImGuiで０番を使用するため、1番から使用する
 // uint32_t TextureManager::kSRVIndexTop = 1;
 
@@ -27,6 +26,7 @@ void TextureManager::Initialize(Dx12Core *dx12Core, SrvManager *srvManager) {
 void TextureManager::Finalize() {
   TextureManager *instance = GetInstance();
   instance->textureDatas.clear();
+  instance->intermediateResources_.clear();
   instance->dx12Core_ = nullptr;
   instance->srvManager_ = nullptr;
 }
@@ -69,7 +69,8 @@ void TextureManager::LoadTexture(const std::string &filePath) {
   textureData.metadata = mipImages.GetMetadata();
   textureData.resource = dx12Core_->CreateTextureResource(textureData.metadata);
 
-  dx12Core_->UploadTextureData(textureData.resource, mipImages);
+intermediateResources_.push_back(
+      dx12Core_->UploadTextureData(textureData.resource, mipImages));
 
   // テクスチャデータの要素番号をSRVのインデックスとする
 

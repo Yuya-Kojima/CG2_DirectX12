@@ -92,4 +92,6 @@ private:
   SrvManager *srvManager_ = nullptr;
 
   std::unordered_map<std::string, TextureData> textureDatas;
+
+  std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> intermediateResources_;
 };
