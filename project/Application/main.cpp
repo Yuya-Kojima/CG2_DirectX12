@@ -13,11 +13,9 @@
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
   // ゲームの初期化
-  EngineBase *game = new Game();
+  std::unique_ptr<EngineBase> game = std::make_unique<Game>();
 
   game->Run();
-
-  delete game;
 
   return 0;
 }

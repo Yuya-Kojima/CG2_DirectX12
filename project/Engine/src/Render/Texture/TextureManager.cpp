@@ -5,18 +5,13 @@
 #include "Util/StringUtil.h"
 #include <filesystem>
 
-TextureManager *TextureManager::instance = nullptr;
 
 // ImGuiで０番を使用するため、1番から使用する
 // uint32_t TextureManager::kSRVIndexTop = 1;
 
 TextureManager *TextureManager::GetInstance() {
-
-  if (instance == nullptr) {
-    instance = new TextureManager;
-  }
-
-  return instance;
+  static TextureManager instance;
+  return &instance;
 }
 
 void TextureManager::Initialize(Dx12Core *dx12Core, SrvManager *srvManager) {
@@ -30,8 +25,10 @@ void TextureManager::Initialize(Dx12Core *dx12Core, SrvManager *srvManager) {
 }
 
 void TextureManager::Finalize() {
-  delete instance;
-  instance = nullptr;
+  TextureManager *instance = GetInstance();
+  instance->textureDatas.clear();
+  instance->dx12Core_ = nullptr;
+  instance->srvManager_ = nullptr;
 }
 
 void TextureManager::LoadTexture(const std::string &filePath) {

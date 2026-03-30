@@ -26,7 +26,7 @@ public:
   /// <summary>
   /// 終了
   /// </summary>
-  void Finalize();
+  static void Finalize();
 
   /// <summary>
   /// テクスチャファイルの読み込み
@@ -36,8 +36,6 @@ public:
   void LoadTexture(const std::string &filePath);
 
 private:
-  static TextureManager *instance;
-
   TextureManager() = default;
   ~TextureManager() = default;
   TextureManager(TextureManager &) = delete;
