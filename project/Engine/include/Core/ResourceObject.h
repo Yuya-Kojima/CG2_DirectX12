@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d12.h>
+#include <wrl.h>
 
 class ResourceObject {
 
@@ -9,15 +10,11 @@ public:
   /// コンストラクタ
   /// </summary>
   /// <param name="resource"></param>
-  ResourceObject(ID3D12Resource *resource) : resource_(resource) {}
+  ResourceObject(Microsoft::WRL::ComPtr<ID3D12Resource> resource)
+      : resource_(resource) {}
 
-  /// <summary>
-  /// デストラクタ
-  /// </summary>
-  ~ResourceObject();
-
-  ID3D12Resource *Get() { return resource_; };
+  ID3D12Resource *Get() { return resource_.Get(); };
 
 private:
-  ID3D12Resource *resource_;
+  Microsoft::WRL::ComPtr<ID3D12Resource> resource_;
 };
