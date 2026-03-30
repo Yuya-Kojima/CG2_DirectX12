@@ -4,8 +4,6 @@
 #include <cassert>
 #include <filesystem>
 
-ModelManager *ModelManager::instance = nullptr;
-
 bool ModelManager::isFinalized_ = false;
 
 namespace fs = std::filesystem;
@@ -32,7 +30,6 @@ std::string ModelManager::ResolveModelPath(const std::string &input) {
     }
   }
 
-
   // 見つからなければ、そのまま
   return input;
 }
@@ -45,11 +42,8 @@ ModelManager *ModelManager::GetInstance() {
     return nullptr;
   }
 
-  if (instance == nullptr) {
-    instance = new ModelManager();
-  }
-
-  return instance;
+  static ModelManager instance;
+  return &instance;
 }
 
 void ModelManager::Finalize() {
@@ -59,17 +53,16 @@ void ModelManager::Finalize() {
     return;
   }
 
-  delete instance->modelRenderer;
-  instance->modelRenderer = nullptr;
+  ModelManager *instance = GetInstance();
+  instance->modelRenderer.reset();
+  instance->models.clear();
 
-  delete instance;
-  instance = nullptr;
   isFinalized_ = true;
 }
 
 void ModelManager::Initialize(Dx12Core *dx12Core) {
 
-  modelRenderer = new ModelRenderer();
+  modelRenderer = std::make_unique<ModelRenderer>();
   modelRenderer->Initialize(dx12Core);
 }
 
@@ -100,7 +93,7 @@ void ModelManager::LoadModel(const std::string &filePath) {
   // }
 
   std::unique_ptr<Model> model = std::make_unique<Model>();
-  model->Initialize(modelRenderer, directoryPath, filename);
+  model->Initialize(modelRenderer.get(), directoryPath, filename);
 
   models.insert(std::make_pair(resolved, std::move(model)));
 

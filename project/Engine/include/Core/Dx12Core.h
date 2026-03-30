@@ -73,13 +73,13 @@ private:
   D3D12_RECT scissorRect{};
 
   // dxcユーティリティ
-  IDxcUtils *dxcUtils = nullptr;
+  Microsoft::WRL::ComPtr<IDxcUtils> dxcUtils = nullptr;
 
   // dxcコンパイラ
-  IDxcCompiler3 *dxcCompiler = nullptr;
+  Microsoft::WRL::ComPtr<IDxcCompiler3> dxcCompiler = nullptr;
 
   // インクルードハンドラ
-  IDxcIncludeHandler *includeHandler = nullptr;
+  Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler = nullptr;
 
   // リソースバリア
   D3D12_RESOURCE_BARRIER barrier{};

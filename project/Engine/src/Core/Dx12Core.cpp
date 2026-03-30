@@ -579,16 +579,16 @@ void Dx12Core::InitializeImGui() {
   // ImGuiの初期化
 
   // バージョンチェック
-  //IMGUI_CHECKVERSION();
+  // IMGUI_CHECKVERSION();
 
   //// コンテキストの生成
-  //ImGui::CreateContext();
+  // ImGui::CreateContext();
 
   //// スタイルの設定
-  //ImGui::StyleColorsDark();
+  // ImGui::StyleColorsDark();
 
   //// Win32用の初期化
-  //ImGui_ImplWin32_Init(windowSystem->GetHwnd());
+  // ImGui_ImplWin32_Init(windowSystem->GetHwnd());
 
   // DirectX12用の初期化
   // ImGui_ImplDX12_Init(device.Get(), swapChainDesc.BufferCount,
@@ -612,7 +612,7 @@ IDxcBlob *Dx12Core::CompileShader(const std::wstring &filePath,
       L"Begin CompileShader, path:{}, profile:{} \n", filePath, profile)));
 
   // hlslファイルを読む
-  IDxcBlobEncoding *shaderSource = nullptr;
+  Microsoft::WRL::ComPtr<IDxcBlobEncoding> shaderSource = nullptr;
   HRESULT hr = dxcUtils->LoadFile(filePath.c_str(), nullptr, &shaderSource);
 
   // 読めなかったら止める
@@ -642,11 +642,11 @@ IDxcBlob *Dx12Core::CompileShader(const std::wstring &filePath,
   };
 
   // 実際にshaderをコンパイルする
-  IDxcResult *shaderResult = nullptr;
-  hr = dxcCompiler->Compile(&shaderSourceBuffer, // 読み込んだファイル
-                            arguments,           // コンパイルオプション
-                            _countof(arguments), // コンパイルオプションの数
-                            includeHandler,      // includeが含まれた諸々
+  Microsoft::WRL::ComPtr<IDxcResult> shaderResult = nullptr;
+  hr = dxcCompiler->Compile(&shaderSourceBuffer,  // 読み込んだファイル
+                            arguments,            // コンパイルオプション
+                            _countof(arguments),  // コンパイルオプションの数
+                            includeHandler.Get(), // includeが含まれた諸々
                             IID_PPV_ARGS(&shaderResult));
 
   // コンパイルエラーではなくdxcが起動できないなど致命的な状況
@@ -657,7 +657,7 @@ IDxcBlob *Dx12Core::CompileShader(const std::wstring &filePath,
   //======================================
 
   // 警告、エラーが出てたらログにだして止める
-  IDxcBlobUtf8 *shaderError = nullptr;
+  Microsoft::WRL::ComPtr<IDxcBlobUtf8> shaderError = nullptr;
   shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
 
   if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
@@ -673,7 +673,7 @@ IDxcBlob *Dx12Core::CompileShader(const std::wstring &filePath,
   //======================================
 
   // コンパイル結果から実行用のバイナリ部分を取得
-  IDxcBlob *shaderBlob = nullptr;
+  Microsoft::WRL::ComPtr<IDxcBlob> shaderBlob = nullptr;
   hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob),
                                nullptr);
 
@@ -683,12 +683,8 @@ IDxcBlob *Dx12Core::CompileShader(const std::wstring &filePath,
   Logger::Log(StringUtil::ConvertString(std::format(
       L"Compile Succeeded, path:{}, profile:{}\n", filePath, profile)));
 
-  // もう使わないリソースを解放
-  shaderSource->Release();
-  shaderResult->Release();
-
   // 実行用のバイナリを返却
-  return shaderBlob;
+  return shaderBlob.Detach();
 }
 
 Microsoft::WRL::ComPtr<ID3D12Resource>

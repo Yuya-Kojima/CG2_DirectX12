@@ -19,8 +19,6 @@ public:
   void Initialize(Dx12Core *dx12Core);
 
 private:
-  static ModelManager *instance;
-
   static bool isFinalized_;
 
   ModelManager() = default;
@@ -32,7 +30,7 @@ private:
   // モデルデータ
   std::map<std::string, std::unique_ptr<Model>> models;
 
-  ModelRenderer *modelRenderer = nullptr;
+  std::unique_ptr<ModelRenderer> modelRenderer = nullptr;
 
 public:
   /// <summary>
