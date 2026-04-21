@@ -13,7 +13,7 @@ public:
 
   // SRV生成（テクスチャ用）
   void CreateSRVforTexture2D(uint32_t srvIndex, ID3D12Resource *pResource,
-                             DXGI_FORMAT format, UINT mipLevels);
+                             const DirectX::TexMetadata &metadata);
 
   // SRV生成（Structured Buffer用）
   void CreateSRVforStructuredBuffer(uint32_t srvIndex,

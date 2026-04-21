@@ -64,6 +64,9 @@ void EngineBase::Initialize() {
   object3dRenderer_ = std::make_unique<Object3dRenderer>();
   object3dRenderer_->Initialize(dx12Core_.get());
 
+  skyboxRenderer_ = std::make_unique<SkyboxRenderer>();
+  skyboxRenderer_->Initialize(dx12Core_.get());
+
   // テクスチャマネージャーの初期化
   TextureManager::GetInstance()->Initialize(dx12Core_.get(), srvManager_.get());
 
@@ -111,6 +114,7 @@ void EngineBase::Finalize() {
   object3dRenderer_.reset();
   spriteRenderer_.reset();
   srvManager_.reset();
+  skyboxRenderer_.reset();
 
   dx12Core_.reset();
 

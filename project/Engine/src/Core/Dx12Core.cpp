@@ -834,15 +834,35 @@ DirectX::ScratchImage Dx12Core::LoadTexture(const std::string &filePath) {
   // テクスチャファイルを読んでプログラムで扱えるようにする
   DirectX::ScratchImage image{};
   std::wstring filePathW = StringUtil::ConvertString(filePath);
-  HRESULT hr = DirectX::LoadFromWICFile(
-      filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+  // HRESULT hr = DirectX::LoadFromWICFile(
+  //     filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+  // assert(SUCCEEDED(hr));
+
+  HRESULT hr;
+  if (filePathW.ends_with(
+          L".dds")) { // .ddsで終わっていたらddsとみなす。より安全な方法はいくらでもあるので余裕があれば対応すると良い
+    hr = DirectX::LoadFromDDSFile(filePathW.c_str(), DirectX::DDS_FLAGS_NONE,
+                                  nullptr, image);
+  } else {
+    hr = DirectX::LoadFromWICFile(
+        filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+  }
+
   assert(SUCCEEDED(hr));
 
   // ミニマップの作成
   DirectX::ScratchImage mipImages{};
-  hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
-                                image.GetMetadata(), DirectX::TEX_FILTER_SRGB,
-                                0, mipImages);
+
+  if (DirectX::IsCompressed(
+          image.GetMetadata().format)) { // 圧縮フォーマットかどうかを調べる
+    mipImages =
+        std::move(image); // 圧縮フォーマットならそのまま使うのでmoveする
+  } else {
+    hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(),
+                                  image.GetMetadata(), DirectX::TEX_FILTER_SRGB,
+                                  0, mipImages);
+  }
+
   assert(SUCCEEDED(hr));
 
   // ミニマップ付きのデータを返す

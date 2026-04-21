@@ -122,8 +122,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Render\Primitive\Cube.cpp" />
     <ClCompile Include="src\Render\Primitive\Cylinder.cpp" />
     <ClCompile Include="src\Render\Primitive\Ring.cpp" />
+    <ClCompile Include="src\Render\Renderer\SkyboxRenderer.cpp" />
+    <ClCompile Include="src\Render\SkyBox\SkyBox.cpp" />
     <ClCompile Include="src\Render\Sprite\Fade.cpp" />
     <ClCompile Include="src\Input\InputPadState.cpp" />
     <ClCompile Include="src\Input\Input.cpp" />
@@ -157,7 +160,10 @@
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Render\Primitive\Cube.h" />
     <ClInclude Include="include\Render\Primitive\Cylinder.h" />
+    <ClInclude Include="include\Render\Renderer\SkyboxRenderer.h" />
+    <ClInclude Include="include\Render\SkyBox\SkyBox.h" />
     <ClInclude Include="include\Render\Sprite\Fade.h" />
     <ClInclude Include="include\Render\Camera\ICamera.h" />
     <ClInclude Include="include\Debug\ImGuiManager.h" />
