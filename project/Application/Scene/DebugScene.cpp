@@ -128,6 +128,17 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_->SetModel("plane.gltf");
 
   //===========================
+  // SkyBox
+  //===========================
+  TextureManager::GetInstance()->LoadTexture("resources/Skybox/Skybox.dds");
+
+  skybox_ = std::make_unique<Skybox>();
+  skybox_->Initialize(engine_->GetSkyboxRenderer());
+  skybox_->SetTexture("resources/Skybox/Skybox.dds");
+  skybox_->SetCamera(camera_.get());
+  skybox_->SetScale({100.0f, 100.0f, 100.0f});
+
+  //===========================
   // パーティクル関係の初期化
   //===========================
 
@@ -138,12 +149,14 @@ void DebugScene::Initialize(EngineBase *engine) {
   ParticleManager::GetInstance()->CreateParticleGroup(
       "Clear", "resources/uvChecker.png");
 
-  //ParticleManager::GetInstance()->CreateParticleGroup("Hit",
-  //                                                    "resources/circle.png");
+  // ParticleManager::GetInstance()->CreateParticleGroup("Hit",
+  //                                                     "resources/circle.png");
 
-  ParticleManager::GetInstance()->CreateRingParticleGroup("Hit","resources/white1x1.png", 64, 1.0f, 0.2f);
+  ParticleManager::GetInstance()->CreateRingParticleGroup(
+      "Hit", "resources/white1x1.png", 64, 1.0f, 0.2f);
 
-  ParticleManager::GetInstance()->CreateCylinderParticleGroup("Cylinder","resources/gradationLine.png",32,1.0f,1.0f,3.0f);
+  ParticleManager::GetInstance()->CreateCylinderParticleGroup(
+      "Cylinder", "resources/gradationLine.png", 32, 1.0f, 1.0f, 3.0f);
 
   // 中心からXY方向にランダム速度
   particleEmitter_ = std::make_unique<ParticleEmitter>(
@@ -171,15 +184,8 @@ void DebugScene::Initialize(EngineBase *engine) {
   hitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 2.0f});
 
   cylinderEmitter_ = std::make_unique<ParticleEmitter>(
-      "Cylinder",
-      Vector3{ 0.0f, 0.0f, 0.0f },
-      Vector3{},      
-      1,              
-      0.2f,           
-      Vector3{ 0,0,0 }, 
-      Vector3{ 0,0,0 }, 
-      0.5f, 0.6f      
-  );
+      "Cylinder", Vector3{0.0f, 0.0f, 0.0f}, Vector3{}, 1, 0.2f,
+      Vector3{0, 0, 0}, Vector3{0, 0, 0}, 0.5f, 0.6f);
 }
 
 void DebugScene::Finalize() {
@@ -364,6 +370,12 @@ void DebugScene::Update() {
   ParticleManager::GetInstance()->Update(activeCamera->GetViewMatrix(),
                                          activeCamera->GetProjectionMatrix());
 
+  // 天球の更新
+  if (skybox_) {
+    skybox_->SetCamera(activeCamera);
+    skybox_->Update();
+  }
+
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
@@ -496,6 +508,14 @@ void DebugScene::Draw3D() {
   engine_->Begin3D();
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
+
+  if (skybox_) {
+    engine_->GetSkyboxRenderer()->Begin();
+    skybox_->Draw();
+
+    // Skybox描画後に通常3Dへ戻す
+    engine_->GetObject3dRenderer()->Begin();
+  }
 
   object3d_->Draw();
   object3dA_->Draw();

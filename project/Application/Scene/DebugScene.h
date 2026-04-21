@@ -5,6 +5,8 @@
 #include "Math/MathUtil.h"
 #include "Object3d/Object3d.h"
 #include "Particle/ParticleEmitter.h"
+#include "Render/Renderer/SkyBoxRenderer.h"
+#include "Render/SkyBox/SkyBox.h"
 #include "Scene/BaseScene.h"
 #include "Sprite/Sprite.h"
 #include <memory>
@@ -63,6 +65,9 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<ParticleEmitter> clearParticleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> hitParticleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> cylinderEmitter_ = nullptr;
+
+  // スカイボックス
+  std::unique_ptr<Skybox> skybox_ = nullptr;
 
 public: // メンバ関数
   /// <summary>

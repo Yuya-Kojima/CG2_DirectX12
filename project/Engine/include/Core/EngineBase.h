@@ -3,6 +3,7 @@
 #include "Core/SrvManager.h"
 #include "Input/Input.h"
 #include "Particle/ParticleManager.h"
+#include "Render/Renderer/SkyBoxRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/AbstractSceneFactory.h"
@@ -49,6 +50,7 @@ public:
   Object3dRenderer *GetObject3dRenderer() const {
     return object3dRenderer_.get();
   }
+  SkyboxRenderer *GetSkyboxRenderer() const { return skyboxRenderer_.get(); }
 
 protected:
   bool endRequest_ = false;
@@ -67,6 +69,8 @@ protected:
   std::unique_ptr<SpriteRenderer> spriteRenderer_ = nullptr;
 
   std::unique_ptr<Object3dRenderer> object3dRenderer_ = nullptr;
+
+  std::unique_ptr<SkyboxRenderer> skyboxRenderer_ = nullptr;
 
   std::unique_ptr<SrvManager> srvManager_ = nullptr;
 
