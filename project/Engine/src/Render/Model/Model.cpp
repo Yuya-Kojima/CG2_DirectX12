@@ -21,10 +21,18 @@ void Model::Initialize(ModelRenderer* modelRenderer,
 	defaultMaterial_.enableLighting = true;
 	defaultMaterial_.uvTransform = MakeIdentity4x4();
 	defaultMaterial_.shininess = 30.0f;
+	defaultMaterial_.environmentCoefficient = 0.0f;
 
 	// objデータが参照しているテクスチャ読み込み
-	TextureManager::GetInstance()->LoadTexture(
-		modelData_.material.textureFilePath);
+	if (!modelData_.material.textureFilePath.empty()) {
+		TextureManager::GetInstance()->LoadTexture(
+			modelData_.material.textureFilePath);
+	} else {
+		// テクスチャがない場合は白テクスチャを割り当てる
+		modelData_.material.textureFilePath = "resources/white1x1.png";
+		TextureManager::GetInstance()->LoadTexture(
+			modelData_.material.textureFilePath);
+	}
 
 	// 読み込んだテクスチャの番号を取得
 	// modelData_.material.textureIndex =
@@ -102,7 +110,7 @@ void Model::LoadModelFile(const std::string& directoryPath,
 		aiMesh* mesh = scene->mMeshes[meshIndex];
 
 		assert(mesh->HasNormals());        // 法線がないMeshは今回は非対応
-		assert(mesh->HasTextureCoords(0)); // TexcoordがないMeshは今回は非対応
+		// assert(mesh->HasTextureCoords(0)); // TexcoordがないMeshは今回は非対応
 
 		// ここから Mesh の中身（Face）を解析していく
 		for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
@@ -115,7 +123,11 @@ void Model::LoadModelFile(const std::string& directoryPath,
 
 				aiVector3D position = mesh->mVertices[vertexIndex];
 				aiVector3D normal = mesh->mNormals[vertexIndex];
-				aiVector3D texcoord = mesh->mTextureCoords[0][vertexIndex];
+				
+				aiVector3D texcoord = {0.0f, 0.0f, 0.0f};
+				if (mesh->HasTextureCoords(0)) {
+					texcoord = mesh->mTextureCoords[0][vertexIndex];
+				}
 
 				VertexData vertex;
 				vertex.position = { position.x, position.y, position.z, 1.0f };

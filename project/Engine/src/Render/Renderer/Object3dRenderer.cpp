@@ -26,7 +26,7 @@ void Object3dRenderer::CreateRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[7] = {};
+  D3D12_ROOT_PARAMETER rootParameterObject3d[8] = {};
   rootParameterObject3d[0].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[0].ShaderVisibility =
@@ -79,6 +79,22 @@ void Object3dRenderer::CreateRootSignature() {
   rootParameterObject3d[6].ShaderVisibility =
       D3D12_SHADER_VISIBILITY_PIXEL;                      // PSで使う
   rootParameterObject3d[6].Descriptor.ShaderRegister = 4; // レジスタ番号4を使う
+
+  D3D12_DESCRIPTOR_RANGE descriptorRangeEnvMap[1] = {};
+  descriptorRangeEnvMap[0].BaseShaderRegister = 1; // t1
+  descriptorRangeEnvMap[0].NumDescriptors = 1;
+  descriptorRangeEnvMap[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRangeEnvMap[0].OffsetInDescriptorsFromTableStart =
+      D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  rootParameterObject3d[7].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameterObject3d[7].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameterObject3d[7].DescriptorTable.pDescriptorRanges =
+      descriptorRangeEnvMap;
+  rootParameterObject3d[7].DescriptorTable.NumDescriptorRanges =
+      _countof(descriptorRangeEnvMap);
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =

@@ -33,6 +33,8 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
 
   CreateMaterialData();
 
+  TextureManager::GetInstance()->LoadTexture("resources/Skybox/Skybox.dds");
+
   this->camera_ = nullptr;
 }
 
@@ -108,6 +110,10 @@ void Object3d::Draw() {
   // SpotLight
   commandList->SetGraphicsRootConstantBufferView(
       6, object3dRenderer_->GetSpotLightResource()->GetGPUVirtualAddress());
+
+  // Environment Map (Skybox)
+  commandList->SetGraphicsRootDescriptorTable(
+      7, TextureManager::GetInstance()->GetSrvHandleGPU("resources/Skybox/Skybox.dds"));
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
@@ -201,4 +207,5 @@ void Object3d::CreateMaterialData() {
   // UVTransform 単位行列を入れておく
   materialData->uvTransform = MakeIdentity4x4();
   materialData->shininess = 30.0f;
+  materialData->environmentCoefficient = 0.0f;
 }

@@ -1,6 +1,7 @@
 #include "Object3d.hlsli"
 
 Texture2D<float4> gTexture : register(t0);
+TextureCube<float4> gEnvironmentTexture : register(t1);
 SamplerState gSampler : register(s0);
 
 struct Material {
@@ -8,6 +9,7 @@ struct Material {
 	int enableLighting;
 	float4x4 uvTransform;
 	float shininess;
+	float environmentCoefficient;
 };
 
 ConstantBuffer<Material> gMaterial : register(b0);
@@ -183,6 +185,13 @@ GeometryShaderOutput input) {
 	// Output
 	//=========================
 	output.color.rgb = diffuse + specular + diffusePointLight + specularPointLight + diffuseSpotLight + specularSpotLight;
+	
+	// Environment Map
+	float3 cameraToPosition = normalize(input.worldPosition - gCamera.worldPosition);
+	float3 reflectedVector = reflect(cameraToPosition, normalize(input.normal));
+	float4 environmentColor = gEnvironmentTexture.Sample(gSampler, reflectedVector);
+	output.color.rgb += environmentColor.rgb * gMaterial.environmentCoefficient;
+
 	output.color.a = gMaterial.color.a * textureColor.a;
 	
 	return output;

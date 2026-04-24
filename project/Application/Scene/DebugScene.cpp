@@ -116,7 +116,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   // モデルの読み込み
   ModelManager::GetInstance()->LoadModel("terrain.obj");
 
-  ModelManager::GetInstance()->LoadModel("plane.gltf");
+  ModelManager::GetInstance()->LoadModel("suzanne.obj");
 
   // オブジェクトの生成と初期化
   object3d_ = std::make_unique<Object3d>();
@@ -125,7 +125,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   object3dA_ = std::make_unique<Object3d>();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("plane.gltf");
+  object3dA_->SetModel("suzanne.obj");
+  object3dA_->SetEnvironmentCoefficient(1.0f);
 
   //===========================
   // SkyBox
