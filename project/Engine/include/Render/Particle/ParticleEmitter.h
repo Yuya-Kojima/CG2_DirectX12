@@ -3,22 +3,24 @@
 #include "Math/MathUtil.h"
 #include <string>
 
+class IParticleEmitter;
+
 class ParticleEmitter {
 
 public:
   /// <summary>
-  ///
+  /// パーティクルを自動発生させるスポナーを初期化します
   /// </summary>
-  /// <param name="name">パーティクルグループ名</param>
-  /// <param name="center">エミッター中心座標</param>
-  /// <param name="halfSize">エミッターのサイズ/2</param>
-  /// <param name="count">一度に生成する数</param>
-  /// <param name="frequency">生成間隔</param>
-  /// <param name="baseVel">パーティクルの基本速度</param>
-  /// <param name="velRandom">速度に加える乱数(バラつかせ)</param>
-  /// <param name="lifeMin">最短寿命</param>
-  /// <param name="lifeMax">最長寿命</param>
-  ParticleEmitter(const std::string &name, Vector3 center, Vector3 halfSize,
+  /// <param name="targetEmitter">パーティクルを描画する対象の実体（グループ）</param>
+  /// <param name="center">エミッターの中心座標</param>
+  /// <param name="halfSize">発生範囲の広さ（AABBの半分のサイズ。0なら一点から発生）</param>
+  /// <param name="count">一度のタイミングで発生させるパーティクルの数</param>
+  /// <param name="frequency">発生間隔（秒）。例: 1.0f なら1秒ごとに発生</param>
+  /// <param name="baseVel">パーティクルの基本となる初速度</param>
+  /// <param name="velRandom">初速度に加えるランダムなばらつき（±）</param>
+  /// <param name="lifeMin">パーティクルの最短寿命（秒）</param>
+  /// <param name="lifeMax">パーティクルの最長寿命（秒）</param>
+  ParticleEmitter(IParticleEmitter* targetEmitter, Vector3 center, Vector3 halfSize,
                   int count, float frequency, Vector3 baseVel,
                   Vector3 velRandom, float lifeMin, float lifeMax);
 
@@ -59,7 +61,7 @@ public:
   void SetRotateRandom(const Vector3 &r) { rotateRandom_ = r; }
 
 private:
-  std::string name_;
+  IParticleEmitter* targetEmitter_ = nullptr;
   Vector3 center_;   // 中心座標
   Vector3 halfSize_; // 発生範囲(AABB)
   int count_;        // 発生する数
