@@ -5,6 +5,8 @@
 #include "Math/MathUtil.h"
 #include "Object3d/Object3d.h"
 #include "Particle/ParticleEmitter.h"
+#include "Particle/BillboardParticleEmitter.h"
+#include "Particle/MeshParticleEmitter.h"
 #include "Render/Renderer/SkyBoxRenderer.h"
 #include "Render/SkyBox/SkyBox.h"
 #include "Scene/BaseScene.h"
@@ -60,6 +62,11 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<Object3d> object3dA_ = nullptr;
 
   float rotateObj_{};
+
+  std::unique_ptr<BillboardParticleEmitter> testParticleGroup_;
+  std::unique_ptr<BillboardParticleEmitter> clearParticleGroup_;
+  std::unique_ptr<MeshParticleEmitter> hitParticleGroup_;
+  std::unique_ptr<MeshParticleEmitter> cylinderParticleGroup_;
 
   std::unique_ptr<ParticleEmitter> particleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> clearParticleEmitter_ = nullptr;

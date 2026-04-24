@@ -1,14 +1,15 @@
 #include "Particle/ParticleEmitter.h"
 #include "Particle/ParticleManager.h"
+#include "Particle/IParticleEmitter.h"
 #include <algorithm>
 #include <cmath>
 
-ParticleEmitter::ParticleEmitter(const std::string &name, Vector3 center,
+ParticleEmitter::ParticleEmitter(IParticleEmitter* targetEmitter, Vector3 center,
                                  Vector3 halfSize, int count, float frequency,
                                  Vector3 baseVel, Vector3 velRandom,
                                  float lifeMin, float lifeMax) {
 
-  name_ = name;
+  targetEmitter_ = targetEmitter;
   center_ = center;
 
   frequencyTime_ = 0.0f;
@@ -91,8 +92,7 @@ void ParticleEmitter::Emit() {
     return;
   }
 
-  ParticleManager::ParticleEmitDesc desc{};
-  desc.name = name_;
+  ParticleEmitDesc desc{};
   desc.position = center_;
   desc.count = static_cast<uint32_t>(count_);
   desc.baseVelocity = baseVelocity_;
@@ -106,7 +106,9 @@ void ParticleEmitter::Emit() {
   desc.baseRotate = baseRotate_;
   desc.rotateRandom = rotateRandom_;
 
-  ParticleManager::GetInstance()->Emit(desc);
+  if (targetEmitter_) {
+    targetEmitter_->Emit(desc);
+  }
 }
 
 void ParticleEmitter::Emit(const Vector4 &overrideColor) {
