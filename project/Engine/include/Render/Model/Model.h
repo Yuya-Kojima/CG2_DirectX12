@@ -45,7 +45,8 @@ public:
 		float padding[3];
 		Matrix4x4 uvTransform;
 		float shininess;
-		float padding2[3];
+		float environmentCoefficient;
+		float padding2[2];
 	};
 
 	/// <summary>

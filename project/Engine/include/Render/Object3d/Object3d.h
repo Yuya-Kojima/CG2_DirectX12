@@ -142,6 +142,16 @@ public:
     }
   }
 
+  float GetEnvironmentCoefficient() const {
+    return materialData ? materialData->environmentCoefficient : 0.0f;
+  }
+
+  void SetEnvironmentCoefficient(float coefficient) {
+    if (materialData) {
+      materialData->environmentCoefficient = coefficient;
+    }
+  }
+
 private:
   const ICamera *camera_ = nullptr;
 
