@@ -76,6 +76,9 @@ void EngineBase::Initialize() {
   // パーティクルマネージャーの初期化
   ParticleManager::GetInstance()->Initialize(dx12Core_.get(),
                                              srvManager_.get());
+
+  // ラインレンダラーの初期化
+  LineRenderer::GetInstance()->Initialize(dx12Core_.get());
 }
 
 void EngineBase::Finalize() {

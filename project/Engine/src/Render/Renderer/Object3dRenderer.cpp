@@ -262,6 +262,15 @@ void Object3dRenderer::CreatePSO() {
   hr = device->CreateGraphicsPipelineState(
       &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipeLineState_));
   assert(SUCCEEDED(hr));
+
+  // Depthを無効にしたPSOを生成
+  depthStencilDesc.DepthEnable = false;
+  graphicsPipeLineStateDesc.DepthStencilState = depthStencilDesc;
+  
+  graphicsPipeLineStateDepthDisabled_ = nullptr;
+  hr = device->CreateGraphicsPipelineState(
+      &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipeLineStateDepthDisabled_));
+  assert(SUCCEEDED(hr));
 }
 
 void Object3dRenderer::Begin() {
@@ -276,6 +285,17 @@ void Object3dRenderer::Begin() {
 
   // プリミティブトポロジー(形状）をセット
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void Object3dRenderer::SetDepthEnable(bool enable) {
+  Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
+      dx12Core_->GetCommandList();
+  
+  if (enable) {
+      commandList->SetPipelineState(graphicsPipeLineState_.Get());
+  } else {
+      commandList->SetPipelineState(graphicsPipeLineStateDepthDisabled_.Get());
+  }
 }
 
 void Object3dRenderer::CreateDirectionalLightData() {
