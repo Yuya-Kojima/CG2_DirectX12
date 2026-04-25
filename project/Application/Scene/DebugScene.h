@@ -67,11 +67,13 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<BillboardParticleEmitter> clearParticleGroup_;
   std::unique_ptr<MeshParticleEmitter> hitParticleGroup_;
   std::unique_ptr<MeshParticleEmitter> cylinderParticleGroup_;
+  std::unique_ptr<MeshParticleEmitter> planeHitParticleGroup_;
 
   std::unique_ptr<ParticleEmitter> particleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> clearParticleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> hitParticleEmitter_ = nullptr;
   std::unique_ptr<ParticleEmitter> cylinderEmitter_ = nullptr;
+  std::unique_ptr<ParticleEmitter> planeHitParticleEmitter_ = nullptr;
 
   // スカイボックス
   std::unique_ptr<Skybox> skybox_ = nullptr;
