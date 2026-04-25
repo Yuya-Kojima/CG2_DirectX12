@@ -98,7 +98,17 @@ private:
       {0.0f, 0.0f, 0.0f},
   };
 
+  Animation currentAnimation_;
+  float animationTime_ = 0.0f;
+  bool isPlayingAnimation_ = false;
+
 public:
+  void PlayAnimation(const Animation& animation) {
+      currentAnimation_ = animation;
+      animationTime_ = 0.0f;
+      isPlayingAnimation_ = true;
+  }
+
   // scale
   Vector3 GetScale() const { return transform_.scale; }
 

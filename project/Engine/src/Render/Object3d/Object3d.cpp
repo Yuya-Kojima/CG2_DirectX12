@@ -48,13 +48,23 @@ void Object3d::Update() {
   const ICamera *activeCamera =
       (camera_ != nullptr) ? camera_ : object3dRenderer_->GetDefaultCamera();
 
+  Matrix4x4 localMatrix = MakeIdentity4x4();
+  if (isPlayingAnimation_ && model_) {
+      animationTime_ += 1.0f / 60.0f; // 時刻を進める
+      animationTime_ = std::fmod(animationTime_, currentAnimation_.duration); // リピート再生
+      NodeAnimation& rootNodeAnimation = currentAnimation_.nodeAnimations[model_->GetRootNode().name];
+      Vector3 translate = CalculateValue(rootNodeAnimation.translate.keyframes, animationTime_);
+      Quaternion rotate = CalculateValue(rootNodeAnimation.rotate.keyframes, animationTime_);
+      Vector3 scale = CalculateValue(rootNodeAnimation.scale.keyframes, animationTime_);
+      localMatrix = MakeAffineMatrix(scale, rotate, translate);
+  } else if (model_) {
+      localMatrix = model_->GetRootLocalMatrix();
+  }
+
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
 
-  Matrix4x4 finalWorld = worldMatrix;
-  if (model_) {
-    finalWorld = Multiply(model_->GetRootLocalMatrix(), worldMatrix);
-  }
+  Matrix4x4 finalWorld = Multiply(localMatrix, worldMatrix);
 
   Matrix4x4 worldViewProjectionMatrix;
 

@@ -61,6 +61,9 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<Object3d> object3d_ = nullptr;
   std::unique_ptr<Object3d> object3dA_ = nullptr;
 
+  std::unique_ptr<Object3d> animatedCube_ = nullptr;
+  Animation animation_;
+
   float rotateObj_{};
 
   std::unique_ptr<BillboardParticleEmitter> testParticleGroup_;

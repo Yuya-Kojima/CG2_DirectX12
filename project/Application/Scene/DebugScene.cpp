@@ -118,6 +118,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   ModelManager::GetInstance()->LoadModel("suzanne.obj");
 
+  ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
+
   // オブジェクトの生成と初期化
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(engine_->GetObject3dRenderer());
@@ -127,6 +129,13 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_->Initialize(engine_->GetObject3dRenderer());
   object3dA_->SetModel("suzanne.obj");
   object3dA_->SetEnvironmentCoefficient(1.0f);
+
+  animatedCube_ = std::make_unique<Object3d>();
+  animatedCube_->Initialize(engine_->GetObject3dRenderer());
+  animatedCube_->SetModel("AnimatedCube.gltf");
+  animation_ = LoadAnimationFile("resources/AnimatedCube", "AnimatedCube.gltf");
+  animatedCube_->PlayAnimation(animation_);
+  animatedCube_->SetTranslation({-3.0f, 1.0f, 0.0f});
 
   //===========================
   // SkyBox
@@ -337,6 +346,7 @@ void DebugScene::Update() {
 
   object3d_->Update();
   object3dA_->Update();
+  animatedCube_->Update();
 
   //=======================
   // パーティクルの更新
@@ -545,6 +555,7 @@ void DebugScene::Draw3D() {
 
   object3d_->Draw();
   object3dA_->Draw();
+  animatedCube_->Draw();
   testParticleGroup_->Draw();
   // clearParticleGroup_->Draw();
   hitParticleGroup_->Draw();
