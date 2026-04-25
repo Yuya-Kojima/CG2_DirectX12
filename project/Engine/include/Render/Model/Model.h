@@ -38,6 +38,7 @@ public:
 private:
   struct ModelData {
     std::vector<VertexData> vertices;
+    std::vector<uint32_t> indices;
     MaterialData material;
     Node rootNode;
   };
@@ -110,6 +111,11 @@ private:
 
   // バッファリソースの使い道を補足するバッファビュー
   D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+
+  /* インデックスデータ
+  -----------------------------*/
+  Microsoft::WRL::ComPtr<ID3D12Resource> indexResource_ = nullptr;
+  D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
 
   /// <summary>
   /// 頂点データを生成

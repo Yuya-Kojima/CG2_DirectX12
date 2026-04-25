@@ -374,8 +374,8 @@ void DebugScene::Update() {
 
   object3d_->Update();
 
-  rotateObj_ += 0.01f;
-  object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
+  // rotateObj_ += 0.01f;
+  // object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
   object3dA_->Update();
 
   animatedCube_->Update();
