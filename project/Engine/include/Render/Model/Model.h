@@ -1,5 +1,6 @@
 #pragma once
 #include "Math/MathUtil.h"
+#include "Animation.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -120,4 +121,13 @@ public:
 	const Matrix4x4& GetRootLocalMatrix() const {
 		return modelData_.rootNode.localMatrix;
 	}
+
+	const Node& GetRootNode() const {
+		return modelData_.rootNode;
+	}
 };
+
+Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
+
+Vector3 CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time);
+Quaternion CalculateValue(const std::vector<KeyframeQuaternion>& keyframes, float time);

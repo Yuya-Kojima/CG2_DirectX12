@@ -4,6 +4,7 @@
 #include "Vector2.h"
 #include "Vector3.h"
 #include "Vector4.h"
+#include "Quaternion.h"
 #include <cmath>
 #include <numbers>
 
@@ -44,6 +45,8 @@ inline Vector3 Normalize(const Vector3 &v) {
 inline Vector3 Lerp(const Vector3 &a, const Vector3 &b, float t) {
   return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
 }
+
+Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t);
 
 //=========================
 // Matrix4x4
@@ -105,6 +108,15 @@ Matrix4x4 MakeRotateMatrix(const Vector3 &rotate);
 /// <param name="translate">平行移動</param>
 /// <returns>アフィン行列</returns>
 Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate);
+
+/// <summary>
+/// アフィン行列作成(Quaternion版)
+/// </summary>
+/// <param name="scale">拡縮</param>
+/// <param name="rotate">回転(Quaternion)</param>
+/// <param name="translate">平行移動</param>
+/// <returns>アフィン行列</returns>
+Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate);
 
 /// <summary>
 /// 透視投影行列作成

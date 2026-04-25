@@ -1,5 +1,32 @@
 #include "Math/MathUtil.h"
 
+Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t) {
+    float dot = q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w;
+    Quaternion tq1 = q1;
+    if (dot < 0.0f) {
+        dot = -dot;
+        tq1 = { -q1.x, -q1.y, -q1.z, -q1.w };
+    }
+    if (dot >= 1.0f - 0.0005f) {
+        return {
+            q0.x + (tq1.x - q0.x) * t,
+            q0.y + (tq1.y - q0.y) * t,
+            q0.z + (tq1.z - q0.z) * t,
+            q0.w + (tq1.w - q0.w) * t
+        };
+    }
+    float theta = std::acos(dot);
+    float sinTheta = std::sin(theta);
+    float s0 = std::sin((1.0f - t) * theta) / sinTheta;
+    float s1 = std::sin(t * theta) / sinTheta;
+    return {
+        q0.x * s0 + tq1.x * s1,
+        q0.y * s0 + tq1.y * s1,
+        q0.z * s0 + tq1.z * s1,
+        q0.w * s0 + tq1.w * s1
+    };
+}
+
 Matrix4x4 MakeIdentity4x4() {
   Matrix4x4 matrix;
 
@@ -228,6 +255,51 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
   worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
 
   return worldMatrix;
+}
+
+Matrix4x4 MakeRotateMatrix(const Quaternion& quaternion) {
+    Matrix4x4 result = MakeIdentity4x4();
+    float xx = quaternion.x * quaternion.x;
+    float yy = quaternion.y * quaternion.y;
+    float zz = quaternion.z * quaternion.z;
+    float ww = quaternion.w * quaternion.w;
+    float xy = quaternion.x * quaternion.y;
+    float xz = quaternion.x * quaternion.z;
+    float xw = quaternion.x * quaternion.w;
+    float yz = quaternion.y * quaternion.z;
+    float yw = quaternion.y * quaternion.w;
+    float zw = quaternion.z * quaternion.w;
+
+    result.m[0][0] = ww + xx - yy - zz;
+    result.m[0][1] = 2.0f * (xy + zw);
+    result.m[0][2] = 2.0f * (xz - yw);
+    result.m[0][3] = 0.0f;
+
+    result.m[1][0] = 2.0f * (xy - zw);
+    result.m[1][1] = ww - xx + yy - zz;
+    result.m[1][2] = 2.0f * (yz + xw);
+    result.m[1][3] = 0.0f;
+
+    result.m[2][0] = 2.0f * (xz + yw);
+    result.m[2][1] = 2.0f * (yz - xw);
+    result.m[2][2] = ww - xx - yy + zz;
+    result.m[2][3] = 0.0f;
+
+    result.m[3][0] = 0.0f;
+    result.m[3][1] = 0.0f;
+    result.m[3][2] = 0.0f;
+    result.m[3][3] = 1.0f;
+
+    return result;
+}
+
+Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate) {
+    Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
+    Matrix4x4 rotateMatrix = MakeRotateMatrix(rotate);
+    Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
+
+    Matrix4x4 worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+    return worldMatrix;
 }
 
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
