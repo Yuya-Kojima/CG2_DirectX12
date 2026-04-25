@@ -149,10 +149,12 @@
     <ClCompile Include="src\Input\InputMouseState.cpp" />
     <ClCompile Include="src\Math\MathUtil.cpp" />
     <ClCompile Include="src\Debug\DebugCamera.cpp" />
+    <ClCompile Include="src\Render\Model\SkinCluster.cpp" />
     <ClCompile Include="src\Render\Model\Model.cpp" />
     <ClCompile Include="src\Render\Model\ModelManager.cpp" />
     <ClCompile Include="src\Render\Renderer\ModelRenderer.cpp" />
     <ClCompile Include="src\Render\Object3d\Object3d.cpp" />
+    <ClCompile Include="src\Render\Object3d\SkinnedObject.cpp" />
     <ClCompile Include="src\Render\Particle\BillboardParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\IParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\MeshParticleEmitter.cpp" />
@@ -168,6 +170,7 @@
   <ItemGroup>
     <ClInclude Include="include\Render\Model\Animation.h" />
     <ClInclude Include="include\Render\Model\Skeleton.h" />
+    <ClInclude Include="include\Render\Model\SkinCluster.h" />
     <ClInclude Include="include\Render\Primitive\Cube.h" />
     <ClInclude Include="include\Render\Primitive\Cylinder.h" />
     <ClInclude Include="include\Render\Primitive\Sphere.h" />
@@ -208,6 +211,7 @@
     <ClInclude Include="include\Render\Model\ModelManager.h" />
     <ClInclude Include="include\Render\Renderer\ModelRenderer.h" />
     <ClInclude Include="include\Render\Object3d\Object3d.h" />
+    <ClInclude Include="include\Render\Object3d\SkinnedObject.h" />
     <ClInclude Include="include\Render\Particle\BillboardParticleEmitter.h" />
     <ClInclude Include="include\Render\Particle\IParticleEmitter.h" />
     <ClInclude Include="include\Render\Particle\MeshParticleEmitter.h" />

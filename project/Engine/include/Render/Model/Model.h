@@ -8,11 +8,12 @@
 #include <d3d12.h>
 #include <string>
 #include <vector>
+#include <map>
 #include <wrl.h>
 
 class ModelRenderer;
-
 class Dx12Core;
+struct SkinCluster;
 
 class Model {
 
@@ -35,12 +36,23 @@ public:
     std::vector<Node> children;
   };
 
-private:
+public:
+  struct VertexWeightData {
+      float weight;
+      uint32_t vertexIndex;
+  };
+
+  struct JointWeightData {
+      Matrix4x4 inverseBindPoseMatrix;
+      std::vector<VertexWeightData> vertexWeights;
+  };
+
   struct ModelData {
     std::vector<VertexData> vertices;
     std::vector<uint32_t> indices;
     MaterialData material;
     Node rootNode;
+    std::map<std::string, JointWeightData> skinClusterData;
   };
 
 public:
@@ -70,7 +82,7 @@ public:
   /// <summary>
   /// 描画
   /// </summary>
-  void Draw();
+  void Draw(const SkinCluster* skinCluster = nullptr);
 
 private:
   ModelRenderer *modelRenderer_;
@@ -137,6 +149,7 @@ public:
   }
 
   const Node &GetRootNode() const { return modelData_.rootNode; }
+  const ModelData &GetModelData() const { return modelData_; }
 };
 
 Animation LoadAnimationFile(const std::string &directoryPath,

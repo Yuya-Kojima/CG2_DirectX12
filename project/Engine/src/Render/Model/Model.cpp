@@ -3,6 +3,7 @@
 #include "Math/MathUtil.h"
 #include "Renderer/ModelRenderer.h"
 #include "Texture/TextureManager.h"
+#include "Render/Model/SkinCluster.h"
 #include <fstream>
 
 void Model::Initialize(ModelRenderer* modelRenderer,
@@ -59,12 +60,25 @@ void Model::InitializeFromVertices(ModelRenderer* modelRenderer, const std::vect
 	defaultMaterial_.environmentCoefficient = 0.0f;
 }
 
-void Model::Draw() {
+void Model::Draw(const SkinCluster* skinCluster) {
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
 		dx12Core_->GetCommandList();
 
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
+	if (skinCluster) {
+		// Skinning描画の場合、2つのVBVをセット
+		D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {
+			vertexBufferView,               // VertexDataのVBV (Slot 0)
+			skinCluster->influenceBufferView // InfluenceのVBV (Slot 1)
+		};
+		commandList->IASetVertexBuffers(0, 2, vbvs);
+
+		// MatrixPaletteのSRVをDescriptorTable(8番目)にセット
+		commandList->SetGraphicsRootDescriptorTable(8, skinCluster->paletteSrvHandle.second);
+	} else {
+		// 通常の描画の場合、1つのVBVだけをセット
+		commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+	}
 
 	// SRVのDescriptorTableの先頭を設定。2はrootParameter[2]である。
 	commandList->SetGraphicsRootDescriptorTable(
@@ -163,6 +177,25 @@ void Model::LoadModelFile(const std::string& directoryPath,
 			for (uint32_t element = 0; element < face.mNumIndices; ++element) {
 				uint32_t vertexIndex = face.mIndices[element];
 				modelData.indices.push_back(vertexIndex);
+			}
+		}
+
+		// SkinCluster構築用のデータ取得を追加
+		for (uint32_t boneIndex = 0; boneIndex < mesh->mNumBones; ++boneIndex) {
+			aiBone* bone = mesh->mBones[boneIndex];
+			std::string jointName = bone->mName.C_Str();
+			JointWeightData& jointWeightData = modelData.skinClusterData[jointName];
+
+			aiMatrix4x4 bindPoseMatrixAssimp = bone->mOffsetMatrix.Inverse();
+			aiVector3D scale, translate;
+			aiQuaternion rotate;
+			bindPoseMatrixAssimp.Decompose(scale, rotate, translate);
+			Matrix4x4 bindPoseMatrix = MakeAffineMatrix(
+				{ scale.x, scale.y, scale.z }, { rotate.x, -rotate.y, -rotate.z, rotate.w }, { -translate.x, translate.y, translate.z });
+			jointWeightData.inverseBindPoseMatrix = Inverse(bindPoseMatrix);
+
+			for (uint32_t weightIndex = 0; weightIndex < bone->mNumWeights; ++weightIndex) {
+				jointWeightData.vertexWeights.push_back({ bone->mWeights[weightIndex].mWeight, bone->mWeights[weightIndex].mVertexId });
 			}
 		}
 	}

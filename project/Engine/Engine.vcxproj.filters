@@ -45,6 +45,9 @@
     <ClCompile Include="src\Render\Model\Model.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\Render\Model\SkinCluster.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="src\Render\Model\ModelManager.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -207,6 +210,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\Render\Model\Model.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Render\Model\SkinCluster.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="include\Render\Model\ModelData.h">

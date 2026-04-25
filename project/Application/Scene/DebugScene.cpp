@@ -132,6 +132,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_->Initialize(engine_->GetObject3dRenderer());
   object3dA_->SetModel("suzanne.obj");
   object3dA_->SetEnvironmentCoefficient(1.0f);
+  object3dA_->SetTranslation({3.0f, 1.0f, 0.0f});
 
   animatedCube_ = std::make_unique<Object3d>();
   animatedCube_->Initialize(engine_->GetObject3dRenderer());
@@ -143,11 +144,10 @@ void DebugScene::Initialize(EngineBase *engine) {
   // ==========================
   // スケルトンのデバッグ描画用初期化
   // ==========================
-  sneakWalkModel_ = std::make_unique<Model>();
-  sneakWalkModel_->Initialize(ModelManager::GetInstance()->GetModelRenderer(),
-                              "resources/human", "sneakWalk.gltf");
-  sneakWalkAnimation_ = LoadAnimationFile("resources/human", "sneakWalk.gltf");
-  skeleton_ = CreateSkeleton(sneakWalkModel_->GetRootNode());
+  sneakWalk_ = std::make_unique<SkinnedObject>();
+  sneakWalk_->Initialize(engine_->GetObject3dRenderer(),
+                         engine_->GetSrvManager(), "resources/human",
+                         "sneakWalk.gltf");
 
   Sphere sphere;
   sphere.Build(16, 0.02f);
@@ -162,7 +162,7 @@ void DebugScene::Initialize(EngineBase *engine) {
       ModelManager::GetInstance()->GetModelRenderer(), sphereVertices);
 
   jointObjects_.clear();
-  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
+  for (size_t i = 0; i < sneakWalk_->GetSkeleton().joints.size(); ++i) {
     auto jointObj = std::make_unique<Object3d>();
     jointObj->Initialize(engine_->GetObject3dRenderer());
     jointObj->SetModel(sphereModel_.get());
@@ -379,16 +379,11 @@ void DebugScene::Update() {
   object3dA_->Update();
 
   animatedCube_->Update();
-
   // スケルトンのアニメーション更新
-  sneakWalkAnimationTime_ += 1.0f / 60.0f;
-  sneakWalkAnimationTime_ =
-      std::fmod(sneakWalkAnimationTime_, sneakWalkAnimation_.duration);
-  ApplyAnimation(skeleton_, sneakWalkAnimation_, sneakWalkAnimationTime_);
-  ::Update(skeleton_); // Skeletonの更新
+  sneakWalk_->Update(1.0f / 60.0f);
 
-  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
-    const Joint &joint = skeleton_.joints[i];
+  for (size_t i = 0; i < sneakWalk_->GetSkeleton().joints.size(); ++i) {
+    const Joint &joint = sneakWalk_->GetSkeleton().joints[i];
     Vector3 pos = {joint.skeletonSpaceMatrix.m[3][0],
                    joint.skeletonSpaceMatrix.m[3][1],
                    joint.skeletonSpaceMatrix.m[3][2]};
@@ -605,14 +600,20 @@ void DebugScene::Draw3D() {
   object3dA_->Draw();
   animatedCube_->Draw();
 
+  // スキニング描画
+  engine_->GetObject3dRenderer()->BeginSkinning();
+  sneakWalk_->Draw();
+  engine_->GetObject3dRenderer()->Begin(); // 元に戻す
+
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
   engine_->GetObject3dRenderer()->SetDepthEnable(false);
 
   // 1. 関節間のLineを登録
-  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
-    const Joint &joint = skeleton_.joints[i];
+  for (size_t i = 0; i < sneakWalk_->GetSkeleton().joints.size(); ++i) {
+    const Joint &joint = sneakWalk_->GetSkeleton().joints[i];
     if (joint.parent) {
-      const Joint &parentJoint = skeleton_.joints[*joint.parent];
+      const Joint &parentJoint =
+          sneakWalk_->GetSkeleton().joints[*joint.parent];
       Vector3 start = {parentJoint.skeletonSpaceMatrix.m[3][0],
                        parentJoint.skeletonSpaceMatrix.m[3][1],
                        parentJoint.skeletonSpaceMatrix.m[3][2]};

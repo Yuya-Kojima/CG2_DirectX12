@@ -13,6 +13,7 @@ class Dx12Core;
 class Object3dRenderer;
 
 class ICamera;
+struct SkinCluster;
 
 class Object3d {
 
@@ -44,6 +45,7 @@ private:
   Dx12Core *dx12Core_ = nullptr;
 
   Model *model_ = nullptr;
+  SkinCluster *skinCluster_ = nullptr;
 
 public:
   Model *GetModel() const { return model_; }
@@ -51,6 +53,8 @@ public:
   void SetModel(const std::string &filePath);
 
   void SetModel(Model *model) { model_ = model; }
+
+  void SetSkinCluster(SkinCluster *skinCluster) { skinCluster_ = skinCluster; }
 
 private:
   /* 座標変換行列データ

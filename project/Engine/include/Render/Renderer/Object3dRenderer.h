@@ -17,6 +17,7 @@ public:
   /// 描画前共通部分処理
   /// </summary>
   void Begin();
+  void BeginSkinning();
 
   /// <summary>
   /// デプステストの有効/無効を切り替える
@@ -32,20 +33,24 @@ public:
 private:
   // ルートシグネチャ
   Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12RootSignature> skinningRootSignature_ = nullptr;
 
   // PSO
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineStateDepthDisabled_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12PipelineState> skinningGraphicsPipeLineState_ = nullptr;
 
   /// <summary>
   /// ルートシグネチャを作成
   /// </summary>
   void CreateRootSignature();
+  void CreateSkinningRootSignature();
 
   /// <summary>
   /// オブジェクト用のPSOを作成
   /// </summary>
   void CreatePSO();
+  void CreateSkinningPSO();
 
 private:
   const ICamera *defaultCamera = nullptr;

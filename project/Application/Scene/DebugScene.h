@@ -11,7 +11,7 @@
 #include "Render/SkyBox/SkyBox.h"
 #include "Scene/BaseScene.h"
 #include "Sprite/Sprite.h"
-#include "Model/Skeleton.h"
+#include "Render/Object3d/SkinnedObject.h"
 #include <memory>
 #include <vector>
 
@@ -65,10 +65,7 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<Object3d> animatedCube_ = nullptr;
   Animation animation_;
 
-  std::unique_ptr<Model> sneakWalkModel_ = nullptr;
-  Animation sneakWalkAnimation_;
-  float sneakWalkAnimationTime_ = 0.0f;
-  Skeleton skeleton_;
+  std::unique_ptr<SkinnedObject> sneakWalk_ = nullptr;
   std::unique_ptr<Model> sphereModel_ = nullptr;
   std::vector<std::unique_ptr<Object3d>> jointObjects_;
 
