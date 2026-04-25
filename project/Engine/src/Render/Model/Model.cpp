@@ -71,8 +71,14 @@ void Model::Draw() {
 		2, TextureManager::GetInstance()->GetSrvHandleGPU(
 			modelData_.material.textureFilePath));
 
-	// 描画(DrawCall/ドローコール)。3頂点で1つのインスタンス
-	commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);
+	if (!modelData_.indices.empty()) {
+		// インデックスがある場合はIndexBufferを使って描画
+		commandList->IASetIndexBuffer(&indexBufferView_);
+		commandList->DrawIndexedInstanced(UINT(modelData_.indices.size()), 1, 0, 0, 0);
+	} else {
+		// インデックスがない場合（Primitive等）はVertexBufferのみで描画
+		commandList->DrawInstanced(UINT(modelData_.vertices.size()), 1, 0, 0);
+	}
 }
 
 Model::MaterialData
@@ -132,34 +138,31 @@ void Model::LoadModelFile(const std::string& directoryPath,
 		assert(mesh->HasNormals());        // 法線がないMeshは今回は非対応
 		// assert(mesh->HasTextureCoords(0)); // TexcoordがないMeshは今回は非対応
 
-		// ここから Mesh の中身（Face）を解析していく
+		// 最初から頂点数分のメモリを確保しておく
+		modelData.vertices.resize(mesh->mNumVertices);
+		for (uint32_t vertexIndex = 0; vertexIndex < mesh->mNumVertices; ++vertexIndex) {
+			aiVector3D& position = mesh->mVertices[vertexIndex];
+			aiVector3D& normal = mesh->mNormals[vertexIndex];
+			
+			aiVector3D texcoord = {0.0f, 0.0f, 0.0f};
+			if (mesh->HasTextureCoords(0)) {
+				texcoord = mesh->mTextureCoords[0][vertexIndex];
+			}
+
+			// 右手系->左手系への変換を忘れずに
+			modelData.vertices[vertexIndex].position = { -position.x, position.y, position.z, 1.0f };
+			modelData.vertices[vertexIndex].normal = { -normal.x, normal.y, normal.z };
+			modelData.vertices[vertexIndex].texcoord = { texcoord.x, texcoord.y };
+		}
+
+		// 面からIndexの情報を取得する
 		for (uint32_t faceIndex = 0; faceIndex < mesh->mNumFaces; ++faceIndex) {
 			aiFace& face = mesh->mFaces[faceIndex];
-			assert(face.mNumIndices == 3); // 三角形のみサポート
+			assert(face.mNumIndices == 3);
 
-			// ここから Face の中身（Vertex）の解析を行っていく
 			for (uint32_t element = 0; element < face.mNumIndices; ++element) {
 				uint32_t vertexIndex = face.mIndices[element];
-
-				aiVector3D position = mesh->mVertices[vertexIndex];
-				aiVector3D normal = mesh->mNormals[vertexIndex];
-				
-				aiVector3D texcoord = {0.0f, 0.0f, 0.0f};
-				if (mesh->HasTextureCoords(0)) {
-					texcoord = mesh->mTextureCoords[0][vertexIndex];
-				}
-
-				VertexData vertex;
-				vertex.position = { position.x, position.y, position.z, 1.0f };
-				vertex.normal = { normal.x, normal.y, normal.z };
-				vertex.texcoord = { texcoord.x, texcoord.y };
-
-				// aiProcess_MakeLeftHanded は z *= -1
-				// で、右手->左手に変換するので手動で対処
-				vertex.position.x *= -1.0f;
-				vertex.normal.x *= -1.0f;
-
-				modelData.vertices.push_back(vertex);
+				modelData.indices.push_back(vertexIndex);
 			}
 		}
 	}
@@ -286,6 +289,19 @@ void Model::CreateVertexData() {
 
 	std::memcpy(vertexData, modelData_.vertices.data(),
 		sizeof(VertexData) * modelData_.vertices.size());
+
+	// インデックスデータがある場合はインデックスバッファも作成
+	if (!modelData_.indices.empty()) {
+		indexResource_ = dx12Core_->CreateBufferResource(sizeof(uint32_t) * modelData_.indices.size());
+		
+		indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
+		indexBufferView_.SizeInBytes = UINT(sizeof(uint32_t) * modelData_.indices.size());
+		indexBufferView_.Format = DXGI_FORMAT_R32_UINT;
+
+		uint32_t* mappedIndex = nullptr;
+		indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&mappedIndex));
+		std::memcpy(mappedIndex, modelData_.indices.data(), sizeof(uint32_t) * modelData_.indices.size());
+	}
 }
 
 Model::Node Model::ReadNode(aiNode* node) {
