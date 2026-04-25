@@ -61,6 +61,13 @@ void Object3d::Update() {
       localMatrix = model_->GetRootLocalMatrix();
   }
 
+  // スキニング描画の場合、パレット(skeletonSpaceMatrix)の計算ですでにRootNodeの変換が含まれているため、
+  // ここで重ねてlocalMatrixを掛けると二重に変換がかかってしまう(極端に縮小される等)。
+  // したがって、SkinClusterがある場合はlocalMatrixを単位行列にする。
+  if (skinCluster_) {
+      localMatrix = MakeIdentity4x4();
+  }
+
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
 
@@ -127,7 +134,7 @@ void Object3d::Draw() {
 
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
-    model_->Draw();
+    model_->Draw(skinCluster_);
   }
 }
 
