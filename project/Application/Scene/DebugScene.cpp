@@ -157,6 +157,9 @@ void DebugScene::Initialize(EngineBase *engine) {
   cylinderParticleGroup_->InitializeAsCylinder("resources/gradationLine.png",
                                                32, 1.0f, 1.0f, 3.0f);
 
+  planeHitParticleGroup_ = std::make_unique<MeshParticleEmitter>();
+  planeHitParticleGroup_->InitializeAsPlane("resources/uvChecker.png");
+
   // 中心からXY方向にランダム速度
   particleEmitter_ = std::make_unique<ParticleEmitter>(
       testParticleGroup_.get(),  // 対象グループ
@@ -186,6 +189,12 @@ void DebugScene::Initialize(EngineBase *engine) {
   cylinderEmitter_ = std::make_unique<ParticleEmitter>(
       cylinderParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{}, 1,
       0.2f, Vector3{0, 0, 0}, Vector3{0, 0, 0}, 0.5f, 0.6f);
+
+  planeHitParticleEmitter_ = std::make_unique<ParticleEmitter>(
+      planeHitParticleGroup_.get(), Vector3{-2.0f, 2.0f, 0.0f}, Vector3{}, 3,
+      1.5f, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 1.0f);
+  planeHitParticleEmitter_->SetBaseScale(Vector3{2.0f, 2.0f, 1.0f});
+  planeHitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 3.14f});
 }
 
 void DebugScene::Finalize() {
@@ -193,6 +202,7 @@ void DebugScene::Finalize() {
   clearParticleGroup_->ClearParticles();
   hitParticleGroup_->ClearParticles();
   cylinderParticleGroup_->ClearParticles();
+  planeHitParticleGroup_->ClearParticles();
 
   auto *sm = SoundManager::GetInstance();
   sm->StopBGM();
@@ -338,6 +348,7 @@ void DebugScene::Update() {
   clearParticleEmitter_->Update();
   hitParticleEmitter_->Update();
   cylinderEmitter_->Update();
+  planeHitParticleEmitter_->Update();
 
   /* 手動でパーティクルを生成することも可能
   -------------------------------------*/
@@ -381,6 +392,8 @@ void DebugScene::Update() {
   hitParticleGroup_->Update(activeCamera->GetViewMatrix(),
                             activeCamera->GetProjectionMatrix());
   cylinderParticleGroup_->Update(activeCamera->GetViewMatrix(),
+                                 activeCamera->GetProjectionMatrix());
+  planeHitParticleGroup_->Update(activeCamera->GetViewMatrix(),
                                  activeCamera->GetProjectionMatrix());
 
   // 天球の更新
@@ -536,6 +549,7 @@ void DebugScene::Draw3D() {
   // clearParticleGroup_->Draw();
   hitParticleGroup_->Draw();
   cylinderParticleGroup_->Draw();
+  planeHitParticleGroup_->Draw();
 }
 
 void DebugScene::Draw2D() {
