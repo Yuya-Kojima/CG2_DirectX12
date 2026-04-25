@@ -1,6 +1,6 @@
 #pragma once
-#include "Math/MathUtil.h"
 #include "Animation.h"
+#include "Math/MathUtil.h"
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -16,118 +16,127 @@ class Dx12Core;
 
 class Model {
 
-	struct VertexData {
-		Vector4 position;
-		Vector2 texcoord;
-		Vector3 normal;
-	};
-	struct MaterialData {
-		std::string textureFilePath;
-		// uint32_t textureIndex = 0;
-	};
-
-	struct Node {
-		Matrix4x4 localMatrix;
-		std::string name;
-		std::vector<Node> children;
-	};
-
-	struct ModelData {
-		std::vector<VertexData> vertices;
-		MaterialData material;
-		Node rootNode;
-	};
-
+public:
+  struct VertexData {
+    Vector4 position;
+    Vector2 texcoord;
+    Vector3 normal;
+  };
+  struct MaterialData {
+    std::string textureFilePath;
+    // uint32_t textureIndex = 0;
+  };
 
 public:
-	struct Material {
-		Vector4 color;
-		int32_t enableLighting;
-		float padding[3];
-		Matrix4x4 uvTransform;
-		float shininess;
-		float environmentCoefficient;
-		float padding2[2];
-	};
-
-	/// <summary>
-	/// 初期化
-	/// </summary>
-	void Initialize(ModelRenderer* modelRenderer,
-		const std::string& directorypath,
-		const std::string& filename);
-
-	/// <summary>
-	/// 描画
-	/// </summary>
-	void Draw();
+  struct Node {
+    QuaternionTransform transform;
+    Matrix4x4 localMatrix;
+    std::string name;
+    std::vector<Node> children;
+  };
 
 private:
-	ModelRenderer* modelRenderer_;
-
-	Dx12Core* dx12Core_ = nullptr;
-
-	// Objファイルのデータ
-	ModelData modelData_;
-
-	/// <summary>
-	/// mtlファイルを読む
-	/// </summary>
-	/// <param name="directoryPath"></param>
-	/// <param name="filename"></param>
-	/// <returns></returns>
-	static MaterialData LoadMaterialTemplateFile(const std::string& directoryPath,
-		const std::string& filename);
+  struct ModelData {
+    std::vector<VertexData> vertices;
+    MaterialData material;
+    Node rootNode;
+  };
 
 public:
-	/// <summary>
-	/// Objファイルを読む
-	/// </summary>
-	/// <param name="directoryPath"></param>
-	/// <param name="filename"></param>
-	/// <returns></returns>
-	void LoadModelFile(const std::string& directoryPath,
-		const std::string& filename);
+  struct Material {
+    Vector4 color;
+    int32_t enableLighting;
+    float padding[3];
+    Matrix4x4 uvTransform;
+    float shininess;
+    float environmentCoefficient;
+    float padding2[2];
+  };
+
+  /// <summary>
+  /// 初期化
+  /// </summary>
+  void Initialize(ModelRenderer *modelRenderer,
+                  const std::string &directorypath,
+                  const std::string &filename);
+
+  /// <summary>
+  /// 頂点データから初期化（Primitive用）
+  /// </summary>
+  void InitializeFromVertices(ModelRenderer *modelRenderer,
+                              const std::vector<VertexData> &vertices);
+
+  /// <summary>
+  /// 描画
+  /// </summary>
+  void Draw();
 
 private:
-	/* 頂点データ
-	-----------------------------*/
+  ModelRenderer *modelRenderer_;
 
-	// バッファリソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = nullptr;
+  Dx12Core *dx12Core_ = nullptr;
 
-	// バッファリソース内のデータを指すポインタ
-	VertexData* vertexData = nullptr;
+  // Objファイルのデータ
+  ModelData modelData_;
 
-	// バッファリソースの使い道を補足するバッファビュー
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
-
-	/// <summary>
-	/// 頂点データを生成
-	/// </summary>
-	void CreateVertexData();
-
-private:
-
-	Material defaultMaterial_;
+  /// <summary>
+  /// mtlファイルを読む
+  /// </summary>
+  /// <param name="directoryPath"></param>
+  /// <param name="filename"></param>
+  /// <returns></returns>
+  static MaterialData LoadMaterialTemplateFile(const std::string &directoryPath,
+                                               const std::string &filename);
 
 public:
-	const Material& GetDefaultMaterial()const { return defaultMaterial_; }
+  /// <summary>
+  /// Objファイルを読む
+  /// </summary>
+  /// <param name="directoryPath"></param>
+  /// <param name="filename"></param>
+  /// <returns></returns>
+  void LoadModelFile(const std::string &directoryPath,
+                     const std::string &filename);
 
 private:
-	Node ReadNode(aiNode* node);
+  /* 頂点データ
+  -----------------------------*/
+
+  // バッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = nullptr;
+
+  // バッファリソース内のデータを指すポインタ
+  VertexData *vertexData = nullptr;
+
+  // バッファリソースの使い道を補足するバッファビュー
+  D3D12_VERTEX_BUFFER_VIEW vertexBufferView{};
+
+  /// <summary>
+  /// 頂点データを生成
+  /// </summary>
+  void CreateVertexData();
+
+private:
+  Material defaultMaterial_;
 
 public:
-	const Matrix4x4& GetRootLocalMatrix() const {
-		return modelData_.rootNode.localMatrix;
-	}
+  const Material &GetDefaultMaterial() const { return defaultMaterial_; }
 
-	const Node& GetRootNode() const {
-		return modelData_.rootNode;
-	}
+private:
+  Node ReadNode(aiNode *node);
+
+public:
+  const Matrix4x4 &GetRootLocalMatrix() const {
+    return modelData_.rootNode.localMatrix;
+  }
+
+  const Node &GetRootNode() const { return modelData_.rootNode; }
 };
 
-Animation LoadAnimationFile(const std::string& directoryPath, const std::string& filename);
+Animation LoadAnimationFile(const std::string &directoryPath,
+                            const std::string &filename);
 
-Vector3 CalculateValue(const std::vector<KeyframeVector3>& keyframes, float time);
-Quaternion CalculateValue(const std::vector<KeyframeQuaternion>& keyframes, float time);
+Vector3 CalculateValue(const std::vector<KeyframeVector3> &keyframes,
+                       float time);
+Quaternion CalculateValue(const std::vector<KeyframeQuaternion> &keyframes,
+                          float time);

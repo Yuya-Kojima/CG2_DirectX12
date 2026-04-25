@@ -7,11 +7,14 @@
 #include "Model/ModelManager.h"
 #include "Particle/Particle.h"
 #include "Particle/ParticleManager.h"
+#include "Render/Primitive/Sphere.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Texture/TextureManager.h"
+#include <cmath>
 #include <fstream>
+#include <imgui.h>
 
 void DebugScene::Initialize(EngineBase *engine) {
 
@@ -136,6 +139,37 @@ void DebugScene::Initialize(EngineBase *engine) {
   animation_ = LoadAnimationFile("resources/AnimatedCube", "AnimatedCube.gltf");
   animatedCube_->PlayAnimation(animation_);
   animatedCube_->SetTranslation({-3.0f, 1.0f, 0.0f});
+
+  // ==========================
+  // スケルトンのデバッグ描画用初期化
+  // ==========================
+  sneakWalkModel_ = std::make_unique<Model>();
+  sneakWalkModel_->Initialize(ModelManager::GetInstance()->GetModelRenderer(),
+                              "resources/human", "sneakWalk.gltf");
+  sneakWalkAnimation_ = LoadAnimationFile("resources/human", "sneakWalk.gltf");
+  skeleton_ = CreateSkeleton(sneakWalkModel_->GetRootNode());
+
+  Sphere sphere;
+  sphere.Build(16, 0.02f);
+
+  std::vector<Model::VertexData> sphereVertices;
+  for (const auto &v : sphere.GetVertices()) {
+    sphereVertices.push_back({v.position, v.texcoord, v.normal});
+  }
+
+  sphereModel_ = std::make_unique<Model>();
+  sphereModel_->InitializeFromVertices(
+      ModelManager::GetInstance()->GetModelRenderer(), sphereVertices);
+
+  jointObjects_.clear();
+  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
+    auto jointObj = std::make_unique<Object3d>();
+    jointObj->Initialize(engine_->GetObject3dRenderer());
+    jointObj->SetModel(sphereModel_.get());
+    jointObj->SetColor(
+        Vector4{1.0f, 0.0f, 0.0f, 1.0f}); // 分かりやすいように赤色にする
+    jointObjects_.push_back(std::move(jointObj));
+  }
 
   //===========================
   // SkyBox
@@ -337,16 +371,30 @@ void DebugScene::Update() {
   //=======================
   // 3Dオブジェクトの更新
   //=======================
-  // rotateObj_ += 0.01f;
-
-  object3d_->SetRotation({0.0f, rotateObj_, 0.0f});
-
-  object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  // object3dA_->SetTranslation({1.0f, 1.0f, 0.0f});
 
   object3d_->Update();
+
+  rotateObj_ += 0.01f;
+  object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
   object3dA_->Update();
+
   animatedCube_->Update();
+
+  // スケルトンのアニメーション更新
+  sneakWalkAnimationTime_ += 1.0f / 60.0f;
+  sneakWalkAnimationTime_ =
+      std::fmod(sneakWalkAnimationTime_, sneakWalkAnimation_.duration);
+  ApplyAnimation(skeleton_, sneakWalkAnimation_, sneakWalkAnimationTime_);
+  ::Update(skeleton_); // Skeletonの更新
+
+  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
+    const Joint &joint = skeleton_.joints[i];
+    Vector3 pos = {joint.skeletonSpaceMatrix.m[3][0],
+                   joint.skeletonSpaceMatrix.m[3][1],
+                   joint.skeletonSpaceMatrix.m[3][2]};
+    jointObjects_[i]->SetTranslation(pos);
+    jointObjects_[i]->Update();
+  }
 
   //=======================
   // パーティクルの更新
@@ -556,11 +604,43 @@ void DebugScene::Draw3D() {
   object3d_->Draw();
   object3dA_->Draw();
   animatedCube_->Draw();
+
+  // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
+  engine_->GetObject3dRenderer()->SetDepthEnable(false);
+
+  // 1. 関節間のLineを登録
+  for (size_t i = 0; i < skeleton_.joints.size(); ++i) {
+    const Joint &joint = skeleton_.joints[i];
+    if (joint.parent) {
+      const Joint &parentJoint = skeleton_.joints[*joint.parent];
+      Vector3 start = {parentJoint.skeletonSpaceMatrix.m[3][0],
+                       parentJoint.skeletonSpaceMatrix.m[3][1],
+                       parentJoint.skeletonSpaceMatrix.m[3][2]};
+      Vector3 end = {joint.skeletonSpaceMatrix.m[3][0],
+                     joint.skeletonSpaceMatrix.m[3][1],
+                     joint.skeletonSpaceMatrix.m[3][2]};
+      engine_->GetLineRenderer()->DrawLine(start, end,
+                                           {1.0f, 1.0f, 1.0f, 1.0f}); // 白い線
+    }
+  }
+
+  // 3. 関節のSphereを描画
+  for (auto &jointObj : jointObjects_) {
+    jointObj->Draw();
+  }
+  engine_->GetObject3dRenderer()->SetDepthEnable(true); // 元に戻す
+
   testParticleGroup_->Draw();
   // clearParticleGroup_->Draw();
   hitParticleGroup_->Draw();
   cylinderParticleGroup_->Draw();
   planeHitParticleGroup_->Draw();
+
+  // 2. Lineを描画 (他の描画のパイプラインを壊さないように最後に呼ぶ)
+  if (const ICamera *camera =
+          engine_->GetObject3dRenderer()->GetDefaultCamera()) {
+    engine_->GetLineRenderer()->Render(camera->GetViewProjectionMatrix());
+  }
 }
 
 void DebugScene::Draw2D() {

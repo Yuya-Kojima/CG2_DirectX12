@@ -39,6 +39,26 @@ void Model::Initialize(ModelRenderer* modelRenderer,
 	//    TextureManager::GetInstance()->GetTextureIndexByFilePath(
 	//        modelData_.material.textureFilePath);
 }
+
+void Model::InitializeFromVertices(ModelRenderer* modelRenderer, const std::vector<VertexData>& vertices) {
+	modelRenderer_ = modelRenderer;
+	dx12Core_ = modelRenderer_->GetDx12Core();
+
+	modelData_.vertices = vertices;
+	modelData_.material.textureFilePath = "resources/white1x1.png";
+	TextureManager::GetInstance()->LoadTexture(modelData_.material.textureFilePath);
+	modelData_.rootNode.localMatrix = MakeIdentity4x4();
+	modelData_.rootNode.name = "RootNode";
+
+	CreateVertexData();
+
+	defaultMaterial_.color = Vector4(1, 1, 1, 1);
+	defaultMaterial_.enableLighting = true;
+	defaultMaterial_.uvTransform = MakeIdentity4x4();
+	defaultMaterial_.shininess = 30.0f;
+	defaultMaterial_.environmentCoefficient = 0.0f;
+}
+
 void Model::Draw() {
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
@@ -272,32 +292,15 @@ Model::Node Model::ReadNode(aiNode* node) {
 
 	Node result{};
 
-	// nodeのLocalMatrixを取得
-	aiMatrix4x4 aiLocalMatrix = node->mTransformation;
-
-	// 列ベクトル形式 → 行ベクトル形式（スライド通り）
-	aiLocalMatrix.Transpose();
-
-	// aiMatrix4x4 → Matrix4x4 にコピー
-	result.localMatrix.m[0][0] = aiLocalMatrix[0][0];
-	result.localMatrix.m[0][1] = aiLocalMatrix[0][1];
-	result.localMatrix.m[0][2] = aiLocalMatrix[0][2];
-	result.localMatrix.m[0][3] = aiLocalMatrix[0][3];
-
-	result.localMatrix.m[1][0] = aiLocalMatrix[1][0];
-	result.localMatrix.m[1][1] = aiLocalMatrix[1][1];
-	result.localMatrix.m[1][2] = aiLocalMatrix[1][2];
-	result.localMatrix.m[1][3] = aiLocalMatrix[1][3];
-
-	result.localMatrix.m[2][0] = aiLocalMatrix[2][0];
-	result.localMatrix.m[2][1] = aiLocalMatrix[2][1];
-	result.localMatrix.m[2][2] = aiLocalMatrix[2][2];
-	result.localMatrix.m[2][3] = aiLocalMatrix[2][3];
-
-	result.localMatrix.m[3][0] = aiLocalMatrix[3][0];
-	result.localMatrix.m[3][1] = aiLocalMatrix[3][1];
-	result.localMatrix.m[3][2] = aiLocalMatrix[3][2];
-	result.localMatrix.m[3][3] = aiLocalMatrix[3][3];
+	aiVector3D scale, translate;
+	aiQuaternion rotate;
+	node->mTransformation.Decompose(scale, rotate, translate);
+	
+	result.transform.scale = { scale.x, scale.y, scale.z };
+	result.transform.rotate = { rotate.x, -rotate.y, -rotate.z, rotate.w };
+	result.transform.translate = { -translate.x, translate.y, translate.z };
+	
+	result.localMatrix = MakeAffineMatrix(result.transform.scale, result.transform.rotate, result.transform.translate);
 
 	// Node名を格納
 	result.name = node->mName.C_Str();

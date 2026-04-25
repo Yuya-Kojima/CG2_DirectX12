@@ -7,6 +7,7 @@
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/AbstractSceneFactory.h"
+#include "Renderer/LineRenderer.h"
 #include <memory>
 #include <wrl.h>
 #include <xaudio2.h>
@@ -51,6 +52,7 @@ public:
     return object3dRenderer_.get();
   }
   SkyboxRenderer *GetSkyboxRenderer() const { return skyboxRenderer_.get(); }
+  LineRenderer *GetLineRenderer() const { return LineRenderer::GetInstance(); }
 
 protected:
   bool endRequest_ = false;

@@ -50,6 +50,8 @@ public:
 
   void SetModel(const std::string &filePath);
 
+  void SetModel(Model *model) { model_ = model; }
+
 private:
   /* 座標変換行列データ
   -----------------------------*/

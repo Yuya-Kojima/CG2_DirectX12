@@ -45,5 +45,7 @@ public:
   /// <param name="filePath"></param>
   Model *FindModel(const std::string &filePath);
 
+  ModelRenderer *GetModelRenderer() const { return modelRenderer.get(); }
+
   static std::string ResolveModelPath(const std::string &input);
 };

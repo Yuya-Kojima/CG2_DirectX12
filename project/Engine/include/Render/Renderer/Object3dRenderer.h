@@ -18,6 +18,11 @@ public:
   /// </summary>
   void Begin();
 
+  /// <summary>
+  /// デプステストの有効/無効を切り替える
+  /// </summary>
+  void SetDepthEnable(bool enable);
+
 private:
   Dx12Core *dx12Core_ = nullptr;
 
@@ -30,6 +35,7 @@ private:
 
   // PSO
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineStateDepthDisabled_ = nullptr;
 
   /// <summary>
   /// ルートシグネチャを作成
