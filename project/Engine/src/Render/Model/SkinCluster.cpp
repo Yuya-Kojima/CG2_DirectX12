@@ -4,8 +4,9 @@
 #include "Core/SrvManager.h"
 #include <algorithm>
 
-SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const Skeleton& skeleton, const Model::ModelData& modelData) {
+SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const Skeleton& skeleton, Model* model) {
     SkinCluster skinCluster;
+    const Model::ModelData& modelData = model->GetModelData();
 
     // 1. palette用のResourceを確保
     skinCluster.paletteResource = dx12Core->CreateBufferResource(sizeof(WellForGPU) * skeleton.joints.size());
@@ -26,10 +27,11 @@ SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const 
     std::memset(mappedInfluence, 0, sizeof(VertexInfluence) * modelData.vertices.size()); // 0埋め。weightを0にしておく。
     skinCluster.mappedInfluence = { mappedInfluence, modelData.vertices.size() };
 
-    // 4. Influence用のVBVを作成
-    skinCluster.influenceBufferView.BufferLocation = skinCluster.influenceResource->GetGPUVirtualAddress();
-    skinCluster.influenceBufferView.SizeInBytes = UINT(sizeof(VertexInfluence) * modelData.vertices.size());
-    skinCluster.influenceBufferView.StrideInBytes = sizeof(VertexInfluence);
+    // 4. Influence用のSRVを作成
+    uint32_t influenceSrvIndex = srvManager->Allocate();
+    skinCluster.influenceSrvHandle.first = srvManager->GetCPUDescriptorHandle(influenceSrvIndex);
+    skinCluster.influenceSrvHandle.second = srvManager->GetGPUDescriptorHandle(influenceSrvIndex);
+    srvManager->CreateSRVforStructuredBuffer(influenceSrvIndex, skinCluster.influenceResource.Get(), static_cast<UINT>(modelData.vertices.size()), sizeof(VertexInfluence));
 
     // 5. InverseBindPoseMatrixの保存領域を作成して、単位行列で埋める
     skinCluster.inverseBindPoseMatrices.resize(skeleton.joints.size());
@@ -56,6 +58,34 @@ SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const 
             }
         }
     }
+
+    // 7. 入力頂点用のSRVを作成 (ModelのVertexResourceを利用)
+    uint32_t inputVertexSrvIndex = srvManager->Allocate();
+    skinCluster.inputVertexSrvHandle.first = srvManager->GetCPUDescriptorHandle(inputVertexSrvIndex);
+    skinCluster.inputVertexSrvHandle.second = srvManager->GetGPUDescriptorHandle(inputVertexSrvIndex);
+    srvManager->CreateSRVforStructuredBuffer(inputVertexSrvIndex, model->GetVertexResource(), static_cast<UINT>(modelData.vertices.size()), sizeof(Model::VertexData));
+
+    // 8. 出力頂点用のResource (SkinnedVertex) を確保 (UAVとして書き込めるようにDEFAULTヒープで作成)
+    skinCluster.skinnedVertexResource = dx12Core->CreateUAVBufferResource(sizeof(Model::VertexData) * modelData.vertices.size());
+
+    // 9. 出力頂点用のUAVを作成
+    uint32_t skinnedVertexUavIndex = srvManager->Allocate();
+    skinCluster.skinnedVertexUavHandle.first = srvManager->GetCPUDescriptorHandle(skinnedVertexUavIndex);
+    skinCluster.skinnedVertexUavHandle.second = srvManager->GetGPUDescriptorHandle(skinnedVertexUavIndex);
+    srvManager->CreateUAVforStructuredBuffer(skinnedVertexUavIndex, skinCluster.skinnedVertexResource.Get(), static_cast<UINT>(modelData.vertices.size()), sizeof(Model::VertexData));
+
+    // 10. 出力頂点用のVBVを作成 (描画用)
+    skinCluster.skinnedVertexBufferView.BufferLocation = skinCluster.skinnedVertexResource->GetGPUVirtualAddress();
+    skinCluster.skinnedVertexBufferView.SizeInBytes = UINT(sizeof(Model::VertexData) * modelData.vertices.size());
+    skinCluster.skinnedVertexBufferView.StrideInBytes = sizeof(Model::VertexData);
+
+    // 11. SkinningInformation (CBV) を作成 (256バイトアラインメント)
+    UINT cbvSize = (sizeof(SkinningInformation) + 255) & ~255;
+    skinCluster.skinningInformationResource = dx12Core->CreateBufferResource(cbvSize);
+    SkinningInformation* mappedInfo = nullptr;
+    skinCluster.skinningInformationResource->Map(0, nullptr, reinterpret_cast<void**>(&mappedInfo));
+    mappedInfo->numVertices = static_cast<uint32_t>(modelData.vertices.size());
+    // mappedInfoのUnmapは省略（MapしっぱなしでOK）
 
     return skinCluster;
 }

@@ -139,6 +139,7 @@ private:
 
 public:
   const Material &GetDefaultMaterial() const { return defaultMaterial_; }
+  ID3D12Resource *GetVertexResource() const { return vertexResource.Get(); }
 
 private:
   Node ReadNode(aiNode *node);

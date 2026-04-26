@@ -713,7 +713,48 @@ Dx12Core::CreateBufferResource(size_t sizeInBytes) {
       &uploadHeapProperties, D3D12_HEAP_FLAG_NONE, &bufferResourceDesc,
       D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
       IID_PPV_ARGS(&bufferResource));
-  assert(SUCCEEDED(hr));
+  if (FAILED(hr)) {
+      char msg[256];
+      sprintf_s(msg, "CreateBufferResource failed! HRESULT: 0x%08X", hr);
+      MessageBoxA(nullptr, msg, "DirectX 12 Error", MB_OK | MB_ICONERROR);
+      abort();
+  }
+
+  return bufferResource;
+}
+
+Microsoft::WRL::ComPtr<ID3D12Resource>
+Dx12Core::CreateUAVBufferResource(size_t sizeInBytes) {
+
+  D3D12_HEAP_PROPERTIES defaultHeapProperties{};
+  defaultHeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+  D3D12_RESOURCE_DESC bufferResourceDesc{};
+
+  bufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  bufferResourceDesc.Width = sizeInBytes;
+
+  bufferResourceDesc.Height = 1;
+  bufferResourceDesc.DepthOrArraySize = 1;
+  bufferResourceDesc.MipLevels = 1;
+  bufferResourceDesc.SampleDesc.Count = 1;
+
+  bufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+  // UAVとして使用するためにフラグを設定
+  bufferResourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+  Microsoft::WRL::ComPtr<ID3D12Resource> bufferResource = nullptr;
+
+  HRESULT hr = device->CreateCommittedResource(
+      &defaultHeapProperties, D3D12_HEAP_FLAG_NONE, &bufferResourceDesc,
+      D3D12_RESOURCE_STATE_COMMON, nullptr,
+      IID_PPV_ARGS(&bufferResource));
+  if (FAILED(hr)) {
+      char msg[256];
+      sprintf_s(msg, "CreateUAVBufferResource failed! HRESULT: 0x%08X", hr);
+      MessageBoxA(nullptr, msg, "DirectX 12 Error", MB_OK | MB_ICONERROR);
+      abort();
+  }
 
   return bufferResource;
 }

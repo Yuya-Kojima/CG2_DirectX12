@@ -24,17 +24,30 @@ struct WellForGPU {
     Matrix4x4 skeletonSpaceInverseTransposeMatrix; // 法線用
 };
 
+struct SkinningInformation {
+    uint32_t numVertices;
+};
+
+
 struct SkinCluster {
     std::vector<Matrix4x4> inverseBindPoseMatrices;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> influenceResource;
-    D3D12_VERTEX_BUFFER_VIEW influenceBufferView;
     std::span<VertexInfluence> mappedInfluence;
+    std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> influenceSrvHandle;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> paletteResource;
     std::span<WellForGPU> mappedPalette;
     std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> paletteSrvHandle;
+
+    std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> inputVertexSrvHandle;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> skinnedVertexResource;
+    std::pair<D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE> skinnedVertexUavHandle;
+    D3D12_VERTEX_BUFFER_VIEW skinnedVertexBufferView;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> skinningInformationResource;
 };
 
-SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const Skeleton& skeleton, const Model::ModelData& modelData);
+SkinCluster CreateSkinCluster(Dx12Core* dx12Core, SrvManager* srvManager, const Skeleton& skeleton, Model* model);
 void Update(SkinCluster& skinCluster, const Skeleton& skeleton);

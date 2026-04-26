@@ -42,6 +42,8 @@ public:
     Model* GetModel() const { return model_.get(); }
 
 private:
+    Object3dRenderer* object3dRenderer_ = nullptr;
+    SrvManager* srvManager_ = nullptr;
     std::unique_ptr<Model> model_ = nullptr;
     std::unique_ptr<Object3d> object3d_ = nullptr;
     

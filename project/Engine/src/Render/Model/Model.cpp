@@ -66,17 +66,10 @@ void Model::Draw(const SkinCluster* skinCluster) {
 		dx12Core_->GetCommandList();
 
 	if (skinCluster) {
-		// Skinning描画の場合、2つのVBVをセット
-		D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {
-			vertexBufferView,               // VertexDataのVBV (Slot 0)
-			skinCluster->influenceBufferView // InfluenceのVBV (Slot 1)
-		};
-		commandList->IASetVertexBuffers(0, 2, vbvs);
-
-		// MatrixPaletteのSRVをDescriptorTable(8番目)にセット
-		commandList->SetGraphicsRootDescriptorTable(8, skinCluster->paletteSrvHandle.second);
+		// Skinning描画の場合、CSで計算されたSkinnedVertexのVBVをセット
+		commandList->IASetVertexBuffers(0, 1, &skinCluster->skinnedVertexBufferView);
 	} else {
-		// 通常の描画の場合、1つのVBVだけをセット
+		// 通常の描画の場合、元のVBVだけをセット
 		commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 	}
 

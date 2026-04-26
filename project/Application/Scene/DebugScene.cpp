@@ -600,10 +600,8 @@ void DebugScene::Draw3D() {
   object3dA_->Draw();
   animatedCube_->Draw();
 
-  // スキニング描画
-  engine_->GetObject3dRenderer()->BeginSkinning();
+  // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい
   sneakWalk_->Draw();
-  engine_->GetObject3dRenderer()->Begin(); // 元に戻す
 
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
   engine_->GetObject3dRenderer()->SetDepthEnable(false);
