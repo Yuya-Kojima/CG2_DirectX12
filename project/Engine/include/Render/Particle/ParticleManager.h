@@ -55,6 +55,10 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> computeRootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> initializeComputePipelineState_ = nullptr;
 
+	// Compute用 ルートシグネチャとPSO (Emit用)
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> emitComputeRootSignature_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> emitComputePipelineState_ = nullptr;
+
 	// GPU Particle用リソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> gpuParticleResource_ = nullptr;
 	uint32_t gpuParticleSrvIndex_ = 0;
@@ -68,6 +72,21 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_ = nullptr;
 	PerView* perViewData_ = nullptr;
 
+	// EmitterSphere用リソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> emitterSphereResource_ = nullptr;
+	EmitterSphere* emitterSphereData_ = nullptr;
+
+	// PerFrame用構造体とリソース
+	struct PerFrame {
+		float time;
+		float deltaTime;
+	};
+	Microsoft::WRL::ComPtr<ID3D12Resource> perFrameResource_ = nullptr;
+	PerFrame* perFrameData_ = nullptr;
+
+	// フリーカウンター用リソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> freeCounterResource_ = nullptr;
+
 	const uint32_t kMaxParticles = 1024;
 
 public:
@@ -79,6 +98,17 @@ public:
 	uint32_t GetGPUParticleSrvIndex() const { return gpuParticleSrvIndex_; }
 	ID3D12Resource* GetPerViewResource() const { return perViewResource_.Get(); }
 	PerView* GetPerViewData() const { return perViewData_; }
+	ID3D12Resource* GetEmitterSphereResource() const { return emitterSphereResource_.Get(); }
+
+	/// <summary>
+	/// EmitterなどのCPUでの更新処理
+	/// </summary>
+	void Update();
+
+	/// <summary>
+	/// GPU側でParticleの射出を行う
+	/// </summary>
+	void Emit();
 
 private:
 	/// <summary>
@@ -90,6 +120,11 @@ private:
 	/// 初期化CS用のルートシグネチャとPSOを作成
 	/// </summary>
 	void CreateComputePipeline();
+
+	/// <summary>
+	/// 射出CS用のルートシグネチャとPSOを作成
+	/// </summary>
+	void CreateEmitComputePipeline();
 
 private:
 	/// <summary>

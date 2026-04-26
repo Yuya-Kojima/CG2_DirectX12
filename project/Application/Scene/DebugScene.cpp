@@ -394,6 +394,7 @@ void DebugScene::Update() {
   //=======================
   // パーティクルの更新
   //=======================
+  ParticleManager::GetInstance()->Update();
 
   /* エミッタの更新(パーティクルを生成間隔に基づいて自動生成)
   --------------------------------------------------*/
@@ -628,6 +629,9 @@ void DebugScene::Draw3D() {
     jointObj->Draw();
   }
   engine_->GetObject3dRenderer()->SetDepthEnable(true); // 元に戻す
+
+  // パーティクルの射出処理(GPU)
+  ParticleManager::GetInstance()->Emit();
 
   testParticleGroup_->Draw();
   // clearParticleGroup_->Draw();
