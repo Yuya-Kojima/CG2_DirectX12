@@ -11,6 +11,16 @@ struct Particle {
 	float currentTime;
 };
 
+// Compute Shader用（GPUパーティクル用）の構造体
+struct ParticleCS {
+	Vector3 translate;
+	Vector3 scale;
+	float lifeTime;
+	Vector3 velocity;
+	float currentTime;
+	Vector4 color;
+};
+
 struct Emitter {
 	Transform transform; // エミッターのtransform
 	uint32_t count;      // 発生する数

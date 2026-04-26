@@ -59,6 +59,12 @@ void BillboardParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4
     billboardMatrix.m[2][3] = 0.0f;
     billboardMatrix.m[3][3] = 1.0f;
 
+    auto pm = ParticleManager::GetInstance();
+    if (pm->GetPerViewData()) {
+        pm->GetPerViewData()->viewProjection = Multiply(viewMatrix, projectionMatrix);
+        pm->GetPerViewData()->billboardMatrix = billboardMatrix;
+    }
+
     uint32_t instanceIndex = 0;
 
     for (auto it = particles_.begin(); it != particles_.end();) {
