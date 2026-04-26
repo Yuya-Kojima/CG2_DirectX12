@@ -20,6 +20,12 @@ public:
                                     ID3D12Resource *pResource, UINT numElements,
                                     UINT structureByteStride);
 
+  // UAV生成（Structured Buffer用）
+  void CreateUAVforStructuredBuffer(uint32_t srvIndex,
+                                    ID3D12Resource *pResource, UINT numElements,
+                                    UINT structureByteStride);
+
+
   void PreDraw();
 
   void SetGraphicsRootDescriptorTable(UINT rootParameterIndex,

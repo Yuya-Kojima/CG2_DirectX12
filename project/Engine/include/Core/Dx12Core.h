@@ -225,6 +225,14 @@ public:
   CreateBufferResource(size_t sizeInBytes);
 
   /// <summary>
+  /// UAV用のリソースを生成 (DEFAULTヒープ)
+  /// </summary>
+  /// <param name="sizeInBytes"></param>
+  /// <returns></returns>
+  Microsoft::WRL::ComPtr<ID3D12Resource>
+  CreateUAVBufferResource(size_t sizeInBytes);
+
+  /// <summary>
   /// TextureResourceを作る
   /// </summary>
   /// <param name="device"></param>
