@@ -128,7 +128,7 @@ void IParticleEmitter::Emit(const Vector3& position, uint32_t count,
 }
 
 void IParticleEmitter::Draw() {
-    if (numInstance_ == 0 || vertexCount_ == 0) return;
+    if (vertexCount_ == 0) return;
 
     auto dx12Core = ParticleManager::GetInstance()->GetDx12Core();
     auto srvManager = ParticleManager::GetInstance()->GetSrvManager();
@@ -139,15 +139,22 @@ void IParticleEmitter::Draw() {
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 
+    // 0: Material CBV
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
-    D3D12_GPU_DESCRIPTOR_HANDLE instancingSrvHandleGPU =
-        srvManager->GetGPUDescriptorHandle(instancingSrvIndex_);
-    commandList->SetGraphicsRootDescriptorTable(1, instancingSrvHandleGPU);
+    // 1: GPU Particle SRV
+    D3D12_GPU_DESCRIPTOR_HANDLE particleSrvHandleGPU =
+        srvManager->GetGPUDescriptorHandle(ParticleManager::GetInstance()->GetGPUParticleSrvIndex());
+    commandList->SetGraphicsRootDescriptorTable(1, particleSrvHandleGPU);
 
+    // 2: Texture SRV
     D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU =
         srvManager->GetGPUDescriptorHandle(textureSrvIndex_);
     commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
 
-    commandList->DrawInstanced(vertexCount_, numInstance_, 0, 0);
+    // 3: PerView CBV
+    commandList->SetGraphicsRootConstantBufferView(3, ParticleManager::GetInstance()->GetPerViewResource()->GetGPUVirtualAddress());
+
+    // 常に最大数(1024個)を描画する
+    commandList->DrawInstanced(vertexCount_, 1024, 0, 0);
 }

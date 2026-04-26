@@ -44,20 +44,52 @@ private:
 
 private:
 	Dx12Core* dx12Core_ = nullptr;
-
 	SrvManager* srvManager_ = nullptr;
 
-	// ルートシグネチャ
+	// ルートシグネチャ (Graphics)
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
-
-	// PSO
+	// PSO (Graphics)
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
+
+	// Compute用 ルートシグネチャとPSO (初期化用)
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> computeRootSignature_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> initializeComputePipelineState_ = nullptr;
+
+	// GPU Particle用リソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> gpuParticleResource_ = nullptr;
+	uint32_t gpuParticleSrvIndex_ = 0;
+	uint32_t gpuParticleUavIndex_ = 0;
+
+	// PerView 用構造体とリソース
+	struct PerView {
+		Matrix4x4 viewProjection;
+		Matrix4x4 billboardMatrix;
+	};
+	Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_ = nullptr;
+	PerView* perViewData_ = nullptr;
+
+	const uint32_t kMaxParticles = 1024;
 
 public:
 	Dx12Core* GetDx12Core() const { return dx12Core_; }
 	SrvManager* GetSrvManager() const { return srvManager_; }
 	ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
 	ID3D12PipelineState* GetPipelineState() const { return graphicsPipeLineState_.Get(); }
+
+	uint32_t GetGPUParticleSrvIndex() const { return gpuParticleSrvIndex_; }
+	ID3D12Resource* GetPerViewResource() const { return perViewResource_.Get(); }
+	PerView* GetPerViewData() const { return perViewData_; }
+
+private:
+	/// <summary>
+	/// GPUパーティクルのリソース生成と初期化(CSの実行)
+	/// </summary>
+	void InitializeGPUParticles();
+
+	/// <summary>
+	/// 初期化CS用のルートシグネチャとPSOを作成
+	/// </summary>
+	void CreateComputePipeline();
 
 private:
 	/// <summary>
