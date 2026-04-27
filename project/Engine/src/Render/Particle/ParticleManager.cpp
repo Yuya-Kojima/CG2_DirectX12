@@ -23,6 +23,7 @@ void ParticleManager::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
 	// GPUパーティクル用の初期化（Compute PSOとリソースの準備）
 	CreateComputePipeline();
 	CreateEmitComputePipeline();
+	CreateUpdateComputePipeline();
 	InitializeGPUParticles();
 
 	// パイプライン生成
@@ -480,9 +481,60 @@ void ParticleManager::CreateEmitComputePipeline() {
 	assert(SUCCEEDED(hr));
 }
 
-void ParticleManager::Emit() {
-	if (!emitterSphereData_ || emitterSphereData_->emit == 0) return;
+void ParticleManager::CreateUpdateComputePipeline() {
+	HRESULT hr;
 
+	// Update用のRootSignature作成
+	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
+	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
+	// UAV用のRange (u0)
+	descriptorRange[0].BaseShaderRegister = 0;
+	descriptorRange[0].NumDescriptors = 1;
+	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	D3D12_ROOT_PARAMETER rootParameters[2] = {};
+	// パラメータ0: UAV (DescriptorTable)
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParameters[0].DescriptorTable.pDescriptorRanges = descriptorRange;
+	rootParameters[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
+
+	// パラメータ1: PerFrame (CBV)
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParameters[1].Descriptor.ShaderRegister = 0; // b0
+
+	descriptionRootSignature.pParameters = rootParameters;
+	descriptionRootSignature.NumParameters = _countof(rootParameters);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob = nullptr;
+	Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
+	hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob, &errorBlob);
+	if (FAILED(hr)) {
+		Logger::Log(reinterpret_cast<char*>(errorBlob->GetBufferPointer()));
+		assert(false);
+	}
+	hr = dx12Core_->GetDevice()->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&updateComputeRootSignature_));
+	assert(SUCCEEDED(hr));
+
+	// Compute Shader のコンパイル
+	Microsoft::WRL::ComPtr<IDxcBlob> computeShaderBlob = nullptr;
+	computeShaderBlob = dx12Core_->CompileShader(L"resources/shaders/UpdateParticle.CS.hlsl", L"cs_6_0");
+	assert(computeShaderBlob != nullptr);
+
+	// PSO の作成
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.pRootSignature = updateComputeRootSignature_.Get();
+	psoDesc.CS = { computeShaderBlob->GetBufferPointer(), computeShaderBlob->GetBufferSize() };
+
+	hr = dx12Core_->GetDevice()->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&updateComputePipelineState_));
+	assert(SUCCEEDED(hr));
+}
+
+void ParticleManager::Emit() {
 	auto commandList = dx12Core_->GetCommandList();
 
 	// ResourceBarrier: NON_PIXEL_SHADER_RESOURCE -> UNORDERED_ACCESS
@@ -496,21 +548,40 @@ void ParticleManager::Emit() {
 	barrierUAV.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	commandList->ResourceBarrier(1, &barrierUAV);
 
-	// パイプライン設定
-	commandList->SetComputeRootSignature(emitComputeRootSignature_.Get());
-	commandList->SetPipelineState(emitComputePipelineState_.Get());
-
-	// UAV (u0)
+	// --- 1. Update Particle ---
+	commandList->SetComputeRootSignature(updateComputeRootSignature_.Get());
+	commandList->SetPipelineState(updateComputePipelineState_.Get());
 	commandList->SetComputeRootDescriptorTable(0, srvManager_->GetGPUDescriptorHandle(gpuParticleUavIndex_));
-	// CBV (b0)
-	commandList->SetComputeRootConstantBufferView(1, emitterSphereResource_->GetGPUVirtualAddress());
-	// CBV (b1)
-	commandList->SetComputeRootConstantBufferView(2, perFrameResource_->GetGPUVirtualAddress());
-	// UAV (u1)
-	commandList->SetComputeRootUnorderedAccessView(3, freeCounterResource_->GetGPUVirtualAddress());
+	commandList->SetComputeRootConstantBufferView(1, perFrameResource_->GetGPUVirtualAddress());
+	commandList->Dispatch((kMaxParticles + 1023) / 1024, 1, 1);
 
-	// Dispatch (スレッド数は1x1x1)
-	commandList->Dispatch(1, 1, 1);
+	// --- UAV Barrier ---
+	// UpdateとEmitで同じUAV(gpuParticleResource)を読み書きするため、
+	// Updateが完全に終わるのを待ってからEmitを実行させるバリアを張る
+	D3D12_RESOURCE_BARRIER barrierUAV_Sync{};
+	barrierUAV_Sync.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	barrierUAV_Sync.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrierUAV_Sync.UAV.pResource = gpuParticleResource_.Get();
+	commandList->ResourceBarrier(1, &barrierUAV_Sync);
+
+	// --- 2. Emit Particle (条件付き) ---
+	if (emitterSphereData_ && emitterSphereData_->emit != 0) {
+		// パイプライン設定
+		commandList->SetComputeRootSignature(emitComputeRootSignature_.Get());
+		commandList->SetPipelineState(emitComputePipelineState_.Get());
+
+		// UAV (u0)
+		commandList->SetComputeRootDescriptorTable(0, srvManager_->GetGPUDescriptorHandle(gpuParticleUavIndex_));
+		// CBV (b0)
+		commandList->SetComputeRootConstantBufferView(1, emitterSphereResource_->GetGPUVirtualAddress());
+		// CBV (b1)
+		commandList->SetComputeRootConstantBufferView(2, perFrameResource_->GetGPUVirtualAddress());
+		// UAV (u1)
+		commandList->SetComputeRootUnorderedAccessView(3, freeCounterResource_->GetGPUVirtualAddress());
+
+		// Dispatch (スレッド数は1x1x1)
+		commandList->Dispatch(1, 1, 1);
+	}
 
 	// ResourceBarrier: UNORDERED_ACCESS -> NON_PIXEL_SHADER_RESOURCE
 	D3D12_RESOURCE_BARRIER barrierSRV{};

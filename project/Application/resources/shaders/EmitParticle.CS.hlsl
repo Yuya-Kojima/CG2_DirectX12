@@ -85,6 +85,16 @@ void main(uint32_t3 DTid : SV_DispatchThreadID) {
                 // Colorはランダム色、alphaは1.0
                 gParticles[particleIndex].color.rgb = randomColor;
                 gParticles[particleIndex].color.a = 1.0f;
+
+                // 速度 (velocity) をランダムに設定 (-0.05 ~ 0.05 の範囲で調整)
+                float32_t3 randomVelocity = generator.Generate3d();
+                gParticles[particleIndex].velocity = (randomVelocity - 0.5f) * 0.1f;
+
+                // 寿命 (lifeTime) をランダムに設定 (1.0秒 ~ 3.0秒)
+                gParticles[particleIndex].lifeTime = 1.0f + generator.Generate1d() * 2.0f;
+
+                // 経過時間 (currentTime) を 0 に初期化
+                gParticles[particleIndex].currentTime = 0.0f;
             }
         }
     }
