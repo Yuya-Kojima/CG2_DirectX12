@@ -51,13 +51,20 @@ private:
 	// PSO (Graphics)
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
 
-	// Compute用 ルートシグネチャとPSO (初期化用)
+	// Particleを0クリアするためのComputePipeline
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> computeRootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> initializeComputePipelineState_ = nullptr;
 
-	// Compute用 ルートシグネチャとPSO (Emit用)
+	// ParticleをEmitするためのComputePipeline
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> emitComputeRootSignature_ = nullptr;
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> emitComputePipelineState_ = nullptr;
+
+	// ParticleをUpdateするためのComputePipeline
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> updateComputeRootSignature_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> updateComputePipelineState_ = nullptr;
+
+	// ComputePipelineの生成
+	void CreateUpdateComputePipeline();
 
 	// GPU Particle用リソース
 	Microsoft::WRL::ComPtr<ID3D12Resource> gpuParticleResource_ = nullptr;
