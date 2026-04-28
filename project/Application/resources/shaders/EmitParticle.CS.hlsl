@@ -17,7 +17,8 @@ struct PerFrame {
 ConstantBuffer<EmitterSphere> gEmitter : register(b0);
 ConstantBuffer<PerFrame> gPerFrame : register(b1);
 RWStructuredBuffer<Particle> gParticles : register(u0);
-RWStructuredBuffer<int32_t> gFreeCounter : register(u1);
+RWStructuredBuffer<int32_t> gFreeListIndex : register(u1);
+RWStructuredBuffer<uint32_t> gFreeList : register(u2);
 
 static const uint32_t kMaxParticles = 1024;
 
@@ -64,12 +65,13 @@ void main(uint32_t3 DTid : SV_DispatchThreadID) {
 
         for (uint32_t countIndex = 0; countIndex < gEmitter.count; ++countIndex) {
             
-            int32_t particleIndex;
-            // gFreeCounter[0]に1を足し、足す前の値をparticleIndexに格納する
-            InterlockedAdd(gFreeCounter[0], 1, particleIndex);
+            int32_t freeListIndex;
+            // FreeListのIndexを1つ前に設定し、現在のIndexを取得する
+            InterlockedAdd(gFreeListIndex[0], -1, freeListIndex);
 
-            // 最大数よりもparticleの数が少なければ射出可能
-            if (particleIndex < kMaxParticles) {
+            if (0 <= freeListIndex && freeListIndex < kMaxParticles) {
+                uint32_t particleIndex = gFreeList[freeListIndex];
+
                 // 0.0〜1.0 の乱数を取得し、いい感じに調整する
                 float32_t3 randomScale = generator.Generate3d();
                 float32_t3 randomTranslate = generator.Generate3d();
@@ -95,6 +97,11 @@ void main(uint32_t3 DTid : SV_DispatchThreadID) {
 
                 // 経過時間 (currentTime) を 0 に初期化
                 gParticles[particleIndex].currentTime = 0.0f;
+            } else {
+                // 発生させられなかったので、減らしてしまった分もとに戻す。
+                InterlockedAdd(gFreeListIndex[0], 1);
+                // Emit中にParticleは消えないので、この後発生することはないためbreakして終わらせる
+                break;
             }
         }
     }
