@@ -91,8 +91,9 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> perFrameResource_ = nullptr;
 	PerFrame* perFrameData_ = nullptr;
 
-	// フリーカウンター用リソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> freeCounterResource_ = nullptr;
+	// FreeList用リソース
+	Microsoft::WRL::ComPtr<ID3D12Resource> freeListIndexResource_ = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Resource> freeListResource_ = nullptr;
 
 	const uint32_t kMaxParticles = 1024;
 
