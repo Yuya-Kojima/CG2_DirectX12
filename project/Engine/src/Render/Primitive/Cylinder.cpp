@@ -41,10 +41,10 @@ void Cylinder::Build(uint32_t divide, float topRadius, float bottomRadius,
 		const Vector3 n0 = Vector3{ -s0, 0.0f, c0 };
 		const Vector3 n1 = Vector3{ -s1, 0.0f, c1 };
 
-		const Vector2 uvTop0 = Vector2{ u0, 0.0f };
-		const Vector2 uvTop1 = Vector2{ u1, 0.0f };
-		const Vector2 uvBottom0 = Vector2{ u0, 1.0f };
-		const Vector2 uvBottom1 = Vector2{ u1, 1.0f };
+		const Vector2 uvTop0 = Vector2{ u0, 1.0f };
+		const Vector2 uvTop1 = Vector2{ u1, 1.0f };
+		const Vector2 uvBottom0 = Vector2{ u0, 0.0f };
+		const Vector2 uvBottom1 = Vector2{ u1, 0.0f };
 
 		vertices_.push_back(VertexData{ top0,    uvTop0,    n0 });
 		vertices_.push_back(VertexData{ bottom0, uvBottom0, n0 });

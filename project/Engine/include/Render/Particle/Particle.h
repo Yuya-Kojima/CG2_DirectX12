@@ -4,90 +4,41 @@
 #include <random>
 
 struct Particle {
-	Transform transform;
-	Vector3 velocity;
-	Vector4 color;
-	float lifeTime;
-	float currentTime;
+  Transform transform;
+  Vector3 velocity;
+  Vector4 color;
+  float lifeTime;
+  float currentTime;
 };
 
 // Compute Shader用（GPUパーティクル用）の構造体
 struct ParticleCS {
-	Vector3 translate;
-	Vector3 scale;
-	float lifeTime;
-	Vector3 velocity;
-	float currentTime;
-	Vector4 color;
+  Vector3 translate;
+  float padding1;
+  Vector3 scale;
+  float padding2;
+  Vector3 rotate;
+  float lifeTime;
+  Vector3 velocity;
+  float currentTime;
+  Vector4 color;
+  Vector3 scaleVelocity;
+  float padding3;
 };
 
 struct Emitter {
-	Transform transform; // エミッターのtransform
-	uint32_t count;      // 発生する数
-	float frequency;     // 発生頻度
-	float frequencyTime;
+  Transform transform; // エミッターのtransform
+  uint32_t count;      // 発生する数
+  float frequency;     // 発生頻度
+  float frequencyTime;
 };
 
 // GPU Particle用のエミッター構造体
 struct EmitterSphere {
-	Vector3 translate;     // 位置
-	float radius;          // 射出半径
-	uint32_t count;        // 射出数
-	float frequency;       // 射出間隔
-	float frequencyTime;   // 射出間隔調整用時間
-	uint32_t emit;         // 射出許可
+  Vector3 translate;   // 位置
+  float radius;        // 射出半径
+  uint32_t count;      // 射出数
+  float frequency;     // 射出間隔
+  float frequencyTime; // 射出間隔調整用時間
+  uint32_t emit;       // 射出許可
 };
-
-//inline Particle MakeNewParticle(std::mt19937& randomEngine, const Vector3& translate) {
-//
-//	std::uniform_real_distribution<float> distribution(-1.0f, 1.0f);
-//
-//	Particle particle;
-//	particle.transform.scale = { 1.0f, 1.0f, 1.0f };
-//
-//	particle.transform.rotate = { 0.0f, 0.0f, 0.0f };
-//
-//	Vector3 randomTranslate{
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//	};
-//
-//	particle.transform.translate = translate + randomTranslate;
-//
-//	// particle.transform.translate = {
-//	//     distribution(randomEngine),
-//	//     distribution(randomEngine),
-//	//     distribution(randomEngine),
-//	// };
-//
-//	particle.velocity = {
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//	};
-//
-//	particle.color = {
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//		distribution(randomEngine),
-//		1.0f,
-//	};
-//
-//	std::uniform_real_distribution<float> distTime(1.0f, 3.0f);
-//	particle.lifeTime = distTime(randomEngine);
-//	particle.currentTime = 0;
-//
-//	return particle;
-//}
-//
-//inline std::list<Particle> Emit(const Emitter& emitter, std::mt19937& randomEngine) {
-//	std::list<Particle> particles;
-//
-//	for (uint32_t count = 0; count < emitter.count; ++count) {
-//		particles.push_back(
-//			MakeNewParticle(randomEngine, emitter.transform.translate));
-//	}
-//
-//	return particles;
-//}

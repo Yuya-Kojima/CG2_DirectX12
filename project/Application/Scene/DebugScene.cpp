@@ -224,14 +224,16 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   hitParticleEmitter_ = std::make_unique<ParticleEmitter>(
       hitParticleGroup_.get(), Vector3{0.0f, 2.0f, 0.0f}, Vector3{}, 8, 3.0f,
-      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.3f, 0.55f);
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.55f);
 
   hitParticleEmitter_->SetBaseScale(Vector3{0.05f, 1.0f, 1.0f});
   hitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 2.0f});
 
   cylinderEmitter_ = std::make_unique<ParticleEmitter>(
       cylinderParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{}, 1,
-      0.2f, Vector3{0, 0, 0}, Vector3{0, 0, 0}, 0.5f, 0.6f);
+      99999.0f, Vector3{0, 0, 0}, Vector3{0, 0, 0}, 99999.0f, 99999.0f);
+  cylinderEmitter_->SetBaseScale(Vector3{1.0f, 1.0f, 1.0f});
+  cylinderEmitter_->Emit();
 
   planeHitParticleEmitter_ = std::make_unique<ParticleEmitter>(
       planeHitParticleGroup_.get(), Vector3{-2.0f, 2.0f, 0.0f}, Vector3{}, 3,
@@ -445,6 +447,48 @@ void DebugScene::Update() {
                               activeCamera->GetProjectionMatrix());
   hitParticleGroup_->Update(activeCamera->GetViewMatrix(),
                             activeCamera->GetProjectionMatrix());
+
+  // シリンダーの回転アニメーション
+  cylinderUVOffset_ -= 0.0005f;
+  if (cylinderUVOffset_ < -1.0f)
+    cylinderUVOffset_ += 1.0f;
+  Matrix4x4 uvTransform =
+      MakeAffineMatrix(Vector3{1.0f, 1.0f, 1.0f}, Vector3{0.0f, 0.0f, 0.0f},
+                       Vector3{cylinderUVOffset_, 0.0f, 0.0f});
+  cylinderParticleGroup_->SetUVTransform(uvTransform);
+
+  // シリンダー色変化
+  cylinderColorHue_ += 0.001f;
+  if (cylinderColorHue_ > 1.0f)
+    cylinderColorHue_ -= 1.0f;
+  float h = cylinderColorHue_ * 6.0f;
+  int i = static_cast<int>(h);
+  float f = h - i;
+  float q = 1.0f - f;
+  float t = f;
+  Vector4 color{1.0f, 1.0f, 1.0f, 1.0f};
+  switch (i % 6) {
+  case 0:
+    color = {1.0f, t, 0.0f, 1.0f};
+    break;
+  case 1:
+    color = {q, 1.0f, 0.0f, 1.0f};
+    break;
+  case 2:
+    color = {0.0f, 1.0f, t, 1.0f};
+    break;
+  case 3:
+    color = {0.0f, q, 1.0f, 1.0f};
+    break;
+  case 4:
+    color = {t, 0.0f, 1.0f, 1.0f};
+    break;
+  case 5:
+    color = {1.0f, 0.0f, q, 1.0f};
+    break;
+  }
+  cylinderParticleGroup_->SetMaterialColor(color);
+
   cylinderParticleGroup_->Update(activeCamera->GetViewMatrix(),
                                  activeCamera->GetProjectionMatrix());
   planeHitParticleGroup_->Update(activeCamera->GetViewMatrix(),
@@ -634,7 +678,7 @@ void DebugScene::Draw3D() {
   ParticleManager::GetInstance()->Emit();
 
   testParticleGroup_->Draw();
-  // clearParticleGroup_->Draw();
+  clearParticleGroup_->Draw();
   hitParticleGroup_->Draw();
   cylinderParticleGroup_->Draw();
   planeHitParticleGroup_->Draw();

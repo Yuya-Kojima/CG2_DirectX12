@@ -4,3 +4,11 @@ struct VertexShaderOutput {
 	//float3 normal : NORMAL0;
 	float4 color : COLOR0;
 };
+
+struct Material {
+    float4 color;
+    int enableLighting;
+    int isBillboard;
+    float2 padding;
+    float4x4 uvTransform;
+};

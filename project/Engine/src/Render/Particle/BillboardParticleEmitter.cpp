@@ -47,8 +47,6 @@ void BillboardParticleEmitter::CreateVertexData() {
 }
 
 void BillboardParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4x4& projectionMatrix) {
-    const float deltaTime = 1.0f / 60.0f;
-
     Matrix4x4 cameraMatrix = Inverse(viewMatrix);
     Matrix4x4 billboardMatrix = cameraMatrix;
     billboardMatrix.m[3][0] = 0;
@@ -64,44 +62,4 @@ void BillboardParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4
         pm->GetPerViewData()->viewProjection = Multiply(viewMatrix, projectionMatrix);
         pm->GetPerViewData()->billboardMatrix = billboardMatrix;
     }
-
-    uint32_t instanceIndex = 0;
-
-    for (auto it = particles_.begin(); it != particles_.end();) {
-        it->currentTime += deltaTime;
-
-        if (it->currentTime >= it->lifeTime) {
-            it = particles_.erase(it);
-            continue;
-        }
-
-        it->transform.translate += it->velocity * deltaTime;
-
-        float t = 0.0f;
-        if (it->lifeTime > 0.0f) {
-            t = it->currentTime / it->lifeTime;
-            if (t < 0.0f) t = 0.0f;
-            if (t > 1.0f) t = 1.0f;
-        }
-
-        Vector4 c = it->color;
-        c.w = it->color.w * (1.0f - t);
-
-        if (instanceIndex < kNumMaxInstance_) {
-            Matrix4x4 scaleMatrix = MakeScaleMatrix(it->transform.scale);
-            Matrix4x4 rotateMatrix = MakeRotateZMatrix(it->transform.rotate.z);
-            Matrix4x4 translateMatrix = MakeTranslateMatrix(it->transform.translate);
-
-            Matrix4x4 worldMatrix = Multiply(Multiply(Multiply(scaleMatrix, rotateMatrix), billboardMatrix), translateMatrix);
-            Matrix4x4 worldViewProjectionMatrix = Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
-
-            instancingData_[instanceIndex].World = worldMatrix;
-            instancingData_[instanceIndex].WVP = worldViewProjectionMatrix;
-            instancingData_[instanceIndex].color = c;
-
-            instanceIndex++;
-        }
-        ++it;
-    }
-    numInstance_ = instanceIndex;
 }

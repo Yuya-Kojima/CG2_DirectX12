@@ -5,6 +5,10 @@
 #include "Math/MathUtil.h"
 #include "Math/MathUtil.h"
 
+IParticleEmitter::~IParticleEmitter() {
+    ParticleManager::GetInstance()->UnregisterEmitter(this);
+}
+
 void IParticleEmitter::BaseInitialize(const std::string& textureFilePath) {
     textureFilePath_ = textureFilePath;
     TextureManager::GetInstance()->LoadTexture(textureFilePath_);
@@ -20,21 +24,42 @@ void IParticleEmitter::CreateInstancingResource() {
     auto dx12Core = ParticleManager::GetInstance()->GetDx12Core();
     auto srvManager = ParticleManager::GetInstance()->GetSrvManager();
 
-    instancingResource_ = dx12Core->CreateBufferResource(sizeof(ParticleForGPU) * kNumMaxInstance_);
+    gpuParticleResource_ = dx12Core->CreateUAVBufferResource(sizeof(ParticleCS) * kNumMaxInstance_);
+    freeListIndexResource_ = dx12Core->CreateUAVBufferResource(sizeof(int32_t));
+    freeListResource_ = dx12Core->CreateUAVBufferResource(sizeof(uint32_t) * kNumMaxInstance_);
 
-    instancingResource_->Map(0, nullptr, reinterpret_cast<void**>(&instancingData_));
-
-    for (uint32_t index = 0; index < kNumMaxInstance_; ++index) {
-        instancingData_[index].WVP = MakeIdentity4x4();
-        instancingData_[index].World = MakeIdentity4x4();
-        instancingData_[index].color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-    }
-
-    instancingSrvIndex_ = srvManager->Allocate();
-
+    gpuParticleSrvIndex_ = srvManager->Allocate();
     srvManager->CreateSRVforStructuredBuffer(
-        instancingSrvIndex_, instancingResource_.Get(),
-        kNumMaxInstance_, sizeof(ParticleForGPU));
+        gpuParticleSrvIndex_, gpuParticleResource_.Get(),
+        kNumMaxInstance_, sizeof(ParticleCS));
+
+    gpuParticleUavIndex_ = srvManager->Allocate();
+    srvManager->CreateUAVforStructuredBuffer(
+        gpuParticleUavIndex_, gpuParticleResource_.Get(),
+        kNumMaxInstance_, sizeof(ParticleCS));
+
+    emitterResource_ = dx12Core->CreateBufferResource(sizeof(EmitterData));
+    emitterResource_->Map(0, nullptr, reinterpret_cast<void**>(&emitterData_));
+    
+    // デフォルト値の初期化
+    emitterData_->translate = { 0.0f, 0.0f, 0.0f };
+    emitterData_->spawnArea = { 1.0f, 1.0f, 1.0f };
+    emitterData_->count = 3;
+    emitterData_->frequency = 0.5f;
+    emitterData_->frequencyTime = 0.0f;
+    emitterData_->emit = 0;
+    emitterData_->baseColor = { 1.0f, 1.0f, 1.0f };
+    emitterData_->lifeMin = 1.0f;
+    emitterData_->lifeMax = 3.0f;
+    emitterData_->baseVelocity = { 0.0f, 0.0f, 0.0f };
+    emitterData_->velocityRandom = { 0.1f, 0.1f, 0.1f };
+    emitterData_->baseScale = { 0.1f, 0.1f, 0.1f };
+    emitterData_->scaleRandom = { 0.4f, 0.4f, 0.4f };
+    emitterData_->baseRotate = { 0.0f, 0.0f, 0.0f };
+    emitterData_->rotateRandom = { 0.0f, 0.0f, 0.0f };
+
+    ParticleManager::GetInstance()->RegisterEmitter(this);
+    ParticleManager::GetInstance()->InitializeEmitter(this);
 }
 
 void IParticleEmitter::CreateMaterialResource() {
@@ -45,70 +70,45 @@ void IParticleEmitter::CreateMaterialResource() {
 
     materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     materialData_->enableLighting = 0;
+    materialData_->isBillboard = 1; // デフォルトはビルボード
     materialData_->uvTransform = MakeIdentity4x4();
 }
 
 void IParticleEmitter::ClearParticles() {
-    particles_.clear();
-    numInstance_ = 0;
+    needsClear_ = true;
 }
 
 void IParticleEmitter::Emit(const ParticleEmitDesc& desc) {
-    auto randSym = [&](float halfRange) -> float {
-        if (halfRange <= 0.0f) return 0.0f;
-        std::uniform_real_distribution<float> d(-halfRange, +halfRange);
-        return d(randomEngine_);
-    };
+    if (!emitterData_) return;
 
-    float lifeMin = desc.lifeMin;
-    float lifeMax = desc.lifeMax;
-    if (lifeMin > lifeMax) std::swap(lifeMin, lifeMax);
-    std::uniform_real_distribution<float> distLife(lifeMin, lifeMax);
+    emitterData_->translate = desc.position;
+    emitterData_->spawnArea = desc.spawnRandom; 
 
-    for (uint32_t i = 0; i < desc.count; ++i) {
-        Particle particle{};
+    emitterData_->count = desc.count;
+    // frequency は Compute Shader 側ではなく、CPU側の ParticleEmitter で管理するためここでは不要
+    // Compute Shader 側では emit フラグを見て射出する
+    emitterData_->emit = 1;
 
-        particle.transform.translate = {
-            desc.position.x + randSym(desc.spawnRandom.x),
-            desc.position.y + randSym(desc.spawnRandom.y),
-            desc.position.z + randSym(desc.spawnRandom.z),
-        };
+    emitterData_->baseColor = { desc.color.x, desc.color.y, desc.color.z };
+    emitterData_->lifeMin = desc.lifeMin;
+    emitterData_->lifeMax = desc.lifeMax;
 
-        particle.transform.scale = {
-            desc.baseScale.x + randSym(desc.scaleRandom.x),
-            desc.baseScale.y + randSym(desc.scaleRandom.y),
-            desc.baseScale.z + randSym(desc.scaleRandom.z),
-        };
+    emitterData_->baseVelocity = desc.baseVelocity;
+    emitterData_->velocityRandom = desc.velocityRandom;
 
-        particle.transform.scale.x = (std::max)(0.0001f, particle.transform.scale.x);
-        particle.transform.scale.y = (std::max)(0.0001f, particle.transform.scale.y);
-        particle.transform.scale.z = (std::max)(0.0001f, particle.transform.scale.z);
+    emitterData_->baseScale = desc.baseScale;
+    emitterData_->scaleRandom = desc.scaleRandom;
 
-        particle.transform.rotate = {
-            desc.baseRotate.x + randSym(desc.rotateRandom.x),
-            desc.baseRotate.y + randSym(desc.rotateRandom.y),
-            desc.baseRotate.z + randSym(desc.rotateRandom.z),
-        };
-
-        particle.velocity = {
-            desc.baseVelocity.x + randSym(desc.velocityRandom.x),
-            desc.baseVelocity.y + randSym(desc.velocityRandom.y),
-            desc.baseVelocity.z + randSym(desc.velocityRandom.z),
-        };
-
-        particle.color = desc.color;
-        particle.lifeTime = distLife(randomEngine_);
-        particle.currentTime = 0.0f;
-
-        particles_.push_back(particle);
-    }
+    emitterData_->baseRotate = desc.baseRotate;
+    emitterData_->rotateRandom = desc.rotateRandom;
+    emitterData_->scaleVelocity = desc.scaleVelocity;
 }
 
 void IParticleEmitter::Emit(const Vector3& position, uint32_t count,
     const Vector3& baseVelocity, const Vector3& velocityRandom,
     const Vector3& spawnRandom, float lifeMin, float lifeMax,
     const Vector4& color, const Vector3& baseScale, const Vector3& scaleRandom,
-    const Vector3& baseRotate, const Vector3& rotateRandom) {
+    const Vector3& baseRotate, const Vector3& rotateRandom, const Vector3& scaleVelocity) {
     
     ParticleEmitDesc desc{};
     desc.position = position;
@@ -123,6 +123,7 @@ void IParticleEmitter::Emit(const Vector3& position, uint32_t count,
     desc.scaleRandom = scaleRandom;
     desc.baseRotate = baseRotate;
     desc.rotateRandom = rotateRandom;
+    desc.scaleVelocity = scaleVelocity;
 
     Emit(desc);
 }
@@ -142,9 +143,9 @@ void IParticleEmitter::Draw() {
     // 0: Material CBV
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
-    // 1: GPU Particle SRV
+    // 1: GPU Particle SRV (自身が持つSRVを使用)
     D3D12_GPU_DESCRIPTOR_HANDLE particleSrvHandleGPU =
-        srvManager->GetGPUDescriptorHandle(ParticleManager::GetInstance()->GetGPUParticleSrvIndex());
+        srvManager->GetGPUDescriptorHandle(gpuParticleSrvIndex_);
     commandList->SetGraphicsRootDescriptorTable(1, particleSrvHandleGPU);
 
     // 2: Texture SRV
@@ -155,6 +156,6 @@ void IParticleEmitter::Draw() {
     // 3: PerView CBV
     commandList->SetGraphicsRootConstantBufferView(3, ParticleManager::GetInstance()->GetPerViewResource()->GetGPUVirtualAddress());
 
-    // 常に最大数(1024個)を描画する
-    commandList->DrawInstanced(vertexCount_, 1024, 0, 0);
+    // 常に最大数(kNumMaxInstance_)を描画する（GPUのFreeList方式のため）
+    commandList->DrawInstanced(vertexCount_, kNumMaxInstance_, 0, 0);
 }

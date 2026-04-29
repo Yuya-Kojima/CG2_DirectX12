@@ -7,12 +7,14 @@
 
 void MeshParticleEmitter::InitializeAsPlane(const std::string& textureFilePath) {
     BaseInitialize(textureFilePath);
+    materialData_->isBillboard = 0;
     CreateVertexDataFromPlane();
 }
 
 void MeshParticleEmitter::InitializeAsRing(const std::string& textureFilePath, 
     uint32_t divide, float outerRadius, float innerRadius) {
     BaseInitialize(textureFilePath);
+    materialData_->isBillboard = 0;
     
     Ring ring;
     ring.Build(divide, outerRadius, innerRadius);
@@ -22,6 +24,7 @@ void MeshParticleEmitter::InitializeAsRing(const std::string& textureFilePath,
 void MeshParticleEmitter::InitializeAsCylinder(const std::string& textureFilePath, 
     uint32_t divide, float topRadius, float bottomRadius, float height) {
     BaseInitialize(textureFilePath);
+    materialData_->isBillboard = 0;
     
     Cylinder cylinder;
     cylinder.Build(divide, topRadius, bottomRadius, height);
@@ -84,50 +87,8 @@ void MeshParticleEmitter::CreateVertexDataFromVertices(const std::vector<VertexD
 }
 
 void MeshParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4x4& projectionMatrix) {
-    const float deltaTime = 1.0f / 60.0f;
-    uint32_t instanceIndex = 0;
-
-    for (auto it = particles_.begin(); it != particles_.end();) {
-        it->currentTime += deltaTime;
-
-        if (it->currentTime >= it->lifeTime) {
-            it = particles_.erase(it);
-            continue;
-        }
-
-        it->transform.translate += it->velocity * deltaTime;
-
-        float t = 0.0f;
-        if (it->lifeTime > 0.0f) {
-            t = it->currentTime / it->lifeTime;
-            if (t < 0.0f) t = 0.0f;
-            if (t > 1.0f) t = 1.0f;
-        }
-
-        Vector4 c = it->color;
-        c.w = it->color.w * (1.0f - t);
-
-        if (instanceIndex < kNumMaxInstance_) {
-            Matrix4x4 scaleMatrix = MakeScaleMatrix(it->transform.scale);
-            
-            // XYZすべての回転を適用する（ビルボード行列は使わない）
-            Matrix4x4 rotateXMatrix = MakeRotateXMatrix(it->transform.rotate.x);
-            Matrix4x4 rotateYMatrix = MakeRotateYMatrix(it->transform.rotate.y);
-            Matrix4x4 rotateZMatrix = MakeRotateZMatrix(it->transform.rotate.z);
-            Matrix4x4 rotateMatrix = Multiply(Multiply(rotateXMatrix, rotateYMatrix), rotateZMatrix);
-
-            Matrix4x4 translateMatrix = MakeTranslateMatrix(it->transform.translate);
-
-            Matrix4x4 worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
-            Matrix4x4 worldViewProjectionMatrix = Multiply(Multiply(worldMatrix, viewMatrix), projectionMatrix);
-
-            instancingData_[instanceIndex].World = worldMatrix;
-            instancingData_[instanceIndex].WVP = worldViewProjectionMatrix;
-            instancingData_[instanceIndex].color = c;
-
-            instanceIndex++;
-        }
-        ++it;
+    auto pm = ParticleManager::GetInstance();
+    if (pm->GetPerViewData()) {
+        pm->GetPerViewData()->viewProjection = Multiply(viewMatrix, projectionMatrix);
     }
-    numInstance_ = instanceIndex;
 }

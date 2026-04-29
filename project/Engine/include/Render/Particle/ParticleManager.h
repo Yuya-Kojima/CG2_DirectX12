@@ -9,11 +9,11 @@
 #include <unordered_map>
 
 class SrvManager;
+class IParticleEmitter;
 
 class ParticleManager {
 
 public:
-// ParticleEmitDesc removed (moved to IParticleEmitter.h)
 
 	/// <summary>
 	/// シングルトンインスタンスの取得
@@ -30,17 +30,14 @@ public:
 	/// </summary>
 	void Finalize();
 
-	// Methods related to individual groups are removed.
 
 private:
-	// Structs moved to IParticleEmitter.h
 
 	ParticleManager() = default;
 	~ParticleManager() = default;
 	ParticleManager(ParticleManager&) = delete;
 	ParticleManager& operator=(ParticleManager&) = delete;
 
-	// Material moved to IParticleEmitter.h
 
 private:
 	Dx12Core* dx12Core_ = nullptr;
@@ -66,11 +63,6 @@ private:
 	// ComputePipelineの生成
 	void CreateUpdateComputePipeline();
 
-	// GPU Particle用リソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> gpuParticleResource_ = nullptr;
-	uint32_t gpuParticleSrvIndex_ = 0;
-	uint32_t gpuParticleUavIndex_ = 0;
-
 	// PerView 用構造体とリソース
 	struct PerView {
 		Matrix4x4 viewProjection;
@@ -78,10 +70,6 @@ private:
 	};
 	Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_ = nullptr;
 	PerView* perViewData_ = nullptr;
-
-	// EmitterSphere用リソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> emitterSphereResource_ = nullptr;
-	EmitterSphere* emitterSphereData_ = nullptr;
 
 	// PerFrame用構造体とリソース
 	struct PerFrame {
@@ -91,10 +79,6 @@ private:
 	Microsoft::WRL::ComPtr<ID3D12Resource> perFrameResource_ = nullptr;
 	PerFrame* perFrameData_ = nullptr;
 
-	// FreeList用リソース
-	Microsoft::WRL::ComPtr<ID3D12Resource> freeListIndexResource_ = nullptr;
-	Microsoft::WRL::ComPtr<ID3D12Resource> freeListResource_ = nullptr;
-
 	const uint32_t kMaxParticles = 1024;
 
 public:
@@ -103,10 +87,19 @@ public:
 	ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
 	ID3D12PipelineState* GetPipelineState() const { return graphicsPipeLineState_.Get(); }
 
-	uint32_t GetGPUParticleSrvIndex() const { return gpuParticleSrvIndex_; }
 	ID3D12Resource* GetPerViewResource() const { return perViewResource_.Get(); }
 	PerView* GetPerViewData() const { return perViewData_; }
-	ID3D12Resource* GetEmitterSphereResource() const { return emitterSphereResource_.Get(); }
+
+	/// <summary>
+	/// エミッターの登録・解除
+	/// </summary>
+	void RegisterEmitter(IParticleEmitter* emitter) { emitters_.push_back(emitter); }
+	void UnregisterEmitter(IParticleEmitter* emitter) { emitters_.remove(emitter); }
+	
+	/// <summary>
+	/// 新しいエミッターのGPUバッファを初期化する
+	/// </summary>
+	void InitializeEmitter(IParticleEmitter* emitter, bool isFirstInit = true);
 
 	/// <summary>
 	/// EmitterなどのCPUでの更新処理
@@ -120,9 +113,9 @@ public:
 
 private:
 	/// <summary>
-	/// GPUパーティクルのリソース生成と初期化(CSの実行)
+	/// 共有リソースの生成と初期化
 	/// </summary>
-	void InitializeGPUParticles();
+	void InitializeSharedResources();
 
 	/// <summary>
 	/// 初期化CS用のルートシグネチャとPSOを作成
@@ -145,4 +138,5 @@ private:
 	/// </summary>
 	void CreatePSO();
 
+	std::list<IParticleEmitter*> emitters_;
 };

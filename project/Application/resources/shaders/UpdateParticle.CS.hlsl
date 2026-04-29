@@ -18,7 +18,8 @@ void main(uint32_t3 DTid : SV_DispatchThreadID) {
     if (particleIndex < kMaxParticles) {
         // alphaが0のparticleは死んでいるとみなして更新しない
         if (gParticles[particleIndex].color.a != 0.0f) {
-            gParticles[particleIndex].translate += gParticles[particleIndex].velocity;
+            gParticles[particleIndex].translate += gParticles[particleIndex].velocity * gPerFrame.deltaTime;
+            gParticles[particleIndex].scale += gParticles[particleIndex].scaleVelocity * gPerFrame.deltaTime;
             gParticles[particleIndex].currentTime += gPerFrame.deltaTime;
             
             float32_t alpha = 1.0f - (gParticles[particleIndex].currentTime / gParticles[particleIndex].lifeTime);

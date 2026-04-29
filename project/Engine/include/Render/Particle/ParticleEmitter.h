@@ -59,6 +59,7 @@ public:
 
   void SetBaseRotate(const Vector3 &r) { baseRotate_ = r; }
   void SetRotateRandom(const Vector3 &r) { rotateRandom_ = r; }
+  void SetScaleVelocity(const Vector3 &sv) { scaleVelocity_ = sv; }
 
 private:
   IParticleEmitter* targetEmitter_ = nullptr;
@@ -79,4 +80,5 @@ private:
   Vector3 scaleRandom_{};
   Vector3 baseRotate_{};
   Vector3 rotateRandom_{};
+  Vector3 scaleVelocity_{};
 };
