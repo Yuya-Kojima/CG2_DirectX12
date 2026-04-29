@@ -159,6 +159,7 @@
     <ClCompile Include="src\Render\Particle\IParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\MeshParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\ParticleEmitter.cpp" />
+
     <ClCompile Include="src\Render\Particle\ParticleManager.cpp" />
     <ClCompile Include="src\Render\Renderer\Object3dRenderer.cpp" />
     <ClCompile Include="src\Render\Sprite\Sprite.cpp" />
@@ -217,6 +218,7 @@
     <ClInclude Include="include\Render\Particle\MeshParticleEmitter.h" />
     <ClInclude Include="include\Render\Particle\Particle.h" />
     <ClInclude Include="include\Render\Particle\ParticleEmitter.h" />
+
     <ClInclude Include="include\Render\Particle\ParticleManager.h" />
     <ClInclude Include="include\Render\Renderer\Object3dRenderer.h" />
     <ClInclude Include="include\Render\Sprite\Sprite.h" />

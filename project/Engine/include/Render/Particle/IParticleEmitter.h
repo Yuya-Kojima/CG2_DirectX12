@@ -9,24 +9,41 @@
 #include <random>
 #include <wrl.h>
 
-struct ParticleEmitDesc {
-    // グループ名は各インスタンスで管理するため削除
-    Vector3 position{}; // center
-    uint32_t count = 1; // 発生数
+struct EmitterData {
+    Vector3 translate;       // 12 bytes
+    float padding0;          // 4 bytes  (16 bytes)
 
-    Vector3 baseVelocity{};   // ベース速度
-    Vector3 velocityRandom{}; // 速度ばらつき(±)
-    Vector3 spawnRandom{};    // 生成位置ばらつき(±)
+    Vector3 spawnArea;       // 12 bytes
+    float padding1;          // 4 bytes  (16 bytes)
 
-    float lifeMin = 1.0f;
-    float lifeMax = 1.0f;
+    uint32_t count;          // 4 bytes
+    float frequency;         // 4 bytes
+    float frequencyTime;     // 4 bytes
+    uint32_t emit;           // 4 bytes  (16 bytes)
 
-    Vector4 color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f }; // 白
+    Vector3 baseColor;       // 12 bytes
+    float lifeMin;           // 4 bytes  (16 bytes)
 
-    Vector3 baseScale{ 1.0f, 1.0f, 1.0f };
-    Vector3 scaleRandom{};
-    Vector3 baseRotate{};
-    Vector3 rotateRandom{};
+    Vector3 baseVelocity;    // 12 bytes
+    float lifeMax;           // 4 bytes  (16 bytes)
+
+    Vector3 velocityRandom;  // 12 bytes
+    float padding2;          // 4 bytes  (16 bytes)
+
+    Vector3 baseScale;       // 12 bytes
+    float padding3;          // 4 bytes  (16 bytes)
+
+    Vector3 scaleRandom;     // 12 bytes
+    float padding4;          // 4 bytes  (16 bytes)
+
+    Vector3 baseRotate;      // 12 bytes
+    float padding5;          // 4 bytes  (16 bytes)
+
+    Vector3 rotateRandom;    // 12 bytes
+    float padding6;          // 4 bytes  (16 bytes)
+
+    Vector3 scaleVelocity;   // 12 bytes
+    float padding7;          // 4 bytes  (16 bytes)
 };
 
 struct ParticleForGPU {
@@ -35,25 +52,71 @@ struct ParticleForGPU {
     Vector4 color;
 };
 
+struct ParticleEmitDesc {
+    Vector3 position;
+    uint32_t count;
+    Vector3 baseVelocity;
+    Vector3 velocityRandom;
+    Vector3 spawnRandom;
+    float lifeMin;
+    float lifeMax;
+    Vector4 color;
+    Vector3 baseScale = {1.0f, 1.0f, 1.0f};
+    Vector3 scaleRandom = {0.0f, 0.0f, 0.0f};
+
+    Vector3 baseRotate = {0.0f, 0.0f, 0.0f};
+    Vector3 rotateRandom = {0.0f, 0.0f, 0.0f};
+
+    Vector3 scaleVelocity = {0.0f, 0.0f, 0.0f};
+};
+
 class IParticleEmitter {
 public:
     IParticleEmitter() = default;
-    virtual ~IParticleEmitter() = default;
+    virtual ~IParticleEmitter();
 
-    virtual void Emit(const ParticleEmitDesc& desc);
-    virtual void Emit(const Vector3& position, uint32_t count,
-        const Vector3& baseVelocity, const Vector3& velocityRandom,
-        const Vector3& spawnRandom, float lifeMin, float lifeMax,
-        const Vector4& color = Vector4{ 1.0f, 1.0f, 1.0f, 1.0f },
-        const Vector3& baseScale = Vector3{ 1.0f, 1.0f, 1.0f },
-        const Vector3& scaleRandom = Vector3{},
-        const Vector3& baseRotate = Vector3{},
-        const Vector3& rotateRandom = Vector3{});
+    // セッター
+    void SetTranslate(const Vector3& translate) { emitterData_->translate = translate; }
+    void SetSpawnArea(const Vector3& spawnArea) { emitterData_->spawnArea = spawnArea; }
+    void SetCount(uint32_t count) { emitterData_->count = count; }
+    void SetFrequency(float frequency) { emitterData_->frequency = frequency; }
+    void SetEmit(bool emit) { emitterData_->emit = emit ? 1 : 0; }
+    
+    void SetBaseColor(const Vector3& color) { emitterData_->baseColor = color; }
+    void SetLifeTime(float minLife, float maxLife) { emitterData_->lifeMin = minLife; emitterData_->lifeMax = maxLife; }
+    void SetBaseVelocity(const Vector3& velocity) { emitterData_->baseVelocity = velocity; }
+    void SetVelocityRandom(const Vector3& random) { emitterData_->velocityRandom = random; }
+    void SetBaseScale(const Vector3& scale) { emitterData_->baseScale = scale; }
+    void SetScaleRandom(const Vector3& random) { emitterData_->scaleRandom = random; }
+    
+    void SetUVTransform(const Matrix4x4& uvTransform) { materialData_->uvTransform = uvTransform; }
+    void SetMaterialColor(const Vector4& color) { materialData_->color = color; }
+
+    bool IsEmitting() const { return emitterData_->emit != 0; }
+    ID3D12Resource* GetEmitterResource() const { return emitterResource_.Get(); }
+    ID3D12Resource* GetGPUParticleResource() const { return gpuParticleResource_.Get(); }
+    ID3D12Resource* GetFreeListIndexResource() const { return freeListIndexResource_.Get(); }
+    ID3D12Resource* GetFreeListResource() const { return freeListResource_.Get(); }
+    uint32_t GetGPUParticleUavIndex() const { return gpuParticleUavIndex_; }
 
     virtual void Update(const Matrix4x4& viewMatrix, const Matrix4x4& projectionMatrix) = 0;
     virtual void Draw();
 
+    bool needsClear_ = false;
+
     void ClearParticles();
+    void Emit(const ParticleEmitDesc& desc);
+    void Emit(const Vector3& position, uint32_t count,
+              const Vector3& baseVelocity = {0.0f, 0.0f, 0.0f},
+              const Vector3& velocityRandom = {0.0f, 0.0f, 0.0f},
+              const Vector3& spawnRandom = {0.0f, 0.0f, 0.0f},
+              float lifeMin = 1.0f, float lifeMax = 1.0f,
+              const Vector4& color = {1.0f, 1.0f, 1.0f, 1.0f},
+              const Vector3& baseScale = {1.0f, 1.0f, 1.0f},
+              const Vector3& scaleRandom = {0.0f, 0.0f, 0.0f},
+              const Vector3& baseRotate = {0.0f, 0.0f, 0.0f},
+              const Vector3& rotateRandom = {0.0f, 0.0f, 0.0f},
+              const Vector3& scaleVelocity = {0.0f, 0.0f, 0.0f});
 
 protected:
     void BaseInitialize(const std::string& textureFilePath);
@@ -63,12 +126,16 @@ protected:
     std::string textureFilePath_;
     uint32_t textureSrvIndex_ = 0;
 
-    std::list<Particle> particles_;
+    // GPUパーティクル用のリソース群
+    Microsoft::WRL::ComPtr<ID3D12Resource> emitterResource_;
+    EmitterData* emitterData_ = nullptr;
 
-    uint32_t instancingSrvIndex_ = 0;
-    Microsoft::WRL::ComPtr<ID3D12Resource> instancingResource_;
-    ParticleForGPU* instancingData_ = nullptr;
-    uint32_t numInstance_ = 0;
+    Microsoft::WRL::ComPtr<ID3D12Resource> gpuParticleResource_;
+    uint32_t gpuParticleSrvIndex_ = 0;
+    uint32_t gpuParticleUavIndex_ = 0;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> freeListIndexResource_;
+    Microsoft::WRL::ComPtr<ID3D12Resource> freeListResource_;
     
     Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
@@ -77,13 +144,14 @@ protected:
     struct Material {
         Vector4 color;
         int32_t enableLighting;
-        float padding[3];
+        int32_t isBillboard;
+        float padding[2];
         Matrix4x4 uvTransform;
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;
     Material* materialData_ = nullptr;
 
-    const uint32_t kNumMaxInstance_ = 100;
+    const uint32_t kNumMaxInstance_ = 1024; // GPUパーティクルの最大数に合わせる
 
     std::random_device seedGenerator_;
     std::mt19937 randomEngine_;

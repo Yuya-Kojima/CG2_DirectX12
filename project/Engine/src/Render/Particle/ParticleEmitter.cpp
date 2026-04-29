@@ -105,6 +105,7 @@ void ParticleEmitter::Emit() {
   desc.scaleRandom = scaleRandom_;
   desc.baseRotate = baseRotate_;
   desc.rotateRandom = rotateRandom_;
+  desc.scaleVelocity = scaleVelocity_;
 
   if (targetEmitter_) {
     targetEmitter_->Emit(desc);

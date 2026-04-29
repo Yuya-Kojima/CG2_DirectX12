@@ -4,14 +4,14 @@
 #include "Debug/DebugCamera.h"
 #include "Math/MathUtil.h"
 #include "Object3d/Object3d.h"
-#include "Particle/ParticleEmitter.h"
 #include "Particle/BillboardParticleEmitter.h"
 #include "Particle/MeshParticleEmitter.h"
+#include "Particle/ParticleEmitter.h"
+#include "Render/Object3d/SkinnedObject.h"
 #include "Render/Renderer/SkyBoxRenderer.h"
 #include "Render/SkyBox/SkyBox.h"
 #include "Scene/BaseScene.h"
 #include "Sprite/Sprite.h"
-#include "Render/Object3d/SkinnedObject.h"
 #include <memory>
 #include <vector>
 
@@ -70,6 +70,9 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Object3d>> jointObjects_;
 
   float rotateObj_{};
+
+  float cylinderUVOffset_ = 0.0f;
+  float cylinderColorHue_ = 0.0f;
 
   std::unique_ptr<BillboardParticleEmitter> testParticleGroup_;
   std::unique_ptr<BillboardParticleEmitter> clearParticleGroup_;
