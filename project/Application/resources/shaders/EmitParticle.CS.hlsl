@@ -67,7 +67,7 @@ float32_t3 rand3dTo3d(float32_t3 value) {
     );
 }
 
-class RandomGenerator {
+struct RandomGenerator {
 	float32_t3 seed;
 
 	float32_t3 Generate3d() {
