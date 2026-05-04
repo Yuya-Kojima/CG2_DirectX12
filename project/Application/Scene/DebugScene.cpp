@@ -240,6 +240,67 @@ void DebugScene::Initialize(EngineBase *engine) {
       1.5f, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 1.0f);
   planeHitParticleEmitter_->SetBaseScale(Vector3{2.0f, 2.0f, 1.0f});
   planeHitParticleEmitter_->SetRotateRandom(Vector3{0.0f, 0.0f, 3.14f});
+
+  //===========================
+  // レベルデータの読み込みと配置
+  //===========================
+  levelData_ = std::make_unique<LevelData>();
+  
+  // Blenderから出力した testScene.json が存在するか確認してから読み込む
+  std::ifstream levelFile("resources/testScene.json");
+  if (levelFile.is_open()) {
+      levelFile.close();
+      levelData_->LoadFile("resources/testScene.json");
+      
+      // ツリー構造を再帰的に生成
+      for (auto& objectData : levelData_->objects) {
+          CreateObjectsRecursive(objectData, nullptr);
+      }
+  }
+}
+
+void DebugScene::CreateObjectsRecursive(const LevelData::ObjectData& objectData, Object3d* parent) {
+  Object3d* newObject = nullptr;
+  
+  // ファイル名（モデル名）が設定されていればモデルをロード
+  if (!objectData.fileName.empty()) {
+    ModelManager::GetInstance()->LoadModel(objectData.fileName);
+    auto obj = std::make_unique<Object3d>();
+    obj->Initialize(engine_->GetObject3dRenderer());
+    obj->SetModel(objectData.fileName);
+    
+    // トランスフォームの設定
+    obj->SetTranslation(objectData.translation);
+    obj->SetRotation(objectData.rotation);
+    obj->SetScale(objectData.scaling);
+    
+    // 親子関係の設定
+    if (parent) {
+      obj->SetParent(parent);
+    }
+    
+    newObject = obj.get();
+    levelObjects_.push_back(std::move(obj));
+  } else {
+    // モデルがない場合でもダミーのトランスフォームノード（親）として機能させるために生成
+    auto obj = std::make_unique<Object3d>();
+    obj->Initialize(engine_->GetObject3dRenderer());
+    obj->SetTranslation(objectData.translation);
+    obj->SetRotation(objectData.rotation);
+    obj->SetScale(objectData.scaling);
+    
+    if (parent) {
+      obj->SetParent(parent);
+    }
+    
+    newObject = obj.get();
+    levelObjects_.push_back(std::move(obj));
+  }
+  
+  // 子オブジェクトの再帰生成
+  for (const auto& childData : objectData.children) {
+    CreateObjectsRecursive(childData, newObject);
+  }
 }
 
 void DebugScene::Finalize() {
@@ -381,6 +442,12 @@ void DebugScene::Update() {
   object3dA_->Update();
 
   animatedCube_->Update();
+  
+  // レベルデータのオブジェクト更新
+  for (auto& obj : levelObjects_) {
+      obj->Update();
+  }
+
   // スケルトンのアニメーション更新
   sneakWalk_->Update(1.0f / 60.0f);
 
@@ -644,6 +711,11 @@ void DebugScene::Draw3D() {
   object3d_->Draw();
   object3dA_->Draw();
   animatedCube_->Draw();
+
+  // レベルデータのオブジェクト描画
+  for (auto& obj : levelObjects_) {
+      obj->Draw();
+  }
 
   // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい
   sneakWalk_->Draw();
