@@ -11,6 +11,7 @@
 #include "Render/Renderer/SkyBoxRenderer.h"
 #include "Render/SkyBox/SkyBox.h"
 #include "Scene/BaseScene.h"
+#include "Scene/LevelData.h"
 #include "Sprite/Sprite.h"
 #include <memory>
 #include <vector>
@@ -88,6 +89,13 @@ private: // メンバ変数(ゲーム用)
 
   // スカイボックス
   std::unique_ptr<Skybox> skybox_ = nullptr;
+
+  // レベルデータ
+  std::unique_ptr<LevelData> levelData_ = nullptr;
+  std::vector<std::unique_ptr<Object3d>> levelObjects_;
+
+  // レベルデータのオブジェクト再帰生成
+  void CreateObjectsRecursive(const LevelData::ObjectData& objectData, Object3d* parent);
 
 public: // メンバ関数
   /// <summary>

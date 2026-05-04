@@ -71,7 +71,12 @@ void Object3d::Update() {
   Matrix4x4 worldMatrix = MakeAffineMatrix(transform_.scale, transform_.rotate,
                                            transform_.translate);
 
+  if (parent_) {
+      worldMatrix = Multiply(worldMatrix, parent_->GetWorldMatrix());
+  }
+
   Matrix4x4 finalWorld = Multiply(localMatrix, worldMatrix);
+  worldMatrix_ = finalWorld;
 
   Matrix4x4 worldViewProjectionMatrix;
 

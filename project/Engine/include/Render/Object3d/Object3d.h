@@ -171,6 +171,12 @@ public:
 private:
   const ICamera *camera_ = nullptr;
 
+  const Object3d *parent_ = nullptr;
+  Matrix4x4 worldMatrix_{};
+
 public:
   void SetCamera(const ICamera *camera) { this->camera_ = camera; }
+
+  void SetParent(const Object3d *parent) { parent_ = parent; }
+  const Matrix4x4& GetWorldMatrix() const { return worldMatrix_; }
 };
