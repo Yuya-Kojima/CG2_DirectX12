@@ -3,7 +3,6 @@
     "objects": [
         {
             "type": "LIGHT",
-            "name": "Light",
             "transform": {
                 "translation": [
                     4.076245307922363,
@@ -24,7 +23,6 @@
         },
         {
             "type": "CAMERA",
-            "name": "Camera",
             "transform": {
                 "translation": [
                     7.358891487121582,
@@ -45,7 +43,6 @@
         },
         {
             "type": "MESH",
-            "name": "Plane",
             "transform": {
                 "translation": [
                     -17.928747177124023,
@@ -68,30 +65,6 @@
         },
         {
             "type": "MESH",
-            "name": "ICO球.002",
-            "transform": {
-                "translation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "rotation": [
-                    0.0,
-                    -0.0,
-                    0.0
-                ],
-                "scaling": [
-                    1.0,
-                    1.0,
-                    1.0
-                ]
-            },
-            "disabled": true,
-            "file_name": "suzanne.obj"
-        },
-        {
-            "type": "MESH",
-            "name": "ICO球",
             "transform": {
                 "translation": [
                     -4.179725170135498,
@@ -114,7 +87,6 @@
         },
         {
             "type": "MESH",
-            "name": "ICO球.001",
             "transform": {
                 "translation": [
                     5.173130512237549,
@@ -134,6 +106,26 @@
             },
             "disabled": true,
             "file_name": "suzanne.obj"
+        },
+        {
+            "type": "PlayerSpawn",
+            "transform": {
+                "translation": [
+                    0.0,
+                    -4.956237316131592,
+                    0.0
+                ],
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scaling": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            }
         }
     ]
 }

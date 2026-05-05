@@ -256,6 +256,15 @@ void DebugScene::Initialize(EngineBase *engine) {
       for (auto& objectData : levelData_->objects) {
           CreateObjectsRecursive(objectData, nullptr);
       }
+
+      // プレイヤー配置データからプレイヤーを配置
+      if (!levelData_->players.empty()) {
+          auto& playerData = levelData_->players[0];
+          if (sneakWalk_) {
+              sneakWalk_->GetObject3d()->SetTranslation(playerData.translation);
+              sneakWalk_->GetObject3d()->SetRotation(playerData.rotation);
+          }
+      }
   }
 }
 
