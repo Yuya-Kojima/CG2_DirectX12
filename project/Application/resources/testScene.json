@@ -63,6 +63,7 @@
                     1.0
                 ]
             },
+            "disabled": true,
             "file_name": "terrain.obj"
         },
         {
@@ -85,6 +86,7 @@
                     1.0
                 ]
             },
+            "disabled": true,
             "file_name": "suzanne.obj"
         },
         {
@@ -107,6 +109,7 @@
                     1.0
                 ]
             },
+            "disabled": false,
             "file_name": "suzanne.obj"
         },
         {
@@ -129,6 +132,7 @@
                     1.0
                 ]
             },
+            "disabled": true,
             "file_name": "suzanne.obj"
         }
     ]

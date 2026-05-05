@@ -104,6 +104,14 @@ struct LevelData {
             assert(jsonChildren.is_array());
 
             for (nlohmann::json& childJson : jsonChildren) {
+                // 無効フラグが設定されていればパースをスキップ
+                if (childJson.contains("disabled")) {
+                    bool disabled = childJson["disabled"].get<bool>();
+                    if (disabled) {
+                        continue;
+                    }
+                }
+
                 // 子用のObjectDataを作成してパース
                 ObjectData childData;
                 ParseObjectRecursive(childJson, childData);
@@ -135,6 +143,14 @@ struct LevelData {
 
         // シーン直下のオブジェクトから再帰パース開始
         for (nlohmann::json& objectJson : jsonObjects) {
+            // 無効フラグが設定されていればパースをスキップ
+            if (objectJson.contains("disabled")) {
+                bool disabled = objectJson["disabled"].get<bool>();
+                if (disabled) {
+                    continue;
+                }
+            }
+
             ObjectData objectData;
             ParseObjectRecursive(objectJson, objectData);
             objects.push_back(objectData);
