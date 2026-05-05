@@ -265,6 +265,28 @@ void DebugScene::Initialize(EngineBase *engine) {
               sneakWalk_->GetObject3d()->SetRotation(playerData.rotation);
           }
       }
+
+      // レベルデータから敵を生成、配置
+      for (auto& enemyData : levelData_->enemies) {
+          // 敵キャラの生成
+          auto enemy = std::make_unique<Object3d>();
+          enemy->Initialize(engine_->GetObject3dRenderer());
+
+          // fileNameがあれば読み込んでセット、なければダミーとしてsuzanne.objをセット
+          if (!enemyData.fileName.empty()) {
+              ModelManager::GetInstance()->LoadModel(enemyData.fileName);
+              enemy->SetModel(enemyData.fileName);
+          } else {
+              enemy->SetModel("suzanne.obj");
+          }
+
+          // 敵キャラの初期化
+          enemy->SetTranslation(enemyData.translation);
+          enemy->SetRotation(enemyData.rotation);
+
+          // 敵リストに追加
+          enemies_.push_back(std::move(enemy));
+      }
   }
 }
 
@@ -455,6 +477,11 @@ void DebugScene::Update() {
   // レベルデータのオブジェクト更新
   for (auto& obj : levelObjects_) {
       obj->Update();
+  }
+
+  // 敵の更新
+  for (auto& enemy : enemies_) {
+      enemy->Update();
   }
 
   // スケルトンのアニメーション更新
@@ -724,6 +751,11 @@ void DebugScene::Draw3D() {
   // レベルデータのオブジェクト描画
   for (auto& obj : levelObjects_) {
       obj->Draw();
+  }
+
+  // 敵の描画
+  for (auto& enemy : enemies_) {
+      enemy->Draw();
   }
 
   // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい

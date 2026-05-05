@@ -94,6 +94,9 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<LevelData> levelData_ = nullptr;
   std::vector<std::unique_ptr<Object3d>> levelObjects_;
 
+  // 敵リスト
+  std::vector<std::unique_ptr<Object3d>> enemies_;
+
   // レベルデータのオブジェクト再帰生成
   void CreateObjectsRecursive(const LevelData::ObjectData& objectData, Object3d* parent);
 

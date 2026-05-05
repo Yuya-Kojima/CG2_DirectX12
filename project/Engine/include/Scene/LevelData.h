@@ -26,6 +26,16 @@ struct LevelData {
         Vector3 rotation;
     };
 
+    // 敵キャラの生成データ
+    struct EnemySpawnData {
+        // ファイル名
+        std::string fileName;
+        // 平行移動
+        Vector3 translation;
+        // 回転角
+        Vector3 rotation;
+    };
+
     struct ObjectData {
         // オブジェクト名
         std::string name;
@@ -52,6 +62,9 @@ struct LevelData {
 
     // 自キャラ配列
     std::vector<PlayerSpawnData> players;
+
+    // 敵配列
+    std::vector<EnemySpawnData> enemies;
 
     // 再帰的にオブジェクトをパースする関数
     void ParseObjectRecursive(nlohmann::json& jsonObject, ObjectData& objectData) {
@@ -143,6 +156,26 @@ struct LevelData {
                     }
                     continue; // 描画オブジェクトには含めない
                 }
+                // 敵キャラ発生ポイント
+                else if (type == "EnemySpawn") {
+                    if (childJson.contains("transform")) {
+                        nlohmann::json& transform = childJson["transform"];
+                        EnemySpawnData spawnData;
+                        spawnData.translation.x = (float)transform["translation"][0];
+                        spawnData.translation.y = (float)transform["translation"][2];
+                        spawnData.translation.z = (float)transform["translation"][1];
+                        spawnData.rotation.x = DegToRad(-(float)transform["rotation"][0]);
+                        spawnData.rotation.y = DegToRad(-(float)transform["rotation"][2]);
+                        spawnData.rotation.z = DegToRad(-(float)transform["rotation"][1]);
+
+                        if (childJson.contains("file_name")) {
+                            spawnData.fileName = childJson["file_name"].get<std::string>();
+                        }
+                        
+                        enemies.push_back(spawnData);
+                    }
+                    continue; // 描画オブジェクトには含めない
+                }
 
                 // 子用のObjectDataを作成してパース
                 ObjectData childData;
@@ -200,6 +233,26 @@ struct LevelData {
                     spawnData.rotation.y = DegToRad(-(float)transform["rotation"][2]);
                     spawnData.rotation.z = DegToRad(-(float)transform["rotation"][1]);
                     players.push_back(spawnData);
+                }
+                continue; // 描画オブジェクトには含めない
+            }
+            // 敵キャラ発生ポイント
+            else if (type == "EnemySpawn") {
+                if (objectJson.contains("transform")) {
+                    nlohmann::json& transform = objectJson["transform"];
+                    EnemySpawnData spawnData;
+                    spawnData.translation.x = (float)transform["translation"][0];
+                    spawnData.translation.y = (float)transform["translation"][2];
+                    spawnData.translation.z = (float)transform["translation"][1];
+                    spawnData.rotation.x = DegToRad(-(float)transform["rotation"][0]);
+                    spawnData.rotation.y = DegToRad(-(float)transform["rotation"][2]);
+                    spawnData.rotation.z = DegToRad(-(float)transform["rotation"][1]);
+
+                    if (objectJson.contains("file_name")) {
+                        spawnData.fileName = objectJson["file_name"].get<std::string>();
+                    }
+
+                    enemies.push_back(spawnData);
                 }
                 continue; // 描画オブジェクトには含めない
             }
