@@ -18,6 +18,14 @@ struct LevelData {
         float radius;     // SPHEREの場合
     };
 
+    // 自キャラの生成データ
+    struct PlayerSpawnData {
+        // 平行移動
+        Vector3 translation;
+        // 回転角
+        Vector3 rotation;
+    };
+
     struct ObjectData {
         // オブジェクト名
         std::string name;
@@ -41,6 +49,9 @@ struct LevelData {
 
     // シーン直下のオブジェクトの配列（ツリーのルート要素群）
     std::vector<ObjectData> objects;
+
+    // 自キャラ配列
+    std::vector<PlayerSpawnData> players;
 
     // 再帰的にオブジェクトをパースする関数
     void ParseObjectRecursive(nlohmann::json& jsonObject, ObjectData& objectData) {
@@ -112,6 +123,27 @@ struct LevelData {
                     }
                 }
 
+                std::string type;
+                if (childJson.contains("type")) {
+                    type = childJson["type"].get<std::string>();
+                }
+
+                // 自キャラ発生ポイント
+                if (type == "PlayerSpawn") {
+                    if (childJson.contains("transform")) {
+                        nlohmann::json& transform = childJson["transform"];
+                        PlayerSpawnData spawnData;
+                        spawnData.translation.x = (float)transform["translation"][0];
+                        spawnData.translation.y = (float)transform["translation"][2];
+                        spawnData.translation.z = (float)transform["translation"][1];
+                        spawnData.rotation.x = DegToRad(-(float)transform["rotation"][0]);
+                        spawnData.rotation.y = DegToRad(-(float)transform["rotation"][2]);
+                        spawnData.rotation.z = DegToRad(-(float)transform["rotation"][1]);
+                        players.push_back(spawnData);
+                    }
+                    continue; // 描画オブジェクトには含めない
+                }
+
                 // 子用のObjectDataを作成してパース
                 ObjectData childData;
                 ParseObjectRecursive(childJson, childData);
@@ -149,6 +181,27 @@ struct LevelData {
                 if (disabled) {
                     continue;
                 }
+            }
+
+            std::string type;
+            if (objectJson.contains("type")) {
+                type = objectJson["type"].get<std::string>();
+            }
+
+            // 自キャラ発生ポイント
+            if (type == "PlayerSpawn") {
+                if (objectJson.contains("transform")) {
+                    nlohmann::json& transform = objectJson["transform"];
+                    PlayerSpawnData spawnData;
+                    spawnData.translation.x = (float)transform["translation"][0];
+                    spawnData.translation.y = (float)transform["translation"][2];
+                    spawnData.translation.z = (float)transform["translation"][1];
+                    spawnData.rotation.x = DegToRad(-(float)transform["rotation"][0]);
+                    spawnData.rotation.y = DegToRad(-(float)transform["rotation"][2]);
+                    spawnData.rotation.z = DegToRad(-(float)transform["rotation"][1]);
+                    players.push_back(spawnData);
+                }
+                continue; // 描画オブジェクトには含めない
             }
 
             ObjectData objectData;
