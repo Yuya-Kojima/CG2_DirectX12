@@ -153,11 +153,14 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   // 定数バッファへのデータ転送
   struct PostProcessData {
     int32_t useGrayscale;
-    float padding[3];
+    float monotoneColor[3];
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
   data->useGrayscale = useGrayscale_ ? 1 : 0;
+  data->monotoneColor[0] = monotoneColor_[0];
+  data->monotoneColor[1] = monotoneColor_[1];
+  data->monotoneColor[2] = monotoneColor_[2];
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE

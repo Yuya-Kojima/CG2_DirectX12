@@ -122,10 +122,31 @@ void Game::Update() {
   ImGui::ShowDemoWindow();
 
   ImGui::Begin("Settings");
-  static bool useGrayscale = false;
-  ImGui::Checkbox("Grayscale", &useGrayscale);
+  static int monotoneType = 0; // 0: Normal, 1: Grayscale, 2: Sepia, 3: Custom
+  static float monotoneColor[3] = {1.0f, 1.0f, 1.0f};
+
+  const char* items[] = { "Normal", "Grayscale", "Sepia", "Custom" };
+  if (ImGui::Combo("Monotone Preset", &monotoneType, items, IM_ARRAYSIZE(items))) {
+      if (monotoneType == 1) { // Grayscale
+          monotoneColor[0] = 1.0f;
+          monotoneColor[1] = 1.0f;
+          monotoneColor[2] = 1.0f;
+      } else if (monotoneType == 2) { // Sepia
+          monotoneColor[0] = 1.0f;
+          monotoneColor[1] = 74.0f / 107.0f;
+          monotoneColor[2] = 43.0f / 107.0f;
+      }
+  }
+
+  bool useGrayscale = (monotoneType != 0);
+  
+  if (monotoneType == 3) {
+      ImGui::ColorEdit3("Custom Monotone Color", monotoneColor);
+  }
+
   if (postProcess_) {
     postProcess_->SetUseGrayscale(useGrayscale);
+    postProcess_->SetMonotoneColor(monotoneColor[0], monotoneColor[1], monotoneColor[2]);
   }
   ImGui::End();
 
