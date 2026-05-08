@@ -15,11 +15,18 @@ public:
     monotoneColor_[1] = g;
     monotoneColor_[2] = b;
   }
+  void SetUseVignette(bool useVignette) { useVignette_ = useVignette; }
+  void SetVignetteScale(float scale) { vignetteScale_ = scale; }
+  void SetVignetteExponent(float exponent) { vignetteExponent_ = exponent; }
 
 private:
   Dx12Core* dx12Core_ = nullptr;
   bool useGrayscale_ = false;
   float monotoneColor_[3] = {1.0f, 1.0f, 1.0f};
+
+  bool useVignette_ = false;
+  float vignetteScale_ = 16.0f;
+  float vignetteExponent_ = 0.8f;
 
   Microsoft::WRL::ComPtr<ID3D12Resource> constBuffer_ = nullptr;
 
