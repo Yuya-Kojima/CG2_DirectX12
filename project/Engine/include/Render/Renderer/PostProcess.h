@@ -20,11 +20,15 @@ public:
   void SetVignetteExponent(float exponent) { vignetteExponent_ = exponent; }
   void SetPostEffectType(int type) { postEffectType_ = type; }
   void SetBoxFilterK(int k) { boxFilterK_ = k; }
+  void SetGaussianFilterK(int k) { gaussianFilterK_ = k; }
+  void SetGaussianSigma(float sigma) { gaussianSigma_ = sigma; }
 
 private:
   Dx12Core* dx12Core_ = nullptr;
-  int postEffectType_ = 0; // 0: None, 1: BoxFilter
+  int postEffectType_ = 0; // 0: None, 1: BoxFilter, 2: GaussianFilter
   int boxFilterK_ = 1;     // K radius for BoxFilter (1=3x3, 2=5x5...)
+  int gaussianFilterK_ = 1; // K radius for GaussianFilter
+  float gaussianSigma_ = 4.0f; // Sigma for GaussianFilter
   bool useGrayscale_ = false;
   float monotoneColor_[3] = {1.0f, 1.0f, 1.0f};
 
