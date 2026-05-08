@@ -152,20 +152,23 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
 
   // 定数バッファへのデータ転送
   struct PostProcessData {
+    int32_t postEffectType; // 0: None, 1: BoxFilter
     int32_t useGrayscale;
-    float monotoneColor[3];
     int32_t useVignette;
+    int32_t boxFilterK;
+    float monotoneColor[3];
     float vignetteScale;
     float vignetteExponent;
-    float padding;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
+  data->postEffectType = postEffectType_;
   data->useGrayscale = useGrayscale_ ? 1 : 0;
+  data->useVignette = useVignette_ ? 1 : 0;
+  data->boxFilterK = boxFilterK_;
   data->monotoneColor[0] = monotoneColor_[0];
   data->monotoneColor[1] = monotoneColor_[1];
   data->monotoneColor[2] = monotoneColor_[2];
-  data->useVignette = useVignette_ ? 1 : 0;
   data->vignetteScale = vignetteScale_;
   data->vignetteExponent = vignetteExponent_;
   constBuffer_->Unmap(0, nullptr);

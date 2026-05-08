@@ -4,12 +4,13 @@ Texture2D<float32_t4> gTexture : register(t0);
 SamplerState gSampler : register(s0);
 
 cbuffer PostProcessData : register(b0) {
+    int32_t postEffectType; // 0: None, 1: BoxFilter
     int32_t useGrayscale;
-    float32_t3 monotoneColor;
     int32_t useVignette;
+    int32_t boxFilterK; // K radius for BoxFilter
+    float32_t3 monotoneColor;
     float32_t vignetteScale;
     float32_t vignetteExponent;
-    float32_t padding;
 };
 
 struct PixelShaderOutput {
@@ -18,7 +19,28 @@ struct PixelShaderOutput {
 
 PixelShaderOutput main(VertexShaderOutput input) {
     PixelShaderOutput output;
-    output.color = gTexture.Sample(gSampler, input.texcoord);
+    
+    if (postEffectType == 1) { // BoxFilter
+        uint32_t width, height;
+        gTexture.GetDimensions(width, height);
+        float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
+        
+        output.color.rgb = float32_t3(0.0f, 0.0f, 0.0f);
+        output.color.a = 1.0f;
+
+        float32_t kSize = (float32_t)boxFilterK;
+        float32_t weight = 1.0f / ((2.0f * kSize + 1.0f) * (2.0f * kSize + 1.0f));
+
+        for (int32_t x = -boxFilterK; x <= boxFilterK; ++x) {
+            for (int32_t y = -boxFilterK; y <= boxFilterK; ++y) {
+                float32_t2 texcoord = input.texcoord + float32_t2(x, y) * uvStepSize;
+                float32_t3 fetchColor = gTexture.Sample(gSampler, texcoord).rgb;
+                output.color.rgb += fetchColor * weight;
+            }
+        }
+    } else {
+        output.color = gTexture.Sample(gSampler, input.texcoord);
+    }
 
     if (useGrayscale != 0) {
         float32_t value = dot(output.color.rgb, float32_t3(0.2125f, 0.7154f, 0.0721f));

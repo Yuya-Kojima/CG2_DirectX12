@@ -18,9 +18,13 @@ public:
   void SetUseVignette(bool useVignette) { useVignette_ = useVignette; }
   void SetVignetteScale(float scale) { vignetteScale_ = scale; }
   void SetVignetteExponent(float exponent) { vignetteExponent_ = exponent; }
+  void SetPostEffectType(int type) { postEffectType_ = type; }
+  void SetBoxFilterK(int k) { boxFilterK_ = k; }
 
 private:
   Dx12Core* dx12Core_ = nullptr;
+  int postEffectType_ = 0; // 0: None, 1: BoxFilter
+  int boxFilterK_ = 1;     // K radius for BoxFilter (1=3x3, 2=5x5...)
   bool useGrayscale_ = false;
   float monotoneColor_[3] = {1.0f, 1.0f, 1.0f};
 
