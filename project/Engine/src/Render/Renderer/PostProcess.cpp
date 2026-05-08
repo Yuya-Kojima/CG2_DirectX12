@@ -116,7 +116,7 @@ void PostProcess::CreatePSO() {
   assert(vertexShaderBlob != nullptr);
 
   IDxcBlob* pixelShaderBlob =
-      dx12Core_->CompileShader(L"resources/shaders/Grayscale.PS.hlsl", L"ps_6_0");
+      dx12Core_->CompileShader(L"resources/shaders/PostProcess.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   // DepthStencilStateの設定
@@ -154,6 +154,10 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   struct PostProcessData {
     int32_t useGrayscale;
     float monotoneColor[3];
+    int32_t useVignette;
+    float vignetteScale;
+    float vignetteExponent;
+    float padding;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -161,6 +165,9 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   data->monotoneColor[0] = monotoneColor_[0];
   data->monotoneColor[1] = monotoneColor_[1];
   data->monotoneColor[2] = monotoneColor_[2];
+  data->useVignette = useVignette_ ? 1 : 0;
+  data->vignetteScale = vignetteScale_;
+  data->vignetteExponent = vignetteExponent_;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE

@@ -144,9 +144,36 @@ void Game::Update() {
       ImGui::ColorEdit3("Custom Monotone Color", monotoneColor);
   }
 
+  ImGui::Separator();
+  
+  static int vignetteType = 0; // 0: Normal, 1: Mild, 2: Strong, 3: Pinhole, 4: Custom
+  static float vignetteScale = 16.0f;
+  static float vignetteExponent = 0.8f;
+
+  const char* vignetteItems[] = { "Normal (Off)", "Mild", "Strong", "Pinhole", "Custom" };
+  if (ImGui::Combo("Vignette Preset", &vignetteType, vignetteItems, IM_ARRAYSIZE(vignetteItems))) {
+      if (vignetteType == 1) { // Mild
+          vignetteScale = 16.0f; vignetteExponent = 0.8f;
+      } else if (vignetteType == 2) { // Strong
+          vignetteScale = 16.0f; vignetteExponent = 1.5f;
+      } else if (vignetteType == 3) { // Pinhole
+          vignetteScale = 5.0f; vignetteExponent = 1.2f;
+      }
+  }
+
+  bool useVignette = (vignetteType != 0);
+
+  if (vignetteType == 4) { // Custom
+      ImGui::DragFloat("Vignette Scale", &vignetteScale, 0.1f, 1.0f, 100.0f);
+      ImGui::DragFloat("Vignette Exponent", &vignetteExponent, 0.05f, 0.1f, 5.0f);
+  }
+
   if (postProcess_) {
     postProcess_->SetUseGrayscale(useGrayscale);
     postProcess_->SetMonotoneColor(monotoneColor[0], monotoneColor[1], monotoneColor[2]);
+    postProcess_->SetUseVignette(useVignette);
+    postProcess_->SetVignetteScale(vignetteScale);
+    postProcess_->SetVignetteExponent(vignetteExponent);
   }
   ImGui::End();
 
