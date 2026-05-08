@@ -7,6 +7,7 @@
 #include "Renderer/ModelRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
+#include "Renderer/PostProcess.h"
 #include "Scene/SceneFactory.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
@@ -37,6 +38,22 @@ void Game::Initialize() {
   imGuiManager_ = std::make_unique<ImGuiManager>();
   imGuiManager_->Initialize(windowSystem_.get(), dx12Core_.get(),
                             srvManager_.get());
+
+  // RenderTextureのSRV作成 (SrvManagerを使って)
+  renderTextureSrvIndex_ = srvManager_->Allocate();
+  D3D12_SHADER_RESOURCE_VIEW_DESC renderTextureSrvDesc{};
+  renderTextureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  renderTextureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  renderTextureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+  renderTextureSrvDesc.Texture2D.MipLevels = 1;
+
+  dx12Core_->GetDevice()->CreateShaderResourceView(
+      dx12Core_->GetRenderTextureResource(), &renderTextureSrvDesc,
+      srvManager_->GetCPUDescriptorHandle(renderTextureSrvIndex_));
+
+  // PostProcessの初期化
+  postProcess_ = std::make_unique<PostProcess>();
+  postProcess_->Initialize(dx12Core_.get());
 
   // texture切り替え用
   bool useMonsterBall = true;
@@ -119,6 +136,12 @@ void Game::Draw() {
   // 3D
   // EngineBase::Begin3D();
   SceneManager::GetInstance()->Draw();
+
+  // Swapchainに描画先を切り替える
+  dx12Core_->PreDrawImGui();
+
+  // PostProcessでRenderTextureをSwapchainに描画する
+  postProcess_->Draw(renderTextureSrvIndex_, srvManager_.get());
 
   // 2D
   // EngineBase::Begin2D();

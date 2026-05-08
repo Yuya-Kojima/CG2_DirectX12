@@ -738,7 +738,7 @@ void DebugScene::Draw3D() {
 
   if (skybox_) {
     engine_->GetSkyboxRenderer()->Begin();
-    skybox_->Draw();
+  //  skybox_->Draw();
 
     // Skybox描画後に通常3Dへ戻す
     engine_->GetObject3dRenderer()->Begin();

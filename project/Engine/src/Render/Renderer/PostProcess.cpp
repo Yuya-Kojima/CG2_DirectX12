@@ -1,0 +1,155 @@
+#include "Renderer/PostProcess.h"
+#include "Core/SrvManager.h"
+#include "Debug/Logger.h"
+
+void PostProcess::Initialize(Dx12Core* dx12Core) {
+  dx12Core_ = dx12Core;
+  CreateRootSignature();
+  CreatePSO();
+}
+
+void PostProcess::CreateRootSignature() {
+  HRESULT hr;
+
+  // RootSignatureを作成
+  D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
+  descriptionRootSignature.Flags =
+      D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+  // DescriptorTable (テクスチャ用)
+  D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
+  descriptorRange[0].BaseShaderRegister = 0; // t0
+  descriptorRange[0].NumDescriptors = 1;
+  descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  D3D12_ROOT_PARAMETER rootParameter[1] = {};
+  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[0].DescriptorTable.pDescriptorRanges = descriptorRange;
+  rootParameter[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
+
+  // Sampler
+  D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
+  staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+  staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+  staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;
+  staticSamplers[0].ShaderRegister = 0; // s0
+  staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+  descriptionRootSignature.pParameters = rootParameter;
+  descriptionRootSignature.NumParameters = _countof(rootParameter);
+  descriptionRootSignature.pStaticSamplers = staticSamplers;
+  descriptionRootSignature.NumStaticSamplers = _countof(staticSamplers);
+
+  // シリアライズしてバイナリにする
+  Microsoft::WRL::ComPtr<ID3DBlob> signatureBlob = nullptr;
+  Microsoft::WRL::ComPtr<ID3DBlob> errorBlob = nullptr;
+  hr = D3D12SerializeRootSignature(
+      &descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1,
+      signatureBlob.GetAddressOf(), errorBlob.GetAddressOf());
+
+  if (FAILED(hr)) {
+    if (errorBlob) {
+      Logger::Log(reinterpret_cast<char*>(errorBlob->GetBufferPointer()));
+    }
+    assert(false);
+  }
+
+  // バイナリを元に生成
+  rootSignature_ = nullptr;
+  hr = dx12Core_->GetDevice()->CreateRootSignature(0, signatureBlob->GetBufferPointer(),
+                                    signatureBlob->GetBufferSize(),
+                                    IID_PPV_ARGS(&rootSignature_));
+  assert(SUCCEEDED(hr));
+}
+
+void PostProcess::CreatePSO() {
+  HRESULT hr;
+
+  // inputLayout (頂点データ不要のため空)
+  D3D12_INPUT_LAYOUT_DESC inputLayoutDesc{};
+  inputLayoutDesc.pInputElementDescs = nullptr;
+  inputLayoutDesc.NumElements = 0;
+
+  // BlendStateの設定
+  D3D12_BLEND_DESC blendDesc{};
+  blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+  // RasterizerStateの設定
+  D3D12_RASTERIZER_DESC rasterizerDesc{};
+  rasterizerDesc.CullMode = D3D12_CULL_MODE_BACK;
+  rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
+
+  // shaderをcompileする
+  IDxcBlob* vertexShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/CopyImage.VS.hlsl", L"vs_6_0");
+  assert(vertexShaderBlob != nullptr);
+
+  IDxcBlob* pixelShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/CopyImage.PS.hlsl", L"ps_6_0");
+  assert(pixelShaderBlob != nullptr);
+
+  // DepthStencilStateの設定
+  D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
+  depthStencilDesc.DepthEnable = false; // 深度不要
+
+  // PSOの生成
+  D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipeLineStateDesc{};
+  graphicsPipeLineStateDesc.pRootSignature = rootSignature_.Get();
+  graphicsPipeLineStateDesc.InputLayout = inputLayoutDesc;
+  graphicsPipeLineStateDesc.VS = { vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize() };
+  graphicsPipeLineStateDesc.PS = { pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize() };
+  graphicsPipeLineStateDesc.BlendState = blendDesc;
+  graphicsPipeLineStateDesc.RasterizerState = rasterizerDesc;
+  graphicsPipeLineStateDesc.DepthStencilState = depthStencilDesc;
+  graphicsPipeLineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+  graphicsPipeLineStateDesc.NumRenderTargets = 1;
+  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  graphicsPipeLineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+  graphicsPipeLineStateDesc.SampleDesc.Count = 1;
+  graphicsPipeLineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+
+  graphicsPipelineState_ = nullptr;
+  hr = dx12Core_->GetDevice()->CreateGraphicsPipelineState(
+      &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
+  assert(SUCCEEDED(hr));
+}
+
+void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
+  auto commandList = dx12Core_->GetCommandList();
+  auto renderTextureResource = dx12Core_->GetRenderTextureResource();
+
+  // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
+  D3D12_RESOURCE_BARRIER barrier1{};
+  barrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  barrier1.Transition.pResource = renderTextureResource;
+  barrier1.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+  barrier1.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  barrier1.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  commandList->ResourceBarrier(1, &barrier1);
+
+  // パイプライン設定
+  commandList->SetGraphicsRootSignature(rootSignature_.Get());
+  commandList->SetPipelineState(graphicsPipelineState_.Get());
+  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+  // SRVセット
+  srvManager->SetGraphicsRootDescriptorTable(0, srvIndex);
+
+  // 描画
+  commandList->DrawInstanced(3, 1, 0, 0);
+
+  // Barrier: PIXEL_SHADER_RESOURCE -> RENDER_TARGET
+  D3D12_RESOURCE_BARRIER barrier2{};
+  barrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  barrier2.Transition.pResource = renderTextureResource;
+  barrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  barrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+  barrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  commandList->ResourceBarrier(1, &barrier2);
+}
