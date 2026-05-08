@@ -8,6 +8,7 @@
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Renderer/PostProcess.h"
+#include "Render/Camera/ICamera.h"
 #include "Scene/SceneFactory.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
@@ -50,6 +51,10 @@ void Game::Initialize() {
   dx12Core_->GetDevice()->CreateShaderResourceView(
       dx12Core_->GetRenderTextureResource(), &renderTextureSrvDesc,
       srvManager_->GetCPUDescriptorHandle(renderTextureSrvIndex_));
+
+  // DepthTextureのSRV作成
+  depthTextureSrvIndex_ = srvManager_->Allocate();
+  srvManager_->CreateSRVforDepth(depthTextureSrvIndex_, dx12Core_->GetDepthStencilResource());
 
   // PostProcessの初期化
   postProcess_ = std::make_unique<PostProcess>();
@@ -129,7 +134,7 @@ void Game::Update() {
       ImGui::Separator();
       ImGui::Text("Base Effect");
       static int postEffectType = 0;
-      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline" };
       ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType == 1) { // BoxFilter
@@ -144,6 +149,15 @@ void Game::Update() {
           if (postProcess_) {
               postProcess_->SetGaussianFilterK(gaussianFilterK);
               postProcess_->SetGaussianSigma(gaussianSigma);
+          }
+      } else if (postEffectType == 4) { // Depth Outline
+          static float depthOutlineWeight = 10.0f;
+          static float depthOutlineAttenuation = 0.05f;
+          ImGui::DragFloat("Outline Weight", &depthOutlineWeight, 0.1f, 1.0f, 100.0f);
+          ImGui::DragFloat("Distance Attenuation", &depthOutlineAttenuation, 0.001f, 0.0f, 1.0f, "%.3f");
+          if (postProcess_) {
+              postProcess_->SetDepthOutlineWeight(depthOutlineWeight);
+              postProcess_->SetDepthOutlineAttenuation(depthOutlineAttenuation);
           }
       }
       
@@ -220,8 +234,16 @@ void Game::Draw() {
   // Swapchainに描画先を切り替える
   dx12Core_->PreDrawImGui();
 
+  // プロジェクション逆行列の取得とセット
+  if (postProcess_) {
+      const ICamera* defaultCamera = object3dRenderer_->GetDefaultCamera();
+      if (defaultCamera) {
+          postProcess_->SetProjectionInverse(Inverse(defaultCamera->GetProjectionMatrix()));
+      }
+  }
+
   // PostProcessでRenderTextureをSwapchainに描画する
-  postProcess_->Draw(renderTextureSrvIndex_, srvManager_.get());
+  postProcess_->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
 
   // 2D
   // EngineBase::Begin2D();

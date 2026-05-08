@@ -1,13 +1,14 @@
 #pragma once
 #include "Core/Dx12Core.h"
 #include <wrl.h>
+#include "Math/Matrix4x4.h"
 
 class SrvManager;
 
 class PostProcess {
 public:
   void Initialize(Dx12Core* dx12Core);
-  void Draw(uint32_t srvIndex, SrvManager* srvManager);
+  void Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager);
 
   void SetUseGrayscale(bool useGrayscale) { useGrayscale_ = useGrayscale; }
   void SetMonotoneColor(float r, float g, float b) {
@@ -22,6 +23,9 @@ public:
   void SetBoxFilterK(int k) { boxFilterK_ = k; }
   void SetGaussianFilterK(int k) { gaussianFilterK_ = k; }
   void SetGaussianSigma(float sigma) { gaussianSigma_ = sigma; }
+  void SetDepthOutlineWeight(float weight) { depthOutlineWeight_ = weight; }
+  void SetDepthOutlineAttenuation(float attenuation) { depthOutlineAttenuation_ = attenuation; }
+  void SetProjectionInverse(const Matrix4x4& m) { projectionInverse_ = m; }
 
 private:
   Dx12Core* dx12Core_ = nullptr;
@@ -35,6 +39,11 @@ private:
   bool useVignette_ = false;
   float vignetteScale_ = 16.0f;
   float vignetteExponent_ = 0.8f;
+  
+  float depthOutlineWeight_ = 10.0f;
+  float depthOutlineAttenuation_ = 0.05f;
+
+  Matrix4x4 projectionInverse_;
 
   Microsoft::WRL::ComPtr<ID3D12Resource> constBuffer_ = nullptr;
 

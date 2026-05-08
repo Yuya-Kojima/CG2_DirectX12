@@ -27,4 +27,5 @@ private:
   std::unique_ptr<PostProcess> postProcess_ = nullptr;
 
   uint32_t renderTextureSrvIndex_ = 0;
+  uint32_t depthTextureSrvIndex_ = 0;
 };
