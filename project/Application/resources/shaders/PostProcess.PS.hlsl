@@ -1,7 +1,9 @@
 #include "Fullscreen.hlsli"
 
 Texture2D<float32_t4> gTexture : register(t0);
+Texture2D<float32_t> gDepthTexture : register(t1);
 SamplerState gSampler : register(s0);
+SamplerState gSamplerPoint : register(s1);
 
 cbuffer PostProcessData : register(b0) {
     int32_t postEffectType; // 0: None, 1: BoxFilter, 2: GaussianFilter
@@ -13,7 +15,12 @@ cbuffer PostProcessData : register(b0) {
     float32_t vignetteExponent;
     int32_t gaussianFilterK;
     float32_t gaussianSigma;
-    float32_t padding;
+    float32_t depthOutlineWeight;
+    float32_t depthOutlineAttenuation;
+    float32_t padding1;
+    float32_t padding2;
+    float32_t padding3;
+    float32_t4x4 projectionInverse;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -23,6 +30,22 @@ float32_t gauss(float32_t x, float32_t y, float32_t sigma) {
     float32_t denominator = 2.0f * PI * sigma * sigma;
     return exp(exponent) * rcp(denominator);
 }
+
+float32_t Luminance(float32_t3 v) {
+    return dot(v, float32_t3(0.2125f, 0.7154f, 0.0721f));
+}
+
+static const float32_t kPrewittHorizontalKernel[3][3] = {
+    { -1.0f / 6.0f, 0.0f, 1.0f / 6.0f },
+    { -1.0f / 6.0f, 0.0f, 1.0f / 6.0f },
+    { -1.0f / 6.0f, 0.0f, 1.0f / 6.0f },
+};
+
+static const float32_t kPrewittVerticalKernel[3][3] = {
+    { -1.0f / 6.0f, -1.0f / 6.0f, -1.0f / 6.0f },
+    {  0.0f,         0.0f,         0.0f        },
+    {  1.0f / 6.0f,  1.0f / 6.0f,  1.0f / 6.0f },
+};
 
 struct PixelShaderOutput {
     float32_t4 color : SV_TARGET0;
@@ -70,6 +93,68 @@ PixelShaderOutput main(VertexShaderOutput input) {
         }
         
         output.color.rgb *= rcp(totalWeight);
+    } else if (postEffectType == 3) { // Luminance Outline
+        uint32_t width, height;
+        gTexture.GetDimensions(width, height);
+        float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
+        
+        float32_t2 difference = float32_t2(0.0f, 0.0f);
+        
+        for (int32_t x = 0; x < 3; ++x) {
+            for (int32_t y = 0; y < 3; ++y) {
+                float32_t2 texcoord = input.texcoord + float32_t2(x - 1, y - 1) * uvStepSize;
+                float32_t3 fetchColor = gTexture.Sample(gSampler, texcoord).rgb;
+                float32_t luminance = Luminance(fetchColor);
+                
+                difference.x += luminance * kPrewittHorizontalKernel[x][y];
+                difference.y += luminance * kPrewittVerticalKernel[x][y];
+            }
+        }
+        
+        float32_t weight = length(difference);
+        // 差が小さすぎて分かりづらいので6倍して強調
+        weight = saturate(weight * 6.0f);
+        
+        // 元の色を取得し、エッジ（weight）が強いほど黒く（0に近づく）するように合成
+        float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
+        output.color.rgb = (1.0f - weight) * originalColor;
+        output.color.a = 1.0f;
+    } else if (postEffectType == 4) { // Depth Outline
+        uint32_t width, height;
+        gTexture.GetDimensions(width, height);
+        float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
+        
+        float32_t2 difference = float32_t2(0.0f, 0.0f);
+        float32_t centerViewZ = 0.0f;
+        
+        for (int32_t x = 0; x < 3; ++x) {
+            for (int32_t y = 0; y < 3; ++y) {
+                float32_t2 texcoord = input.texcoord + float32_t2(x - 1, y - 1) * uvStepSize;
+                
+                // NDCのDepthを取得
+                float32_t ndcDepth = gDepthTexture.Sample(gSamplerPoint, texcoord);
+                
+                // View空間に戻す
+                float32_t4 viewSpace = mul(float32_t4(0.0f, 0.0f, ndcDepth, 1.0f), projectionInverse);
+                float32_t viewZ = viewSpace.z * rcp(viewSpace.w);
+                
+                if (x == 1 && y == 1) {
+                    centerViewZ = viewZ;
+                }
+                
+                difference.x += viewZ * kPrewittHorizontalKernel[x][y];
+                difference.y += viewZ * kPrewittVerticalKernel[x][y];
+            }
+        }
+        
+        float32_t weight = length(difference) * depthOutlineWeight;
+        // 距離による減衰（絶対値にして負数エラーを防ぐ）
+        weight = weight / (1.0f + abs(centerViewZ) * depthOutlineAttenuation);
+        weight = saturate(weight);
+        
+        float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
+        output.color.rgb = (1.0f - weight) * originalColor;
+        output.color.a = 1.0f;
     } else {
         output.color = gTexture.Sample(gSampler, input.texcoord);
     }

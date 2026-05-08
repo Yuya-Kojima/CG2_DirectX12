@@ -1,9 +1,13 @@
 #include "Renderer/PostProcess.h"
 #include "Core/SrvManager.h"
 #include "Debug/Logger.h"
+#include "Math/MathUtil.h"
 
 void PostProcess::Initialize(Dx12Core* dx12Core) {
   dx12Core_ = dx12Core;
+
+  // デフォルトで単位行列にする
+  projectionInverse_ = MakeIdentity4x4();
 
   // 定数バッファの作成
   D3D12_HEAP_PROPERTIES heapProps{};
@@ -42,7 +46,14 @@ void PostProcess::CreateRootSignature() {
   descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
   descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  D3D12_ROOT_PARAMETER rootParameter[2] = {};
+  // DescriptorTable (Depthテクスチャ用)
+  D3D12_DESCRIPTOR_RANGE descriptorRangeDepth[1] = {};
+  descriptorRangeDepth[0].BaseShaderRegister = 1; // t1
+  descriptorRangeDepth[0].NumDescriptors = 1;
+  descriptorRangeDepth[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRangeDepth[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  D3D12_ROOT_PARAMETER rootParameter[3] = {};
 
   // b0: 定数バッファ (Grayscale切り替え用)
   rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -55,8 +66,14 @@ void PostProcess::CreateRootSignature() {
   rootParameter[1].DescriptorTable.pDescriptorRanges = descriptorRange;
   rootParameter[1].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
 
+  // t1: Depthテクスチャ用デスクリプタテーブル
+  rootParameter[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[2].DescriptorTable.pDescriptorRanges = descriptorRangeDepth;
+  rootParameter[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeDepth);
+
   // Sampler
-  D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
+  D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
   staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
   staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
   staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -65,6 +82,15 @@ void PostProcess::CreateRootSignature() {
   staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;
   staticSamplers[0].ShaderRegister = 0; // s0
   staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+  staticSamplers[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+  staticSamplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+  staticSamplers[1].MaxLOD = D3D12_FLOAT32_MAX;
+  staticSamplers[1].ShaderRegister = 1; // s1
+  staticSamplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
   descriptionRootSignature.pParameters = rootParameter;
   descriptionRootSignature.NumParameters = _countof(rootParameter);
@@ -146,9 +172,10 @@ void PostProcess::CreatePSO() {
   assert(SUCCEEDED(hr));
 }
 
-void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
+void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager) {
   auto commandList = dx12Core_->GetCommandList();
   auto renderTextureResource = dx12Core_->GetRenderTextureResource();
+  auto depthStencilResource = dx12Core_->GetDepthStencilResource();
 
   // 定数バッファへのデータ転送
   struct PostProcessData {
@@ -161,7 +188,12 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
     float vignetteExponent;
     int32_t gaussianFilterK;
     float gaussianSigma;
-    float padding;
+    float depthOutlineWeight;
+    float depthOutlineAttenuation;
+    float padding1;
+    float padding2;
+    float padding3;
+    Matrix4x4 projectionInverse;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -176,6 +208,12 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   data->vignetteExponent = vignetteExponent_;
   data->gaussianFilterK = gaussianFilterK_;
   data->gaussianSigma = gaussianSigma_;
+  data->depthOutlineWeight = depthOutlineWeight_;
+  data->depthOutlineAttenuation = depthOutlineAttenuation_;
+  data->padding1 = 0.0f;
+  data->padding2 = 0.0f;
+  data->padding3 = 0.0f;
+  data->projectionInverse = projectionInverse_;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
@@ -185,7 +223,16 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   barrier1.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
   barrier1.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
   barrier1.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-  commandList->ResourceBarrier(1, &barrier1);
+
+  D3D12_RESOURCE_BARRIER depthBarrier1{};
+  depthBarrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  depthBarrier1.Transition.pResource = depthStencilResource;
+  depthBarrier1.Transition.StateBefore = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+  depthBarrier1.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  depthBarrier1.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+  D3D12_RESOURCE_BARRIER barriers[2] = { barrier1, depthBarrier1 };
+  commandList->ResourceBarrier(2, barriers);
 
   // パイプライン設定
   commandList->SetGraphicsRootSignature(rootSignature_.Get());
@@ -196,7 +243,10 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   commandList->SetGraphicsRootConstantBufferView(0, constBuffer_->GetGPUVirtualAddress());
 
   // SRVセット (rootParameter[1])
-  srvManager->SetGraphicsRootDescriptorTable(1, srvIndex);
+  srvManager->SetGraphicsRootDescriptorTable(1, renderSrvIndex);
+
+  // SRVセット (rootParameter[2])
+  srvManager->SetGraphicsRootDescriptorTable(2, depthSrvIndex);
 
   // 描画
   commandList->DrawInstanced(3, 1, 0, 0);
@@ -208,5 +258,14 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   barrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
   barrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
   barrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-  commandList->ResourceBarrier(1, &barrier2);
+
+  D3D12_RESOURCE_BARRIER depthBarrier2{};
+  depthBarrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  depthBarrier2.Transition.pResource = depthStencilResource;
+  depthBarrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  depthBarrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+  depthBarrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+  D3D12_RESOURCE_BARRIER barriersEnd[2] = { barrier2, depthBarrier2 };
+  commandList->ResourceBarrier(2, barriersEnd);
 }

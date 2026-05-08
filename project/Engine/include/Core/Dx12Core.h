@@ -225,6 +225,10 @@ public:
     return renderTextureResource.Get();
   }
 
+  ID3D12Resource *GetDepthStencilResource() const {
+    return depthStencilResource.Get();
+  }
+
   /// <summary>
   /// シェーダーのコンパイル
   /// </summary>
