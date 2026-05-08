@@ -152,13 +152,16 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
 
   // 定数バッファへのデータ転送
   struct PostProcessData {
-    int32_t postEffectType; // 0: None, 1: BoxFilter
+    int32_t postEffectType; // 0: None, 1: BoxFilter, 2: GaussianFilter
     int32_t useGrayscale;
     int32_t useVignette;
     int32_t boxFilterK;
     float monotoneColor[3];
     float vignetteScale;
     float vignetteExponent;
+    int32_t gaussianFilterK;
+    float gaussianSigma;
+    float padding;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -171,6 +174,8 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   data->monotoneColor[2] = monotoneColor_[2];
   data->vignetteScale = vignetteScale_;
   data->vignetteExponent = vignetteExponent_;
+  data->gaussianFilterK = gaussianFilterK_;
+  data->gaussianSigma = gaussianSigma_;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE

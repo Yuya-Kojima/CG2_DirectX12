@@ -129,14 +129,24 @@ void Game::Update() {
       ImGui::Separator();
       ImGui::Text("Base Effect");
       static int postEffectType = 0;
-      const char* effectTypes[] = { "None", "BoxFilter" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter" };
       ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType == 1) { // BoxFilter
           static int boxFilterK = 1;
           ImGui::DragInt("BoxFilter K (Radius)", &boxFilterK, 0.1f, 1, 10);
           if (postProcess_) postProcess_->SetBoxFilterK(boxFilterK);
+      } else if (postEffectType == 2) { // GaussianFilter
+          static int gaussianFilterK = 1;
+          static float gaussianSigma = 4.0f;
+          ImGui::DragInt("Gaussian K", &gaussianFilterK, 0.1f, 1, 10);
+          ImGui::DragFloat("Gaussian Sigma", &gaussianSigma, 0.1f, 0.1f, 20.0f);
+          if (postProcess_) {
+              postProcess_->SetGaussianFilterK(gaussianFilterK);
+              postProcess_->SetGaussianSigma(gaussianSigma);
+          }
       }
+      
       if (postProcess_) {
           postProcess_->SetPostEffectType(postEffectType);
       }
