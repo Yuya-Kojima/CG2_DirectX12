@@ -121,6 +121,14 @@ void Game::Update() {
   // デモウィンドウ表示ON
   ImGui::ShowDemoWindow();
 
+  ImGui::Begin("Settings");
+  static bool useGrayscale = false;
+  ImGui::Checkbox("Grayscale", &useGrayscale);
+  if (postProcess_) {
+    postProcess_->SetUseGrayscale(useGrayscale);
+  }
+  ImGui::End();
+
   // ImGui受付終了
   if (imGuiManager_) {
     imGuiManager_->End();
