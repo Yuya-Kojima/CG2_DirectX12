@@ -245,71 +245,72 @@ void DebugScene::Initialize(EngineBase *engine) {
   // レベルデータの読み込みと配置
   //===========================
   levelData_ = std::make_unique<LevelData>();
-  
+
   // Blenderから出力した testScene.json が存在するか確認してから読み込む
   std::ifstream levelFile("resources/testScene.json");
   if (levelFile.is_open()) {
-      levelFile.close();
-      levelData_->LoadFile("resources/testScene.json");
-      
-      // ツリー構造を再帰的に生成
-      for (auto& objectData : levelData_->objects) {
-          CreateObjectsRecursive(objectData, nullptr);
+    levelFile.close();
+    levelData_->LoadFile("resources/testScene.json");
+
+    // ツリー構造を再帰的に生成
+    for (auto &objectData : levelData_->objects) {
+      CreateObjectsRecursive(objectData, nullptr);
+    }
+
+    // プレイヤー配置データからプレイヤーを配置
+    if (!levelData_->players.empty()) {
+      auto &playerData = levelData_->players[0];
+      if (sneakWalk_) {
+        sneakWalk_->GetObject3d()->SetTranslation(playerData.translation);
+        sneakWalk_->GetObject3d()->SetRotation(playerData.rotation);
+      }
+    }
+
+    // レベルデータから敵を生成、配置
+    for (auto &enemyData : levelData_->enemies) {
+      // 敵キャラの生成
+      auto enemy = std::make_unique<Object3d>();
+      enemy->Initialize(engine_->GetObject3dRenderer());
+
+      // fileNameがあれば読み込んでセット、なければダミーとしてsuzanne.objをセット
+      if (!enemyData.fileName.empty()) {
+        ModelManager::GetInstance()->LoadModel(enemyData.fileName);
+        enemy->SetModel(enemyData.fileName);
+      } else {
+        enemy->SetModel("suzanne.obj");
       }
 
-      // プレイヤー配置データからプレイヤーを配置
-      if (!levelData_->players.empty()) {
-          auto& playerData = levelData_->players[0];
-          if (sneakWalk_) {
-              sneakWalk_->GetObject3d()->SetTranslation(playerData.translation);
-              sneakWalk_->GetObject3d()->SetRotation(playerData.rotation);
-          }
-      }
+      // 敵キャラの初期化
+      enemy->SetTranslation(enemyData.translation);
+      enemy->SetRotation(enemyData.rotation);
 
-      // レベルデータから敵を生成、配置
-      for (auto& enemyData : levelData_->enemies) {
-          // 敵キャラの生成
-          auto enemy = std::make_unique<Object3d>();
-          enemy->Initialize(engine_->GetObject3dRenderer());
-
-          // fileNameがあれば読み込んでセット、なければダミーとしてsuzanne.objをセット
-          if (!enemyData.fileName.empty()) {
-              ModelManager::GetInstance()->LoadModel(enemyData.fileName);
-              enemy->SetModel(enemyData.fileName);
-          } else {
-              enemy->SetModel("suzanne.obj");
-          }
-
-          // 敵キャラの初期化
-          enemy->SetTranslation(enemyData.translation);
-          enemy->SetRotation(enemyData.rotation);
-
-          // 敵リストに追加
-          enemies_.push_back(std::move(enemy));
-      }
+      // 敵リストに追加
+      enemies_.push_back(std::move(enemy));
+    }
   }
 }
 
-void DebugScene::CreateObjectsRecursive(const LevelData::ObjectData& objectData, Object3d* parent) {
-  Object3d* newObject = nullptr;
-  
+void DebugScene::CreateObjectsRecursive(const LevelData::ObjectData &objectData,
+                                        Object3d *parent) {
+  Object3d *newObject = nullptr;
+
   // ファイル名（モデル名）が設定されていればモデルをロード
   if (!objectData.fileName.empty()) {
     ModelManager::GetInstance()->LoadModel(objectData.fileName);
     auto obj = std::make_unique<Object3d>();
     obj->Initialize(engine_->GetObject3dRenderer());
     obj->SetModel(objectData.fileName);
-    
+
     // トランスフォームの設定
     obj->SetTranslation(objectData.translation);
     obj->SetRotation(objectData.rotation);
     obj->SetScale(objectData.scaling);
-    
+
     // 親子関係の設定
     if (parent) {
       obj->SetParent(parent);
     }
-    
+
     newObject = obj.get();
     levelObjects_.push_back(std::move(obj));
   } else {
@@ -319,17 +320,17 @@ void DebugScene::CreateObjectsRecursive(const LevelData::ObjectData& objectData,
     obj->SetTranslation(objectData.translation);
     obj->SetRotation(objectData.rotation);
     obj->SetScale(objectData.scaling);
-    
+
     if (parent) {
       obj->SetParent(parent);
     }
-    
+
     newObject = obj.get();
     levelObjects_.push_back(std::move(obj));
   }
-  
+
   // 子オブジェクトの再帰生成
-  for (const auto& childData : objectData.children) {
+  for (const auto &childData : objectData.children) {
     CreateObjectsRecursive(childData, newObject);
   }
 }
@@ -473,15 +474,15 @@ void DebugScene::Update() {
   object3dA_->Update();
 
   animatedCube_->Update();
-  
+
   // レベルデータのオブジェクト更新
-  for (auto& obj : levelObjects_) {
-      obj->Update();
+  for (auto &obj : levelObjects_) {
+    obj->Update();
   }
 
   // 敵の更新
-  for (auto& enemy : enemies_) {
-      enemy->Update();
+  for (auto &enemy : enemies_) {
+    enemy->Update();
   }
 
   // スケルトンのアニメーション更新
@@ -738,7 +739,7 @@ void DebugScene::Draw3D() {
 
   if (skybox_) {
     engine_->GetSkyboxRenderer()->Begin();
-  //  skybox_->Draw();
+    skybox_->Draw();
 
     // Skybox描画後に通常3Dへ戻す
     engine_->GetObject3dRenderer()->Begin();
@@ -749,13 +750,13 @@ void DebugScene::Draw3D() {
   animatedCube_->Draw();
 
   // レベルデータのオブジェクト描画
-  for (auto& obj : levelObjects_) {
-      obj->Draw();
+  for (auto &obj : levelObjects_) {
+    obj->Draw();
   }
 
   // 敵の描画
-  for (auto& enemy : enemies_) {
-      enemy->Draw();
+  for (auto &enemy : enemies_) {
+    enemy->Draw();
   }
 
   // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい

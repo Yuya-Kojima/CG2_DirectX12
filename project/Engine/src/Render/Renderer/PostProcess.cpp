@@ -4,6 +4,25 @@
 
 void PostProcess::Initialize(Dx12Core* dx12Core) {
   dx12Core_ = dx12Core;
+
+  // 定数バッファの作成
+  D3D12_HEAP_PROPERTIES heapProps{};
+  heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+  D3D12_RESOURCE_DESC resourceDesc{};
+  resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+  resourceDesc.Width = 256; // 256バイトアラインメント
+  resourceDesc.Height = 1;
+  resourceDesc.DepthOrArraySize = 1;
+  resourceDesc.MipLevels = 1;
+  resourceDesc.SampleDesc.Count = 1;
+  resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+  dx12Core_->GetDevice()->CreateCommittedResource(
+      &heapProps, D3D12_HEAP_FLAG_NONE, &resourceDesc,
+      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+      IID_PPV_ARGS(&constBuffer_));
+
   CreateRootSignature();
   CreatePSO();
 }
@@ -23,11 +42,18 @@ void PostProcess::CreateRootSignature() {
   descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
   descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  D3D12_ROOT_PARAMETER rootParameter[1] = {};
-  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  D3D12_ROOT_PARAMETER rootParameter[2] = {};
+
+  // b0: 定数バッファ (Grayscale切り替え用)
+  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
   rootParameter[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-  rootParameter[0].DescriptorTable.pDescriptorRanges = descriptorRange;
-  rootParameter[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
+  rootParameter[0].Descriptor.ShaderRegister = 0; // b0
+
+  // t0: テクスチャ用デスクリプタテーブル
+  rootParameter[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[1].DescriptorTable.pDescriptorRanges = descriptorRange;
+  rootParameter[1].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
 
   // Sampler
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
@@ -86,11 +112,11 @@ void PostProcess::CreatePSO() {
 
   // shaderをcompileする
   IDxcBlob* vertexShaderBlob =
-      dx12Core_->CompileShader(L"resources/shaders/CopyImage.VS.hlsl", L"vs_6_0");
+      dx12Core_->CompileShader(L"resources/shaders/Fullscreen.VS.hlsl", L"vs_6_0");
   assert(vertexShaderBlob != nullptr);
 
   IDxcBlob* pixelShaderBlob =
-      dx12Core_->CompileShader(L"resources/shaders/CopyImage.PS.hlsl", L"ps_6_0");
+      dx12Core_->CompileShader(L"resources/shaders/Grayscale.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
   // DepthStencilStateの設定
@@ -124,6 +150,16 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   auto commandList = dx12Core_->GetCommandList();
   auto renderTextureResource = dx12Core_->GetRenderTextureResource();
 
+  // 定数バッファへのデータ転送
+  struct PostProcessData {
+    int32_t useGrayscale;
+    float padding[3];
+  };
+  PostProcessData* data = nullptr;
+  constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
+  data->useGrayscale = useGrayscale_ ? 1 : 0;
+  constBuffer_->Unmap(0, nullptr);
+
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
   D3D12_RESOURCE_BARRIER barrier1{};
   barrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -138,8 +174,11 @@ void PostProcess::Draw(uint32_t srvIndex, SrvManager* srvManager) {
   commandList->SetPipelineState(graphicsPipelineState_.Get());
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-  // SRVセット
-  srvManager->SetGraphicsRootDescriptorTable(0, srvIndex);
+  // CBVセット (rootParameter[0])
+  commandList->SetGraphicsRootConstantBufferView(0, constBuffer_->GetGPUVirtualAddress());
+
+  // SRVセット (rootParameter[1])
+  srvManager->SetGraphicsRootDescriptorTable(1, srvIndex);
 
   // 描画
   commandList->DrawInstanced(3, 1, 0, 0);
