@@ -122,59 +122,73 @@ void Game::Update() {
   ImGui::ShowDemoWindow();
 
   ImGui::Begin("Settings");
-  static int monotoneType = 0; // 0: Normal, 1: Grayscale, 2: Sepia, 3: Custom
-  static float monotoneColor[3] = {1.0f, 1.0f, 1.0f};
 
-  const char* items[] = { "Normal", "Grayscale", "Sepia", "Custom" };
-  if (ImGui::Combo("Monotone Preset", &monotoneType, items, IM_ARRAYSIZE(items))) {
-      if (monotoneType == 1) { // Grayscale
-          monotoneColor[0] = 1.0f;
-          monotoneColor[1] = 1.0f;
-          monotoneColor[2] = 1.0f;
-      } else if (monotoneType == 2) { // Sepia
-          monotoneColor[0] = 1.0f;
-          monotoneColor[1] = 74.0f / 107.0f;
-          monotoneColor[2] = 43.0f / 107.0f;
+  if (ImGui::CollapsingHeader("PostEffect", ImGuiTreeNodeFlags_DefaultOpen)) {
+      
+      // --- Base Effect ---
+      ImGui::Separator();
+      ImGui::Text("Base Effect");
+      static int postEffectType = 0;
+      const char* effectTypes[] = { "None", "BoxFilter" };
+      ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
+      
+      if (postEffectType == 1) { // BoxFilter
+          static int boxFilterK = 1;
+          ImGui::DragInt("BoxFilter K (Radius)", &boxFilterK, 0.1f, 1, 10);
+          if (postProcess_) postProcess_->SetBoxFilterK(boxFilterK);
       }
-  }
+      if (postProcess_) {
+          postProcess_->SetPostEffectType(postEffectType);
+      }
 
-  bool useGrayscale = (monotoneType != 0);
-  
-  if (monotoneType == 3) {
-      ImGui::ColorEdit3("Custom Monotone Color", monotoneColor);
-  }
+      // --- Monotone ---
+      ImGui::Separator();
+      ImGui::Text("Color Grading");
+      static int monotoneType = 0; // 0: Normal, 1: Grayscale, 2: Sepia, 3: Custom
+      const char* monotoneItems[] = { "Normal (Off)", "Grayscale", "Sepia", "Custom" };
+      ImGui::Combo("Monotone", &monotoneType, monotoneItems, IM_ARRAYSIZE(monotoneItems));
+      
+      static float monotoneColor[3] = {1.0f, 1.0f, 1.0f};
+      if (monotoneType == 1) {
+          monotoneColor[0] = 1.0f; monotoneColor[1] = 1.0f; monotoneColor[2] = 1.0f;
+      } else if (monotoneType == 2) {
+          monotoneColor[0] = 1.0f; monotoneColor[1] = 74.0f / 107.0f; monotoneColor[2] = 43.0f / 107.0f;
+      } else if (monotoneType == 3) {
+          ImGui::ColorEdit3("Custom Color", monotoneColor);
+      }
+      
+      if (postProcess_) {
+          postProcess_->SetUseGrayscale(monotoneType != 0);
+          postProcess_->SetMonotoneColor(monotoneColor[0], monotoneColor[1], monotoneColor[2]);
+      }
 
-  ImGui::Separator();
-  
-  static int vignetteType = 0; // 0: Normal, 1: Mild, 2: Strong, 3: Pinhole, 4: Custom
-  static float vignetteScale = 16.0f;
-  static float vignetteExponent = 0.8f;
-
-  const char* vignetteItems[] = { "Normal (Off)", "Mild", "Strong", "Pinhole", "Custom" };
-  if (ImGui::Combo("Vignette Preset", &vignetteType, vignetteItems, IM_ARRAYSIZE(vignetteItems))) {
-      if (vignetteType == 1) { // Mild
+      // --- Vignette ---
+      ImGui::Separator();
+      ImGui::Text("Vignette");
+      static int vignetteType = 0;
+      const char* vignetteItems[] = { "Normal (Off)", "Mild", "Strong", "Pinhole", "Custom" };
+      ImGui::Combo("Vignette", &vignetteType, vignetteItems, IM_ARRAYSIZE(vignetteItems));
+      
+      static float vignetteScale = 16.0f;
+      static float vignetteExponent = 0.8f;
+      if (vignetteType == 1) {
           vignetteScale = 16.0f; vignetteExponent = 0.8f;
-      } else if (vignetteType == 2) { // Strong
+      } else if (vignetteType == 2) {
           vignetteScale = 16.0f; vignetteExponent = 1.5f;
-      } else if (vignetteType == 3) { // Pinhole
+      } else if (vignetteType == 3) {
           vignetteScale = 5.0f; vignetteExponent = 1.2f;
+      } else if (vignetteType == 4) {
+          ImGui::DragFloat("Scale", &vignetteScale, 0.1f, 1.0f, 100.0f);
+          ImGui::DragFloat("Exponent", &vignetteExponent, 0.05f, 0.1f, 5.0f);
+      }
+      
+      if (postProcess_) {
+          postProcess_->SetUseVignette(vignetteType != 0);
+          postProcess_->SetVignetteScale(vignetteScale);
+          postProcess_->SetVignetteExponent(vignetteExponent);
       }
   }
 
-  bool useVignette = (vignetteType != 0);
-
-  if (vignetteType == 4) { // Custom
-      ImGui::DragFloat("Vignette Scale", &vignetteScale, 0.1f, 1.0f, 100.0f);
-      ImGui::DragFloat("Vignette Exponent", &vignetteExponent, 0.05f, 0.1f, 5.0f);
-  }
-
-  if (postProcess_) {
-    postProcess_->SetUseGrayscale(useGrayscale);
-    postProcess_->SetMonotoneColor(monotoneColor[0], monotoneColor[1], monotoneColor[2]);
-    postProcess_->SetUseVignette(useVignette);
-    postProcess_->SetVignetteScale(vignetteScale);
-    postProcess_->SetVignetteExponent(vignetteExponent);
-  }
   ImGui::End();
 
   // ImGui受付終了
