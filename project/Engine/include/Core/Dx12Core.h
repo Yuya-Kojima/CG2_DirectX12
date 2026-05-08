@@ -1,5 +1,6 @@
 #pragma once
 #include "Core/WindowSystem.h"
+#include "Math/Vector4.h"
 #include "DirectXTex.h"
 #include <array>
 #include <chrono>
@@ -8,6 +9,9 @@
 #include <dxgi1_6.h>
 #include <string>
 #include <wrl.h>
+
+Microsoft::WRL::ComPtr<ID3D12Resource>
+CreateRenderTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> device, uint32_t width, uint32_t height, DXGI_FORMAT format, const Vector4& clearColor);
 
 class Dx12Core {
 private:
@@ -56,6 +60,10 @@ private:
   D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2];
 
   D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+
+  // RenderTexture用
+  Microsoft::WRL::ComPtr<ID3D12Resource> renderTextureResource;
+  D3D12_CPU_DESCRIPTOR_HANDLE renderTextureRtvHandle{};
 
   // フェンスカウント
   uint64_t fenceValue;
@@ -116,6 +124,11 @@ public:
   /// 描画前処理
   /// </summary>
   void BeginFrame();
+
+  /// <summary>
+  /// ImGui描画前処理(Swapchainへの切り替え)
+  /// </summary>
+  void PreDrawImGui();
 
   /// <summary>
   /// 描画後処理
@@ -201,10 +214,15 @@ public:
   /// デバイスのゲッター
   /// </summary>
   /// <returns></returns>
+  /// <returns></returns>
   ID3D12Device *GetDevice() const { return device.Get(); }
 
   ID3D12GraphicsCommandList *GetCommandList() const {
     return commandList.Get();
+  }
+
+  ID3D12Resource *GetRenderTextureResource() const {
+    return renderTextureResource.Get();
   }
 
   /// <summary>
