@@ -54,6 +54,7 @@ public:
   SkyboxRenderer *GetSkyboxRenderer() const { return skyboxRenderer_.get(); }
   LineRenderer *GetLineRenderer() const { return LineRenderer::GetInstance(); }
   SrvManager *GetSrvManager() const { return srvManager_.get(); }
+  Dx12Core *GetDx12Core() const { return dx12Core_.get(); }
 
 protected:
   bool endRequest_ = false;

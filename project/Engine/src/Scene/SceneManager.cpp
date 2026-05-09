@@ -143,6 +143,13 @@ void SceneManager::ChangeScene(const std::string &sceneName) {
   nextScene_ = sceneFactory_->CreateScene(sceneName);
 }
 
+PostProcess* SceneManager::GetCurrentScenePostProcess() const {
+  if (scene_) {
+    return scene_->GetPostProcess();
+  }
+  return nullptr;
+}
+
 void SceneManager::SetNextTransitionFade(float durationSec, Fade::FadeType type,
                                          const Vector4 &color,
                                          Fade::EasingType easing) {

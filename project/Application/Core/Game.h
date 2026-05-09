@@ -24,13 +24,7 @@ private:
   bool set60FPS_ = true;
 
   std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
-  std::unique_ptr<PostProcess> postProcess_ = nullptr;
 
   uint32_t renderTextureSrvIndex_ = 0;
   uint32_t depthTextureSrvIndex_ = 0;
-  
-  uint32_t noise0TextureIndex_ = 0;
-  uint32_t noise1TextureIndex_ = 0;
-  
-  int useNoiseTextureType_ = 0;
 };

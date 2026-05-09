@@ -2,6 +2,9 @@
 #include "Core/SrvManager.h"
 #include "Debug/Logger.h"
 #include "Math/MathUtil.h"
+#ifdef USE_IMGUI
+#include <imgui.h>
+#endif
 
 void PostProcess::Initialize(Dx12Core* dx12Core) {
   dx12Core_ = dx12Core;
@@ -185,7 +188,7 @@ void PostProcess::CreatePSO() {
   assert(SUCCEEDED(hr));
 }
 
-void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t maskSrvIndex, SrvManager* srvManager) {
+void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager) {
 
   auto commandList = dx12Core_->GetCommandList();
   auto renderTextureResource = dx12Core_->GetRenderTextureResource();
@@ -287,7 +290,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t
   // DescriptorTableをセット
   srvManager->SetGraphicsRootDescriptorTable(1, renderSrvIndex);
   srvManager->SetGraphicsRootDescriptorTable(2, depthSrvIndex);
-  srvManager->SetGraphicsRootDescriptorTable(3, maskSrvIndex);
+  srvManager->SetGraphicsRootDescriptorTable(3, maskSrvIndex_);
 
   // 描画コマンド
   commandList->DrawInstanced(3, 1, 0, 0);
@@ -299,7 +302,6 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t
   barrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
   barrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
   barrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
   D3D12_RESOURCE_BARRIER depthBarrier2{};
   depthBarrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
   depthBarrier2.Transition.pResource = depthStencilResource;
@@ -309,4 +311,90 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t
 
   D3D12_RESOURCE_BARRIER barriersEnd[2] = { barrier2, depthBarrier2 };
   commandList->ResourceBarrier(2, barriersEnd);
+}
+
+void PostProcess::DrawDebugUI(const char* windowName) {
+#ifdef USE_IMGUI
+  ImGui::Begin(windowName);
+
+  if (ImGui::CollapsingHeader("PostEffect", ImGuiTreeNodeFlags_DefaultOpen)) {
+      
+      // --- Base Effect ---
+      ImGui::Separator();
+      ImGui::Text("Base Effect");
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve", "Random Noise" };
+      ImGui::Combo("Effect Type", &postEffectType_, effectTypes, IM_ARRAYSIZE(effectTypes));
+      
+      if (postEffectType_ == 1) { // BoxFilter
+          ImGui::DragInt("BoxFilter K (Radius)", &boxFilterK_, 0.1f, 1, 10);
+      } else if (postEffectType_ == 2) { // GaussianFilter
+          ImGui::DragInt("Gaussian K", &gaussianFilterK_, 0.1f, 1, 10);
+          ImGui::DragFloat("Gaussian Sigma", &gaussianSigma_, 0.1f, 0.1f, 20.0f);
+      } else if (postEffectType_ == 4) { // Depth Outline
+          ImGui::DragFloat("Outline Weight", &depthOutlineWeight_, 0.1f, 1.0f, 100.0f);
+          ImGui::DragFloat("Distance Attenuation", &depthOutlineAttenuation_, 0.001f, 0.0f, 1.0f, "%.3f");
+      } else if (postEffectType_ == 5) { // Radial Blur
+          ImGui::DragFloat2("Center X/Y", radialBlurCenter_, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Blur Width", &radialBlurWidth_, 0.001f, 0.0f, 0.1f, "%.3f");
+          ImGui::DragInt("Num Samples", &radialBlurSamples_, 1.0f, 1, 50);
+          ImGui::DragFloat("Inner Radius (Sharp)", &radialBlurInnerRadius_, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Outer Radius", &radialBlurOuterRadius_, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Aberration (RGB Shift)", &radialBlurAberration_, 0.01f, -0.5f, 0.5f);
+          if (radialBlurInnerRadius_ > radialBlurOuterRadius_) {
+              radialBlurInnerRadius_ = radialBlurOuterRadius_;
+          }
+      } else if (postEffectType_ == 6) { // Dissolve
+          ImGui::DragFloat("Threshold", &dissolveThreshold_, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Edge Range", &dissolveEdgeRange_, 0.001f, 0.0f, 0.2f, "%.3f");
+          ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
+      } else if (postEffectType_ == 7) { // Random Noise
+          ImGui::Text("Generating animated GPU random noise.");
+      }
+
+      // --- Monotone ---
+      ImGui::Separator();
+      ImGui::Text("Color Grading");
+      
+      // Grayscale
+      int monotoneType = useGrayscale_ ? 1 : 0;
+      if (monotoneColor_[0] == 1.0f && monotoneColor_[1] == 1.0f && monotoneColor_[2] == 1.0f) monotoneType = 1;
+      else if (monotoneColor_[0] == 1.0f && monotoneColor_[1] == 74.0f / 107.0f && monotoneColor_[2] == 43.0f / 107.0f) monotoneType = 2;
+      else monotoneType = 3;
+      if (!useGrayscale_) monotoneType = 0;
+
+      const char* monotoneItems[] = { "Normal (Off)", "Grayscale", "Sepia", "Custom" };
+      if (ImGui::Combo("Monotone", &monotoneType, monotoneItems, IM_ARRAYSIZE(monotoneItems))) {
+          useGrayscale_ = (monotoneType != 0);
+          if (monotoneType == 1) { monotoneColor_[0] = 1.0f; monotoneColor_[1] = 1.0f; monotoneColor_[2] = 1.0f; }
+          else if (monotoneType == 2) { monotoneColor_[0] = 1.0f; monotoneColor_[1] = 74.0f / 107.0f; monotoneColor_[2] = 43.0f / 107.0f; }
+      }
+      if (monotoneType == 3) {
+          ImGui::ColorEdit3("Custom Color", monotoneColor_);
+      }
+
+      // --- Vignette ---
+      ImGui::Separator();
+      ImGui::Text("Vignette");
+      int vignetteType = useVignette_ ? 4 : 0;
+      if (useVignette_) {
+          if (vignetteScale_ == 16.0f && vignetteExponent_ == 0.8f) vignetteType = 1;
+          else if (vignetteScale_ == 16.0f && vignetteExponent_ == 1.5f) vignetteType = 2;
+          else if (vignetteScale_ == 5.0f && vignetteExponent_ == 1.2f) vignetteType = 3;
+      }
+
+      const char* vignetteItems[] = { "Normal (Off)", "Mild", "Strong", "Pinhole", "Custom" };
+      if (ImGui::Combo("Vignette", &vignetteType, vignetteItems, IM_ARRAYSIZE(vignetteItems))) {
+          useVignette_ = (vignetteType != 0);
+          if (vignetteType == 1) { vignetteScale_ = 16.0f; vignetteExponent_ = 0.8f; }
+          else if (vignetteType == 2) { vignetteScale_ = 16.0f; vignetteExponent_ = 1.5f; }
+          else if (vignetteType == 3) { vignetteScale_ = 5.0f; vignetteExponent_ = 1.2f; }
+      }
+      if (vignetteType == 4) {
+          ImGui::DragFloat("Scale", &vignetteScale_, 0.1f, 1.0f, 100.0f);
+          ImGui::DragFloat("Exponent", &vignetteExponent_, 0.05f, 0.1f, 5.0f);
+      }
+  }
+
+  ImGui::End();
+#endif
 }

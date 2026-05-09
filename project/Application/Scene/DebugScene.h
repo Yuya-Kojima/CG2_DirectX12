@@ -142,4 +142,12 @@ private: // メンバ変数(システム用)
   Vector4 suzanneDissolveEdgeColor_ = {1.0f, 0.4f, 0.3f, 1.0f};
   bool isPlayingSuzanneDissolve_ = false;
   bool isHologramMode_ = false;
+
+  //========================
+  // PostProcess用
+  //========================
+  uint32_t noise0TextureIndex_ = 0;
+  uint32_t noise1TextureIndex_ = 0;
+  int useNoiseTextureType_ = 0;
+  float elapsedTime_ = 0.0f;
 };
