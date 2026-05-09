@@ -2,6 +2,7 @@
 
 Texture2D<float32_t4> gTexture : register(t0);
 Texture2D<float32_t> gDepthTexture : register(t1);
+Texture2D<float32_t> gMaskTexture : register(t2);
 SamplerState gSampler : register(s0);
 SamplerState gSamplerPoint : register(s1);
 
@@ -28,6 +29,11 @@ cbuffer PostProcessData : register(b0) {
     float32_t radialBlurOuterRadius;
     float32_t radialBlurAberration;
     float32_t padding4;
+    float32_t dissolveThreshold;
+    float32_t dissolveEdgeRange;
+    float32_t2 padding5;
+    float32_t3 dissolveEdgeColor;
+    float32_t padding6;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -204,6 +210,21 @@ PixelShaderOutput main(VertexShaderOutput input) {
         // 元画像とブラー画像をマスク値でブレンドする
         output.color.rgb = lerp(originalColor, outputColor, mask);
         output.color.a = 1.0f;
+    } else if (postEffectType == 6) { // Dissolve
+        float32_t mask = gMaskTexture.Sample(gSampler, input.texcoord).r;
+        
+        // maskの値が閾値以下の場合はdiscardして抜く
+        if (mask <= dissolveThreshold) {
+            discard;
+        }
+        
+        // Edgeっぽさを算出
+        float32_t edge = 1.0f - smoothstep(dissolveThreshold, dissolveThreshold + dissolveEdgeRange, mask);
+        
+        output.color = gTexture.Sample(gSampler, input.texcoord);
+        
+        // Edgeっぽいほど指定した色を加算
+        output.color.rgb += edge * dissolveEdgeColor;
     } else {
         output.color = gTexture.Sample(gSampler, input.texcoord);
     }

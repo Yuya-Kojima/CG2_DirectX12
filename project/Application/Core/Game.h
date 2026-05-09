@@ -28,4 +28,9 @@ private:
 
   uint32_t renderTextureSrvIndex_ = 0;
   uint32_t depthTextureSrvIndex_ = 0;
+  
+  uint32_t noise0TextureIndex_ = 0;
+  uint32_t noise1TextureIndex_ = 0;
+  
+  int useNoiseTextureType_ = 0;
 };

@@ -60,6 +60,12 @@ void Game::Initialize() {
   postProcess_ = std::make_unique<PostProcess>();
   postProcess_->Initialize(dx12Core_.get());
 
+  // Noiseテクスチャのロード
+  TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
+  TextureManager::GetInstance()->LoadTexture("resources/noise1.png");
+  noise0TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise0.png");
+  noise1TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise1.png");
+
   // texture切り替え用
   bool useMonsterBall = true;
 
@@ -134,7 +140,7 @@ void Game::Update() {
       ImGui::Separator();
       ImGui::Text("Base Effect");
       static int postEffectType = 0;
-      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve" };
       ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType == 1) { // BoxFilter
@@ -184,6 +190,23 @@ void Game::Update() {
               postProcess_->SetRadialBlurInnerRadius(radialBlurInnerRadius);
               postProcess_->SetRadialBlurOuterRadius(radialBlurOuterRadius);
               postProcess_->SetRadialBlurAberration(radialBlurAberration);
+          }
+      } else if (postEffectType == 6) { // Dissolve
+          static float dissolveThreshold = 0.5f;
+          static float dissolveEdgeRange = 0.05f;
+          static float dissolveEdgeColor[3] = {1.0f, 0.4f, 0.3f};
+          
+          ImGui::DragFloat("Threshold", &dissolveThreshold, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Edge Range", &dissolveEdgeRange, 0.001f, 0.0f, 0.2f, "%.3f");
+          ImGui::ColorEdit3("Edge Color", dissolveEdgeColor);
+          
+          const char* noiseTypes[] = { "noise0.png", "noise1.png" };
+          ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes, IM_ARRAYSIZE(noiseTypes));
+          
+          if (postProcess_) {
+              postProcess_->SetDissolveThreshold(dissolveThreshold);
+              postProcess_->SetDissolveEdgeRange(dissolveEdgeRange);
+              postProcess_->SetDissolveEdgeColor(dissolveEdgeColor[0], dissolveEdgeColor[1], dissolveEdgeColor[2]);
           }
       }
       
@@ -269,7 +292,10 @@ void Game::Draw() {
   }
 
   // PostProcessでRenderTextureをSwapchainに描画する
-  postProcess_->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
+  // Dissolve用に選択されたノイズテクスチャのSRVインデックスを決定
+  uint32_t currentMaskSrvIndex = (useNoiseTextureType_ == 0) ? noise0TextureIndex_ : noise1TextureIndex_;
+  
+  postProcess_->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, currentMaskSrvIndex, srvManager_.get());
 
   // 2D
   // EngineBase::Begin2D();

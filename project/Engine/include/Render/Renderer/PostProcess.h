@@ -8,7 +8,7 @@ class SrvManager;
 class PostProcess {
 public:
   void Initialize(Dx12Core* dx12Core);
-  void Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager);
+  void Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t maskSrvIndex, SrvManager* srvManager);
 
   void SetUseGrayscale(bool useGrayscale) { useGrayscale_ = useGrayscale; }
   void SetMonotoneColor(float r, float g, float b) {
@@ -31,6 +31,11 @@ public:
   void SetRadialBlurInnerRadius(float radius) { radialBlurInnerRadius_ = radius; }
   void SetRadialBlurOuterRadius(float radius) { radialBlurOuterRadius_ = radius; }
   void SetRadialBlurAberration(float aberration) { radialBlurAberration_ = aberration; }
+  void SetDissolveThreshold(float threshold) { dissolveThreshold_ = threshold; }
+  void SetDissolveEdgeRange(float range) { dissolveEdgeRange_ = range; }
+  void SetDissolveEdgeColor(float r, float g, float b) {
+      dissolveEdgeColor_[0] = r; dissolveEdgeColor_[1] = g; dissolveEdgeColor_[2] = b;
+  }
   void SetProjectionInverse(const Matrix4x4& m) { projectionInverse_ = m; }
 
 private:
@@ -55,6 +60,10 @@ private:
   float radialBlurInnerRadius_ = 0.0f;
   float radialBlurOuterRadius_ = 0.5f;
   float radialBlurAberration_ = 0.1f;
+
+  float dissolveThreshold_ = 0.5f;
+  float dissolveEdgeRange_ = 0.05f;
+  float dissolveEdgeColor_[3] = {1.0f, 0.4f, 0.3f};
 
   Matrix4x4 projectionInverse_;
 
