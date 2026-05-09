@@ -21,6 +21,13 @@ cbuffer PostProcessData : register(b0) {
     float32_t padding2;
     float32_t padding3;
     float32_t4x4 projectionInverse;
+    float32_t2 radialBlurCenter;
+    float32_t radialBlurWidth;
+    int32_t radialBlurSamples;
+    float32_t radialBlurInnerRadius;
+    float32_t radialBlurOuterRadius;
+    float32_t radialBlurAberration;
+    float32_t padding4;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -154,6 +161,48 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
         float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
         output.color.rgb = (1.0f - weight) * originalColor;
+        output.color.a = 1.0f;
+    } else if (postEffectType == 5) { // Radial Blur
+        // 中心から現在のUVへの方向と距離を計算
+        float32_t2 direction = input.texcoord - radialBlurCenter;
+        float32_t dist = length(direction);
+        
+        // 中心マスク（センターをクッキリさせる）
+        // innerRadius 以下はブラー0、outerRadius 以上はブラー100%
+        float32_t mask = smoothstep(radialBlurInnerRadius, radialBlurOuterRadius, dist);
+        
+        // 元画像（ブラーなし）の色
+        float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
+        
+        // maskが0なら処理をスキップしてそのまま色を返す（軽量化）
+        if (mask <= 0.0f) {
+            output.color.rgb = originalColor;
+            output.color.a = 1.0f;
+            return output;
+        }
+
+        float32_t3 outputColor = float32_t3(0.0f, 0.0f, 0.0f);
+        
+        for (int32_t sampleIndex = 0; sampleIndex < radialBlurSamples; ++sampleIndex) {
+            // 色収差のオフセット計算
+            // sampleIndexが進むにつれてRGBのサンプリング位置を少しズラす
+            float32_t scale = radialBlurWidth * float32_t(sampleIndex);
+            
+            // 赤は外側、青は内側へ少しズラす
+            float32_t2 texcoordR = input.texcoord + direction * (scale * (1.0f + radialBlurAberration));
+            float32_t2 texcoordG = input.texcoord + direction * scale;
+            float32_t2 texcoordB = input.texcoord + direction * (scale * (1.0f - radialBlurAberration));
+            
+            outputColor.r += gTexture.Sample(gSampler, texcoordR).r;
+            outputColor.g += gTexture.Sample(gSampler, texcoordG).g;
+            outputColor.b += gTexture.Sample(gSampler, texcoordB).b;
+        }
+        
+        // 平均化する
+        outputColor.rgb *= rcp(float32_t(radialBlurSamples));
+        
+        // 元画像とブラー画像をマスク値でブレンドする
+        output.color.rgb = lerp(originalColor, outputColor, mask);
         output.color.a = 1.0f;
     } else {
         output.color = gTexture.Sample(gSampler, input.texcoord);
