@@ -25,6 +25,12 @@ public:
   void SetGaussianSigma(float sigma) { gaussianSigma_ = sigma; }
   void SetDepthOutlineWeight(float weight) { depthOutlineWeight_ = weight; }
   void SetDepthOutlineAttenuation(float attenuation) { depthOutlineAttenuation_ = attenuation; }
+  void SetRadialBlurCenter(float x, float y) { radialBlurCenter_[0] = x; radialBlurCenter_[1] = y; }
+  void SetRadialBlurWidth(float width) { radialBlurWidth_ = width; }
+  void SetRadialBlurSamples(int samples) { radialBlurSamples_ = samples; }
+  void SetRadialBlurInnerRadius(float radius) { radialBlurInnerRadius_ = radius; }
+  void SetRadialBlurOuterRadius(float radius) { radialBlurOuterRadius_ = radius; }
+  void SetRadialBlurAberration(float aberration) { radialBlurAberration_ = aberration; }
   void SetProjectionInverse(const Matrix4x4& m) { projectionInverse_ = m; }
 
 private:
@@ -42,6 +48,13 @@ private:
   
   float depthOutlineWeight_ = 10.0f;
   float depthOutlineAttenuation_ = 0.05f;
+
+  float radialBlurCenter_[2] = {0.5f, 0.5f};
+  float radialBlurWidth_ = 0.01f;
+  int32_t radialBlurSamples_ = 10;
+  float radialBlurInnerRadius_ = 0.0f;
+  float radialBlurOuterRadius_ = 0.5f;
+  float radialBlurAberration_ = 0.1f;
 
   Matrix4x4 projectionInverse_;
 

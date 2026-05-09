@@ -194,6 +194,13 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
     float padding2;
     float padding3;
     Matrix4x4 projectionInverse;
+    float radialBlurCenter[2];
+    float radialBlurWidth;
+    int32_t radialBlurSamples;
+    float radialBlurInnerRadius;
+    float radialBlurOuterRadius;
+    float radialBlurAberration;
+    float padding4;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -214,6 +221,14 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   data->padding2 = 0.0f;
   data->padding3 = 0.0f;
   data->projectionInverse = projectionInverse_;
+  data->radialBlurCenter[0] = radialBlurCenter_[0];
+  data->radialBlurCenter[1] = radialBlurCenter_[1];
+  data->radialBlurWidth = radialBlurWidth_;
+  data->radialBlurSamples = radialBlurSamples_;
+  data->radialBlurInnerRadius = radialBlurInnerRadius_;
+  data->radialBlurOuterRadius = radialBlurOuterRadius_;
+  data->radialBlurAberration = radialBlurAberration_;
+  data->padding4 = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE

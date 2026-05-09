@@ -134,7 +134,7 @@ void Game::Update() {
       ImGui::Separator();
       ImGui::Text("Base Effect");
       static int postEffectType = 0;
-      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur" };
       ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType == 1) { // BoxFilter
@@ -158,6 +158,32 @@ void Game::Update() {
           if (postProcess_) {
               postProcess_->SetDepthOutlineWeight(depthOutlineWeight);
               postProcess_->SetDepthOutlineAttenuation(depthOutlineAttenuation);
+          }
+      } else if (postEffectType == 5) { // Radial Blur
+          static float radialBlurCenter[2] = {0.5f, 0.5f};
+          static float radialBlurWidth = 0.01f;
+          static int radialBlurSamples = 10;
+          static float radialBlurInnerRadius = 0.0f;
+          static float radialBlurOuterRadius = 0.5f;
+          static float radialBlurAberration = 0.1f;
+          ImGui::DragFloat2("Center X/Y", radialBlurCenter, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Blur Width", &radialBlurWidth, 0.001f, 0.0f, 0.1f, "%.3f");
+          ImGui::DragInt("Num Samples", &radialBlurSamples, 1.0f, 1, 50);
+          ImGui::DragFloat("Inner Radius (Sharp)", &radialBlurInnerRadius, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Outer Radius", &radialBlurOuterRadius, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Aberration (RGB Shift)", &radialBlurAberration, 0.01f, -0.5f, 0.5f);
+          
+          if (radialBlurInnerRadius > radialBlurOuterRadius) {
+              radialBlurInnerRadius = radialBlurOuterRadius;
+          }
+          
+          if (postProcess_) {
+              postProcess_->SetRadialBlurCenter(radialBlurCenter[0], radialBlurCenter[1]);
+              postProcess_->SetRadialBlurWidth(radialBlurWidth);
+              postProcess_->SetRadialBlurSamples(radialBlurSamples);
+              postProcess_->SetRadialBlurInnerRadius(radialBlurInnerRadius);
+              postProcess_->SetRadialBlurOuterRadius(radialBlurOuterRadius);
+              postProcess_->SetRadialBlurAberration(radialBlurAberration);
           }
       }
       
