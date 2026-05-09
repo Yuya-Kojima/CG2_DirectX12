@@ -66,7 +66,8 @@ public:
     int32_t enableDissolve;
     float dissolveThreshold;
     float dissolveEdgeRange;
-    float padding2[3];
+    Vector2 maskTransform;
+    float padding2;
     Vector4 dissolveEdgeColor;
   };
 

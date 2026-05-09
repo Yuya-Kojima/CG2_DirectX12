@@ -168,31 +168,61 @@ public:
     }
   }
 
+  /// <summary>
+  /// ディゾルブエフェクトの有効/無効を切り替える
+  /// </summary>
+  /// <param name="enable">trueで有効、falseで無効</param>
   void SetEnableDissolve(bool enable) {
     if (materialData) {
       materialData->enableDissolve = enable ? 1 : 0;
     }
   }
 
+  /// <summary>
+  /// ディゾルブの進行度を設定する
+  /// </summary>
+  /// <param name="threshold">0.0f（完全表示）～ 1.0f（完全消失）</param>
   void SetDissolveThreshold(float threshold) {
     if (materialData) {
       materialData->dissolveThreshold = threshold;
     }
   }
 
+  /// <summary>
+  /// ディゾルブのエッジの太さを設定する
+  /// </summary>
+  /// <param name="range">エッジの太さ（例: 0.05f）</param>
   void SetDissolveEdgeRange(float range) {
     if (materialData) {
       materialData->dissolveEdgeRange = range;
     }
   }
 
+  /// <summary>
+  /// ディゾルブのエッジの色を設定する
+  /// </summary>
+  /// <param name="color">RGBAカラー</param>
   void SetDissolveEdgeColor(const Vector4& color) {
     if (materialData) {
       materialData->dissolveEdgeColor = color;
     }
   }
 
+  /// <summary>
+  /// ディゾルブに使用するマスク画像のファイルパスを設定する
+  /// </summary>
+  /// <param name="path">画像ファイルパス</param>
   void SetMaskTexturePath(const std::string& path);
+
+  /// <summary>
+  /// マスク画像のUVスクロール量を設定する
+  /// </summary>
+  /// <param name="transform">UVの移動量（X, Y）</param>
+  void SetMaskTransform(const Vector2& transform) {
+    if (materialData) {
+      materialData->maskTransform = transform;
+    }
+  }
 
 private:
   std::string maskTexturePath_ = "resources/noise0.png";

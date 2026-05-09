@@ -15,7 +15,8 @@ struct Material {
 	int enableDissolve;
 	float dissolveThreshold;
 	float dissolveEdgeRange;
-	float3 padding2;
+	float2 maskTransform;
+	float padding2;
 	float4 dissolveEdgeColor;
 };
 
@@ -78,7 +79,7 @@ GeometryShaderOutput input) {
 	// ディゾルブ
 	float edge = 0.0f;
 	if (gMaterial.enableDissolve != 0) {
-		float mask = gMaskTexture.Sample(gSampler, input.texcoord).r;
+		float mask = gMaskTexture.Sample(gSampler, input.texcoord + gMaterial.maskTransform).r;
 		if (mask <= gMaterial.dissolveThreshold) {
 			discard;
 		}
