@@ -219,7 +219,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t
     float dissolveEdgeRange;
     float padding5[2];
     float dissolveEdgeColor[3];
-    float padding6;
+    float time;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -255,7 +255,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t
   data->dissolveEdgeColor[0] = dissolveEdgeColor_[0];
   data->dissolveEdgeColor[1] = dissolveEdgeColor_[1];
   data->dissolveEdgeColor[2] = dissolveEdgeColor_[2];
-  data->padding6 = 0.0f;
+  data->time = time_;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE

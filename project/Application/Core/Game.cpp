@@ -119,6 +119,13 @@ void Game::Update() {
   // FPSをセット
   dx12Core_->SetFPS(set60FPS_);
 
+  // 経過時間の更新 
+  static float elapsedTime = 0.0f;
+  elapsedTime += 1.0f / 60.0f;
+  if (postProcess_) {
+      postProcess_->SetTime(elapsedTime);
+  }
+
   //=======================
   // アクターの更新
   //=======================
@@ -140,7 +147,7 @@ void Game::Update() {
       ImGui::Separator();
       ImGui::Text("Base Effect");
       static int postEffectType = 0;
-      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve", "Random Noise" };
       ImGui::Combo("Effect Type", &postEffectType, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType == 1) { // BoxFilter
@@ -208,6 +215,9 @@ void Game::Update() {
               postProcess_->SetDissolveEdgeRange(dissolveEdgeRange);
               postProcess_->SetDissolveEdgeColor(dissolveEdgeColor[0], dissolveEdgeColor[1], dissolveEdgeColor[2]);
           }
+      } else if (postEffectType == 7) { // Random Noise
+          ImGui::Text("Generating animated GPU random noise.");
+          ImGui::Text("Using 'time' as seed multiplier.");
       }
       
       if (postProcess_) {
