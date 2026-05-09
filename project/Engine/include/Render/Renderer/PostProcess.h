@@ -156,6 +156,12 @@ public:
   }
 
   /// <summary>
+  /// シェーダーに渡す経過時間（乱数シードなどのアニメーション用）を設定する
+  /// </summary>
+  /// <param name="time">経過時間</param>
+  void SetTime(float time) { time_ = time; }
+
+  /// <summary>
   /// プロジェクション行列の逆行列を設定する
   /// </summary>
   /// <param name="m">逆プロジェクション行列</param>
@@ -187,6 +193,8 @@ private:
   float dissolveThreshold_ = 0.5f;
   float dissolveEdgeRange_ = 0.05f;
   float dissolveEdgeColor_[3] = {1.0f, 0.4f, 0.3f};
+
+  float time_ = 0.0f;
 
   Matrix4x4 projectionInverse_;
 

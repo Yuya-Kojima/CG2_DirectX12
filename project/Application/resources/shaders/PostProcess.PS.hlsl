@@ -33,7 +33,7 @@ cbuffer PostProcessData : register(b0) {
     float32_t dissolveEdgeRange;
     float32_t2 padding5;
     float32_t3 dissolveEdgeColor;
-    float32_t padding6;
+    float32_t time;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -42,6 +42,11 @@ float32_t gauss(float32_t x, float32_t y, float32_t sigma) {
     float32_t exponent = -(x * x + y * y) * rcp(2.0f * sigma * sigma);
     float32_t denominator = 2.0f * PI * sigma * sigma;
     return exp(exponent) * rcp(denominator);
+}
+
+float32_t rand2dTo1d(float32_t2 value) {
+    // 疑似乱数生成の標準的なアルゴリズム
+    return frac(sin(dot(value, float32_t2(12.9898f, 78.233f))) * 43758.5453f);
 }
 
 float32_t Luminance(float32_t3 v) {
@@ -225,6 +230,16 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
         // Edgeっぽいほど指定した色を加算
         output.color.rgb += edge * dissolveEdgeColor;
+    } else if (postEffectType == 7) { // Random Noise
+        // 経過時間を掛けてSeed値にすることで、毎フレーム異なる乱数を生成する
+        float32_t random = rand2dTo1d(input.texcoord * time);
+        
+        // 元の色を取得
+        float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
+        
+        // 生成した乱数の値を入力画像に乗算して出力（レトロなノイズ感）
+        output.color.rgb = originalColor * random;
+        output.color.a = 1.0f;
     } else {
         output.color = gTexture.Sample(gSampler, input.texcoord);
     }
