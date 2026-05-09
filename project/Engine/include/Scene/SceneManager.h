@@ -6,6 +6,7 @@
 class BaseScene;
 class EngineBase;
 class AbstractSceneFactory;
+class PostProcess;
 
 class SceneManager {
 
@@ -53,6 +54,8 @@ public:
       float durationSec, Fade::FadeType type = Fade::FadeType::Solid,
       const Vector4 &color = Vector4{0.0f, 0.0f, 0.0f, 1.0f},
       Fade::EasingType easing = Fade::EasingType::EaseOutCubic);
+
+  PostProcess* GetCurrentScenePostProcess() const;
 
 private:
   SceneManager() = default;

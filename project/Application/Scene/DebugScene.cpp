@@ -10,6 +10,7 @@
 #include "Render/Primitive/Sphere.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
+#include "Renderer/PostProcess.h"
 #include "Scene/SceneManager.h"
 #include "Texture/TextureManager.h"
 #include <cmath>
@@ -18,7 +19,14 @@
 
 void DebugScene::Initialize(EngineBase *engine) {
 
+  BaseScene::Initialize(engine);
   engine_ = engine;
+
+  // PostProcess用テクスチャ
+  TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
+  TextureManager::GetInstance()->LoadTexture("resources/noise1.png");
+  noise0TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise0.png");
+  noise1TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise1.png");
 
   //===========================
   // テクスチャファイルの読み込み
@@ -752,6 +760,27 @@ void DebugScene::Update() {
       sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
       ImGui::End();
     }
+  }
+
+  //========================
+  // PostProcess Settings UI
+  //========================
+  if (postProcess_) {
+      elapsedTime_ += 1.0f / 60.0f;
+      postProcess_->SetTime(elapsedTime_);
+      uint32_t currentMaskSrvIndex = (useNoiseTextureType_ == 0) ? noise0TextureIndex_ : noise1TextureIndex_;
+      postProcess_->SetMaskSrvIndex(currentMaskSrvIndex);
+
+#ifdef USE_IMGUI
+      postProcess_->DrawDebugUI();
+
+      ImGui::Begin("PostEffect Settings");
+      if (postProcess_->GetPostEffectType() == 6) { // Dissolve
+          const char* noiseTypes[] = { "noise0.png", "noise1.png" };
+          ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes, IM_ARRAYSIZE(noiseTypes));
+      }
+      ImGui::End();
+#endif
   }
 
   //========================

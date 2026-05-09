@@ -9,7 +9,12 @@ class PostProcess {
 public:
   void Initialize(Dx12Core *dx12Core);
   void Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
-            uint32_t maskSrvIndex, SrvManager *srvManager);
+            SrvManager *srvManager);
+
+  /// <summary>
+  /// ImGuiを使用したデバッグ用の設定UIを描画する
+  /// </summary>
+  void DrawDebugUI(const char* windowName = "PostEffect Settings");
 
   /// <summary>
   /// グレースケールの有効/無効を切り替える
@@ -52,6 +57,11 @@ public:
   /// </summary>
   /// <param name="type">0: None, 1: BoxFilter, 2: GaussianFilter, etc.</param>
   void SetPostEffectType(int type) { postEffectType_ = type; }
+  
+  /// <summary>
+  /// 現在のポストエフェクトのタイプを取得する
+  /// </summary>
+  int GetPostEffectType() const { return postEffectType_; }
 
   /// <summary>
   /// ボックスフィルターのカーネルサイズを設定する
@@ -167,6 +177,12 @@ public:
   /// <param name="m">逆プロジェクション行列</param>
   void SetProjectionInverse(const Matrix4x4 &m) { projectionInverse_ = m; }
 
+  /// <summary>
+  /// Dissolveなどに使用するマスク画像のSRVインデックスを設定する
+  /// </summary>
+  /// <param name="index">SRVインデックス</param>
+  void SetMaskSrvIndex(uint32_t index) { maskSrvIndex_ = index; }
+
 private:
   Dx12Core *dx12Core_ = nullptr;
   int postEffectType_ = 0;
@@ -195,6 +211,8 @@ private:
   float dissolveEdgeColor_[3] = {1.0f, 0.4f, 0.3f};
 
   float time_ = 0.0f;
+
+  uint32_t maskSrvIndex_ = 0;
 
   Matrix4x4 projectionInverse_;
 
