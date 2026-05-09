@@ -2,14 +2,22 @@
 
 Texture2D<float4> gTexture : register(t0);
 TextureCube<float4> gEnvironmentTexture : register(t1);
+Texture2D<float32_t> gMaskTexture : register(t2);
 SamplerState gSampler : register(s0);
 
 struct Material {
 	float4 color;
 	int enableLighting;
+	float3 padding;
 	float4x4 uvTransform;
 	float shininess;
 	float environmentCoefficient;
+	int enableDissolve;
+	float dissolveThreshold;
+	float dissolveEdgeRange;
+	float2 maskTransform;
+	float padding2;
+	float4 dissolveEdgeColor;
 };
 
 ConstantBuffer<Material> gMaterial : register(b0);
@@ -66,6 +74,17 @@ GeometryShaderOutput input) {
 	//アルファテスト
 	if (textureColor.a <= 0.5) {
 		discard;
+	}
+
+	// ディゾルブ
+	float edge = 0.0f;
+	if (gMaterial.enableDissolve != 0) {
+		float mask = gMaskTexture.Sample(gSampler, input.texcoord + gMaterial.maskTransform).r;
+		if (mask <= gMaterial.dissolveThreshold) {
+			discard;
+		}
+		// Edgeっぽさを算出
+		edge = 1.0f - smoothstep(gMaterial.dissolveThreshold, gMaterial.dissolveThreshold + gMaterial.dissolveEdgeRange, mask);
 	}
 
 	//=========================
@@ -191,6 +210,11 @@ GeometryShaderOutput input) {
 	float3 reflectedVector = reflect(cameraToPosition, normalize(input.normal));
 	float4 environmentColor = gEnvironmentTexture.Sample(gSampler, reflectedVector);
 	output.color.rgb += environmentColor.rgb * gMaterial.environmentCoefficient;
+
+	// Dissolve Edge 発光
+	if (gMaterial.enableDissolve != 0) {
+		output.color.rgb += edge * gMaterial.dissolveEdgeColor.rgb;
+	}
 
 	output.color.a = gMaterial.color.a * textureColor.a;
 	

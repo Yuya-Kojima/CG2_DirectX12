@@ -63,7 +63,12 @@ public:
     Matrix4x4 uvTransform;
     float shininess;
     float environmentCoefficient;
-    float padding2[2];
+    int32_t enableDissolve;
+    float dissolveThreshold;
+    float dissolveEdgeRange;
+    Vector2 maskTransform;
+    float padding2;
+    Vector4 dissolveEdgeColor;
   };
 
   /// <summary>

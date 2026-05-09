@@ -98,7 +98,8 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Object3d>> enemies_;
 
   // レベルデータのオブジェクト再帰生成
-  void CreateObjectsRecursive(const LevelData::ObjectData& objectData, Object3d* parent);
+  void CreateObjectsRecursive(const LevelData::ObjectData &objectData,
+                              Object3d *parent);
 
 public: // メンバ関数
   /// <summary>
@@ -130,4 +131,15 @@ public: // メンバ関数
 private: // メンバ変数(システム用)
   // エンジン
   EngineBase *engine_ = nullptr;
+
+  //========================
+  // Dissolveアニメーション用
+  //========================
+  bool suzanneEnableDissolve_ = false;
+  float suzanneDissolveThreshold_ = 0.0f;
+  float suzanneDissolveEdgeRange_ = 0.05f;
+  Vector2 suzanneMaskTransform_ = {0.0f, 0.0f};
+  Vector4 suzanneDissolveEdgeColor_ = {1.0f, 0.4f, 0.3f, 1.0f};
+  bool isPlayingSuzanneDissolve_ = false;
+  bool isHologramMode_ = false;
 };

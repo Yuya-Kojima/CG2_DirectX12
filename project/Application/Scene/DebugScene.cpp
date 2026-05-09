@@ -430,6 +430,36 @@ void DebugScene::Update() {
   }
 
   //=======================
+  // ディゾルブアニメーション（1キーで起爆）
+  //=======================
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_1)) {
+    suzanneEnableDissolve_ = true;
+    suzanneDissolveThreshold_ = 0.0f; // 0から開始
+    isPlayingSuzanneDissolve_ = true;
+  }
+
+  if (isPlayingSuzanneDissolve_) {
+    // フレームごとに閾値を増加（約1秒で1.0になる計算: 1.0 / 60 = 0.016...）
+    suzanneDissolveThreshold_ += 0.015f;
+
+    if (suzanneDissolveThreshold_ >= 1.0f) {
+      suzanneDissolveThreshold_ = 1.0f;
+      isPlayingSuzanneDissolve_ = false; // アニメーション終了
+    }
+  }
+
+  // 常時ノイズをゆっくりスクロールさせる
+  if (suzanneEnableDissolve_) {
+    if (isHologramMode_) {
+      // ホログラムモード時は縦（Y）方向のみ少し速く流す（スキャンライン風）
+      suzanneMaskTransform_.y += 0.005f;
+    } else {
+      suzanneMaskTransform_.x += 0.001f;
+      suzanneMaskTransform_.y += 0.001f;
+    }
+  }
+
+  //=======================
   // スプライトの更新
   //=======================
 
@@ -724,6 +754,53 @@ void DebugScene::Update() {
     }
   }
 
+  //========================
+  // Object3D Dissolve Test (Suzanne)
+  //========================
+  if (object3dA_) {
+    ImGui::Begin("Object3D Dissolve Test (Suzanne)");
+
+    ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
+    ImGui::SliderFloat("Threshold", &suzanneDissolveThreshold_, 0.0f, 1.0f);
+    ImGui::SliderFloat("Edge Range", &suzanneDissolveEdgeRange_, 0.0f, 0.5f);
+    ImGui::ColorEdit4("Edge Color", &suzanneDissolveEdgeColor_.x);
+    ImGui::DragFloat2("Mask UV Offset", &suzanneMaskTransform_.x, 0.01f);
+
+    if (ImGui::Button("Play Animation (or Press '1' Key)")) {
+      suzanneEnableDissolve_ = true;
+      suzanneDissolveThreshold_ = 0.0f;
+      isPlayingSuzanneDissolve_ = true;
+      isHologramMode_ = false;
+    }
+
+    ImGui::Separator();
+    // ホログラム演出
+    if (ImGui::Checkbox("Hologram / Energy Shield Mode", &isHologramMode_)) {
+      if (isHologramMode_) {
+        suzanneEnableDissolve_ = true;
+        isPlayingSuzanneDissolve_ = false; // アニメーションを止める
+        suzanneDissolveThreshold_ = 0.5f;  // 半分だけ表示
+        suzanneDissolveEdgeRange_ = 0.1f;  // エッジを少し太めに
+        suzanneDissolveEdgeColor_ = {0.0f, 1.0f, 1.0f, 1.0f}; // シアン色
+        object3dA_->SetMaskTexturePath(
+            "resources/hex_noise.png"); // 六角形テクスチャを使用
+      } else {
+        suzanneEnableDissolve_ = false;
+        suzanneDissolveThreshold_ = 0.0f;
+        object3dA_->SetMaskTexturePath("resources/noise0.png"); // 元に戻す
+      }
+    }
+    ImGui::Separator();
+
+    object3dA_->SetEnableDissolve(suzanneEnableDissolve_);
+    object3dA_->SetDissolveThreshold(suzanneDissolveThreshold_);
+    object3dA_->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
+    object3dA_->SetMaskTransform(suzanneMaskTransform_);
+    object3dA_->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
+
+    ImGui::End();
+  }
+
 #endif // USE_IMGUI
 }
 
@@ -739,7 +816,7 @@ void DebugScene::Draw3D() {
 
   if (skybox_) {
     engine_->GetSkyboxRenderer()->Begin();
-    //skybox_->Draw();
+    // skybox_->Draw();
 
     // Skybox描画後に通常3Dへ戻す
     engine_->GetObject3dRenderer()->Begin();

@@ -53,7 +53,14 @@ void PostProcess::CreateRootSignature() {
   descriptorRangeDepth[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
   descriptorRangeDepth[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  D3D12_ROOT_PARAMETER rootParameter[3] = {};
+  // DescriptorTable (Maskテクスチャ用)
+  D3D12_DESCRIPTOR_RANGE descriptorRangeMask[1] = {};
+  descriptorRangeMask[0].BaseShaderRegister = 2; // t2
+  descriptorRangeMask[0].NumDescriptors = 1;
+  descriptorRangeMask[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRangeMask[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  D3D12_ROOT_PARAMETER rootParameter[4] = {};
 
   // b0: 定数バッファ (Grayscale切り替え用)
   rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -71,6 +78,12 @@ void PostProcess::CreateRootSignature() {
   rootParameter[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
   rootParameter[2].DescriptorTable.pDescriptorRanges = descriptorRangeDepth;
   rootParameter[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeDepth);
+
+  // t2: Maskテクスチャ用デスクリプタテーブル
+  rootParameter[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[3].DescriptorTable.pDescriptorRanges = descriptorRangeMask;
+  rootParameter[3].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeMask);
 
   // Sampler
   D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
@@ -172,7 +185,8 @@ void PostProcess::CreatePSO() {
   assert(SUCCEEDED(hr));
 }
 
-void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager) {
+void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, uint32_t maskSrvIndex, SrvManager* srvManager) {
+
   auto commandList = dx12Core_->GetCommandList();
   auto renderTextureResource = dx12Core_->GetRenderTextureResource();
   auto depthStencilResource = dx12Core_->GetDepthStencilResource();
@@ -201,6 +215,11 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
     float radialBlurOuterRadius;
     float radialBlurAberration;
     float padding4;
+    float dissolveThreshold;
+    float dissolveEdgeRange;
+    float padding5[2];
+    float dissolveEdgeColor[3];
+    float padding6;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -229,6 +248,14 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   data->radialBlurOuterRadius = radialBlurOuterRadius_;
   data->radialBlurAberration = radialBlurAberration_;
   data->padding4 = 0.0f;
+  data->dissolveThreshold = dissolveThreshold_;
+  data->dissolveEdgeRange = dissolveEdgeRange_;
+  data->padding5[0] = 0.0f;
+  data->padding5[1] = 0.0f;
+  data->dissolveEdgeColor[0] = dissolveEdgeColor_[0];
+  data->dissolveEdgeColor[1] = dissolveEdgeColor_[1];
+  data->dissolveEdgeColor[2] = dissolveEdgeColor_[2];
+  data->padding6 = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
@@ -257,13 +284,12 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   // CBVセット (rootParameter[0])
   commandList->SetGraphicsRootConstantBufferView(0, constBuffer_->GetGPUVirtualAddress());
 
-  // SRVセット (rootParameter[1])
+  // DescriptorTableをセット
   srvManager->SetGraphicsRootDescriptorTable(1, renderSrvIndex);
-
-  // SRVセット (rootParameter[2])
   srvManager->SetGraphicsRootDescriptorTable(2, depthSrvIndex);
+  srvManager->SetGraphicsRootDescriptorTable(3, maskSrvIndex);
 
-  // 描画
+  // 描画コマンド
   commandList->DrawInstanced(3, 1, 0, 0);
 
   // Barrier: PIXEL_SHADER_RESOURCE -> RENDER_TARGET

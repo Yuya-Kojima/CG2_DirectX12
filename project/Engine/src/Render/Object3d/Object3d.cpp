@@ -34,6 +34,7 @@ void Object3d::Initialize(Object3dRenderer *object3dRenderer) {
   CreateMaterialData();
 
   TextureManager::GetInstance()->LoadTexture("resources/Skybox/Skybox.dds");
+  TextureManager::GetInstance()->LoadTexture(maskTexturePath_);
 
   this->camera_ = nullptr;
 }
@@ -137,6 +138,10 @@ void Object3d::Draw() {
   commandList->SetGraphicsRootDescriptorTable(
       7, TextureManager::GetInstance()->GetSrvHandleGPU("resources/Skybox/Skybox.dds"));
 
+  // Mask Texture for Dissolve
+  commandList->SetGraphicsRootDescriptorTable(
+      8, TextureManager::GetInstance()->GetSrvHandleGPU(maskTexturePath_));
+
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
     model_->Draw(skinCluster_);
@@ -164,6 +169,11 @@ void Object3d::SetModel(const std::string &filePath) {
   if (materialData) {
     *materialData = model_->GetDefaultMaterial();
   }
+}
+
+void Object3d::SetMaskTexturePath(const std::string& path) {
+  maskTexturePath_ = path;
+  TextureManager::GetInstance()->LoadTexture(maskTexturePath_);
 }
 
 void Object3d::CreateTransformationMatrixData() {
@@ -230,4 +240,10 @@ void Object3d::CreateMaterialData() {
   materialData->uvTransform = MakeIdentity4x4();
   materialData->shininess = 30.0f;
   materialData->environmentCoefficient = 0.0f;
+
+  materialData->enableDissolve = 0;
+  materialData->dissolveThreshold = 0.0f;
+  materialData->dissolveEdgeRange = 0.05f;
+  materialData->maskTransform = {0.0f, 0.0f};
+  materialData->dissolveEdgeColor = Vector4(1.0f, 0.4f, 0.3f, 1.0f);
 }
