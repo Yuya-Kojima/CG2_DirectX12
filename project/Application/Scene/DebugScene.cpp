@@ -131,6 +131,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_ = std::make_unique<Object3d>();
   object3dA_->Initialize(engine_->GetObject3dRenderer());
   object3dA_->SetModel("suzanne.obj");
+  object3dA_->SetMaskTexturePath("resources/voronoi_noise.png"); 
   object3dA_->SetEnvironmentCoefficient(1.0f);
   object3dA_->SetTranslation({3.0f, 1.0f, 0.0f});
 
@@ -430,6 +431,24 @@ void DebugScene::Update() {
   }
 
   //=======================
+  // ディゾルブアニメーション（1キーで起爆）
+  //=======================
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_1)) {
+    suzanneEnableDissolve_ = true;
+    suzanneDissolveThreshold_ = 0.0f; // 0から開始
+    isPlayingSuzanneDissolve_ = true;
+  }
+
+  if (isPlayingSuzanneDissolve_) {
+    suzanneDissolveThreshold_ += 0.015f; 
+    
+    if (suzanneDissolveThreshold_ >= 1.0f) {
+        suzanneDissolveThreshold_ = 1.0f;
+        isPlayingSuzanneDissolve_ = false; // アニメーション終了
+    }
+  }
+
+  //=======================
   // スプライトの更新
   //=======================
 
@@ -722,6 +741,31 @@ void DebugScene::Update() {
       sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
       ImGui::End();
     }
+  }
+
+  //========================
+  // Object3D Dissolve Test (Suzanne)
+  //========================
+  if (object3dA_) {
+      ImGui::Begin("Object3D Dissolve Test (Suzanne)");
+      
+      ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
+      ImGui::SliderFloat("Threshold", &suzanneDissolveThreshold_, 0.0f, 1.0f);
+      ImGui::SliderFloat("Edge Range", &suzanneDissolveEdgeRange_, 0.0f, 0.5f);
+      ImGui::ColorEdit4("Edge Color", &suzanneDissolveEdgeColor_.x);
+      
+      if (ImGui::Button("Play Animation (or Press '1' Key)")) {
+          suzanneEnableDissolve_ = true;
+          suzanneDissolveThreshold_ = 0.0f;
+          isPlayingSuzanneDissolve_ = true;
+      }
+      
+      object3dA_->SetEnableDissolve(suzanneEnableDissolve_);
+      object3dA_->SetDissolveThreshold(suzanneDissolveThreshold_);
+      object3dA_->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
+      object3dA_->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
+      
+      ImGui::End();
   }
 
 #endif // USE_IMGUI

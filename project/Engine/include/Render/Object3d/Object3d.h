@@ -168,6 +168,35 @@ public:
     }
   }
 
+  void SetEnableDissolve(bool enable) {
+    if (materialData) {
+      materialData->enableDissolve = enable ? 1 : 0;
+    }
+  }
+
+  void SetDissolveThreshold(float threshold) {
+    if (materialData) {
+      materialData->dissolveThreshold = threshold;
+    }
+  }
+
+  void SetDissolveEdgeRange(float range) {
+    if (materialData) {
+      materialData->dissolveEdgeRange = range;
+    }
+  }
+
+  void SetDissolveEdgeColor(const Vector4& color) {
+    if (materialData) {
+      materialData->dissolveEdgeColor = color;
+    }
+  }
+
+  void SetMaskTexturePath(const std::string& path);
+
+private:
+  std::string maskTexturePath_ = "resources/noise0.png";
+
 private:
   const ICamera *camera_ = nullptr;
 

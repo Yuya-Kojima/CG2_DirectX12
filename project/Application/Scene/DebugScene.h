@@ -130,4 +130,13 @@ public: // メンバ関数
 private: // メンバ変数(システム用)
   // エンジン
   EngineBase *engine_ = nullptr;
+
+  //========================
+  // Object3d Dissolve Animation
+  //========================
+  bool suzanneEnableDissolve_ = false;
+  float suzanneDissolveThreshold_ = 0.0f;
+  float suzanneDissolveEdgeRange_ = 0.05f;
+  Vector4 suzanneDissolveEdgeColor_ = {1.0f, 0.4f, 0.3f, 1.0f};
+  bool isPlayingSuzanneDissolve_ = false;
 };
