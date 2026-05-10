@@ -183,6 +183,21 @@ public:
   /// <param name="index">SRVインデックス</param>
   void SetMaskSrvIndex(uint32_t index) { maskSrvIndex_ = index; }
 
+  /// <summary>
+  /// HSVフィルターの色相(Hue)の加算値を設定する
+  /// </summary>
+  void SetHsvFilterHue(float hue) { hsvFilterHue_ = hue; }
+
+  /// <summary>
+  /// HSVフィルターの彩度(Saturation)の加算値を設定する
+  /// </summary>
+  void SetHsvFilterSaturation(float saturation) { hsvFilterSaturation_ = saturation; }
+
+  /// <summary>
+  /// HSVフィルターの明度(Value)の加算値を設定する
+  /// </summary>
+  void SetHsvFilterValue(float value) { hsvFilterValue_ = value; }
+
 private:
   Dx12Core *dx12Core_ = nullptr;
   int postEffectType_ = 0;
@@ -209,6 +224,10 @@ private:
   float dissolveThreshold_ = 0.5f;
   float dissolveEdgeRange_ = 0.05f;
   float dissolveEdgeColor_[3] = {1.0f, 0.4f, 0.3f};
+
+  float hsvFilterHue_ = 0.0f;
+  float hsvFilterSaturation_ = 0.0f;
+  float hsvFilterValue_ = 0.0f;
 
   float time_ = 0.0f;
 

@@ -1,4 +1,6 @@
 #include "Math/MathUtil.h"
+#include <algorithm>
+#include <cmath>
 
 Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t) {
     float dot = q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w;
@@ -545,4 +547,71 @@ Matrix4x4 Transpose(Matrix4x4 matrix) {
   result.m[3][3] = matrix.m[3][3];
 
   return result;
+}
+
+Vector3 RGBToHSV(const Vector3& rgb) {
+    float r = rgb.x;
+    float g = rgb.y;
+    float b = rgb.z;
+    
+    float maxColor = std::max({r, g, b});
+    float minColor = std::min({r, g, b});
+    float delta = maxColor - minColor;
+    
+    float h = 0.0f;
+    float s = 0.0f;
+    float v = maxColor;
+    
+    if (maxColor > 0.0f) {
+        s = delta / maxColor;
+    }
+    
+    if (delta > 0.0f) {
+        if (maxColor == r) {
+            h = 60.0f * (g - b) / delta;
+        } else if (maxColor == g) {
+            h = 60.0f * (2.0f + (b - r) / delta);
+        } else if (maxColor == b) {
+            h = 60.0f * (4.0f + (r - g) / delta);
+        }
+        
+        if (h < 0.0f) {
+            h += 360.0f;
+        }
+    }
+    
+    return {h, s, v};
+}
+
+Vector3 HSVToRGB(const Vector3& hsv) {
+    float h = hsv.x;
+    float s = hsv.y;
+    float v = hsv.z;
+    
+    // Hが360度以上の場合は0-359度に丸める
+    h = std::fmod(h, 360.0f);
+    if (h < 0.0f) h += 360.0f;
+
+    float c = v * s;
+    float hp = h / 60.0f;
+    float x = c * (1.0f - std::abs(std::fmod(hp, 2.0f) - 1.0f));
+    float m = v - c;
+    
+    float r = 0.0f, g = 0.0f, b = 0.0f;
+    
+    if (0.0f <= hp && hp < 1.0f) {
+        r = c; g = x; b = 0.0f;
+    } else if (1.0f <= hp && hp < 2.0f) {
+        r = x; g = c; b = 0.0f;
+    } else if (2.0f <= hp && hp < 3.0f) {
+        r = 0.0f; g = c; b = x;
+    } else if (3.0f <= hp && hp < 4.0f) {
+        r = 0.0f; g = x; b = c;
+    } else if (4.0f <= hp && hp < 5.0f) {
+        r = x; g = 0.0f; b = c;
+    } else if (5.0f <= hp && hp < 6.0f) {
+        r = c; g = 0.0f; b = x;
+    }
+    
+    return {r + m, g + m, b + m};
 }

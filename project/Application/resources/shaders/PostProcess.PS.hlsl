@@ -34,6 +34,10 @@ cbuffer PostProcessData : register(b0) {
     float32_t2 padding5;
     float32_t3 dissolveEdgeColor;
     float32_t time;
+    float32_t hsvFilterHue;
+    float32_t hsvFilterSaturation;
+    float32_t hsvFilterValue;
+    float32_t padding6;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -64,6 +68,78 @@ static const float32_t kPrewittVerticalKernel[3][3] = {
     {  0.0f,         0.0f,         0.0f        },
     {  1.0f / 6.0f,  1.0f / 6.0f,  1.0f / 6.0f },
 };
+
+float32_t WrapValue(float32_t value, float32_t minRange, float32_t maxRange) {
+    float32_t range = maxRange - minRange;
+    float32_t modValue = fmod(value - minRange, range);
+    if (modValue < 0.0f) {
+        modValue += range;
+    }
+    return minRange + modValue;
+}
+
+float32_t3 RGBToHSV(float32_t3 rgb) {
+    float32_t r = rgb.r;
+    float32_t g = rgb.g;
+    float32_t b = rgb.b;
+    float32_t maxColor = max(r, max(g, b));
+    float32_t minColor = min(r, min(g, b));
+    float32_t delta = maxColor - minColor;
+    
+    float32_t h = 0.0f;
+    float32_t s = 0.0f;
+    float32_t v = maxColor;
+    
+    if (maxColor > 0.0f) {
+        s = delta / maxColor;
+    }
+    
+    if (delta > 0.0f) {
+        if (maxColor == r) {
+            h = (g - b) / delta;
+        } else if (maxColor == g) {
+            h = 2.0f + (b - r) / delta;
+        } else if (maxColor == b) {
+            h = 4.0f + (r - g) / delta;
+        }
+        h /= 6.0f;
+        if (h < 0.0f) {
+            h += 1.0f;
+        }
+    }
+    
+    return float32_t3(h, s, v);
+}
+
+float32_t3 HSVToRGB(float32_t3 hsv) {
+    float32_t h = hsv.x;
+    float32_t s = hsv.y;
+    float32_t v = hsv.z;
+    
+    float32_t r = 0.0f, g = 0.0f, b = 0.0f;
+    
+    if (s == 0.0f) {
+        r = v; g = v; b = v;
+    } else {
+        h = fmod(h, 1.0f);
+        if (h < 0.0f) h += 1.0f;
+        h *= 6.0f;
+        int32_t i = (int32_t)floor(h);
+        float32_t f = h - (float32_t)i;
+        float32_t p = v * (1.0f - s);
+        float32_t q = v * (1.0f - s * f);
+        float32_t t = v * (1.0f - s * (1.0f - f));
+        
+        if (i == 0) { r = v; g = t; b = p; }
+        else if (i == 1) { r = q; g = v; b = p; }
+        else if (i == 2) { r = p; g = v; b = t; }
+        else if (i == 3) { r = p; g = q; b = v; }
+        else if (i == 4) { r = t; g = p; b = v; }
+        else { r = v; g = p; b = q; }
+    }
+    
+    return float32_t3(r, g, b);
+}
 
 struct PixelShaderOutput {
     float32_t4 color : SV_TARGET0;
@@ -240,6 +316,24 @@ PixelShaderOutput main(VertexShaderOutput input) {
         // 生成した乱数の値を入力画像に乗算して出力（レトロなノイズ感）
         output.color.rgb = originalColor * random;
         output.color.a = 1.0f;
+    } else if (postEffectType == 8) { // HSV Filter
+        float32_t4 textureColor = gTexture.Sample(gSampler, input.texcoord);
+        float32_t3 hsv = RGBToHSV(textureColor.rgb);
+        
+        // パラメータを増減させる
+        hsv.x += hsvFilterHue;
+        hsv.y += hsvFilterSaturation;
+        hsv.z += hsvFilterValue;
+        
+        // 色相は角度なのでぐるぐる回るようにする
+        hsv.x = WrapValue(hsv.x, 0.0f, 1.0f);
+        hsv.y = saturate(hsv.y);
+        hsv.z = saturate(hsv.z);
+        
+        float32_t3 rgb = HSVToRGB(hsv);
+        
+        output.color.rgb = rgb;
+        output.color.a = textureColor.a;
     } else {
         output.color = gTexture.Sample(gSampler, input.texcoord);
     }
