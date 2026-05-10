@@ -223,6 +223,10 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
     float padding5[2];
     float dissolveEdgeColor[3];
     float time;
+    float hsvFilterHue;
+    float hsvFilterSaturation;
+    float hsvFilterValue;
+    float padding6;
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -259,6 +263,10 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   data->dissolveEdgeColor[1] = dissolveEdgeColor_[1];
   data->dissolveEdgeColor[2] = dissolveEdgeColor_[2];
   data->time = time_;
+  data->hsvFilterHue = hsvFilterHue_;
+  data->hsvFilterSaturation = hsvFilterSaturation_;
+  data->hsvFilterValue = hsvFilterValue_;
+  data->padding6 = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
@@ -322,7 +330,7 @@ void PostProcess::DrawDebugUI(const char* windowName) {
       // --- Base Effect ---
       ImGui::Separator();
       ImGui::Text("Base Effect");
-      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve", "Random Noise" };
+      const char* effectTypes[] = { "None", "BoxFilter", "GaussianFilter", "Luminance Outline", "Depth Outline", "Radial Blur", "Dissolve", "Random Noise", "HSV Filter" };
       ImGui::Combo("Effect Type", &postEffectType_, effectTypes, IM_ARRAYSIZE(effectTypes));
       
       if (postEffectType_ == 1) { // BoxFilter
@@ -349,6 +357,10 @@ void PostProcess::DrawDebugUI(const char* windowName) {
           ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
       } else if (postEffectType_ == 7) { // Random Noise
           ImGui::Text("Generating animated GPU random noise.");
+      } else if (postEffectType_ == 8) { // HSV Filter
+          ImGui::DragFloat("Hue", &hsvFilterHue_, 0.01f, -1.0f, 1.0f);
+          ImGui::DragFloat("Saturation", &hsvFilterSaturation_, 0.01f, -1.0f, 1.0f);
+          ImGui::DragFloat("Value", &hsvFilterValue_, 0.01f, -1.0f, 1.0f);
       }
 
       // --- Monotone ---

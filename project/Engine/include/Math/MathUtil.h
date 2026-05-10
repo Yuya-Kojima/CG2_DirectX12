@@ -198,3 +198,17 @@ inline float EaseOutQuint(float t) {
   float u = 1.0f - t;
   return 1.0f - u * u * u * u * u;
 }
+
+/// <summary>
+/// RGBをHSVに変換する
+/// </summary>
+/// <param name="rgb">RGB (各0.0f～1.0f)</param>
+/// <returns>HSV (H: 0.0f～360.0f, S: 0.0f～1.0f, V: 0.0f～1.0f)</returns>
+Vector3 RGBToHSV(const Vector3& rgb);
+
+/// <summary>
+/// HSVをRGBに変換する
+/// </summary>
+/// <param name="hsv">HSV (H: 0.0f～360.0f, S: 0.0f～1.0f, V: 0.0f～1.0f)</param>
+/// <returns>RGB (各0.0f～1.0f)</returns>
+Vector3 HSVToRGB(const Vector3& hsv);
