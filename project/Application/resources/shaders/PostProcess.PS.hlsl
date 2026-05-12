@@ -189,6 +189,12 @@ PixelShaderOutput main(VertexShaderOutput input) {
             for (int32_t y = -boxFilterK; y <= boxFilterK; ++y) {
                 float32_t2 texcoord = input.texcoord + float32_t2(x, y) * uvStepSize;
                 float32_t3 fetchColor = gTexture.Sample(gSampler, texcoord).rgb;
+                
+                // NaNやInfが含まれている場合は0に置き換えて、周りへブロック状に広がるのを防ぐ
+                if (any(isnan(fetchColor)) || any(isinf(fetchColor))) {
+                    fetchColor = float32_t3(0.0f, 0.0f, 0.0f);
+                }
+                
                 output.color.rgb += fetchColor * weight;
             }
         }
@@ -206,6 +212,11 @@ PixelShaderOutput main(VertexShaderOutput input) {
                 float32_t weight = gauss((float32_t)x, (float32_t)y, gaussianSigma);
                 float32_t2 texcoord = input.texcoord + float32_t2(x, y) * uvStepSize;
                 float32_t3 fetchColor = gTexture.Sample(gSampler, texcoord).rgb;
+                
+                // NaNやInfが含まれている場合は0に置き換えて、周りへブロック状に広がるのを防ぐ
+                if (any(isnan(fetchColor)) || any(isinf(fetchColor))) {
+                    fetchColor = float32_t3(0.0f, 0.0f, 0.0f);
+                }
                 
                 output.color.rgb += fetchColor * weight;
                 totalWeight += weight;
