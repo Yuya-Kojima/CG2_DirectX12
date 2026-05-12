@@ -12,7 +12,8 @@ public:
 
     void Initialize();
     void Update();
-    void Draw();
+    void Draw3D();
+    void Draw2D();
     void Finalize();
 
     /// <summary>

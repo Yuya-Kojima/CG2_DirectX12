@@ -150,6 +150,9 @@ void Game::Draw() {
       pp->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
   }
 
+  // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）
+  SceneManager::GetInstance()->DrawOverlay();
+
   // 2D
   // EngineBase::Begin2D();
 

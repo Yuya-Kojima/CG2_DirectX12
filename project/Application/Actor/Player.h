@@ -15,7 +15,8 @@ public:
 
     void Initialize() override;
     void Update() override;
-    void Draw() override;
+    void Draw3D() override;
+    void Draw2D() override;
 
     // シーンから情報を渡すためのセッター
     void SetSpriteRenderer(SpriteRenderer* renderer) { spriteRenderer_ = renderer; }

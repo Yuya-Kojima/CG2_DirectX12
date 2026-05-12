@@ -879,6 +879,9 @@ void DebugScene::Draw3D() {
   object3dA_->Draw();
   animatedCube_->Draw();
 
+  // 全アクターの3Dモデル部分だけをまとめて描く
+  ActorManager::GetInstance()->Draw3D();
+
   // レベルデータのオブジェクト描画
   for (auto &obj : levelObjects_) {
     obj->Draw();
@@ -943,8 +946,8 @@ void DebugScene::Draw2D() {
     sprites_[i]->Draw();
   }
 
-  // アクター（PlayerやLockOn等）の描画
-  ActorManager::GetInstance()->Draw();
+  // アクターの2D部分の描画
+  ActorManager::GetInstance()->Draw2D();
 }
 
 DebugScene::~DebugScene() = default;
