@@ -1,10 +1,11 @@
 #include "DebugScene.h"
+#include "Actor/Enemy.h"
 #include "Actor/Player.h"
 #include "Camera/GameCamera.h"
+#include "Collision/CollisionManager.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Framework/ActorManager.h"
-#include "Collision/CollisionManager.h"
 #include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -25,9 +26,9 @@ void DebugScene::Initialize(EngineBase *engine) {
   BaseScene::Initialize(engine);
   engine_ = engine;
 
-  // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む！
+  // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む
   ActorManager::GetInstance()->Initialize();
-  
+
   auto player = std::make_unique<Player>();
   player->SetSpriteRenderer(engine_->GetSpriteRenderer());
   playerPtr_ = player.get(); // ポインタを控えておく
@@ -144,6 +145,15 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   ModelManager::GetInstance()->LoadModel("AnimatedCube.gltf");
 
+  // 【テスト用】Enemyの配置
+  // auto testEnemy = std::make_unique<Enemy>();
+  // testEnemy->GetTransform().translate = {0.0f, 0.0f, 5.0f};
+  // auto enemyModel = std::make_unique<Object3d>();
+  // enemyModel->Initialize(engine_->GetObject3dRenderer());
+  // enemyModel->SetModel("suzanne.obj");
+  // testEnemy->SetModel(std::move(enemyModel));
+  // ActorManager::GetInstance()->AddActor(std::move(testEnemy));
+
   // オブジェクトの生成と初期化
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(engine_->GetObject3dRenderer());
@@ -154,7 +164,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_->SetModel("suzanne.obj");
   object3dA_->SetEnvironmentCoefficient(1.0f);
   object3dA_->SetTranslation({3.0f, 1.0f, 0.0f});
-  object3dA_->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f}); // デフォルトで黄色にする
+  object3dA_->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f}); // デフォルトで黄色
 
   animatedCube_ = std::make_unique<Object3d>();
   animatedCube_->Initialize(engine_->GetObject3dRenderer());
@@ -612,8 +622,8 @@ void DebugScene::Update() {
 
   // === Playerにロックオン用の情報を渡す ===
   if (playerPtr_) {
-      playerPtr_->SetCamera(activeCamera);
-      playerPtr_->SetTarget(object3dA_.get());
+    playerPtr_->SetCamera(activeCamera);
+    playerPtr_->SetTarget(object3dA_.get());
   }
 
   // シリンダーの回転アニメーション
