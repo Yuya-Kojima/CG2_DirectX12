@@ -1,7 +1,9 @@
 #include "DebugScene.h"
+#include "Actor/Player.h"
 #include "Camera/GameCamera.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
+#include "Framework/ActorManager.h"
 #include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -9,8 +11,8 @@
 #include "Particle/ParticleManager.h"
 #include "Render/Primitive/Sphere.h"
 #include "Renderer/Object3dRenderer.h"
-#include "Renderer/SpriteRenderer.h"
 #include "Renderer/PostProcess.h"
+#include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Texture/TextureManager.h"
 #include <cmath>
@@ -22,11 +24,17 @@ void DebugScene::Initialize(EngineBase *engine) {
   BaseScene::Initialize(engine);
   engine_ = engine;
 
+  // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む！
+  ActorManager::GetInstance()->Initialize();
+  ActorManager::GetInstance()->AddActor(std::make_unique<Player>());
+
   // PostProcess用テクスチャ
   TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
   TextureManager::GetInstance()->LoadTexture("resources/noise1.png");
-  noise0TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise0.png");
-  noise1TextureIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise1.png");
+  noise0TextureIndex_ =
+      TextureManager::GetInstance()->GetSrvIndex("resources/noise0.png");
+  noise1TextureIndex_ =
+      TextureManager::GetInstance()->GetSrvIndex("resources/noise1.png");
 
   //===========================
   // テクスチャファイルの読み込み
@@ -360,6 +368,9 @@ void DebugScene::Finalize() {
 }
 
 void DebugScene::Update() {
+
+  // 毎フレームマネージャーに号令をかけさせる
+  ActorManager::GetInstance()->Update();
 
   // input取得
   auto *input = engine_->GetInputManager();
@@ -766,20 +777,22 @@ void DebugScene::Update() {
   // PostProcess Settings UI
   //========================
   if (postProcess_) {
-      elapsedTime_ += 1.0f / 60.0f;
-      postProcess_->SetTime(elapsedTime_);
-      uint32_t currentMaskSrvIndex = (useNoiseTextureType_ == 0) ? noise0TextureIndex_ : noise1TextureIndex_;
-      postProcess_->SetMaskSrvIndex(currentMaskSrvIndex);
+    elapsedTime_ += 1.0f / 60.0f;
+    postProcess_->SetTime(elapsedTime_);
+    uint32_t currentMaskSrvIndex =
+        (useNoiseTextureType_ == 0) ? noise0TextureIndex_ : noise1TextureIndex_;
+    postProcess_->SetMaskSrvIndex(currentMaskSrvIndex);
 
 #ifdef USE_IMGUI
-      postProcess_->DrawDebugUI();
+    postProcess_->DrawDebugUI();
 
-      ImGui::Begin("PostEffect Settings");
-      if (postProcess_->GetPostEffectType() == 6) { // Dissolve
-          const char* noiseTypes[] = { "noise0.png", "noise1.png" };
-          ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes, IM_ARRAYSIZE(noiseTypes));
-      }
-      ImGui::End();
+    ImGui::Begin("PostEffect Settings");
+    if (postProcess_->GetPostEffectType() == 6) { // Dissolve
+      const char *noiseTypes[] = {"noise0.png", "noise1.png"};
+      ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes,
+                   IM_ARRAYSIZE(noiseTypes));
+    }
+    ImGui::End();
 #endif
   }
 
