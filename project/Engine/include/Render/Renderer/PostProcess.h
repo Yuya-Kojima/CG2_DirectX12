@@ -205,6 +205,12 @@ public:
   void SetBloomThreshold(float t) { bloomThreshold_ = t; }
   void SetBloomSigma(float s) { bloomSigma_ = s; }
 
+  // Tone Mappingパラメータ
+  int32_t GetToneMappingType() const { return toneMappingType_; }
+  float GetExposure() const { return exposure_; }
+  void SetToneMappingType(int32_t type) { toneMappingType_ = type; }
+  void SetExposure(float exposure) { exposure_ = exposure; }
+
   /// <summary>
   /// HSVフィルターの色相(Hue)の加算値を設定する
   /// </summary>
@@ -259,6 +265,9 @@ private:
   float bloomIntensity_ = 1.0f;
   float bloomThreshold_ = 0.8f;
   float bloomSigma_ = 5.0f;
+
+  int32_t toneMappingType_ = 1; // 0: None, 1: ACES Filmic, 2: Reinhard
+  float exposure_ = 0.5f;
 
   Matrix4x4 projectionInverse_;
 

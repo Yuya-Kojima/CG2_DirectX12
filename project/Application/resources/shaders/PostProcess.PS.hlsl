@@ -41,7 +41,8 @@ cbuffer PostProcessData : register(b0) {
     float32_t padding6;
     float32_t bloomIntensity;
     int32_t useBloom;
-    float32_t2 padding7;
+    int32_t toneMappingType;
+    float32_t exposure;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -144,6 +145,23 @@ float32_t3 HSVToRGB(float32_t3 hsv) {
     
     return float32_t3(r, g, b);
 }
+
+// ==========================================
+// トーンマッピング用の関数
+// ==========================================
+float32_t3 ToneMap_ACES(float32_t3 x) {
+    float a = 2.51f;
+    float b = 0.03f;
+    float c = 2.43f;
+    float d = 0.59f;
+    float e = 0.14f;
+    return saturate((x*(a*x+b))/(x*(c*x+d)+e));
+}
+
+float32_t3 ToneMap_Reinhard(float32_t3 x) {
+    return x / (1.0f + x);
+}
+// ==========================================
 
 struct PixelShaderOutput {
     float32_t4 color : SV_TARGET0;
@@ -361,6 +379,21 @@ PixelShaderOutput main(VertexShaderOutput input) {
     if (useBloom != 0) {
         float32_t4 bloomColor = gBloomTexture.Sample(gSampler, input.texcoord);
         output.color.rgb += bloomColor.rgb * bloomIntensity;
+    }
+
+    // --- Tone Mapping ---
+    // 露出(Exposure)を適用
+    output.color.rgb *= exposure;
+
+    if (toneMappingType == 1) {
+        // ACES Filmic
+        output.color.rgb = ToneMap_ACES(output.color.rgb);
+    } else if (toneMappingType == 2) {
+        // Reinhard
+        output.color.rgb = ToneMap_Reinhard(output.color.rgb);
+    } else {
+        // トーンマッピングなし
+        output.color.rgb = saturate(output.color.rgb);
     }
 
     return output;

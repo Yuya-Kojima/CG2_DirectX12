@@ -3,21 +3,20 @@
 
 void RenderTexture::Initialize(Dx12Core *dx12Core, SrvManager *srvManager,
                                uint32_t width, uint32_t height,
-                               const Vector4 &clearColor) {
+                               const Vector4 &clearColor, DXGI_FORMAT format) {
   clearColor_ = clearColor;
   currentState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
 
   // テクスチャリソースの生成
-  resource_ =
-      CreateRenderTextureResource(dx12Core->GetDevice(), width, height,
-                                  DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, clearColor_);
+  resource_ = CreateRenderTextureResource(dx12Core->GetDevice(), width, height,
+                                          format, clearColor_);
 
   // RTVの生成
   rtvIndex_ = dx12Core->AllocateRTV();
   rtvHandle_ = dx12Core->GetRtvCpuDescriptorHandle(rtvIndex_);
 
   D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-  rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  rtvDesc.Format = format;
   rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
   dx12Core->GetDevice()->CreateRenderTargetView(resource_.Get(), &rtvDesc,
@@ -26,7 +25,7 @@ void RenderTexture::Initialize(Dx12Core *dx12Core, SrvManager *srvManager,
   // SRVの生成
   srvIndex_ = srvManager->Allocate();
   D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-  srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  srvDesc.Format = format;
   srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
   srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
   srvDesc.Texture2D.MipLevels = 1;

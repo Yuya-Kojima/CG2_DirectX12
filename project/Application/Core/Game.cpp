@@ -43,9 +43,9 @@ void Game::Initialize() {
                             srvManager_.get());
 
   // RenderTextureの作成
-  const Vector4 kRenderTargetClearValue{ 1.0f, 0.0f, 0.0f, 1.0f }; // 一旦分かりやすいように赤
+  const Vector4 kRenderTargetClearValue{ 0.0f, 0.0f, 0.0f, 1.0f }; // 背景は黒
   mainRenderTexture_ = std::make_unique<RenderTexture>();
-  mainRenderTexture_->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue);
+  mainRenderTexture_->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
   // Bloomの初期化
   bloom_ = std::make_unique<Bloom>();
