@@ -20,6 +20,9 @@ public:
     virtual void Draw3D() {} // 3Dモデルなどの描画
     virtual void Draw2D() {} // UIやカーソルなどの2D描画
 
+    // 衝突時のコールバック（Colliderから呼ばれる）
+    virtual void OnCollision(class Collider* other) {}
+
     // 生存フラグの操作
     void Destroy() { isDead_ = true; }
     bool IsDead() const { return isDead_; }

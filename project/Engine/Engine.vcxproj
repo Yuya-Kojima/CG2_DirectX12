@@ -122,7 +122,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Collision\CollisionManager.cpp" />
     <ClCompile Include="src\Framework\ActorManager.cpp" />
+    <ClCompile Include="src\Math\CollisionMath.cpp" />
     <ClCompile Include="src\Render\Model\Skeleton.cpp" />
     <ClCompile Include="src\Render\Primitive\Cube.cpp" />
     <ClCompile Include="src\Render\Primitive\Cylinder.cpp" />
@@ -170,8 +172,14 @@
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Collision\Collider.h" />
+    <ClInclude Include="include\Collision\CollisionConfig.h" />
+    <ClInclude Include="include\Collision\CollisionManager.h" />
+    <ClInclude Include="include\Collision\SphereCollider.h" />
     <ClInclude Include="include\Framework\ActorManager.h" />
     <ClInclude Include="include\Framework\BaseActor.h" />
+    <ClInclude Include="include\Math\CollisionMath.h" />
+    <ClInclude Include="include\Math\Geometry.h" />
     <ClInclude Include="include\Render\Model\Animation.h" />
     <ClInclude Include="include\Render\Model\Skeleton.h" />
     <ClInclude Include="include\Render\Model\SkinCluster.h" />
@@ -196,7 +204,6 @@
     <ClInclude Include="include\Debug\Logger.h" />
     <ClInclude Include="include\Input\InputKeyState.h" />
     <ClInclude Include="include\Input\InputMouseState.h" />
-    <ClInclude Include="include\Math\Field.h" />
     <ClInclude Include="include\Math\MathUtil.h" />
     <ClInclude Include="include\Math\Matrix3x3.h" />
     <ClInclude Include="include\Math\Matrix4x4.h" />
