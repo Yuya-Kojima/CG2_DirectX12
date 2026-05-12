@@ -152,6 +152,9 @@ Matrix4x4 Inverse(Matrix4x4 matrix);
 // 法線の変換（回転・スケールのみ適用／平行移動は無視）
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
 
+// ワールド座標からスクリーン座標への変換（ロックオンなどに使用）
+Vector2 WorldToScreen(const Vector3& worldPos, const Matrix4x4& viewProjMatrix, float screenWidth, float screenHeight);
+
 Matrix4x4 Transpose(Matrix4x4 matrix);
 
 static float DegToRad(float deg) { return deg * 3.14159265f / 180.0f; }
@@ -202,7 +205,7 @@ inline float EaseOutQuint(float t) {
 /// <summary>
 /// RGBをHSVに変換する
 /// </summary>
-/// <param name="rgb">RGB (各0.0f～1.0f)</param>
+/// <param name="rgb">RGB (0.0f～1.0f)</param>
 /// <returns>HSV (H: 0.0f～360.0f, S: 0.0f～1.0f, V: 0.0f～1.0f)</returns>
 Vector3 RGBToHSV(const Vector3& rgb);
 

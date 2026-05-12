@@ -2,31 +2,23 @@
 #include <algorithm>
 #include <cmath>
 
-Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t) {
-    float dot = q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w;
-    Quaternion tq1 = q1;
-    if (dot < 0.0f) {
-        dot = -dot;
-        tq1 = { -q1.x, -q1.y, -q1.z, -q1.w };
-    }
-    if (dot >= 1.0f - 0.0005f) {
-        return {
-            q0.x + (tq1.x - q0.x) * t,
-            q0.y + (tq1.y - q0.y) * t,
-            q0.z + (tq1.z - q0.z) * t,
-            q0.w + (tq1.w - q0.w) * t
-        };
-    }
-    float theta = std::acos(dot);
-    float sinTheta = std::sin(theta);
-    float s0 = std::sin((1.0f - t) * theta) / sinTheta;
-    float s1 = std::sin(t * theta) / sinTheta;
-    return {
-        q0.x * s0 + tq1.x * s1,
-        q0.y * s0 + tq1.y * s1,
-        q0.z * s0 + tq1.z * s1,
-        q0.w * s0 + tq1.w * s1
-    };
+Quaternion Slerp(const Quaternion &q0, const Quaternion &q1, float t) {
+  float dot = q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w;
+  Quaternion tq1 = q1;
+  if (dot < 0.0f) {
+    dot = -dot;
+    tq1 = {-q1.x, -q1.y, -q1.z, -q1.w};
+  }
+  if (dot >= 1.0f - 0.0005f) {
+    return {q0.x + (tq1.x - q0.x) * t, q0.y + (tq1.y - q0.y) * t,
+            q0.z + (tq1.z - q0.z) * t, q0.w + (tq1.w - q0.w) * t};
+  }
+  float theta = std::acos(dot);
+  float sinTheta = std::sin(theta);
+  float s0 = std::sin((1.0f - t) * theta) / sinTheta;
+  float s1 = std::sin(t * theta) / sinTheta;
+  return {q0.x * s0 + tq1.x * s1, q0.y * s0 + tq1.y * s1,
+          q0.z * s0 + tq1.z * s1, q0.w * s0 + tq1.w * s1};
 }
 
 Matrix4x4 MakeIdentity4x4() {
@@ -259,49 +251,51 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate) {
   return worldMatrix;
 }
 
-Matrix4x4 MakeRotateMatrix(const Quaternion& quaternion) {
-    Matrix4x4 result = MakeIdentity4x4();
-    float xx = quaternion.x * quaternion.x;
-    float yy = quaternion.y * quaternion.y;
-    float zz = quaternion.z * quaternion.z;
-    float ww = quaternion.w * quaternion.w;
-    float xy = quaternion.x * quaternion.y;
-    float xz = quaternion.x * quaternion.z;
-    float xw = quaternion.x * quaternion.w;
-    float yz = quaternion.y * quaternion.z;
-    float yw = quaternion.y * quaternion.w;
-    float zw = quaternion.z * quaternion.w;
+Matrix4x4 MakeRotateMatrix(const Quaternion &quaternion) {
+  Matrix4x4 result = MakeIdentity4x4();
+  float xx = quaternion.x * quaternion.x;
+  float yy = quaternion.y * quaternion.y;
+  float zz = quaternion.z * quaternion.z;
+  float ww = quaternion.w * quaternion.w;
+  float xy = quaternion.x * quaternion.y;
+  float xz = quaternion.x * quaternion.z;
+  float xw = quaternion.x * quaternion.w;
+  float yz = quaternion.y * quaternion.z;
+  float yw = quaternion.y * quaternion.w;
+  float zw = quaternion.z * quaternion.w;
 
-    result.m[0][0] = ww + xx - yy - zz;
-    result.m[0][1] = 2.0f * (xy + zw);
-    result.m[0][2] = 2.0f * (xz - yw);
-    result.m[0][3] = 0.0f;
+  result.m[0][0] = ww + xx - yy - zz;
+  result.m[0][1] = 2.0f * (xy + zw);
+  result.m[0][2] = 2.0f * (xz - yw);
+  result.m[0][3] = 0.0f;
 
-    result.m[1][0] = 2.0f * (xy - zw);
-    result.m[1][1] = ww - xx + yy - zz;
-    result.m[1][2] = 2.0f * (yz + xw);
-    result.m[1][3] = 0.0f;
+  result.m[1][0] = 2.0f * (xy - zw);
+  result.m[1][1] = ww - xx + yy - zz;
+  result.m[1][2] = 2.0f * (yz + xw);
+  result.m[1][3] = 0.0f;
 
-    result.m[2][0] = 2.0f * (xz + yw);
-    result.m[2][1] = 2.0f * (yz - xw);
-    result.m[2][2] = ww - xx - yy + zz;
-    result.m[2][3] = 0.0f;
+  result.m[2][0] = 2.0f * (xz + yw);
+  result.m[2][1] = 2.0f * (yz - xw);
+  result.m[2][2] = ww - xx - yy + zz;
+  result.m[2][3] = 0.0f;
 
-    result.m[3][0] = 0.0f;
-    result.m[3][1] = 0.0f;
-    result.m[3][2] = 0.0f;
-    result.m[3][3] = 1.0f;
+  result.m[3][0] = 0.0f;
+  result.m[3][1] = 0.0f;
+  result.m[3][2] = 0.0f;
+  result.m[3][3] = 1.0f;
 
-    return result;
+  return result;
 }
 
-Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate) {
-    Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
-    Matrix4x4 rotateMatrix = MakeRotateMatrix(rotate);
-    Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
+Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Quaternion &rotate,
+                           const Vector3 &translate) {
+  Matrix4x4 scaleMatrix = MakeScaleMatrix(scale);
+  Matrix4x4 rotateMatrix = MakeRotateMatrix(rotate);
+  Matrix4x4 translateMatrix = MakeTranslateMatrix(translate);
 
-    Matrix4x4 worldMatrix = Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
-    return worldMatrix;
+  Matrix4x4 worldMatrix =
+      Multiply(Multiply(scaleMatrix, rotateMatrix), translateMatrix);
+  return worldMatrix;
 }
 
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
@@ -523,6 +517,39 @@ Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m) {
   return result;
 }
 
+Vector2 WorldToScreen(const Vector3 &worldPos, const Matrix4x4 &viewProjMatrix,
+                      float screenWidth, float screenHeight) {
+  //  ViewProjection行列でワールド座標をクリップ空間座標（NDC）へ変換
+  Vector3 ndc;
+  ndc.x = worldPos.x * viewProjMatrix.m[0][0] +
+          worldPos.y * viewProjMatrix.m[1][0] +
+          worldPos.z * viewProjMatrix.m[2][0] + 1.0f * viewProjMatrix.m[3][0];
+  ndc.y = worldPos.x * viewProjMatrix.m[0][1] +
+          worldPos.y * viewProjMatrix.m[1][1] +
+          worldPos.z * viewProjMatrix.m[2][1] + 1.0f * viewProjMatrix.m[3][1];
+  ndc.z = worldPos.x * viewProjMatrix.m[0][2] +
+          worldPos.y * viewProjMatrix.m[1][2] +
+          worldPos.z * viewProjMatrix.m[2][2] + 1.0f * viewProjMatrix.m[3][2];
+  float w = worldPos.x * viewProjMatrix.m[0][3] +
+            worldPos.y * viewProjMatrix.m[1][3] +
+            worldPos.z * viewProjMatrix.m[2][3] + 1.0f * viewProjMatrix.m[3][3];
+
+  // 透視投影分割
+  if (w != 0.0f) {
+    ndc.x /= w;
+    ndc.y /= w;
+    ndc.z /= w;
+  }
+
+  // NDC (-1.0 ~ 1.0) をスクリーン座標に変換
+  // Xは右がプラス、Yは下がプラスになるよう調整
+  Vector2 screenPos;
+  screenPos.x = (ndc.x + 1.0f) * 0.5f * screenWidth;
+  screenPos.y = (1.0f - ndc.y) * 0.5f * screenHeight;
+
+  return screenPos;
+}
+
 Matrix4x4 Transpose(Matrix4x4 matrix) {
   Matrix4x4 result{};
 
@@ -549,69 +576,82 @@ Matrix4x4 Transpose(Matrix4x4 matrix) {
   return result;
 }
 
-Vector3 RGBToHSV(const Vector3& rgb) {
-    float r = rgb.x;
-    float g = rgb.y;
-    float b = rgb.z;
-    
-    float maxColor = std::max({r, g, b});
-    float minColor = std::min({r, g, b});
-    float delta = maxColor - minColor;
-    
-    float h = 0.0f;
-    float s = 0.0f;
-    float v = maxColor;
-    
-    if (maxColor > 0.0f) {
-        s = delta / maxColor;
+Vector3 RGBToHSV(const Vector3 &rgb) {
+  float r = rgb.x;
+  float g = rgb.y;
+  float b = rgb.z;
+
+  float maxColor = std::max({r, g, b});
+  float minColor = std::min({r, g, b});
+  float delta = maxColor - minColor;
+
+  float h = 0.0f;
+  float s = 0.0f;
+  float v = maxColor;
+
+  if (maxColor > 0.0f) {
+    s = delta / maxColor;
+  }
+
+  if (delta > 0.0f) {
+    if (maxColor == r) {
+      h = 60.0f * (g - b) / delta;
+    } else if (maxColor == g) {
+      h = 60.0f * (2.0f + (b - r) / delta);
+    } else if (maxColor == b) {
+      h = 60.0f * (4.0f + (r - g) / delta);
     }
-    
-    if (delta > 0.0f) {
-        if (maxColor == r) {
-            h = 60.0f * (g - b) / delta;
-        } else if (maxColor == g) {
-            h = 60.0f * (2.0f + (b - r) / delta);
-        } else if (maxColor == b) {
-            h = 60.0f * (4.0f + (r - g) / delta);
-        }
-        
-        if (h < 0.0f) {
-            h += 360.0f;
-        }
+
+    if (h < 0.0f) {
+      h += 360.0f;
     }
-    
-    return {h, s, v};
+  }
+
+  return {h, s, v};
 }
 
-Vector3 HSVToRGB(const Vector3& hsv) {
-    float h = hsv.x;
-    float s = hsv.y;
-    float v = hsv.z;
-    
-    // Hが360度以上の場合は0-359度に丸める
-    h = std::fmod(h, 360.0f);
-    if (h < 0.0f) h += 360.0f;
+Vector3 HSVToRGB(const Vector3 &hsv) {
+  float h = hsv.x;
+  float s = hsv.y;
+  float v = hsv.z;
 
-    float c = v * s;
-    float hp = h / 60.0f;
-    float x = c * (1.0f - std::abs(std::fmod(hp, 2.0f) - 1.0f));
-    float m = v - c;
-    
-    float r = 0.0f, g = 0.0f, b = 0.0f;
-    
-    if (0.0f <= hp && hp < 1.0f) {
-        r = c; g = x; b = 0.0f;
-    } else if (1.0f <= hp && hp < 2.0f) {
-        r = x; g = c; b = 0.0f;
-    } else if (2.0f <= hp && hp < 3.0f) {
-        r = 0.0f; g = c; b = x;
-    } else if (3.0f <= hp && hp < 4.0f) {
-        r = 0.0f; g = x; b = c;
-    } else if (4.0f <= hp && hp < 5.0f) {
-        r = x; g = 0.0f; b = c;
-    } else if (5.0f <= hp && hp < 6.0f) {
-        r = c; g = 0.0f; b = x;
-    }
-    
-    return {r + m, g + m, b + m};
+  // Hが360度以上の場合は0-359度に丸める
+  h = std::fmod(h, 360.0f);
+  if (h < 0.0f)
+    h += 360.0f;
+
+  float c = v * s;
+  float hp = h / 60.0f;
+  float x = c * (1.0f - std::abs(std::fmod(hp, 2.0f) - 1.0f));
+  float m = v - c;
+
+  float r = 0.0f, g = 0.0f, b = 0.0f;
+
+  if (0.0f <= hp && hp < 1.0f) {
+    r = c;
+    g = x;
+    b = 0.0f;
+  } else if (1.0f <= hp && hp < 2.0f) {
+    r = x;
+    g = c;
+    b = 0.0f;
+  } else if (2.0f <= hp && hp < 3.0f) {
+    r = 0.0f;
+    g = c;
+    b = x;
+  } else if (3.0f <= hp && hp < 4.0f) {
+    r = 0.0f;
+    g = x;
+    b = c;
+  } else if (4.0f <= hp && hp < 5.0f) {
+    r = x;
+    g = 0.0f;
+    b = c;
+  } else if (5.0f <= hp && hp < 6.0f) {
+    r = c;
+    g = 0.0f;
+    b = x;
+  }
+
+  return {r + m, g + m, b + m};
 }

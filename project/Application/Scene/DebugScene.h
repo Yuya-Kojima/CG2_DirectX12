@@ -20,10 +20,14 @@ class GameCamera;
 class SpriteRenderer;
 class Object3dRenderer;
 class InputKeyState;
+class Player;
 
 class DebugScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
+  // プレイヤーへのポインタ（ActorManagerで管理しつつ、ここで情報を渡すため）
+  Player* playerPtr_ = nullptr;
+
   // カメラ
   std::unique_ptr<GameCamera> camera_ = nullptr;
 
