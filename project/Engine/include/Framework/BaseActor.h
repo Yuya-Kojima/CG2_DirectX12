@@ -17,7 +17,8 @@ public:
 
     virtual void Initialize() {}
     virtual void Update() {}
-    virtual void Draw() {}
+    virtual void Draw3D() {} // 3Dモデルなどの描画
+    virtual void Draw2D() {} // UIやカーソルなどの2D描画
 
     // 生存フラグの操作
     void Destroy() { isDead_ = true; }

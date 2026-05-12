@@ -116,7 +116,9 @@ void SceneManager::Draw() {
   if (scene_) {
     scene_->Draw();
   }
+}
 
+void SceneManager::DrawOverlay() {
   assert(engine_);
   engine_->Begin2D();
 

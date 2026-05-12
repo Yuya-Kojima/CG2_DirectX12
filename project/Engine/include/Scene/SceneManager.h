@@ -48,6 +48,9 @@ public:
 
   void Draw();
 
+  // ポストプロセスの影響を受けないUIやフェードを描画するパス
+  void DrawOverlay();
+
   void ChangeScene(const std::string &sceneName);
 
   void SetNextTransitionFade(

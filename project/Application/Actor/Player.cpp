@@ -25,9 +25,11 @@ void Player::Update() {
     }
 }
 
-void Player::Draw() {
-    // プレイヤー自身の描画処理（将来的に3Dモデルを描画する）
-    
+void Player::Draw3D() {
+    // プレイヤー自身の描画処理
+}
+
+void Player::Draw2D() {
     // カーソルの描画
     if (lockOn_) {
         lockOn_->Draw();

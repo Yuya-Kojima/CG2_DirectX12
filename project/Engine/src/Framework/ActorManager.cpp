@@ -21,10 +21,17 @@ void ActorManager::Update() {
     });
 }
 
-void ActorManager::Draw() {
-    // リスト内のすべてのActorを描画
+void ActorManager::Draw3D() {
+    // リスト内のすべてのActorの3D部分を描画
     for (auto& actor : actors_) {
-        actor->Draw();
+        actor->Draw3D();
+    }
+}
+
+void ActorManager::Draw2D() {
+    // リスト内のすべてのActorの2D部分を描画
+    for (auto& actor : actors_) {
+        actor->Draw2D();
     }
 }
 
