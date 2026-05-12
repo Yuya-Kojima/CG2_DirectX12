@@ -1,14 +1,16 @@
 #include "Core/Game.h"
+#include "Collision/CollisionManager.h"
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
+#include "Framework/ActorManager.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
+#include "Render/Camera/ICamera.h"
 #include "Renderer/ModelRenderer.h"
 #include "Renderer/Object3dRenderer.h"
-#include "Renderer/SpriteRenderer.h"
 #include "Renderer/PostProcess.h"
-#include "Render/Camera/ICamera.h"
+#include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneFactory.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
@@ -44,7 +46,8 @@ void Game::Initialize() {
   renderTextureSrvIndex_ = srvManager_->Allocate();
   D3D12_SHADER_RESOURCE_VIEW_DESC renderTextureSrvDesc{};
   renderTextureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-  renderTextureSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  renderTextureSrvDesc.Shader4ComponentMapping =
+      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
   renderTextureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
   renderTextureSrvDesc.Texture2D.MipLevels = 1;
 
@@ -54,7 +57,8 @@ void Game::Initialize() {
 
   // DepthTextureのSRV作成
   depthTextureSrvIndex_ = srvManager_->Allocate();
-  srvManager_->CreateSRVforDepth(depthTextureSrvIndex_, dx12Core_->GetDepthStencilResource());
+  srvManager_->CreateSRVforDepth(depthTextureSrvIndex_,
+                                 dx12Core_->GetDepthStencilResource());
 
   // texture切り替え用
   bool useMonsterBall = true;
@@ -82,6 +86,10 @@ void Game::Finalize() {
 
   // シーンの解放
   SceneManager::GetInstance()->Finalize();
+
+  // マネージャーのメモリ解放
+  ActorManager::GetInstance()->Clear();
+  CollisionManager::GetInstance()->Clear();
 
   // 基底クラスの終了処理
   EngineBase::Finalize();
@@ -143,11 +151,11 @@ void Game::Draw() {
 
   // プロジェクション逆行列の取得とセット
   if (auto pp = SceneManager::GetInstance()->GetCurrentScenePostProcess()) {
-      const ICamera* defaultCamera = object3dRenderer_->GetDefaultCamera();
-      if (defaultCamera) {
-          pp->SetProjectionInverse(Inverse(defaultCamera->GetProjectionMatrix()));
-      }
-      pp->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
+    const ICamera *defaultCamera = object3dRenderer_->GetDefaultCamera();
+    if (defaultCamera) {
+      pp->SetProjectionInverse(Inverse(defaultCamera->GetProjectionMatrix()));
+    }
+    pp->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
   }
 
   // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）
