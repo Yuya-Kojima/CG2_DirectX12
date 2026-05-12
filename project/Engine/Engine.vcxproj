@@ -122,6 +122,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Framework\ActorManager.cpp" />
     <ClCompile Include="src\Render\Model\Skeleton.cpp" />
     <ClCompile Include="src\Render\Primitive\Cube.cpp" />
     <ClCompile Include="src\Render\Primitive\Cylinder.cpp" />
@@ -159,7 +160,6 @@
     <ClCompile Include="src\Render\Particle\IParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\MeshParticleEmitter.cpp" />
     <ClCompile Include="src\Render\Particle\ParticleEmitter.cpp" />
-
     <ClCompile Include="src\Render\Particle\ParticleManager.cpp" />
     <ClCompile Include="src\Render\Renderer\Object3dRenderer.cpp" />
     <ClCompile Include="src\Render\Sprite\Sprite.cpp" />
@@ -170,6 +170,8 @@
     <ClCompile Include="src\Util\StringUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Framework\ActorManager.h" />
+    <ClInclude Include="include\Framework\BaseActor.h" />
     <ClInclude Include="include\Render\Model\Animation.h" />
     <ClInclude Include="include\Render\Model\Skeleton.h" />
     <ClInclude Include="include\Render\Model\SkinCluster.h" />
@@ -219,7 +221,6 @@
     <ClInclude Include="include\Render\Particle\MeshParticleEmitter.h" />
     <ClInclude Include="include\Render\Particle\Particle.h" />
     <ClInclude Include="include\Render\Particle\ParticleEmitter.h" />
-
     <ClInclude Include="include\Render\Particle\ParticleManager.h" />
     <ClInclude Include="include\Render\Renderer\Object3dRenderer.h" />
     <ClInclude Include="include\Render\Sprite\Sprite.h" />
@@ -227,6 +228,7 @@
     <ClInclude Include="include\Render\Renderer\PostProcess.h" />
     <ClInclude Include="include\Render\Texture\TextureManager.h" />
     <ClInclude Include="include\Scene\BaseScene.h" />
+    <ClInclude Include="include\Scene\LevelData.h" />
     <ClInclude Include="include\Util\StringUtil.h" />
     <ClInclude Include="include\Scene\SceneManager.h" />
     <ClInclude Include="include\Audio\SoundManager.h" />
