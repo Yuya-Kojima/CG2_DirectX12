@@ -4,6 +4,7 @@
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Framework/ActorManager.h"
+#include "Collision/CollisionManager.h"
 #include "Input/Input.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -376,6 +377,9 @@ void DebugScene::Update() {
 
   // 毎フレームマネージャーに号令をかけさせる
   ActorManager::GetInstance()->Update();
+
+  // 当たり判定の全チェック
+  CollisionManager::GetInstance()->Update();
 
   // input取得
   auto *input = engine_->GetInputManager();
