@@ -211,6 +211,10 @@ public:
   void SetToneMappingType(int32_t type) { toneMappingType_ = type; }
   void SetExposure(float exposure) { exposure_ = exposure; }
 
+  void SetHistorySrvIndex(uint32_t index) { historySrvIndex_ = index; }
+  void SetMotionBlurAlpha(float alpha) { motionBlurAlpha_ = alpha; }
+  float GetMotionBlurAlpha() const { return motionBlurAlpha_; }
+
   /// <summary>
   /// HSVフィルターの色相(Hue)の加算値を設定する
   /// </summary>
@@ -268,6 +272,9 @@ private:
 
   int32_t toneMappingType_ = 1; // 0: None, 1: ACES Filmic, 2: Reinhard
   float exposure_ = 0.5f;
+
+  uint32_t historySrvIndex_ = 0;
+  float motionBlurAlpha_ = 0.0f; // 0.0でオフ
 
   Matrix4x4 projectionInverse_;
 

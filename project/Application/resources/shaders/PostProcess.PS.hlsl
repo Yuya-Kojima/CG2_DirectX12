@@ -4,6 +4,7 @@ Texture2D<float32_t4> gTexture : register(t0);
 Texture2D<float32_t> gDepthTexture : register(t1);
 Texture2D<float32_t> gMaskTexture : register(t2);
 Texture2D<float32_t4> gBloomTexture : register(t3);
+Texture2D<float32_t4> gHistoryTexture : register(t4);
 SamplerState gSampler : register(s0);
 SamplerState gSamplerPoint : register(s1);
 
@@ -43,6 +44,8 @@ cbuffer PostProcessData : register(b0) {
     int32_t useBloom;
     int32_t toneMappingType;
     float32_t exposure;
+    float32_t motionBlurAlpha;
+    float32_t3 padding8;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -165,6 +168,7 @@ float32_t3 ToneMap_Reinhard(float32_t3 x) {
 
 struct PixelShaderOutput {
     float32_t4 color : SV_TARGET0;
+    float32_t4 color1 : SV_TARGET1;
 };
 
 PixelShaderOutput main(VertexShaderOutput input) {
@@ -381,20 +385,41 @@ PixelShaderOutput main(VertexShaderOutput input) {
         output.color.rgb += bloomColor.rgb * bloomIntensity;
     }
 
+    // --- モーションブラー（残像エフェクト）---
+    float32_t3 finalHDRColor = output.color.rgb;
+    
+    // NaN汚染対策 (モデルの法線エラー等で描画結果にNaNが含まれる場合、NaNが伝播して黒い残像が永久に残るのを防ぐ)
+    if (any(isnan(finalHDRColor)) || any(isinf(finalHDRColor))) {
+        finalHDRColor = float32_t3(0.0f, 0.0f, 0.0f);
+    }
+
+    if (motionBlurAlpha > 0.0f) {
+        float32_t4 historyColor = gHistoryTexture.Sample(gSampler, input.texcoord);
+        if (any(isnan(historyColor.rgb)) || any(isinf(historyColor.rgb))) {
+            historyColor.rgb = float32_t3(0.0f, 0.0f, 0.0f);
+        }
+        finalHDRColor = lerp(finalHDRColor, historyColor.rgb, motionBlurAlpha);
+    }
+    
+    // 次フレームのためのHDRカラーをSV_TARGET1 (historyTexture_) に保存
+    output.color1 = float32_t4(finalHDRColor, 1.0f);
+
     // --- Tone Mapping ---
     // 露出(Exposure)を適用
-    output.color.rgb *= exposure;
+    finalHDRColor *= exposure;
 
     if (toneMappingType == 1) {
         // ACES Filmic
-        output.color.rgb = ToneMap_ACES(output.color.rgb);
+        finalHDRColor = ToneMap_ACES(finalHDRColor);
     } else if (toneMappingType == 2) {
         // Reinhard
-        output.color.rgb = ToneMap_Reinhard(output.color.rgb);
+        finalHDRColor = ToneMap_Reinhard(finalHDRColor);
     } else {
         // トーンマッピングなし
-        output.color.rgb = saturate(output.color.rgb);
+        finalHDRColor = saturate(finalHDRColor);
     }
+
+    output.color = float32_t4(finalHDRColor, output.color.a);
 
     return output;
 }

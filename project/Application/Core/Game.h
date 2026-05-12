@@ -29,5 +29,7 @@ private:
 
   std::unique_ptr<RenderTexture> mainRenderTexture_ = nullptr;
   std::unique_ptr<Bloom> bloom_ = nullptr;
+  std::unique_ptr<RenderTexture> historyTextures_[2] = { nullptr, nullptr };
+  uint32_t currentHistoryIndex_ = 0;
   uint32_t depthTextureSrvIndex_ = 0;
 };

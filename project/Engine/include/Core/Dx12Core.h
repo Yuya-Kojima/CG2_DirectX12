@@ -237,6 +237,14 @@ public:
   }
 
   /// <summary>
+  /// バックバッファのRTVハンドルを取得
+  /// </summary>
+  D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtvHandle() const {
+      UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
+      return rtvHandles[backBufferIndex];
+  }
+
+  /// <summary>
   /// DSVハンドルの取得
   /// </summary>
   D3D12_CPU_DESCRIPTOR_HANDLE GetDsvCpuDescriptorHandle() {

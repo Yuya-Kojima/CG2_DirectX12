@@ -73,7 +73,15 @@ void PostProcess::CreateRootSignature() {
   descriptorRangeBloom[0].OffsetInDescriptorsFromTableStart =
       D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  D3D12_ROOT_PARAMETER rootParameter[5] = {};
+  // DescriptorTable (Historyテクスチャ用)
+  D3D12_DESCRIPTOR_RANGE descriptorRangeHistory[1] = {};
+  descriptorRangeHistory[0].BaseShaderRegister = 4; // t4
+  descriptorRangeHistory[0].NumDescriptors = 1;
+  descriptorRangeHistory[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRangeHistory[0].OffsetInDescriptorsFromTableStart =
+      D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  D3D12_ROOT_PARAMETER rootParameter[6] = {};
 
   // b0: 定数バッファ (Grayscale切り替え用)
   rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -107,6 +115,13 @@ void PostProcess::CreateRootSignature() {
   rootParameter[4].DescriptorTable.pDescriptorRanges = descriptorRangeBloom;
   rootParameter[4].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRangeBloom);
+
+  // t4: Historyテクスチャ用デスクリプタテーブル
+  rootParameter[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[5].DescriptorTable.pDescriptorRanges = descriptorRangeHistory;
+  rootParameter[5].DescriptorTable.NumDescriptorRanges =
+      _countof(descriptorRangeHistory);
 
   // Sampler
   D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
@@ -167,6 +182,8 @@ void PostProcess::CreatePSO() {
   D3D12_BLEND_DESC blendDesc{};
   blendDesc.RenderTarget[0].RenderTargetWriteMask =
       D3D12_COLOR_WRITE_ENABLE_ALL;
+  blendDesc.RenderTarget[1].RenderTargetWriteMask =
+      D3D12_COLOR_WRITE_ENABLE_ALL;
 
   // RasterizerStateの設定
   D3D12_RASTERIZER_DESC rasterizerDesc{};
@@ -199,8 +216,9 @@ void PostProcess::CreatePSO() {
   graphicsPipeLineStateDesc.DepthStencilState = depthStencilDesc;
   graphicsPipeLineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-  graphicsPipeLineStateDesc.NumRenderTargets = 1;
-  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  graphicsPipeLineStateDesc.NumRenderTargets = 2;
+  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // Backbuffer(LDR)
+  graphicsPipeLineStateDesc.RTVFormats[1] = DXGI_FORMAT_R16G16B16A16_FLOAT; // History(HDR)
   graphicsPipeLineStateDesc.PrimitiveTopologyType =
       D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   graphicsPipeLineStateDesc.SampleDesc.Count = 1;
@@ -255,6 +273,8 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     int32_t useBloom;
     int32_t toneMappingType;
     float exposure;
+    float motionBlurAlpha;
+    float padding8[3];
   };
   PostProcessData *data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void **>(&data));
@@ -299,6 +319,10 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->useBloom = useBloom_ ? 1 : 0;
   data->toneMappingType = toneMappingType_;
   data->exposure = exposure_;
+  data->motionBlurAlpha = motionBlurAlpha_;
+  data->padding8[0] = 0.0f;
+  data->padding8[1] = 0.0f;
+  data->padding8[2] = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: DEPTH_WRITE -> PIXEL_SHADER_RESOURCE
@@ -327,6 +351,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   srvManager->SetGraphicsRootDescriptorTable(2, depthSrvIndex);
   srvManager->SetGraphicsRootDescriptorTable(3, maskSrvIndex_);
   srvManager->SetGraphicsRootDescriptorTable(4, bloomSrvIndex_);
+  srvManager->SetGraphicsRootDescriptorTable(5, historySrvIndex_);
 
   // 描画コマンド
   commandList->DrawInstanced(3, 1, 0, 0);
@@ -489,6 +514,11 @@ void PostProcess::DrawDebugUI(const char *windowName) {
     ImGui::Combo("Tone Mapping", &toneMappingType_, toneMappingItems,
                  IM_ARRAYSIZE(toneMappingItems));
     ImGui::DragFloat("Exposure", &exposure_, 0.05f, 0.1f, 10.0f);
+
+    // --- Motion Blur ---
+    ImGui::Separator();
+    ImGui::Text("Motion Blur (Accumulation)");
+    ImGui::DragFloat("Blur Alpha (0=Off)", &motionBlurAlpha_, 0.01f, 0.0f, 0.99f);
   }
 
   ImGui::End();

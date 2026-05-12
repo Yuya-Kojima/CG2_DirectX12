@@ -51,6 +51,15 @@ void Game::Initialize() {
   bloom_ = std::make_unique<Bloom>();
   bloom_->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight);
 
+  //モーションブラー用の初期化と黒クリア
+  for (int i = 0; i < 2; ++i) {
+    historyTextures_[i] = std::make_unique<RenderTexture>();
+    historyTextures_[i]->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue, DXGI_FORMAT_R16G16B16A16_FLOAT);
+    historyTextures_[i]->Clear(dx12Core_.get());
+    // 初回の読み込み時にRENDER_TARGETステートのままだと未定義動作になるため、事前にSRVに遷移しておく
+    historyTextures_[i]->TransitionToShaderResource(dx12Core_.get());
+  }
+
   // DepthTextureのSRV作成
   depthTextureSrvIndex_ = srvManager_->Allocate();
   srvManager_->CreateSRVforDepth(depthTextureSrvIndex_,
@@ -182,7 +191,36 @@ void Game::Draw() {
     // ブルーム結果をセット
     pp->SetBloomSrvIndex(bloomSrvIndex);
     
+    // モーションブラー用のHistoryテクスチャをセット
+    uint32_t prevHistoryIndex = (currentHistoryIndex_ + 1) % 2;
+    pp->SetHistorySrvIndex(historyTextures_[prevHistoryIndex]->GetSrvIndex());
+    
+    // 書き込み先のHistoryテクスチャをRENDER_TARGETに遷移
+    historyTextures_[currentHistoryIndex_]->TransitionToRenderTarget(dx12Core_.get());
+    
+    // MRT（マルチレンダーターゲット）の設定
+    // [0]はBackbuffer(表示用LDR)、[1]はHistory(次フレーム用の保存用HDR)
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2] = {
+      dx12Core_->GetBackBufferRtvHandle(),
+      historyTextures_[currentHistoryIndex_]->GetRtvHandle()
+    };
+    auto commandList = dx12Core_->GetCommandList();
+    commandList->OMSetRenderTargets(2, rtvHandles, false, nullptr);
+    
     pp->Draw(mainRenderTexture_->GetSrvIndex(), depthTextureSrvIndex_, srvManager_.get());
+    
+    // 書き込みが終わったHistoryテクスチャを次フレームの読み込み用に遷移
+    historyTextures_[currentHistoryIndex_]->TransitionToShaderResource(dx12Core_.get());
+    
+    // 次のフレームのためにインデックスを反転
+    currentHistoryIndex_ = prevHistoryIndex;
+  }
+  
+  // 以降のオーバーレイやImGui描画のために、ターゲットをBackbufferのみに戻す
+  {
+      D3D12_CPU_DESCRIPTOR_HANDLE backBufferHandle = dx12Core_->GetBackBufferRtvHandle();
+      auto commandList = dx12Core_->GetCommandList();
+      commandList->OMSetRenderTargets(1, &backBufferHandle, false, nullptr);
   }
 
   // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）
