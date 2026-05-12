@@ -26,7 +26,11 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む！
   ActorManager::GetInstance()->Initialize();
-  ActorManager::GetInstance()->AddActor(std::make_unique<Player>());
+  
+  auto player = std::make_unique<Player>();
+  player->SetSpriteRenderer(engine_->GetSpriteRenderer());
+  playerPtr_ = player.get(); // ポインタを控えておく
+  ActorManager::GetInstance()->AddActor(std::move(player));
 
   // PostProcess用テクスチャ
   TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
@@ -149,6 +153,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3dA_->SetModel("suzanne.obj");
   object3dA_->SetEnvironmentCoefficient(1.0f);
   object3dA_->SetTranslation({3.0f, 1.0f, 0.0f});
+  object3dA_->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f}); // デフォルトで黄色にする
 
   animatedCube_ = std::make_unique<Object3d>();
   animatedCube_->Initialize(engine_->GetObject3dRenderer());
@@ -601,6 +606,12 @@ void DebugScene::Update() {
   hitParticleGroup_->Update(activeCamera->GetViewMatrix(),
                             activeCamera->GetProjectionMatrix());
 
+  // === Playerにロックオン用の情報を渡す ===
+  if (playerPtr_) {
+      playerPtr_->SetCamera(activeCamera);
+      playerPtr_->SetTarget(object3dA_.get());
+  }
+
   // シリンダーの回転アニメーション
   cylinderUVOffset_ -= 0.0005f;
   if (cylinderUVOffset_ < -1.0f)
@@ -932,7 +943,8 @@ void DebugScene::Draw2D() {
     sprites_[i]->Draw();
   }
 
-  // sprite_->Draw();
+  // アクター（PlayerやLockOn等）の描画
+  ActorManager::GetInstance()->Draw();
 }
 
 DebugScene::~DebugScene() = default;
