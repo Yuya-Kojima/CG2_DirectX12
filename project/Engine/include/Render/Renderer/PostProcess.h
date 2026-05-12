@@ -215,6 +215,12 @@ public:
   void SetMotionBlurAlpha(float alpha) { motionBlurAlpha_ = alpha; }
   float GetMotionBlurAlpha() const { return motionBlurAlpha_; }
 
+  // DoF (被写界深度) パラメータ
+  void SetDofFocusDistance(float dist) { dofFocusDistance_ = dist; }
+  float GetDofFocusDistance() const { return dofFocusDistance_; }
+  void SetDofFocusRange(float range) { dofFocusRange_ = range; }
+  float GetDofFocusRange() const { return dofFocusRange_; }
+
   /// <summary>
   /// HSVフィルターの色相(Hue)の加算値を設定する
   /// </summary>
@@ -275,6 +281,9 @@ private:
 
   uint32_t historySrvIndex_ = 0;
   float motionBlurAlpha_ = 0.0f; // 0.0でオフ
+
+  float dofFocusDistance_ = 10.0f;
+  float dofFocusRange_ = 5.0f;
 
   Matrix4x4 projectionInverse_;
 

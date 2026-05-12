@@ -104,7 +104,6 @@ void TitleScene::Update() {
 
 void TitleScene::Draw() {
   Draw3D();
-  Draw2D();
 }
 
 void TitleScene::Draw3D() {
@@ -114,7 +113,5 @@ void TitleScene::Draw3D() {
 }
 
 void TitleScene::Draw2D() {
-  engine_->Begin2D();
-
   // ここから下で2DオブジェクトのDrawを呼ぶ
 }

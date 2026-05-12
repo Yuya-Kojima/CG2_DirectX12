@@ -45,7 +45,9 @@ cbuffer PostProcessData : register(b0) {
     int32_t toneMappingType;
     float32_t exposure;
     float32_t motionBlurAlpha;
-    float32_t3 padding8;
+    float32_t dofFocusDistance;
+    float32_t dofFocusRange;
+    float32_t padding8;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -331,19 +333,65 @@ PixelShaderOutput main(VertexShaderOutput input) {
     } else if (postEffectType == 6) { // Dissolve
         float32_t mask = gMaskTexture.Sample(gSampler, input.texcoord).r;
         
-        // maskの値が閾値以下の場合はdiscardして抜く
         if (mask <= dissolveThreshold) {
             discard;
         }
         
-        // Edgeっぽさを算出
         float32_t edge = 1.0f - smoothstep(dissolveThreshold, dissolveThreshold + dissolveEdgeRange, mask);
         
-        output.color = gTexture.Sample(gSampler, input.texcoord);
+        float32_t4 originalColor = gTexture.Sample(gSampler, input.texcoord);
+        output.color.rgb = originalColor.rgb + edge * dissolveEdgeColor;
+        output.color.a = originalColor.a;
+    } else if (postEffectType == 7) { // Depth of Field (DoF)
+        uint32_t width, height;
+        gTexture.GetDimensions(width, height);
+        float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
         
-        // Edgeっぽいほど指定した色を加算
-        output.color.rgb += edge * dissolveEdgeColor;
-    } else if (postEffectType == 7) { // Random Noise
+        // 現在のピクセルのNDC Depthを取得
+        float32_t ndcDepth = gDepthTexture.Sample(gSamplerPoint, input.texcoord);
+        
+        // DepthをView空間に変換 (Z値をリニアにする)
+        float32_t4 viewSpace = mul(float32_t4(0.0f, 0.0f, ndcDepth, 1.0f), projectionInverse);
+        float32_t viewZ = viewSpace.z * rcp(viewSpace.w);
+        
+        // CoC (Circle of Confusion / 錯乱円) の計算
+        // ピント位置からどれくらい離れているか
+        float32_t blurAmount = abs(viewZ - dofFocusDistance) - dofFocusRange;
+        // ブラーの強さを0.0 ～ 1.0にクランプ (除数はブラーの強さ係数。小さいほど急激にボケる)
+        float32_t coc = saturate(blurAmount / 15.0f);
+        
+        if (coc <= 0.0f) {
+            output.color.rgb = gTexture.Sample(gSampler, input.texcoord).rgb;
+        } else {
+            // シンプルなガウスぼかし（CoCに応じてぼかし幅を変える）
+            float32_t3 blurColor = float32_t3(0.0f, 0.0f, 0.0f);
+            float32_t totalWeight = 0.0f;
+            
+            // 最大カーネルサイズ (coc = 1.0のとき最大値)
+            int32_t kSize = (int32_t)ceil(coc * 4.0f); 
+            if (kSize < 1) kSize = 1;
+            
+            for (int32_t x = -kSize; x <= kSize; ++x) {
+                for (int32_t y = -kSize; y <= kSize; ++y) {
+                    float32_t2 texcoord = input.texcoord + float32_t2(x, y) * uvStepSize;
+                    float32_t3 fetchColor = gTexture.Sample(gSampler, texcoord).rgb;
+                    
+                    // NaN/Infサニタイズ
+                    if (any(isnan(fetchColor)) || any(isinf(fetchColor))) {
+                        fetchColor = float32_t3(0.0f, 0.0f, 0.0f);
+                    }
+                    
+                    blurColor += fetchColor;
+                    totalWeight += 1.0f;
+                }
+            }
+            blurColor *= rcp(totalWeight);
+            
+            // 元のピクセルとボケたピクセルをCoCでブレンド
+            output.color.rgb = lerp(gTexture.Sample(gSampler, input.texcoord).rgb, blurColor, coc);
+        }
+        output.color.a = 1.0f;
+    } else if (postEffectType == 8) { // Random Noise
         // 経過時間を掛けてSeed値にすることで、毎フレーム異なる乱数を生成する
         float32_t random = rand2dTo1d(input.texcoord * time);
         
@@ -353,7 +401,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
         // 生成した乱数の値を入力画像に乗算して出力（レトロなノイズ感）
         output.color.rgb = originalColor * random;
         output.color.a = 1.0f;
-    } else if (postEffectType == 8) { // HSV Filter
+    } else if (postEffectType == 9) { // HSV Filter
         float32_t4 textureColor = gTexture.Sample(gSampler, input.texcoord);
         float32_t3 hsv = RGBToHSV(textureColor.rgb);
         

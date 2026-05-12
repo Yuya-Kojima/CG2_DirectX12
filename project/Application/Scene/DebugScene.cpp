@@ -873,7 +873,6 @@ void DebugScene::Update() {
 
 void DebugScene::Draw() {
   Draw3D();
-  Draw2D();
 }
 
 void DebugScene::Draw3D() {
@@ -912,7 +911,7 @@ void DebugScene::Draw3D() {
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
   engine_->GetObject3dRenderer()->SetDepthEnable(false);
 
-  // 1. 関節間のLineを登録
+  // 関節間のLineを登録
   for (size_t i = 0; i < sneakWalk_->GetSkeleton().joints.size(); ++i) {
     const Joint &joint = sneakWalk_->GetSkeleton().joints[i];
     if (joint.parent) {
@@ -929,7 +928,7 @@ void DebugScene::Draw3D() {
     }
   }
 
-  // 3. 関節のSphereを描画
+  //  関節のSphereを描画
   for (auto &jointObj : jointObjects_) {
     jointObj->Draw();
   }
@@ -952,8 +951,6 @@ void DebugScene::Draw3D() {
 }
 
 void DebugScene::Draw2D() {
-  engine_->Begin2D();
-
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {

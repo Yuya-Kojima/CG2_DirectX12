@@ -274,7 +274,9 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     int32_t toneMappingType;
     float exposure;
     float motionBlurAlpha;
-    float padding8[3];
+    float dofFocusDistance;
+    float dofFocusRange;
+    float padding8;
   };
   PostProcessData *data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void **>(&data));
@@ -320,9 +322,9 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->toneMappingType = toneMappingType_;
   data->exposure = exposure_;
   data->motionBlurAlpha = motionBlurAlpha_;
-  data->padding8[0] = 0.0f;
-  data->padding8[1] = 0.0f;
-  data->padding8[2] = 0.0f;
+  data->dofFocusDistance = dofFocusDistance_;
+  data->dofFocusRange = dofFocusRange_;
+  data->padding8 = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
   // Barrier: DEPTH_WRITE -> PIXEL_SHADER_RESOURCE
@@ -380,8 +382,8 @@ void PostProcess::DrawDebugUI(const char *windowName) {
     ImGui::Text("Base Effect");
     const char *effectTypes[] = {
         "None",          "BoxFilter",   "GaussianFilter", "Luminance Outline",
-        "Depth Outline", "Radial Blur", "Dissolve",       "Random Noise",
-        "HSV Filter"};
+        "Depth Outline", "Radial Blur", "Dissolve",       "Depth of Field",
+        "Random Noise", "HSV Filter"};
     ImGui::Combo("Effect Type", &postEffectType_, effectTypes,
                  IM_ARRAYSIZE(effectTypes));
 
@@ -414,9 +416,11 @@ void PostProcess::DrawDebugUI(const char *windowName) {
       ImGui::DragFloat("Edge Range", &dissolveEdgeRange_, 0.001f, 0.0f, 0.2f,
                        "%.3f");
       ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
-    } else if (postEffectType_ == 7) { // Random Noise
+    } else if (postEffectType_ == 7) { // Depth of Field
+      ImGui::Text("Adjust DoF parameters below in the Depth of Field section.");
+    } else if (postEffectType_ == 8) { // Random Noise
       ImGui::Text("Generating animated GPU random noise.");
-    } else if (postEffectType_ == 8) { // HSV Filter
+    } else if (postEffectType_ == 9) { // HSV Filter
       ImGui::DragFloat("Hue", &hsvFilterHue_, 0.01f, -1.0f, 1.0f);
       ImGui::DragFloat("Saturation", &hsvFilterSaturation_, 0.01f, -1.0f, 1.0f);
       ImGui::DragFloat("Value", &hsvFilterValue_, 0.01f, -1.0f, 1.0f);
@@ -508,12 +512,22 @@ void PostProcess::DrawDebugUI(const char *windowName) {
 
     // --- Tone Mapping ---
     ImGui::Separator();
-    ImGui::Text("Tone Mapping & HDR");
-    const char *toneMappingItems[] = {"None (Linear/Clamp)", "ACES Filmic",
-                                      "Reinhard"};
-    ImGui::Combo("Tone Mapping", &toneMappingType_, toneMappingItems,
-                 IM_ARRAYSIZE(toneMappingItems));
-    ImGui::DragFloat("Exposure", &exposure_, 0.05f, 0.1f, 10.0f);
+    // --- Depth of Field ---
+    ImGui::Separator();
+    if (ImGui::TreeNode("Depth of Field (DoF)")) {
+      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f, 1000.0f);
+      ImGui::DragFloat("Focus Range", &dofFocusRange_, 0.5f, 0.0f, 100.0f);
+      ImGui::TreePop();
+    }
+    
+    // --- Tone Mapping ---
+    ImGui::Separator();
+    if (ImGui::TreeNode("Tone Mapping & HDR")) {
+      const char *toneMappingItems[] = {"None (Linear/Clamp)", "ACES Filmic", "Reinhard"};
+      ImGui::Combo("Tone Mapping", &toneMappingType_, toneMappingItems, IM_ARRAYSIZE(toneMappingItems));
+      ImGui::DragFloat("Exposure", &exposure_, 0.05f, 0.1f, 10.0f);
+      ImGui::TreePop();
+    }
 
     // --- Motion Blur ---
     ImGui::Separator();
