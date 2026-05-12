@@ -184,6 +184,28 @@ public:
   void SetMaskSrvIndex(uint32_t index) { maskSrvIndex_ = index; }
 
   /// <summary>
+  /// ブルーム用テクスチャのSRVインデックスを設定する
+  /// </summary>
+  void SetBloomSrvIndex(uint32_t index) { bloomSrvIndex_ = index; }
+
+  /// <summary>
+  /// ブルームの適用フラグを設定する
+  /// </summary>
+  void SetUseBloom(bool use) { useBloom_ = use; }
+
+  /// <summary>
+  /// ブルームの強度を設定する
+  /// </summary>
+  void SetBloomIntensity(float intensity) { bloomIntensity_ = intensity; }
+
+  // Bloom詳細パラメータのGetter/Setter
+  bool GetUseBloom() const { return useBloom_; }
+  float GetBloomThreshold() const { return bloomThreshold_; }
+  float GetBloomSigma() const { return bloomSigma_; }
+  void SetBloomThreshold(float t) { bloomThreshold_ = t; }
+  void SetBloomSigma(float s) { bloomSigma_ = s; }
+
+  /// <summary>
   /// HSVフィルターの色相(Hue)の加算値を設定する
   /// </summary>
   void SetHsvFilterHue(float hue) { hsvFilterHue_ = hue; }
@@ -232,6 +254,11 @@ private:
   float time_ = 0.0f;
 
   uint32_t maskSrvIndex_ = 0;
+  uint32_t bloomSrvIndex_ = 0;
+  bool useBloom_ = false;
+  float bloomIntensity_ = 1.0f;
+  float bloomThreshold_ = 0.8f;
+  float bloomSigma_ = 5.0f;
 
   Matrix4x4 projectionInverse_;
 

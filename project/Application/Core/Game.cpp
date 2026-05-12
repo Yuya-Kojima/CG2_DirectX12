@@ -42,18 +42,14 @@ void Game::Initialize() {
   imGuiManager_->Initialize(windowSystem_.get(), dx12Core_.get(),
                             srvManager_.get());
 
-  // RenderTextureのSRV作成 (SrvManagerを使って)
-  renderTextureSrvIndex_ = srvManager_->Allocate();
-  D3D12_SHADER_RESOURCE_VIEW_DESC renderTextureSrvDesc{};
-  renderTextureSrvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-  renderTextureSrvDesc.Shader4ComponentMapping =
-      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-  renderTextureSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-  renderTextureSrvDesc.Texture2D.MipLevels = 1;
+  // RenderTextureの作成
+  const Vector4 kRenderTargetClearValue{ 1.0f, 0.0f, 0.0f, 1.0f }; // 一旦分かりやすいように赤
+  mainRenderTexture_ = std::make_unique<RenderTexture>();
+  mainRenderTexture_->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue);
 
-  dx12Core_->GetDevice()->CreateShaderResourceView(
-      dx12Core_->GetRenderTextureResource(), &renderTextureSrvDesc,
-      srvManager_->GetCPUDescriptorHandle(renderTextureSrvIndex_));
+  // Bloomの初期化
+  bloom_ = std::make_unique<Bloom>();
+  bloom_->Initialize(dx12Core_.get(), srvManager_.get(), WindowSystem::kClientWidth, WindowSystem::kClientHeight);
 
   // DepthTextureのSRV作成
   depthTextureSrvIndex_ = srvManager_->Allocate();
@@ -142,9 +138,36 @@ void Game::Draw() {
 
   EngineBase::BeginFrame();
 
-  // 3D
-  // EngineBase::Begin3D();
+  // メインのオフスクリーンテクスチャを描画対象に設定
+  mainRenderTexture_->TransitionToRenderTarget(dx12Core_.get());
+  auto commandList = dx12Core_->GetCommandList();
+  D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = mainRenderTexture_->GetRtvHandle();
+  D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dx12Core_->GetDsvCpuDescriptorHandle();
+  commandList->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
+  
+  // 画面クリア
+  mainRenderTexture_->Clear(dx12Core_.get());
+
+  // 3D描画
   SceneManager::GetInstance()->Draw();
+
+  // ----- ブルーム処理の実行 -----
+  // mainRenderTexture_ を ShaderResource にする（抽出パスで読むため）
+  mainRenderTexture_->TransitionToShaderResource(dx12Core_.get());
+  uint32_t bloomSrvIndex = 0;
+
+  if (auto pp = SceneManager::GetInstance()->GetCurrentScenePostProcess()) {
+    // ImGuiの設定をBloomに反映
+    bloom_->SetThreshold(pp->GetBloomThreshold());
+    bloom_->SetSigma(pp->GetBloomSigma());
+    
+    // ブルームがONの時だけ描画を実行
+    if (pp->GetUseBloom()) {
+      bloomSrvIndex = bloom_->Draw(dx12Core_.get(), srvManager_.get(), mainRenderTexture_->GetSrvIndex());
+    }
+  } else {
+    bloomSrvIndex = bloom_->Draw(dx12Core_.get(), srvManager_.get(), mainRenderTexture_->GetSrvIndex());
+  }
 
   // Swapchainに描画先を切り替える
   dx12Core_->PreDrawImGui();
@@ -155,7 +178,11 @@ void Game::Draw() {
     if (defaultCamera) {
       pp->SetProjectionInverse(Inverse(defaultCamera->GetProjectionMatrix()));
     }
-    pp->Draw(renderTextureSrvIndex_, depthTextureSrvIndex_, srvManager_.get());
+    
+    // ブルーム結果をセット
+    pp->SetBloomSrvIndex(bloomSrvIndex);
+    
+    pp->Draw(mainRenderTexture_->GetSrvIndex(), depthTextureSrvIndex_, srvManager_.get());
   }
 
   // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）

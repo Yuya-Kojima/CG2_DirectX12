@@ -3,6 +3,7 @@
 Texture2D<float32_t4> gTexture : register(t0);
 Texture2D<float32_t> gDepthTexture : register(t1);
 Texture2D<float32_t> gMaskTexture : register(t2);
+Texture2D<float32_t4> gBloomTexture : register(t3);
 SamplerState gSampler : register(s0);
 SamplerState gSamplerPoint : register(s1);
 
@@ -38,6 +39,9 @@ cbuffer PostProcessData : register(b0) {
     float32_t hsvFilterSaturation;
     float32_t hsvFilterValue;
     float32_t padding6;
+    float32_t bloomIntensity;
+    int32_t useBloom;
+    float32_t2 padding7;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -352,6 +356,11 @@ PixelShaderOutput main(VertexShaderOutput input) {
         vignette = saturate(pow(vignette, vignetteExponent));
         // 係数として乗算
         output.color.rgb *= vignette;
+    }
+
+    if (useBloom != 0) {
+        float32_t4 bloomColor = gBloomTexture.Sample(gSampler, input.texcoord);
+        output.color.rgb += bloomColor.rgb * bloomIntensity;
     }
 
     return output;

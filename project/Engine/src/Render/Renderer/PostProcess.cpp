@@ -63,7 +63,14 @@ void PostProcess::CreateRootSignature() {
   descriptorRangeMask[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
   descriptorRangeMask[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  D3D12_ROOT_PARAMETER rootParameter[4] = {};
+  // DescriptorTable (Bloomテクスチャ用)
+  D3D12_DESCRIPTOR_RANGE descriptorRangeBloom[1] = {};
+  descriptorRangeBloom[0].BaseShaderRegister = 3; // t3
+  descriptorRangeBloom[0].NumDescriptors = 1;
+  descriptorRangeBloom[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRangeBloom[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+  D3D12_ROOT_PARAMETER rootParameter[5] = {};
 
   // b0: 定数バッファ (Grayscale切り替え用)
   rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -87,6 +94,12 @@ void PostProcess::CreateRootSignature() {
   rootParameter[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
   rootParameter[3].DescriptorTable.pDescriptorRanges = descriptorRangeMask;
   rootParameter[3].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeMask);
+
+  // t3: Bloomテクスチャ用デスクリプタテーブル
+  rootParameter[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[4].DescriptorTable.pDescriptorRanges = descriptorRangeBloom;
+  rootParameter[4].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeBloom);
 
   // Sampler
   D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
@@ -191,7 +204,6 @@ void PostProcess::CreatePSO() {
 void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManager* srvManager) {
 
   auto commandList = dx12Core_->GetCommandList();
-  auto renderTextureResource = dx12Core_->GetRenderTextureResource();
   auto depthStencilResource = dx12Core_->GetDepthStencilResource();
 
   // 定数バッファへのデータ転送
@@ -227,6 +239,9 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
     float hsvFilterSaturation;
     float hsvFilterValue;
     float padding6;
+    float bloomIntensity;
+    int32_t useBloom;
+    float padding7[2];
   };
   PostProcessData* data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void**>(&data));
@@ -267,16 +282,13 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   data->hsvFilterSaturation = hsvFilterSaturation_;
   data->hsvFilterValue = hsvFilterValue_;
   data->padding6 = 0.0f;
+  data->bloomIntensity = bloomIntensity_;
+  data->useBloom = useBloom_ ? 1 : 0;
+  data->padding7[0] = 0.0f;
+  data->padding7[1] = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
-  // Barrier: RENDER_TARGET -> PIXEL_SHADER_RESOURCE
-  D3D12_RESOURCE_BARRIER barrier1{};
-  barrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  barrier1.Transition.pResource = renderTextureResource;
-  barrier1.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-  barrier1.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-  barrier1.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
+  // Barrier: DEPTH_WRITE -> PIXEL_SHADER_RESOURCE
   D3D12_RESOURCE_BARRIER depthBarrier1{};
   depthBarrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
   depthBarrier1.Transition.pResource = depthStencilResource;
@@ -284,8 +296,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   depthBarrier1.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
   depthBarrier1.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-  D3D12_RESOURCE_BARRIER barriers[2] = { barrier1, depthBarrier1 };
-  commandList->ResourceBarrier(2, barriers);
+  commandList->ResourceBarrier(1, &depthBarrier1);
 
   // パイプライン設定
   commandList->SetGraphicsRootSignature(rootSignature_.Get());
@@ -299,17 +310,12 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   srvManager->SetGraphicsRootDescriptorTable(1, renderSrvIndex);
   srvManager->SetGraphicsRootDescriptorTable(2, depthSrvIndex);
   srvManager->SetGraphicsRootDescriptorTable(3, maskSrvIndex_);
+  srvManager->SetGraphicsRootDescriptorTable(4, bloomSrvIndex_);
 
   // 描画コマンド
   commandList->DrawInstanced(3, 1, 0, 0);
 
-  // Barrier: PIXEL_SHADER_RESOURCE -> RENDER_TARGET
-  D3D12_RESOURCE_BARRIER barrier2{};
-  barrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  barrier2.Transition.pResource = renderTextureResource;
-  barrier2.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-  barrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-  barrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+  // Barrier: PIXEL_SHADER_RESOURCE -> DEPTH_WRITE
   D3D12_RESOURCE_BARRIER depthBarrier2{};
   depthBarrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
   depthBarrier2.Transition.pResource = depthStencilResource;
@@ -317,8 +323,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex, SrvManag
   depthBarrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
   depthBarrier2.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-  D3D12_RESOURCE_BARRIER barriersEnd[2] = { barrier2, depthBarrier2 };
-  commandList->ResourceBarrier(2, barriersEnd);
+  commandList->ResourceBarrier(1, &depthBarrier2);
 }
 
 void PostProcess::DrawDebugUI(const char* windowName) {
@@ -404,6 +409,17 @@ void PostProcess::DrawDebugUI(const char* windowName) {
       if (vignetteType == 4) {
           ImGui::DragFloat("Scale", &vignetteScale_, 0.1f, 1.0f, 100.0f);
           ImGui::DragFloat("Exponent", &vignetteExponent_, 0.05f, 0.1f, 5.0f);
+      }
+
+      // --- Bloom ---
+      ImGui::Separator();
+      ImGui::Text("Bloom (Multi-pass)");
+      bool bloomEnabled = useBloom_;
+      if (ImGui::Checkbox("Enable Bloom", &bloomEnabled)) { useBloom_ = bloomEnabled; }
+      if (useBloom_) {
+          ImGui::DragFloat("Bloom Intensity", &bloomIntensity_, 0.05f, 0.0f, 10.0f);
+          ImGui::DragFloat("Extract Threshold", &bloomThreshold_, 0.01f, 0.0f, 1.0f);
+          ImGui::DragFloat("Blur Sigma (Radius)", &bloomSigma_, 0.1f, 0.1f, 30.0f);
       }
   }
 

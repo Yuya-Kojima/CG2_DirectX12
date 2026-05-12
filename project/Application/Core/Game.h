@@ -4,6 +4,8 @@
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
 #include "Renderer/PostProcess.h"
+#include "Render/Texture/RenderTexture.h"
+#include "Render/Renderer/Bloom.h"
 #include <memory>
 #include <vector>
 
@@ -25,6 +27,7 @@ private:
 
   std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
 
-  uint32_t renderTextureSrvIndex_ = 0;
+  std::unique_ptr<RenderTexture> mainRenderTexture_ = nullptr;
+  std::unique_ptr<Bloom> bloom_ = nullptr;
   uint32_t depthTextureSrvIndex_ = 0;
 };
