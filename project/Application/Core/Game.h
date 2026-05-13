@@ -6,8 +6,8 @@
 #include "Renderer/PostProcess.h"
 #include "Render/Texture/RenderTexture.h"
 #include "Render/Renderer/Bloom.h"
+#include "Render/Renderer/RenderPipeline.h"
 #include <memory>
-#include <vector>
 
 class ImGuiManager;
 
@@ -27,9 +27,5 @@ private:
 
   std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;
 
-  std::unique_ptr<RenderTexture> mainRenderTexture_ = nullptr;
-  std::unique_ptr<Bloom> bloom_ = nullptr;
-  std::unique_ptr<RenderTexture> historyTextures_[2] = { nullptr, nullptr };
-  uint32_t currentHistoryIndex_ = 0;
-  uint32_t depthTextureSrvIndex_ = 0;
+  std::unique_ptr<RenderPipeline> renderPipeline_ = nullptr;
 };
