@@ -5,8 +5,7 @@ void RenderTexture::Initialize(Dx12Core *dx12Core, SrvManager *srvManager,
                                uint32_t width, uint32_t height,
                                const Vector4 &clearColor, DXGI_FORMAT format) {
   clearColor_ = clearColor;
-  currentState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
+  
   // テクスチャリソースの生成
   resource_ = CreateRenderTextureResource(dx12Core->GetDevice(), width, height,
                                           format, clearColor_);
@@ -47,35 +46,9 @@ void RenderTexture::Clear(Dx12Core *dx12Core) {
 }
 
 void RenderTexture::TransitionToRenderTarget(Dx12Core *dx12Core) {
-  if (currentState_ == D3D12_RESOURCE_STATE_RENDER_TARGET)
-    return;
-
-  auto commandList = dx12Core->GetCommandList();
-  D3D12_RESOURCE_BARRIER barrier{};
-  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-  barrier.Transition.pResource = resource_.Get();
-  barrier.Transition.StateBefore = currentState_;
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-  barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-  commandList->ResourceBarrier(1, &barrier);
-
-  currentState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
+  dx12Core->TransitionResource(resource_.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 }
 
 void RenderTexture::TransitionToShaderResource(Dx12Core *dx12Core) {
-  if (currentState_ == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-    return;
-
-  auto commandList = dx12Core->GetCommandList();
-  D3D12_RESOURCE_BARRIER barrier{};
-  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-  barrier.Transition.pResource = resource_.Get();
-  barrier.Transition.StateBefore = currentState_;
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-  barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-  commandList->ResourceBarrier(1, &barrier);
-
-  currentState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  dx12Core->TransitionResource(resource_.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 }

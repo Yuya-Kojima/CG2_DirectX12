@@ -9,6 +9,7 @@
 #include <dxgi1_6.h>
 #include <string>
 #include <wrl.h>
+#include <unordered_map>
 
 Microsoft::WRL::ComPtr<ID3D12Resource>
 CreateRenderTextureResource(Microsoft::WRL::ComPtr<ID3D12Device> device, uint32_t width, uint32_t height, DXGI_FORMAT format, const Vector4& clearColor);
@@ -133,6 +134,11 @@ public:
   /// 描画後処理
   /// </summary>
   void EndFrame();
+
+  /// <summary>
+  /// リソース状態の安全な遷移（自動バリア）
+  /// </summary>
+  void TransitionResource(ID3D12Resource* resource, D3D12_RESOURCE_STATES newState);
 
   /// <summary>
   /// デバイスの初期化
@@ -325,6 +331,9 @@ private:
   std::chrono::steady_clock::time_point reference_;
 
   bool set60FPS = false;
+
+  // 全てのリソースの現在の状態を監視する名簿
+  std::unordered_map<ID3D12Resource*, D3D12_RESOURCE_STATES> resourceStates_;
 
 public:
   // 最大SRV数(最大テクスチャ枚数)

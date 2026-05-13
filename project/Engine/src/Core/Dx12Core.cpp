@@ -191,29 +191,10 @@ void Dx12Core::Initialize(WindowSystem *windowSystem) {
 void Dx12Core::BeginFrame() {
 
   // バックバッファの番号取得
-  // これから書き込むバックバッファのインデックスを取得
   UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
-  // リソースバリアで書き込み可能に変更
-  // TransitionBarrierの設定
-
-  // 今回のバリアはTransition
-  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-
-  // Noneにしておく
-  barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-  // バリアを張る対象のリソース。現在のバックバッファに対して行う
-  barrier.Transition.pResource = swapChainResources[backBufferIndex].Get();
-
-  // 遷移前(現在)のResourceState
-  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-
-  // 遷移後のResourceState
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-  // TransitionBarrierを張る
-  commandList->ResourceBarrier(1, &barrier);
+  // リソース状態を自動で追跡し、RENDER_TARGETへ安全に遷移させる
+  TransitionResource(swapChainResources[backBufferIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 
   // 描画先のRTVとDSVを指定する
   D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = GetDsvCpuDescriptorHandle();
@@ -253,17 +234,10 @@ void Dx12Core::EndFrame() {
   HRESULT hr;
 
   // バックバッファの番号取得
-  // これから書き込むバックバッファのインデックスを取得
   UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
-  // リソースバリアで表示状態に変更
-  //  今回はRenderTargetからPresentにする
-  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-
-  // TransitionBarrierを張る
-  commandList->ResourceBarrier(1, &barrier);
+  // 画面表示用に PRESENT 状態へ安全に遷移
+  TransitionResource(swapChainResources[backBufferIndex].Get(), D3D12_RESOURCE_STATE_PRESENT);
 
   // コマンドリストの内容を確定させる。すべてのコマンドを積んでからCloseすること
   hr = commandList->Close();
@@ -759,6 +733,9 @@ Dx12Core::CreateBufferResource(size_t sizeInBytes) {
       abort();
   }
 
+  // 初期状態を記録
+  resourceStates_[bufferResource.Get()] = D3D12_RESOURCE_STATE_GENERIC_READ;
+
   return bufferResource;
 }
 
@@ -795,6 +772,9 @@ Dx12Core::CreateUAVBufferResource(size_t sizeInBytes) {
       abort();
   }
 
+  // 初期状態を記録
+  resourceStates_[bufferResource.Get()] = D3D12_RESOURCE_STATE_COMMON;
+
   return bufferResource;
 }
 
@@ -828,6 +808,10 @@ Dx12Core::CreateTextureResource(const DirectX::TexMetadata &metadata) {
       IID_PPV_ARGS(&resource));       // 作成するResourceポインタへのポインタ
 
   assert(SUCCEEDED(hr));
+  
+  // 初期状態を記録
+  resourceStates_[resource.Get()] = D3D12_RESOURCE_STATE_COPY_DEST;
+  
   return resource;
 }
 
@@ -862,15 +846,7 @@ Microsoft::WRL::ComPtr<ID3D12Resource> Dx12Core::UploadTextureData(
                      UINT(subresources.size()), subresources.data());
 
   // Textureへの転送後は利用できるよう、COPY_DEST から GENERIC_READ へ遷移
-  D3D12_RESOURCE_BARRIER barrier{};
-  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-  barrier.Transition.pResource = texture.Get();
-  barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
-
-  commandList->ResourceBarrier(1, &barrier);
+  TransitionResource(texture.Get(), D3D12_RESOURCE_STATE_GENERIC_READ);
 
   return intermediateResource;
 }
@@ -947,4 +923,37 @@ DirectX::ScratchImage Dx12Core::LoadTexture(const std::string &filePath) {
 
   // ミニマップ付きのデータを返す
   return mipImages;
+}
+
+void Dx12Core::TransitionResource(ID3D12Resource* resource, D3D12_RESOURCE_STATES newState) {
+  if (!resource) return;
+
+  // 1. 名簿から現在の状態を取得
+  D3D12_RESOURCE_STATES currentState = D3D12_RESOURCE_STATE_COMMON; // 初期値の仮定
+  auto it = resourceStates_.find(resource);
+  if (it != resourceStates_.end()) {
+      currentState = it->second;
+  } else {
+      // 登録されていない場合はCOMMONとみなして登録する（安全策）
+      resourceStates_[resource] = currentState;
+  }
+
+  // 2. 現在の状態と新しい状態が同じなら何もしない（超軽量）
+  if (currentState == newState) {
+      return;
+  }
+
+  // 3. 状態が異なる場合はバリアを張る
+  D3D12_RESOURCE_BARRIER barrier{};
+  barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+  barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+  barrier.Transition.pResource = resource;
+  barrier.Transition.StateBefore = currentState;
+  barrier.Transition.StateAfter = newState;
+  barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+  commandList->ResourceBarrier(1, &barrier);
+
+  // 4. 名簿の状態を更新
+  resourceStates_[resource] = newState;
 }
