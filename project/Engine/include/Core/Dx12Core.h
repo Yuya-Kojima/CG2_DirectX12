@@ -61,9 +61,8 @@ private:
 
   D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
 
-  // RenderTexture用
-  Microsoft::WRL::ComPtr<ID3D12Resource> renderTextureResource;
-  D3D12_CPU_DESCRIPTOR_HANDLE renderTextureRtvHandle{};
+  // 動的なRTV割り当て用
+  uint32_t useRtvIndex_ = 0;
 
   // フェンスカウント
   uint64_t fenceValue;
@@ -211,6 +210,18 @@ public:
   void InitializeImGui();
 
   /// <summary>
+  /// RTVインデックスの割り当て
+  /// </summary>
+  uint32_t AllocateRTV() { return useRtvIndex_++; }
+
+  /// <summary>
+  /// 指定インデックスのRTV CPUハンドルを取得
+  /// </summary>
+  D3D12_CPU_DESCRIPTOR_HANDLE GetRtvCpuDescriptorHandle(uint32_t index) {
+      return GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, index);
+  }
+
+  /// <summary>
   /// デバイスのゲッター
   /// </summary>
   /// <returns></returns>
@@ -221,12 +232,23 @@ public:
     return commandList.Get();
   }
 
-  ID3D12Resource *GetRenderTextureResource() const {
-    return renderTextureResource.Get();
-  }
-
   ID3D12Resource *GetDepthStencilResource() const {
     return depthStencilResource.Get();
+  }
+
+  /// <summary>
+  /// バックバッファのRTVハンドルを取得
+  /// </summary>
+  D3D12_CPU_DESCRIPTOR_HANDLE GetBackBufferRtvHandle() const {
+      UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
+      return rtvHandles[backBufferIndex];
+  }
+
+  /// <summary>
+  /// DSVハンドルの取得
+  /// </summary>
+  D3D12_CPU_DESCRIPTOR_HANDLE GetDsvCpuDescriptorHandle() {
+      return GetCPUDescriptorHandle(dsvDescriptorHeap, descriptorSizeDSV, 0);
   }
 
   /// <summary>

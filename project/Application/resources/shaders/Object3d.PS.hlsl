@@ -218,6 +218,11 @@ GeometryShaderOutput input) {
 
 	output.color.a = gMaterial.color.a * textureColor.a;
 	
+	// 計算結果がNaNやInfになったピクセルは描画を破棄する
+	if (any(isnan(output.color)) || any(isinf(output.color))) {
+		discard;
+	}
+	
 	return output;
 }
 

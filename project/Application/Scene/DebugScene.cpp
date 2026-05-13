@@ -678,6 +678,9 @@ void DebugScene::Update() {
     skybox_->Update();
   }
 
+  // パーティクルの射出処理(GPU)
+  ParticleManager::GetInstance()->Emit();
+
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
@@ -871,10 +874,7 @@ void DebugScene::Update() {
 #endif // USE_IMGUI
 }
 
-void DebugScene::Draw() {
-  Draw3D();
-  Draw2D();
-}
+void DebugScene::Draw() { Draw3D(); }
 
 void DebugScene::Draw3D() {
   engine_->Begin3D();
@@ -906,13 +906,13 @@ void DebugScene::Draw3D() {
     enemy->Draw();
   }
 
-  // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい
+  // CSで計算済みの頂点を使って描画されるため、通常のBegin()のまま
   sneakWalk_->Draw();
 
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
   engine_->GetObject3dRenderer()->SetDepthEnable(false);
 
-  // 1. 関節間のLineを登録
+  // 関節間のLineを登録
   for (size_t i = 0; i < sneakWalk_->GetSkeleton().joints.size(); ++i) {
     const Joint &joint = sneakWalk_->GetSkeleton().joints[i];
     if (joint.parent) {
@@ -929,14 +929,11 @@ void DebugScene::Draw3D() {
     }
   }
 
-  // 3. 関節のSphereを描画
+  //  関節のSphereを描画
   for (auto &jointObj : jointObjects_) {
     jointObj->Draw();
   }
   engine_->GetObject3dRenderer()->SetDepthEnable(true); // 元に戻す
-
-  // パーティクルの射出処理(GPU)
-  ParticleManager::GetInstance()->Emit();
 
   testParticleGroup_->Draw();
   clearParticleGroup_->Draw();
@@ -952,8 +949,6 @@ void DebugScene::Draw3D() {
 }
 
 void DebugScene::Draw2D() {
-  engine_->Begin2D();
-
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
   for (uint32_t i = 0; i < kSpriteCount_; ++i) {

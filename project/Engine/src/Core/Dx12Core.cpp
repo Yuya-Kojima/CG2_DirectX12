@@ -216,19 +216,10 @@ void Dx12Core::BeginFrame() {
   commandList->ResourceBarrier(1, &barrier);
 
   // 描画先のRTVとDSVを指定する
-  D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle =
-      GetCPUDescriptorHandle(dsvDescriptorHeap, descriptorSizeDSV, 0);
+  D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = GetDsvCpuDescriptorHandle();
   
-  // Swapchainの代わりにRenderTextureを描画先にする
-  commandList->OMSetRenderTargets(1, &renderTextureRtvHandle, false, &dsvHandle);
-
-  // RenderTextureの色をクリア (赤)
-  float clearColorRenderTexture[] = {1.0f, 0.0f, 0.0f, 1.0f};
-  commandList->ClearRenderTargetView(renderTextureRtvHandle, clearColorRenderTexture, 0, nullptr);
-
   // 画面全体の深度をクリア
-  commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0,
-                                     0, nullptr);
+  commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
   // SRV用のディスクリプタヒープを指定する
   // 描画用のDescriptorHeapの設定
@@ -510,9 +501,9 @@ void Dx12Core::InitializeDescriptorHeap() {
   descriptorSizeDSV =
       device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
-  // RTV用のヒープでディスクリプタの数は3(Swapchainx2 + RenderTexturex1)。RTVはShader内で触るものではないので、ShaderVisibleはfalse
+  // RTV用のヒープでディスクリプタの数は64（Swapchainx2 + RenderTexture複数対応）。RTVはShader内で触るものではないので、ShaderVisibleはfalse
   rtvDescriptorHeap =
-      CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 3, false);
+      CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 64, false);
 
   // SRV用のヒープでディスクリプタの数は128。STVはShader内で触るものなので、ShaderVisibleはtrue
   // srvDescriptorHeap =
@@ -543,29 +534,12 @@ void Dx12Core::InitializeRenderTargetView() {
   rtvDesc.ViewDimension =
       D3D12_RTV_DIMENSION_TEXTURE2D; // 2dテクスチャとして書き込む
 
-  // ディスクリプタの先頭を取得する
-  D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle =
-      GetCPUDescriptorHandle(rtvDescriptorHeap, descriptorSizeRTV, 0);
-
-  // RTVを二つ作るのでディスクリプタを二つ用意
-  rtvHandles[0] = rtvStartHandle;
-  rtvHandles[1].ptr =
-      rtvHandles[0].ptr +
-      device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
+  // SwapChain用のRTV割り当てと生成
   for (uint32_t i = 0; i < 2; ++i) {
+    rtvHandles[i] = GetRtvCpuDescriptorHandle(AllocateRTV());
     device->CreateRenderTargetView(swapChainResources[i].Get(), &rtvDesc,
                                    rtvHandles[i]);
   }
-
-  // RenderTextureとRTVの生成
-  const Vector4 kRenderTargetClearValue{ 1.0f, 0.0f, 0.0f, 1.0f }; // 一旦分かりやすいように赤
-  renderTextureResource = CreateRenderTextureResource(
-      device, WindowSystem::kClientWidth, WindowSystem::kClientHeight,
-      DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, kRenderTargetClearValue);
-
-  renderTextureRtvHandle.ptr = rtvHandles[1].ptr + descriptorSizeRTV;
-  device->CreateRenderTargetView(renderTextureResource.Get(), &rtvDesc, renderTextureRtvHandle);
 }
 
 // D3D12_CPU_DESCRIPTOR_HANDLE

@@ -122,6 +122,10 @@ void SceneManager::DrawOverlay() {
   assert(engine_);
   engine_->Begin2D();
 
+  if (scene_) {
+    scene_->Draw2D();
+  }
+
   fade_.Draw();
 
   engine_->End2D();

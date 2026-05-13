@@ -142,7 +142,6 @@ void GamePlayScene::Update() {
 
 void GamePlayScene::Draw() {
   Draw3D();
-  Draw2D();
 }
 
 void GamePlayScene::Draw3D() {
@@ -152,8 +151,6 @@ void GamePlayScene::Draw3D() {
 }
 
 void GamePlayScene::Draw2D() {
-  engine_->Begin2D();
-
   // ここから下で2DオブジェクトのDrawを呼ぶ
   sprite_->Draw();
 }

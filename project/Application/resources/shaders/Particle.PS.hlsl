@@ -21,6 +21,11 @@ VertexShaderOutput input) {
 	PixelShaderOutput output;
 	output.color = gMaterial.color * textureColor * input.color;
 	
+	// 計算結果がNaNやInfになったピクセルは描画を破棄する
+	if (any(isnan(output.color)) || any(isinf(output.color))) {
+		discard;
+	}
+	
 	if (output.color.a == 0.0) {
 		discard;
 	}
