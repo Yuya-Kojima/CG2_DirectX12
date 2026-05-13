@@ -417,7 +417,8 @@ void PostProcess::DrawDebugUI(const char *windowName) {
                        "%.3f");
       ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
     } else if (postEffectType_ == 7) { // Depth of Field
-      ImGui::Text("Adjust DoF parameters below in the Depth of Field section.");
+      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f, 1000.0f);
+      ImGui::DragFloat("Focus Range", &dofFocusRange_, 0.5f, 0.0f, 100.0f);
     } else if (postEffectType_ == 8) { // Random Noise
       ImGui::Text("Generating animated GPU random noise.");
     } else if (postEffectType_ == 9) { // HSV Filter
@@ -512,13 +513,7 @@ void PostProcess::DrawDebugUI(const char *windowName) {
 
     // --- Tone Mapping ---
     ImGui::Separator();
-    // --- Depth of Field ---
-    ImGui::Separator();
-    if (ImGui::TreeNode("Depth of Field (DoF)")) {
-      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f, 1000.0f);
-      ImGui::DragFloat("Focus Range", &dofFocusRange_, 0.5f, 0.0f, 100.0f);
-      ImGui::TreePop();
-    }
+    // --- Tone Mapping ---
     
     // --- Tone Mapping ---
     ImGui::Separator();
