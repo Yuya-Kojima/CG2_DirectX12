@@ -169,6 +169,7 @@
     <ClCompile Include="src\Render\Sprite\Sprite.cpp" />
     <ClCompile Include="src\Render\Renderer\SpriteRenderer.cpp" />
     <ClCompile Include="src\Render\Renderer\PostProcess.cpp" />
+    <ClCompile Include="src\Render\Renderer\RenderPipeline.cpp" />
     <ClCompile Include="src\Render\Texture\TextureManager.cpp" />
     <ClCompile Include="src\Scene\BaseScene.cpp" />
     <ClCompile Include="src\Util\StringUtil.cpp" />
@@ -237,6 +238,7 @@
     <ClInclude Include="include\Render\Sprite\Sprite.h" />
     <ClInclude Include="include\Render\Renderer\SpriteRenderer.h" />
     <ClInclude Include="include\Render\Renderer\PostProcess.h" />
+    <ClInclude Include="include\Render\Renderer\RenderPipeline.h" />
     <ClInclude Include="include\Render\Texture\TextureManager.h" />
     <ClInclude Include="include\Scene\BaseScene.h" />
     <ClInclude Include="include\Scene\LevelData.h" />

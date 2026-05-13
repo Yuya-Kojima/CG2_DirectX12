@@ -417,8 +417,6 @@ void DebugScene::Update() {
     // WipeLeft(左から右へ塗りつぶし)
     // 白色フェード
     // EaseOut
-    //
-    // ※引数がなかった場合デフォルト値が与えられる※
     SceneManager::GetInstance()->SetNextTransitionFade(
         0.5f, Fade::FadeType::WipeLeft, Vector4{1.0f, 1.0f, 1.0f, 1.0f});
 
@@ -468,7 +466,7 @@ void DebugScene::Update() {
   }
 
   //=======================
-  // ディゾルブアニメーション（1キーで起爆）
+  // ディゾルブアニメーション
   //=======================
   if (engine_->GetInputManager()->IsTriggerKey(DIK_1)) {
     suzanneEnableDissolve_ = true;
@@ -477,7 +475,7 @@ void DebugScene::Update() {
   }
 
   if (isPlayingSuzanneDissolve_) {
-    // フレームごとに閾値を増加（約1秒で1.0になる計算: 1.0 / 60 = 0.016...）
+    // フレームごとに閾値を増加
     suzanneDissolveThreshold_ += 0.015f;
 
     if (suzanneDissolveThreshold_ >= 1.0f) {
@@ -489,7 +487,7 @@ void DebugScene::Update() {
   // 常時ノイズをゆっくりスクロールさせる
   if (suzanneEnableDissolve_) {
     if (isHologramMode_) {
-      // ホログラムモード時は縦（Y）方向のみ少し速く流す（スキャンライン風）
+      // ホログラムモード時は縦方向のみ少し速く流す（スキャンライン風）
       suzanneMaskTransform_.y += 0.005f;
     } else {
       suzanneMaskTransform_.x += 0.001f;
@@ -883,7 +881,7 @@ void DebugScene::Draw3D() {
 
   if (skybox_) {
     engine_->GetSkyboxRenderer()->Begin();
-    // skybox_->Draw();
+     skybox_->Draw();
 
     // Skybox描画後に通常3Dへ戻す
     engine_->GetObject3dRenderer()->Begin();
