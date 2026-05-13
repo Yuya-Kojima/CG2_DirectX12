@@ -79,7 +79,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\Object3d.hlsli" />
     <None Include="cpp.hint" />
     <None Include="resources\shaders\Sprite.hlsli" />
     <None Include="resources\shaders\Skybox.hlsli" />

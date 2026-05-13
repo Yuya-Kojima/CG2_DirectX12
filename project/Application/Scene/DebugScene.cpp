@@ -678,6 +678,9 @@ void DebugScene::Update() {
     skybox_->Update();
   }
 
+  // パーティクルの射出処理(GPU)
+  ParticleManager::GetInstance()->Emit();
+
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
@@ -871,9 +874,7 @@ void DebugScene::Update() {
 #endif // USE_IMGUI
 }
 
-void DebugScene::Draw() {
-  Draw3D();
-}
+void DebugScene::Draw() { Draw3D(); }
 
 void DebugScene::Draw3D() {
   engine_->Begin3D();
@@ -905,7 +906,7 @@ void DebugScene::Draw3D() {
     enemy->Draw();
   }
 
-  // CSで計算済みの頂点を使って描画されるため、通常のBegin()のままでよい
+  // CSで計算済みの頂点を使って描画されるため、通常のBegin()のまま
   sneakWalk_->Draw();
 
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
@@ -933,9 +934,6 @@ void DebugScene::Draw3D() {
     jointObj->Draw();
   }
   engine_->GetObject3dRenderer()->SetDepthEnable(true); // 元に戻す
-
-  // パーティクルの射出処理(GPU)
-  ParticleManager::GetInstance()->Emit();
 
   testParticleGroup_->Draw();
   clearParticleGroup_->Draw();
