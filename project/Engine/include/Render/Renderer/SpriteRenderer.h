@@ -12,9 +12,14 @@ public:
   // Dx12Core *GetDx12Core() const { return dx12Core_; }
 
   /// <summary>
-  /// 共通描画設定
+  /// 通常描画設定
   /// </summary>
   void Begin();
+
+  /// <summary>
+  /// UIEffect描画設定
+  /// </summary>
+  void BeginUIEffect();
 
 private:
   Dx12Core *dx12Core_ = nullptr;
@@ -32,6 +37,7 @@ private:
 
   // PSO
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12PipelineState> uiEffectPipeLineState_ = nullptr;
 
   /// <summary>
   /// ルートシグネチャの生成

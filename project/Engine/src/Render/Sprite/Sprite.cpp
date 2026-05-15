@@ -34,6 +34,8 @@ void Sprite::Initialize(SpriteRenderer *spriteRenderer,
 
   CreateTransformationMatrixData();
 
+  CreateUIEffectParamsData();
+
   AdjustTextureSize();
 }
 
@@ -150,6 +152,45 @@ void Sprite::Draw() {
   commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);
 }
 
+void Sprite::DrawUIEffect() {
+  assert(dx12Core_ && "Sprite::DrawUIEffect: not initialized");
+  assert(materialResource && "Sprite::DrawUIEffect: materialResource is null");
+  assert(transformationMatrixResource && "Sprite::DrawUIEffect: transformationMatrixResource is null");
+  assert(vertexResource && "Sprite::DrawUIEffect: vertexResource is null");
+  assert(indexResource && "Sprite::DrawUIEffect: indexResource is null");
+  assert(uiEffectParamsResource_ && "Sprite::DrawUIEffect: uiEffectParamsResource is null");
+
+  ID3D12GraphicsCommandList *commandList_ = dx12Core_->GetCommandList();
+
+  commandList_->IASetVertexBuffers(0, 1, &vertexBufferView);
+  commandList_->IASetIndexBuffer(&indexBufferView);
+
+  // b0: Material
+  commandList_->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
+
+  // b0 (VS): TransformationMatrix
+  commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResource->GetGPUVirtualAddress());
+
+  // t0: Texture
+  commandList_->SetGraphicsRootDescriptorTable(2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
+
+  // b1: UIEffectParams
+  commandList_->SetGraphicsRootConstantBufferView(3, uiEffectParamsResource_->GetGPUVirtualAddress());
+
+  commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);
+}
+
+void Sprite::SetUIEffectParams(float time, int effectType, float splitY, float amplitude, float frequency, float speed) {
+  if (uiEffectParamsData_) {
+    uiEffectParamsData_->time = time;
+    uiEffectParamsData_->effectType = effectType;
+    uiEffectParamsData_->splitY = splitY;
+    uiEffectParamsData_->amplitude = amplitude;
+    uiEffectParamsData_->frequency = frequency;
+    uiEffectParamsData_->speed = speed;
+  }
+}
+
 void Sprite::CreateVertexData() {
 
   // VertexResourceを作る
@@ -240,6 +281,25 @@ void Sprite::CreateTransformationMatrixData() {
 
   // 単位行列を書き込んでおく
   transformationMatrixData->WVP = MakeIdentity4x4();
+}
+
+void Sprite::CreateUIEffectParamsData() {
+  // バッファリソースを作る
+  uiEffectParamsResource_ = dx12Core_->CreateBufferResource(sizeof(UIEffectParams));
+  // データを書き込むためのアドレスを取得して割り当てる
+  HRESULT hr = uiEffectParamsResource_->Map(0, nullptr, reinterpret_cast<void **>(&uiEffectParamsData_));
+  assert(SUCCEEDED(hr));
+  assert(uiEffectParamsData_);
+
+  // デフォルト値を設定
+  uiEffectParamsData_->time = 0.0f;
+  uiEffectParamsData_->effectType = 0; // 通常
+  uiEffectParamsData_->splitY = 0.5f;
+  uiEffectParamsData_->amplitude = 0.05f;
+  uiEffectParamsData_->frequency = 20.0f;
+  uiEffectParamsData_->speed = 5.0f;
+  uiEffectParamsData_->padding1 = 0.05f; // blurWidth
+  uiEffectParamsData_->padding2 = 0.03f; // boundaryAmp
 }
 
 void Sprite::ChangeTexture(const std::string &textureFilePath) {
