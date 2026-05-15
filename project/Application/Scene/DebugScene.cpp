@@ -71,7 +71,13 @@ void DebugScene::Initialize(EngineBase *engine) {
   // スプライトの生成と初期化
   for (int i = 0; i < kSpriteCount_; ++i) {
     auto sprite = std::make_unique<Sprite>();
-    if (i % 2 == 1) {
+
+    if (i == 0) {
+      sprite->Initialize(engine_->GetSpriteRenderer(),
+                         "resources/white1x1.png");
+      // シェーダーで暗い文字として判定・加算されるように、マテリアルカラーを暗いブルーに設定
+      sprite->SetColor(Vector4{0.02f, 0.05f, 0.3f, 1.0f});
+    } else if (i % 2 == 1) {
       sprite->Initialize(engine_->GetSpriteRenderer(),
                          "resources/white1x1.png");
     } else {
@@ -881,7 +887,7 @@ void DebugScene::Draw3D() {
 
   if (skybox_) {
     engine_->GetSkyboxRenderer()->Begin();
-     skybox_->Draw();
+    skybox_->Draw();
 
     // Skybox描画後に通常3Dへ戻す
     engine_->GetObject3dRenderer()->Begin();
@@ -939,7 +945,7 @@ void DebugScene::Draw3D() {
   cylinderParticleGroup_->Draw();
   planeHitParticleGroup_->Draw();
 
-  // 2. Lineを描画 (他の描画のパイプラインを壊さないように最後に呼ぶ)
+  //  Lineを描画 (他の描画のパイプラインを壊さないように最後に呼ぶ)
   if (const ICamera *camera =
           engine_->GetObject3dRenderer()->GetDefaultCamera()) {
     engine_->GetLineRenderer()->Render(camera->GetViewProjectionMatrix());
@@ -949,9 +955,26 @@ void DebugScene::Draw3D() {
 void DebugScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
-  for (uint32_t i = 0; i < kSpriteCount_; ++i) {
-    sprites_[i]->Draw();
-  }
+  // まず通常描画で下地となる文字（上半分が見える部分）を描画
+  engine_->GetSpriteRenderer()->Begin();
+  sprites_[0]->Draw();
+
+  // その上に、波エフェクト専用のシェーダーでもう一度描画（波の形にマスクされる）
+  static float effectTime = 0.0f;
+  effectTime += 1.0f / 60.0f;
+
+  //  波打ちエフェクト (時間, タイプ, Yの境界線, 揺れ幅, 細かさ, スピード)
+  sprites_[0]->SetUIEffectParams(effectTime, 1, 0.2f, 0.05f, 20.0f, 1.0f);
+
+  engine_->GetSpriteRenderer()->BeginUIEffect();
+  sprites_[0]->DrawUIEffect();
+
+  // 通常描画に戻す
+  engine_->GetSpriteRenderer()->Begin();
+
+  // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
+  //   sprites_[i]->Draw();
+  // }
 
   // アクターの2D部分の描画
   ActorManager::GetInstance()->Draw2D();

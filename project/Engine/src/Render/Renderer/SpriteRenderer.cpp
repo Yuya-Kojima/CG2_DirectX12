@@ -22,32 +22,34 @@ void SpriteRenderer::CreateSpriteRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameter[3] = {};
-  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameter[0].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL;              // PixelShaderで使う
-  rootParameter[0].Descriptor.ShaderRegister = 0; // レジスタ番号0とバインド
+  D3D12_ROOT_PARAMETER rootParameter[4] = {};
+  
+  // Material (b0)
+  rootParameter[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameter[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[0].Descriptor.ShaderRegister = 0;
 
-  rootParameter[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
-  rootParameter[1].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_VERTEX;             // VertexShaderで使う
-  rootParameter[1].Descriptor.ShaderRegister = 0; // レジスタ番号0を使う
+  // Transform (b0 in VS)
+  rootParameter[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameter[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+  rootParameter[1].Descriptor.ShaderRegister = 0;
 
   D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
-  descriptorRange[0].BaseShaderRegister = 0; // ０から始まる
-  descriptorRange[0].NumDescriptors = 1;     // 数は1つ
-  descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV; // SRVを使う
-  descriptorRange[0].OffsetInDescriptorsFromTableStart =
-      D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND; // Offsetを自動計算
+  descriptorRange[0].BaseShaderRegister = 0;
+  descriptorRange[0].NumDescriptors = 1;
+  descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+  descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-  rootParameter[2].ParameterType =
-      D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE; // DescriptorTableを使う
-  rootParameter[2].ShaderVisibility =
-      D3D12_SHADER_VISIBILITY_PIXEL; // PixelShaderで使う
-  rootParameter[2].DescriptorTable.pDescriptorRanges =
-      descriptorRange; // Tableの中身の配列を指定
-  rootParameter[2].DescriptorTable.NumDescriptorRanges =
-      _countof(descriptorRange); // Tableで利用する数
+  // Texture (t0)
+  rootParameter[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+  rootParameter[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[2].DescriptorTable.pDescriptorRanges = descriptorRange;
+  rootParameter[2].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
+
+  // UIEffectParams (b1)
+  rootParameter[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameter[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameter[3].Descriptor.ShaderRegister = 1;
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -156,6 +158,10 @@ void SpriteRenderer::CreateSpritePSO() {
       dx12Core_->CompileShader(L"resources/shaders/Sprite.PS.hlsl", L"ps_6_0");
   assert(pixelShaderBlob != nullptr);
 
+  IDxcBlob *uiEffectPixelShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/UIEffect.PS.hlsl", L"ps_6_0");
+  assert(uiEffectPixelShaderBlob != nullptr);
+
   // DepthStencilStateの設定
   D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 
@@ -197,21 +203,31 @@ void SpriteRenderer::CreateSpritePSO() {
   graphicsPipeLineStateDesc.SampleDesc.Count = 1;
   graphicsPipeLineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
-  // 実際に生成
+  // 通常スプライト用PSO生成
   graphicsPipeLineState_ = nullptr;
   hr = device_->CreateGraphicsPipelineState(
       &graphicsPipeLineStateDesc, IID_PPV_ARGS(&graphicsPipeLineState_));
   assert(SUCCEEDED(hr));
+
+  // UIEffect用PSO生成
+  graphicsPipeLineStateDesc.PS = {
+      uiEffectPixelShaderBlob->GetBufferPointer(),
+      uiEffectPixelShaderBlob->GetBufferSize()};
+  
+  uiEffectPipeLineState_ = nullptr;
+  hr = device_->CreateGraphicsPipelineState(
+      &graphicsPipeLineStateDesc, IID_PPV_ARGS(&uiEffectPipeLineState_));
+  assert(SUCCEEDED(hr));
 }
 
 void SpriteRenderer::Begin() {
-
-  // RootSignatureをセット
   commandList_->SetGraphicsRootSignature(rootSignature_.Get());
-
-  // PSOをセット
   commandList_->SetPipelineState(graphicsPipeLineState_.Get());
+  commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
 
-  // プリミティブトポロジー(形状）をセット
+void SpriteRenderer::BeginUIEffect() {
+  commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+  commandList_->SetPipelineState(uiEffectPipeLineState_.Get());
   commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }

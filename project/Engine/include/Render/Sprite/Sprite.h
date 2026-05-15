@@ -30,6 +30,17 @@ class Sprite {
     Matrix4x4 WVP;
   };
 
+  struct UIEffectParams {
+    float time;
+    int effectType;
+    float splitY;
+    float amplitude;
+    float frequency;
+    float speed;
+    float padding1;
+    float padding2;
+  };
+
 public:
   /// <summary>
   /// 初期化
@@ -46,6 +57,16 @@ public:
   /// 描画処理
   /// </summary>
   void Draw();
+
+  /// <summary>
+  /// UIエフェクト用の描画処理
+  /// </summary>
+  void DrawUIEffect();
+
+  /// <summary>
+  /// UIEffectのパラメータを設定する
+  /// </summary>
+  void SetUIEffectParams(float time, int effectType, float splitY = 0.5f, float amplitude = 0.05f, float frequency = 20.0f, float speed = 5.0f);
 
 private:
   SpriteRenderer *spriteRenderer_ = nullptr;
@@ -108,6 +129,15 @@ private:
   /// 座標変換行列データを生成
   /// </summary>
   void CreateTransformationMatrixData();
+
+  /// <summary>
+  /// UIEffectデータを生成
+  /// </summary>
+  void CreateUIEffectParamsData();
+
+  // UIEffectのバッファリソース
+  Microsoft::WRL::ComPtr<ID3D12Resource> uiEffectParamsResource_ = nullptr;
+  UIEffectParams *uiEffectParamsData_ = nullptr;
 
 private:
   Transform transform_{
