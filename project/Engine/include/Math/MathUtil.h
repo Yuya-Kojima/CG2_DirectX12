@@ -42,8 +42,24 @@ inline Vector3 Normalize(const Vector3 &v) {
                       : Vector3{0.0f, 0.0f, 0.0f};
 }
 
+inline float Lerp(float a, float b, float t) {
+  return a + (b - a) * t;
+}
+
 inline Vector3 Lerp(const Vector3 &a, const Vector3 &b, float t) {
   return {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t};
+}
+
+// 4つの制御点と進行度t(0~1)からCatmull-Rom曲線上の座標を計算する
+inline Vector3 CatmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p2, const Vector3& p3, float t) {
+  float t2 = t * t;
+  float t3 = t2 * t;
+
+  Vector3 result;
+  result.x = 0.5f * (2.0f * p1.x + (-p0.x + p2.x) * t + (2.0f * p0.x - 5.0f * p1.x + 4.0f * p2.x - p3.x) * t2 + (-p0.x + 3.0f * p1.x - 3.0f * p2.x + p3.x) * t3);
+  result.y = 0.5f * (2.0f * p1.y + (-p0.y + p2.y) * t + (2.0f * p0.y - 5.0f * p1.y + 4.0f * p2.y - p3.y) * t2 + (-p0.y + 3.0f * p1.y - 3.0f * p2.y + p3.y) * t3);
+  result.z = 0.5f * (2.0f * p1.z + (-p0.z + p2.z) * t + (2.0f * p0.z - 5.0f * p1.z + 4.0f * p2.z - p3.z) * t2 + (-p0.z + 3.0f * p1.z - 3.0f * p2.z + p3.z) * t3);
+  return result;
 }
 
 Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t);

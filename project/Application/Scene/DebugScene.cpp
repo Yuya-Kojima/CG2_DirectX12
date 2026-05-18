@@ -2,6 +2,7 @@
 #include "Actor/Enemy.h"
 #include "Actor/Player.h"
 #include "Camera/GameCamera.h"
+#include "Camera/RailCamera.h"
 #include "Collision/CollisionManager.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
@@ -29,8 +30,20 @@ void DebugScene::Initialize(EngineBase *engine) {
   // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む
   ActorManager::GetInstance()->Initialize();
 
+  // 自機用のモデルをロードしておく
+  ModelManager::GetInstance()->LoadModel("suzanne.obj");
+
   auto player = std::make_unique<Player>();
   player->SetSpriteRenderer(engine_->GetSpriteRenderer());
+  player->SetObject3dRenderer(engine_->GetObject3dRenderer()); // 追加
+  player->SetInput(engine_->GetInputManager()); // Inputを渡す
+  
+  auto playerModel = std::make_unique<Object3d>();
+  playerModel->Initialize(engine_->GetObject3dRenderer());
+  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
+  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
+  player->SetModel(std::move(playerModel));
+  
   playerPtr_ = player.get(); // ポインタを控えておく
   ActorManager::GetInstance()->AddActor(std::move(player));
 
@@ -132,7 +145,22 @@ void DebugScene::Initialize(EngineBase *engine) {
   camera_ = std::make_unique<GameCamera>();
   camera_->SetRotate({0.3f, 0.0f, 0.0f});
   camera_->SetTranslate({0.0f, 4.0f, -10.0f});
-  engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
+
+  // レールカメラの初期化
+  waypoints_ = {
+      {0.0f, 4.0f, -10.0f},
+      {0.0f, 4.0f, 10.0f},
+      {15.0f, 4.0f, 20.0f},
+      {0.0f, 10.0f, 40.0f},
+      {-15.0f, 4.0f, 60.0f},
+      {0.0f, 4.0f, 80.0f}
+  };
+  railCamera_ = std::make_unique<RailCamera>();
+  railCamera_->Initialize(waypoints_);
+  railCamera_->SetSpeed(0.5f); // 1秒間に0.5セグメント進む
+
+  // デフォルトカメラをレールカメラに設定
+  engine_->GetObject3dRenderer()->SetDefaultCamera(railCamera_.get());
 
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},
@@ -165,12 +193,20 @@ void DebugScene::Initialize(EngineBase *engine) {
   object3d_->Initialize(engine_->GetObject3dRenderer());
   object3d_->SetModel("terrain.obj");
 
-  object3dA_ = std::make_unique<Object3d>();
-  object3dA_->Initialize(engine_->GetObject3dRenderer());
-  object3dA_->SetModel("suzanne.obj");
-  object3dA_->SetEnvironmentCoefficient(1.0f);
-  object3dA_->SetTranslation({3.0f, 1.0f, 0.0f});
-  object3dA_->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f}); // デフォルトで黄色
+  // 複数のテスト用敵（スザンヌ）を扇状に配置する
+  for (int i = 0; i < 5; ++i) {
+    auto target = std::make_unique<Object3d>();
+    target->Initialize(engine_->GetObject3dRenderer());
+    target->SetModel("suzanne.obj");
+    
+    // X座標をずらして横に並べ、Y座標で少し高低差をつける
+    float posX = -10.0f + (i * 5.0f);
+    float posY = 4.0f + (i % 2) * 2.0f;
+    target->SetTranslation({posX, posY, 35.0f}); 
+    target->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f});
+    
+    testTargets_.push_back(std::move(target));
+  }
 
   animatedCube_ = std::make_unique<Object3d>();
   animatedCube_->Initialize(engine_->GetObject3dRenderer());
@@ -436,10 +472,6 @@ void DebugScene::Update() {
     sprites_[1]->SetColor({0.0f, 0.0f, 0.0f, 1.0f});
   }
 
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_SPACE)) {
-    object3dA_->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f});
-  }
-
   // デバッグカメラ切り替え
 
 #ifdef USE_IMGUI
@@ -541,9 +573,9 @@ void DebugScene::Update() {
 
   object3d_->Update();
 
-  // rotateObj_ += 0.01f;
-  // object3dA_->SetRotation({0.0f, rotateObj_, 0.0f});
-  object3dA_->Update();
+  for (auto& target : testTargets_) {
+    target->Update();
+  }
 
   animatedCube_->Update();
 
@@ -605,12 +637,18 @@ void DebugScene::Update() {
 
   // カメラの更新処理
 
+  // デバッグ機能：Tキーでレールカメラの一時停止/再開
+  if (engine_->GetInputManager()->IsTriggerKey(DIK_T)) {
+    isRailCameraMoving_ = !isRailCameraMoving_;
+  }
+
   if (useDebugCamera_) {
     debugCamera_->Update(*engine_->GetInputManager());
     activeCamera = debugCamera_->GetCamera();
   } else {
-    camera_->Update();
-    activeCamera = camera_.get();
+    railCamera_->SetSpeed(isRailCameraMoving_ ? 0.5f : 0.0f);
+    railCamera_->Update();
+    activeCamera = railCamera_.get();
   }
 
   // アクティブカメラを描画で使用する
@@ -627,7 +665,13 @@ void DebugScene::Update() {
   // === Playerにロックオン用の情報を渡す ===
   if (playerPtr_) {
     playerPtr_->SetCamera(activeCamera);
-    playerPtr_->SetTarget(object3dA_.get());
+    
+    // 敵のポインタリストを作成して渡す
+    std::vector<Object3d*> enemyPointers;
+    for (auto& t : testTargets_) {
+        enemyPointers.push_back(t.get());
+    }
+    playerPtr_->SetEnemies(enemyPointers);
   }
 
   // シリンダーの回転アニメーション
@@ -831,7 +875,7 @@ void DebugScene::Update() {
   //========================
   // Object3D Dissolve Test (Suzanne)
   //========================
-  if (object3dA_) {
+  if (!testTargets_.empty() && testTargets_[0]) {
     ImGui::Begin("Object3D Dissolve Test (Suzanne)");
 
     ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
@@ -856,21 +900,21 @@ void DebugScene::Update() {
         suzanneDissolveThreshold_ = 0.5f;  // 半分だけ表示
         suzanneDissolveEdgeRange_ = 0.1f;  // エッジを少し太めに
         suzanneDissolveEdgeColor_ = {0.0f, 1.0f, 1.0f, 1.0f}; // シアン色
-        object3dA_->SetMaskTexturePath(
+        testTargets_[0]->SetMaskTexturePath(
             "resources/hex_noise.png"); // 六角形テクスチャを使用
       } else {
         suzanneEnableDissolve_ = false;
         suzanneDissolveThreshold_ = 0.0f;
-        object3dA_->SetMaskTexturePath("resources/noise0.png"); // 元に戻す
+        testTargets_[0]->SetMaskTexturePath("resources/noise0.png"); // 元に戻す
       }
     }
     ImGui::Separator();
 
-    object3dA_->SetEnableDissolve(suzanneEnableDissolve_);
-    object3dA_->SetDissolveThreshold(suzanneDissolveThreshold_);
-    object3dA_->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
-    object3dA_->SetMaskTransform(suzanneMaskTransform_);
-    object3dA_->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
+    testTargets_[0]->SetEnableDissolve(suzanneEnableDissolve_);
+    testTargets_[0]->SetDissolveThreshold(suzanneDissolveThreshold_);
+    testTargets_[0]->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
+    testTargets_[0]->SetMaskTransform(suzanneMaskTransform_);
+    testTargets_[0]->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
 
     ImGui::End();
   }
@@ -894,7 +938,9 @@ void DebugScene::Draw3D() {
   }
 
   object3d_->Draw();
-  object3dA_->Draw();
+  for (auto& target : testTargets_) {
+    target->Draw();
+  }
   animatedCube_->Draw();
 
   // 全アクターの3Dモデル部分だけをまとめて描く
@@ -944,6 +990,20 @@ void DebugScene::Draw3D() {
   hitParticleGroup_->Draw();
   cylinderParticleGroup_->Draw();
   planeHitParticleGroup_->Draw();
+
+  // レールのデバッグ描画（Catmull-Rom曲線）
+  if (waypoints_.size() >= 2) {
+    const int divisions = 20; // 1区間あたりの分割数
+    Vector3 prevPos = waypoints_[0];
+    float maxT = static_cast<float>(waypoints_.size() - 1);
+    
+    // 曲線を緑色の線で描画
+    for (float t = 0.0f; t <= maxT; t += 1.0f / divisions) {
+      Vector3 currentPos = railCamera_->CalcPosition(t);
+      engine_->GetLineRenderer()->DrawLine(prevPos, currentPos, {0.0f, 1.0f, 0.0f, 1.0f});
+      prevPos = currentPos;
+    }
+  }
 
   //  Lineを描画 (他の描画のパイプラインを壊さないように最後に呼ぶ)
   if (const ICamera *camera =
