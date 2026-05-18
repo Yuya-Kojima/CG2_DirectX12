@@ -15,6 +15,7 @@
 #include "Sprite/Sprite.h"
 #include <memory>
 #include <vector>
+#include "Camera/RailCamera.h"
 
 class GameCamera;
 class SpriteRenderer;
@@ -30,13 +31,18 @@ private: // メンバ変数(ゲーム用)
 
   // カメラ
   std::unique_ptr<GameCamera> camera_ = nullptr;
+  std::unique_ptr<RailCamera> railCamera_ = nullptr;
 
   Transform cameraTransform_{};
 
   std::unique_ptr<DebugCamera> debugCamera_ = nullptr;
 
-  // デバッグカメラ
+  // デバッグカメラ切り替え
   bool useDebugCamera_ = false;
+  bool isRailCameraMoving_ = true; // デバッグ用：レールカメラの進行フラグ
+
+  // レールカメラ用ポイント
+  std::vector<Vector3> waypoints_;
 
   static constexpr int kSpriteCount_ = 5;
 
@@ -65,7 +71,9 @@ private: // メンバ変数(ゲーム用)
   Transform uvTransformSprite_{};
 
   std::unique_ptr<Object3d> object3d_ = nullptr;
-  std::unique_ptr<Object3d> object3dA_ = nullptr;
+  
+  // テスト用ターゲットのリスト
+  std::vector<std::unique_ptr<Object3d>> testTargets_;
 
   std::unique_ptr<Object3d> animatedCube_ = nullptr;
   Animation animation_;

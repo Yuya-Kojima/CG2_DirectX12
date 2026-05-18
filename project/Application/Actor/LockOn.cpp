@@ -3,60 +3,78 @@
 #include "Render/Object3d/Object3d.h"
 
 void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
-  // レティクル（カーソル）用のスプライトを生成・初期化
-  reticle_ = std::make_unique<Sprite>();
-  reticle_->Initialize(spriteRenderer, "resources/white1x1.png");
+  // レティクル（カーソル）用のスプライトを最大数分、生成・初期化
+  for (int i = 0; i < kMaxLockOnCount; ++i) {
+    reticles_[i] = std::make_unique<Sprite>();
+    reticles_[i]->Initialize(spriteRenderer, "resources/white1x1.png");
+    reticles_[i]->SetSize({50.0f, 50.0f});
+    reticles_[i]->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤色
+  }
 
-  // カーソルの見た目設定
-  reticle_->SetSize({50.0f, 50.0f});
-  reticle_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤色
-
-  // 初期状態はターゲットなし
-  target_ = nullptr;
+  // 初期状態はターゲットリストを空にする
+  targets_.clear();
 }
 
 void LockOn::Update(const std::vector<Object3d *> &enemies,
-                    const Matrix4x4 &viewProjectionMatrix) {
+                    const Matrix4x4 &viewProjectionMatrix,
+                    const Vector2 &reticlePos,
+                    bool isLockOnMode) {
+  
+  viewProjectionMatrix_ = viewProjectionMatrix; // 描画用にキャッシュ
 
   // --------------------------------------------------
   //  ロックオン対象を探す処理
   // --------------------------------------------------
-  if (!enemies.empty()) {
-    target_ = enemies[0];
-  } else {
-    target_ = nullptr;
-  }
+  const float lockOnRadius = 100.0f; // ロックオン可能な照準からの半径
 
-  // --------------------------------------------------
-  // ターゲットがいる場合、カーソルを追従させる処理
-  // --------------------------------------------------
-  if (target_) {
-    // 敵の3D座標を取得
-    Vector3 targetPos = target_->GetTranslation();
+  // ロックオンモード（長押し中）でのみ、新たな敵をストックする
+  if (isLockOnMode && targets_.size() < kMaxLockOnCount) {
+    for (Object3d* enemy : enemies) {
+      if (!enemy) continue;
 
-    // 2D画面座標へ変換
-    Vector2 screenPos =
-        WorldToScreen(targetPos, viewProjectionMatrix, 1280.0f, 720.0f);
+      // 撃破されて消滅している敵（スケールが0）はロックオン対象から外す
+      if (enemy->GetScale().x <= 0.0f) continue;
 
-    // カーソルが敵の中心にくるようにサイズ分ずらす
-    Vector2 drawPos;
-    drawPos.x = screenPos.x - 25.0f; // サイズの半分
-    drawPos.y = screenPos.y - 25.0f;
+      // すでにロックオン済みの敵は無視
+      if (std::find(targets_.begin(), targets_.end(), enemy) != targets_.end()) {
+        continue;
+      }
 
-    reticle_->SetPosition(drawPos);
+      Vector3 worldPos = enemy->GetTranslation();
+      Vector2 screenPos = WorldToScreen(worldPos, viewProjectionMatrix, 1280.0f, 720.0f);
 
-    // スプライトの行列更新
-    Transform defaultUV;
-    defaultUV.scale = {1.0f, 1.0f, 1.0f};
-    defaultUV.rotate = {0.0f, 0.0f, 0.0f};
-    defaultUV.translate = {0.0f, 0.0f, 0.0f};
-    reticle_->Update(defaultUV);
+      // 照準と敵の画面上の距離を計算
+      float dx = screenPos.x - reticlePos.x;
+      float dy = screenPos.y - reticlePos.y;
+      float dist = std::sqrt(dx * dx + dy * dy);
+
+      if (dist <= lockOnRadius) {
+        targets_.push_back(enemy); // ロックオンストックに追加
+        break; // 1フレームに1体ずつロックオンする
+      }
+    }
   }
 }
 
 void LockOn::Draw() {
-  // ターゲットがいる時だけカーソルを描画する(仮)
-  if (target_ && reticle_) {
-    reticle_->Draw();
+  for (size_t i = 0; i < targets_.size(); ++i) {
+    Object3d* target = targets_[i];
+    if (!target) continue;
+    
+    Vector3 targetPos = target->GetTranslation();
+    Vector2 screenPos = WorldToScreen(targetPos, viewProjectionMatrix_, 1280.0f, 720.0f);
+
+    Vector2 drawPos;
+    drawPos.x = screenPos.x - 25.0f; // サイズの半分
+    drawPos.y = screenPos.y - 25.0f;
+
+    reticles_[i]->SetPosition(drawPos);
+    Transform defaultUV;
+    defaultUV.scale = {1.0f, 1.0f, 1.0f};
+    defaultUV.rotate = {0.0f, 0.0f, 0.0f};
+    defaultUV.translate = {0.0f, 0.0f, 0.0f};
+    reticles_[i]->Update(defaultUV);
+    
+    reticles_[i]->Draw(); 
   }
 }

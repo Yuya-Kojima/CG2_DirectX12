@@ -157,7 +157,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Actor\Enemy.cpp" />
+    <ClCompile Include="Actor\HomingBullet.cpp" />
     <ClCompile Include="Actor\LockOn.cpp" />
+    <ClCompile Include="Actor\NormalBullet.cpp" />
+    <ClCompile Include="Camera\RailCamera.cpp" />
     <ClCompile Include="Core\Game.cpp" />
     <ClCompile Include="Actor\Player.cpp" />
     <ClCompile Include="Scene\TitleScene.cpp" />
@@ -226,7 +229,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Actor\Enemy.h" />
+    <ClInclude Include="Actor\HomingBullet.h" />
     <ClInclude Include="Actor\LockOn.h" />
+    <ClInclude Include="Actor\NormalBullet.h" />
+    <ClInclude Include="Camera\RailCamera.h" />
     <ClInclude Include="Core\Game.h" />
     <ClInclude Include="Actor\Player.h" />
     <ClInclude Include="Scene\TitleScene.h" />
