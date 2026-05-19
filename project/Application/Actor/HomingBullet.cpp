@@ -1,11 +1,12 @@
 #include "HomingBullet.h"
 #include "Render/Object3d/Object3d.h"
 #include "Math/MathUtil.h"
+#include "Actor/Enemy.h"
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {}
 
-void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, Object3d* target, const Vector3& initialVelocity) {
+void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, Enemy* target, const Vector3& initialVelocity) {
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
   
@@ -31,7 +32,7 @@ void HomingBullet::Update() {
   // ターゲットが生きていれば誘導ベクトルを計算
   if (target_) {
     Vector3 currentPos = object3d_->GetTranslation();
-    Vector3 targetPos = target_->GetTranslation();
+    Vector3 targetPos = target_->GetTransform().translate;
 
     Vector3 toTarget = {
       targetPos.x - currentPos.x,
@@ -44,8 +45,8 @@ void HomingBullet::Update() {
     if (dist < 3.0f) { 
       isDead_ = true; // 着弾して消滅
       
-      // 敵を撃破（今回は簡易的にスケールを0にして画面から消す）
-      target_->SetScale({0.0f, 0.0f, 0.0f});
+      // 敵を撃破（Destroy関数を呼ぶ）
+      target_->Destroy();
       
       #include <Windows.h>
       OutputDebugStringA("Enemy Destroyed!\n");

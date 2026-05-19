@@ -2,11 +2,12 @@
 #include "Render/Object3d/Object3d.h"
 #include "Math/MathUtil.h"
 #include <Windows.h>
+#include "Actor/Enemy.h"
 
 NormalBullet::NormalBullet() {}
 NormalBullet::~NormalBullet() {}
 
-void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, const Vector3& velocity, const std::vector<Object3d*>& enemies) {
+void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, const Vector3& velocity, const std::vector<Enemy*>& enemies) {
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
   
@@ -38,11 +39,11 @@ void NormalBullet::Update() {
   object3d_->SetTranslation(pos);
 
   // 敵への当たり判定（簡易的に距離で判定）
-  for (Object3d* enemy : enemies_) {
+  for (Enemy* enemy : enemies_) {
     if (!enemy) continue;
-    if (enemy->GetScale().x <= 0.0f) continue; // 既に死んでいる敵は無視
+    if (enemy->IsDead()) continue; // 既に死んでいる敵は無視
 
-    Vector3 enemyPos = enemy->GetTranslation();
+    Vector3 enemyPos = enemy->GetTransform().translate;
     Vector3 diff = {
       enemyPos.x - pos.x,
       enemyPos.y - pos.y,
@@ -52,7 +53,7 @@ void NormalBullet::Update() {
 
     if (dist < 3.0f) {
       isDead_ = true; // 弾が消える
-      enemy->SetScale({0.0f, 0.0f, 0.0f}); // 敵を倒す（スケール0）
+      enemy->Destroy(); // 敵を倒す
       OutputDebugStringA("Normal Bullet Hit!\n");
       break;
     }

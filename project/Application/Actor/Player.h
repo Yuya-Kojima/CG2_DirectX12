@@ -10,6 +10,7 @@ class ICamera;
 class Object3d;
 class Sprite;
 class Input;
+class Enemy;
 
 class Player : public BaseActor {
 public:
@@ -21,6 +22,8 @@ public:
   void Draw3D() override;
   void Draw2D() override;
   void OnCollision(class Collider *other) override;
+
+  bool IsLockOnMode() const;
 
   // シーンから情報を渡すためのセッター
   void SetSpriteRenderer(SpriteRenderer *renderer) {
@@ -34,7 +37,7 @@ public:
   void SetModel(std::unique_ptr<Object3d> model) { object3d_ = std::move(model); }
 
   // 今回はテストとして直接ターゲットリストを渡す
-  void SetEnemies(const std::vector<Object3d*>& enemies) { enemies_ = enemies; }
+  void SetEnemies(const std::vector<Enemy*>& enemies) { enemies_ = enemies; }
 
 private:
   std::unique_ptr<class SphereCollider> collider_;
@@ -45,7 +48,7 @@ private:
   const ICamera *camera_ = nullptr;
   class Input *input_ = nullptr;
   
-  std::vector<Object3d*> enemies_;
+  std::vector<Enemy*> enemies_;
 
   void FireHomingShot();
   void FireNormalShot(); // 追加

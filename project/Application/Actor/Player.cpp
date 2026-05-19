@@ -188,6 +188,10 @@ void Player::Update() {
   }
 }
 
+bool Player::IsLockOnMode() const {
+  return attackState_ == AttackState::LockOn;
+}
+
 void Player::FireHomingShot() {
   if (!lockOn_ || !object3dRenderer_ || !object3d_) return;
 

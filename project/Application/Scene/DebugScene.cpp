@@ -667,11 +667,11 @@ void DebugScene::Update() {
     playerPtr_->SetCamera(activeCamera);
     
     // 敵のポインタリストを作成して渡す
-    std::vector<Object3d*> enemyPointers;
-    for (auto& t : testTargets_) {
-        enemyPointers.push_back(t.get());
-    }
-    playerPtr_->SetEnemies(enemyPointers);
+    // std::vector<Object3d*> enemyPointers;
+    // for (auto& t : testTargets_) {
+    //     enemyPointers.push_back(t.get());
+    // }
+    // playerPtr_->SetEnemies(enemyPointers); // Enemyクラスへの変更に伴い一旦無効化
   }
 
   // シリンダーの回転アニメーション

@@ -12,14 +12,29 @@ class Object3dRenderer;
 class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
+class PostProcess;
+
+#include "Render/SkyBox/SkyBox.h"
+#include "Camera/RailCamera.h"
+#include "Actor/Player.h"
+#include "Actor/Enemy.h"
 
 class GamePlayScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
   // カメラ
   std::unique_ptr<GameCamera> camera_ = nullptr;
-
   Transform cameraTransform_{};
+
+  // レールカメラ
+  std::unique_ptr<RailCamera> railCamera_ = nullptr;
+  std::vector<Vector3> waypoints_;
+
+  // スカイボックス
+  std::unique_ptr<Skybox> skybox_ = nullptr;
+
+  // プレイヤー
+  std::unique_ptr<Player> player_ = nullptr;
 
   // デバッグカメラ
   std::unique_ptr<DebugCamera> debugCamera_ = nullptr;
@@ -33,6 +48,11 @@ private: // メンバ変数(ゲーム用)
   Vector2 spritePosition_{};
 
   Transform uvTransformSprite_{};
+
+  // ダミー敵管理
+  bool hasSpawnedDummy_ = false;
+  std::vector<std::unique_ptr<Enemy>> enemies_;
+  std::vector<Enemy*> enemyPtrs_;
 
 public: // メンバ関数
   /// <summary>

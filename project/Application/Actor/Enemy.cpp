@@ -23,6 +23,15 @@ void Enemy::Initialize() {
 }
 
 void Enemy::Update() {
+  // 死んでいる場合は当たり判定を消して何もさせない
+  if (isDead_) {
+    if (collider_) {
+      CollisionManager::GetInstance()->Remove(collider_.get());
+      collider_.reset(); // コライダーを破棄
+    }
+    return;
+  }
+
   // モデルが存在していれば、敵の座標をモデルに反映して更新
   if (model_) {
     model_->SetTranslation(transform_.translate);

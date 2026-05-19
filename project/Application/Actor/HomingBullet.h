@@ -5,6 +5,7 @@
 
 class Object3d;
 class Object3dRenderer;
+class Enemy;
 
 class HomingBullet : public BaseActor {
 public:
@@ -18,7 +19,7 @@ public:
   /// <param name="startPos">発射開始座標（自機の位置）</param>
   /// <param name="target">追従する対象</param>
   /// <param name="initialVelocity">発射直後の初速ベクトル（散らばり用）</param>
-  void Initialize(Object3dRenderer* renderer, const Vector3& startPos, Object3d* target, const Vector3& initialVelocity);
+  void Initialize(Object3dRenderer* renderer, const Vector3& startPos, Enemy* target, const Vector3& initialVelocity);
   
   void Update() override;
   void Draw3D() override;
@@ -27,7 +28,7 @@ public:
 
 private:
   std::unique_ptr<Object3d> object3d_;
-  Object3d* target_ = nullptr;
+  Enemy* target_ = nullptr;
   
   Vector3 velocity_;
   float speed_ = 1.5f;           // 弾の飛ぶ速さ

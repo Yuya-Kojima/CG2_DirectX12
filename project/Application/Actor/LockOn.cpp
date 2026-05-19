@@ -1,5 +1,6 @@
 #include "LockOn.h"
 #include "Math/MathUtil.h"
+#include "Actor/Enemy.h"
 #include "Render/Object3d/Object3d.h"
 
 void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
@@ -15,7 +16,7 @@ void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
   targets_.clear();
 }
 
-void LockOn::Update(const std::vector<Object3d *> &enemies,
+void LockOn::Update(const std::vector<Enemy *> &enemies,
                     const Matrix4x4 &viewProjectionMatrix,
                     const Vector2 &reticlePos,
                     bool isLockOnMode) {
@@ -29,18 +30,18 @@ void LockOn::Update(const std::vector<Object3d *> &enemies,
 
   // ロックオンモード（長押し中）でのみ、新たな敵をストックする
   if (isLockOnMode && targets_.size() < kMaxLockOnCount) {
-    for (Object3d* enemy : enemies) {
+    for (Enemy* enemy : enemies) {
       if (!enemy) continue;
 
-      // 撃破されて消滅している敵（スケールが0）はロックオン対象から外す
-      if (enemy->GetScale().x <= 0.0f) continue;
+      // 撃破されて消滅している敵はロックオン対象から外す
+      if (enemy->IsDead()) continue;
 
       // すでにロックオン済みの敵は無視
       if (std::find(targets_.begin(), targets_.end(), enemy) != targets_.end()) {
         continue;
       }
 
-      Vector3 worldPos = enemy->GetTranslation();
+      Vector3 worldPos = enemy->GetTransform().translate;
       Vector2 screenPos = WorldToScreen(worldPos, viewProjectionMatrix, 1280.0f, 720.0f);
 
       // 照準と敵の画面上の距離を計算
@@ -58,10 +59,10 @@ void LockOn::Update(const std::vector<Object3d *> &enemies,
 
 void LockOn::Draw() {
   for (size_t i = 0; i < targets_.size(); ++i) {
-    Object3d* target = targets_[i];
+    Enemy* target = targets_[i];
     if (!target) continue;
     
-    Vector3 targetPos = target->GetTranslation();
+    Vector3 targetPos = target->GetTransform().translate;
     Vector2 screenPos = WorldToScreen(targetPos, viewProjectionMatrix_, 1280.0f, 720.0f);
 
     Vector2 drawPos;

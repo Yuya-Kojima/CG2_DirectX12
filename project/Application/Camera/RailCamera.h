@@ -34,6 +34,7 @@ public:
   void SetSpeed(float speed) { speed_ = speed; }
   const Vector3& GetRotate() const { return transform_.rotate; }
   bool IsFinished() const { return isFinished_; }
+  float GetT() const { return t_; }
 
   /// <summary>
   /// 進行度tから現在の座標を計算する
