@@ -39,6 +39,24 @@ void ParticleManager::Finalize() {
   graphicsPipeLineState_.Reset();
   rootSignature_.Reset();
 
+  computeRootSignature_.Reset();
+  initializeComputePipelineState_.Reset();
+
+  emitComputeRootSignature_.Reset();
+  emitComputePipelineState_.Reset();
+
+  updateComputeRootSignature_.Reset();
+  updateComputePipelineState_.Reset();
+
+  if (perViewResource_) {
+      perViewResource_->Unmap(0, nullptr);
+      perViewResource_.Reset();
+  }
+  if (perFrameResource_) {
+      perFrameResource_->Unmap(0, nullptr);
+      perFrameResource_.Reset();
+  }
+
   dx12Core_ = nullptr;
   srvManager_ = nullptr;
 }
@@ -236,7 +254,7 @@ void ParticleManager::CreatePSO() {
 
   // 書き込むRTVの情報
   graphicsPipeLineStateDesc.NumRenderTargets = 1;
-  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
   // 利用するトポロジ(形状)のタイプ。三角形
   graphicsPipeLineStateDesc.PrimitiveTopologyType =

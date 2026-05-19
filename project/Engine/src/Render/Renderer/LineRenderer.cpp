@@ -12,6 +12,16 @@ void LineRenderer::Initialize(Dx12Core* dx12Core) {
     vertices_.reserve(kMaxVertexCount);
 }
 
+void LineRenderer::Finalize() {
+    if (constBuffer_) {
+        constBuffer_->Unmap(0, nullptr);
+    }
+    constBuffer_.Reset();
+    vertexBuffer_.Reset();
+    graphicsPipeLineState_.Reset();
+    rootSignature_.Reset();
+}
+
 void LineRenderer::DrawLine(const Vector3& start, const Vector3& end, const Vector4& color) {
     if (vertices_.size() + 2 > kMaxVertexCount) {
         return; // 上限超過時は追加しない
@@ -131,7 +141,7 @@ void LineRenderer::CreatePSO() {
     psoDesc.DepthStencilState = depthStencilDesc;
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+    psoDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;

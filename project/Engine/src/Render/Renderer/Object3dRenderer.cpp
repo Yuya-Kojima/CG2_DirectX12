@@ -264,7 +264,7 @@ void Object3dRenderer::CreatePSO() {
 
   // 書き込むRTVの情報
   graphicsPipeLineStateDesc.NumRenderTargets = 1;
-  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
   // 利用するトポロジ(形状)のタイプ。三角形
   graphicsPipeLineStateDesc.PrimitiveTopologyType =

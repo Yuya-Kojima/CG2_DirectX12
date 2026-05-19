@@ -141,6 +141,15 @@ public:
   void TransitionResource(ID3D12Resource* resource, D3D12_RESOURCE_STATES newState);
 
   /// <summary>
+  /// リソースの初期状態を名簿に手動登録する
+  /// </summary>
+  void RegisterResourceState(ID3D12Resource* resource, D3D12_RESOURCE_STATES initialState) {
+      if (resource) {
+          resourceStates_[resource] = initialState;
+      }
+  }
+
+  /// <summary>
   /// デバイスの初期化
   /// </summary>
   void InitializeDevice();

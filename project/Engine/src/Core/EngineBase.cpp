@@ -93,6 +93,8 @@ void EngineBase::Finalize() {
 
   TextureManager::GetInstance()->Finalize();
 
+  LineRenderer::GetInstance()->Finalize();
+
   // delete input_;
   // input_ = nullptr;
 

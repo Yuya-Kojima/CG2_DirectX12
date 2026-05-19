@@ -79,6 +79,10 @@ void Game::Finalize() {
   ActorManager::GetInstance()->Clear();
   CollisionManager::GetInstance()->Clear();
 
+  renderPipeline_.reset();
+  imGuiManager_.reset();
+  sceneFactory_.reset();
+
   // 基底クラスの終了処理
   EngineBase::Finalize();
 }
