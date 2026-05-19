@@ -13,6 +13,11 @@ void ImGuiManager::Initialize([[maybe_unused]] WindowSystem *winApp,
   // ImGuiのコンテキストを生成
   ImGui::CreateContext();
 
+  // Docking機能を有効化
+  ImGuiIO& io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
+
   // ImGuiのスタイルを設定
   ImGui::StyleColorsDark();
   
@@ -54,6 +59,8 @@ void ImGuiManager::Initialize([[maybe_unused]] WindowSystem *winApp,
   colors[ImGuiCol_TabActive]              = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
   colors[ImGuiCol_TabUnfocused]           = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
   colors[ImGuiCol_TabUnfocusedActive]     = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+  colors[ImGuiCol_DockingPreview]         = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);
+  colors[ImGuiCol_DockingEmptyBg]         = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
 
   ImGui_ImplWin32_Init(winApp->GetHwnd());
 
@@ -65,10 +72,16 @@ void ImGuiManager::Initialize([[maybe_unused]] WindowSystem *winApp,
   D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle =
       srvManager->GetGPUDescriptorHandle(srvIndex);
 
-  ImGui_ImplDX12_Init(dx12Core->GetDevice(),
-                      static_cast<int>(dx12Core->GetSwapChainResourceNum()),
-                      DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, srvHeap_, cpuHandle,
-                      gpuHandle);
+  ImGui_ImplDX12_InitInfo init_info = {};
+  init_info.Device = dx12Core->GetDevice();
+  init_info.CommandQueue = dx12Core->GetCommandQueue();
+  init_info.NumFramesInFlight = static_cast<int>(dx12Core->GetSwapChainResourceNum());
+  init_info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+  init_info.DSVFormat = DXGI_FORMAT_UNKNOWN;
+  init_info.SrvDescriptorHeap = srvHeap_;
+  init_info.LegacySingleSrvCpuDescriptor = cpuHandle;
+  init_info.LegacySingleSrvGpuDescriptor = gpuHandle;
+  ImGui_ImplDX12_Init(&init_info);
 
 #endif // USE_IMGUI
 }
@@ -90,6 +103,9 @@ void ImGuiManager::Begin() {
   ImGui_ImplDX12_NewFrame();
   ImGui_ImplWin32_NewFrame();
   ImGui::NewFrame();
+
+  // 画面全体をDockingの領域として設定
+  ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
 #endif // USE_IMGUI
 }
@@ -114,6 +130,13 @@ void ImGuiManager::Draw() {
 
   // 描画コマンドを発行
   ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList);
+
+  // Viewport（マルチウィンドウ）の更新と描画
+  ImGuiIO& io = ImGui::GetIO();
+  if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault(nullptr, (void*)commandList);
+  }
 
 #endif // USE_IMGUI
 }

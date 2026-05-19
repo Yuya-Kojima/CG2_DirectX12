@@ -371,9 +371,11 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   commandList->ResourceBarrier(1, &depthBarrier2);
 }
 
-void PostProcess::DrawDebugUI(const char *windowName) {
+void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
 #ifdef USE_IMGUI
-  ImGui::Begin(windowName);
+  if (createNewWindow) {
+    ImGui::Begin(windowName);
+  }
 
   if (ImGui::CollapsingHeader("PostEffect", ImGuiTreeNodeFlags_DefaultOpen)) {
 
@@ -530,6 +532,8 @@ void PostProcess::DrawDebugUI(const char *windowName) {
     ImGui::DragFloat("Blur Alpha (0=Off)", &motionBlurAlpha_, 0.01f, 0.0f, 0.99f);
   }
 
-  ImGui::End();
+  if (createNewWindow) {
+    ImGui::End();
+  }
 #endif
 }

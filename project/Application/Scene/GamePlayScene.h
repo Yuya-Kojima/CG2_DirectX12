@@ -47,7 +47,14 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Enemy>> enemies_;
   std::vector<Enemy*> enemyPtrs_;
 
-  // エディタ用：選択中の敵インデックス
+  // エディタ用：選択中のオブジェクトタイプ
+  enum class EditorSelectType {
+    None,
+    Enemy,
+    RailCamera,
+    Environment
+  };
+  EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedEnemyIndex_ = -1;
 
 public: // メンバ関数

@@ -219,23 +219,45 @@ void GamePlayScene::Update() {
   ActorManager::GetInstance()->Update();
 
 #ifdef USE_IMGUI
-  ImGui::Begin("Hierarchy & Inspector");
+  //=========================
+  // メインメニューバー
+  //=========================
+  if (ImGui::BeginMainMenuBar()) {
+    if (ImGui::BeginMenu("File")) {
+      if (ImGui::MenuItem("Save Level")) {
+        SaveLevel();
+      }
+      if (ImGui::MenuItem("Load Level")) {
+        LoadLevel();
+      }
+      ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu("GameObject")) {
+      if (ImGui::MenuItem("Add Enemy")) {
+        Vector3 camPos = activeCamera->GetTranslate();
+        AddEnemy({camPos.x, camPos.y + 5.0f, camPos.z + 50.0f});
+      }
+      ImGui::EndMenu();
+    }
+    ImGui::EndMainMenuBar();
+  }
 
-  if (ImGui::Button("Save Level")) {
-    SaveLevel();
+  //=========================
+  // Hierarchy ウィンドウ
+  //=========================
+  ImGui::Begin("Hierarchy");
+  ImGui::Text("Scene Objects");
+  ImGui::Separator();
+
+  if (ImGui::Selectable("Environment (PostProcess)", currentSelectType_ == EditorSelectType::Environment)) {
+    currentSelectType_ = EditorSelectType::Environment;
   }
-  ImGui::SameLine();
-  if (ImGui::Button("Load Level")) {
-    LoadLevel();
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("Add Enemy")) {
-    Vector3 camPos = activeCamera->GetTranslate();
-    AddEnemy({camPos.x, camPos.y + 5.0f, camPos.z + 50.0f});
+  if (ImGui::Selectable("Rail Camera", currentSelectType_ == EditorSelectType::RailCamera)) {
+    currentSelectType_ = EditorSelectType::RailCamera;
   }
 
   ImGui::Spacing();
-  ImGui::Text("Enemy Hierarchy");
+  ImGui::Text("Enemies");
   ImGui::Separator();
 
   // 敵のリストを表示
@@ -243,29 +265,69 @@ void GamePlayScene::Update() {
     if (enemies_[i]->IsDead()) continue;
 
     std::string label = "Enemy " + std::to_string(i);
-    if (ImGui::Selectable(label.c_str(), selectedEnemyIndex_ == static_cast<int>(i))) {
+    bool isSelected = (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ == static_cast<int>(i));
+    if (ImGui::Selectable(label.c_str(), isSelected)) {
+      currentSelectType_ = EditorSelectType::Enemy;
       selectedEnemyIndex_ = static_cast<int>(i);
     }
   }
+  ImGui::End();
 
-  ImGui::Spacing();
-  ImGui::Separator();
-  ImGui::Text("Inspector");
+  //=========================
+  // Inspector ウィンドウ
+  //=========================
+  ImGui::Begin("Inspector");
 
-  if (selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
+  if (currentSelectType_ == EditorSelectType::Environment) {
+    ImGui::Text("Environment Settings");
+    ImGui::Separator();
+    auto pp = SceneManager::GetInstance()->GetCurrentScenePostProcess();
+    if (pp) {
+      pp->DrawDebugUI("Environment", false); // インライン描画
+    } else {
+      ImGui::Text("No PostProcess active.");
+    }
+  } else if (currentSelectType_ == EditorSelectType::RailCamera) {
+    ImGui::Text("Rail Camera Waypoints");
+    ImGui::Separator();
+    
+    if (railCamera_) {
+      auto& waypoints = railCamera_->GetWaypointsRef();
+      for (size_t i = 0; i < waypoints.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        ImGui::Text("Point %zu", i);
+        ImGui::SameLine();
+        if (ImGui::Button("Delete")) {
+          waypoints.erase(waypoints.begin() + i);
+          ImGui::PopID();
+          break; // 安全のため1フレームに1つだけ削除
+        }
+        ImGui::DragFloat3("##Pos", &waypoints[i].x, 0.1f);
+        ImGui::PopID();
+      }
+      if (ImGui::Button("Add Waypoint")) {
+        if (!waypoints.empty()) {
+          waypoints.push_back(waypoints.back() + Vector3{0, 0, 10.0f});
+        } else {
+          waypoints.push_back({0, 0, 0});
+        }
+      }
+    }
+  } else if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
     Enemy* selected = enemies_[selectedEnemyIndex_].get();
     if (!selected->IsDead()) {
+      ImGui::Text("Enemy %d", selectedEnemyIndex_);
+      ImGui::Separator();
       Transform& t = selected->GetTransform();
       ImGui::DragFloat3("Translate", &t.translate.x, 0.1f);
       ImGui::DragFloat3("Rotate", &t.rotate.x, 0.01f);
       ImGui::DragFloat3("Scale", &t.scale.x, 0.1f);
     } else {
-      selectedEnemyIndex_ = -1; // 死んだら選択解除
+      currentSelectType_ = EditorSelectType::None; // 死んだら選択解除
     }
   } else {
-    ImGui::Text("No enemy selected.");
+    ImGui::Text("No object selected.");
   }
-
   ImGui::End();
 
   //=========================

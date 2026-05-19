@@ -41,6 +41,7 @@ public:
   void SetAutoMove(bool autoMove) { isAutoMove_ = autoMove; }
   bool GetAutoMove() const { return isAutoMove_; }
   const std::vector<Vector3>& GetWaypoints() const { return waypoints_; }
+  std::vector<Vector3>& GetWaypointsRef() { return waypoints_; }
 
   /// <summary>
   /// 進行度tから現在の座標を計算する

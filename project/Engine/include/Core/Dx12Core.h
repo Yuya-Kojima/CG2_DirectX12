@@ -247,6 +247,10 @@ public:
     return commandList.Get();
   }
 
+  ID3D12CommandQueue *GetCommandQueue() const {
+    return commandQueue.Get();
+  }
+
   ID3D12Resource *GetDepthStencilResource() const {
     return depthStencilResource.Get();
   }
