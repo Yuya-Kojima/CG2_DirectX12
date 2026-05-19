@@ -32,7 +32,7 @@ void RailCamera::Initialize(const std::vector<Vector3>& waypoints) {
 void RailCamera::Update() {
   if (waypoints_.size() < 2) return;
 
-  if (!isFinished_) {
+  if (!isFinished_ && isAutoMove_) {
     // 時間で進行度を進める (speed_ は 1秒間に何セグメント進むか)
     t_ += speed_ * (1.0f / 60.0f);
 

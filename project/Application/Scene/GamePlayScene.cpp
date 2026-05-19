@@ -17,6 +17,12 @@
 
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
+#include <imgui.h>
+#include <string>
+#include <fstream>
+#include <iomanip>
+#include <filesystem>
+#include "../../externals/nlohmann/json.hpp"
 
 void GamePlayScene::Initialize(EngineBase *engine) {
 
@@ -41,22 +47,6 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // スプライト関係の初期化
   //===========================
 
-  sprite_ = std::make_unique<Sprite>();
-  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/white1x1.png");
-
-  spritePosition_ = {
-      100.0f,
-      100.0f,
-  };
-
-  sprite_->SetPosition(spritePosition_);
-
-  uvTransformSprite_ = {
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-  };
-
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
@@ -77,6 +67,16 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   railCamera_ = std::make_unique<RailCamera>();
   railCamera_->Initialize(waypoints_);
   railCamera_->SetSpeed(0.2f); // スピードも少し落として照準を合わせやすくする
+
+#ifdef USE_IMGUI
+  // エディタモードの初期状態：デバッグカメラON、自動進行OFF
+  useDebugCamera_ = true;
+  railCamera_->SetAutoMove(false);
+#else
+  // Release版の初期状態：デバッグカメラOFF、自動進行ON
+  useDebugCamera_ = false;
+  railCamera_->SetAutoMove(true);
+#endif
 
   // デフォルトカメラをレールカメラに設定
   engine_->GetObject3dRenderer()->SetDefaultCamera(railCamera_.get());
@@ -127,6 +127,11 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // パーティクル関係の初期化
   //===========================
+
+  // レベルデータのロード
+  LoadLevel();
+  // 古いハードコード生成が走らないようにtrueにしておく
+  hasSpawnedDummy_ = true;
 }
 
 void GamePlayScene::Finalize() {}
@@ -151,27 +156,6 @@ void GamePlayScene::Update() {
   }
 
   //=======================
-  // スプライトの更新
-  //=======================
-
-#ifdef USE_IMGUI
-  //========================
-  // Sprite座標をImGuiで操作
-  //========================
-  ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
-
-  ImGui::Begin("Sprite Pos");
-
-  ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%.1f");
-
-  ImGui::End();
-#endif
-
-  sprite_->SetPosition(spritePosition_);
-  sprite_->SetSize({100.0f, 100.0f});
-  sprite_->Update(uvTransformSprite_);
-
-  //=======================
   // 3Dオブジェクトの更新
   //=======================
 
@@ -191,27 +175,8 @@ void GamePlayScene::Update() {
   //=======================
   // テスト用：ダミー敵のスポーン
   //=======================
-  // レールカメラの進行度（t_）が0.1（少し進んだところ）を超えたら1回だけスポーン
-  if (!hasSpawnedDummy_ && railCamera_->GetT() > 0.1f) {
-    hasSpawnedDummy_ = true;
+  // （エディタからのSave/Loadに移行したため削除）
 
-    auto dummy = std::make_unique<Enemy>();
-    dummy->Initialize(); // Colliderの登録など
-
-    auto dummyModel = std::make_unique<Object3d>();
-    dummyModel->Initialize(engine_->GetObject3dRenderer());
-    dummyModel->SetModel("suzanne.obj"); // 仮のモデル
-    dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
-    dummy->SetModel(std::move(dummyModel));
-
-    // カメラの少し奥（前進方向）に出現させる
-    Vector3 camPos = railCamera_->GetTranslate();
-    
-    dummy->GetTransform().translate = {camPos.x, camPos.y + 10.0f, camPos.z + 150.0f};
-    dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f}; // 少し大きめ
-
-    enemies_.push_back(std::move(dummy));
-  } // ここでダミー生成のif文を閉じる
 
   // 敵の更新
   for (auto& enemy : enemies_) {
@@ -252,6 +217,96 @@ void GamePlayScene::Update() {
 
   // アクター群（弾など）の更新
   ActorManager::GetInstance()->Update();
+
+#ifdef USE_IMGUI
+  ImGui::Begin("Hierarchy & Inspector");
+
+  if (ImGui::Button("Save Level")) {
+    SaveLevel();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Load Level")) {
+    LoadLevel();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Add Enemy")) {
+    Vector3 camPos = activeCamera->GetTranslate();
+    AddEnemy({camPos.x, camPos.y + 5.0f, camPos.z + 50.0f});
+  }
+
+  ImGui::Spacing();
+  ImGui::Text("Enemy Hierarchy");
+  ImGui::Separator();
+
+  // 敵のリストを表示
+  for (size_t i = 0; i < enemies_.size(); ++i) {
+    if (enemies_[i]->IsDead()) continue;
+
+    std::string label = "Enemy " + std::to_string(i);
+    if (ImGui::Selectable(label.c_str(), selectedEnemyIndex_ == static_cast<int>(i))) {
+      selectedEnemyIndex_ = static_cast<int>(i);
+    }
+  }
+
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Text("Inspector");
+
+  if (selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
+    Enemy* selected = enemies_[selectedEnemyIndex_].get();
+    if (!selected->IsDead()) {
+      Transform& t = selected->GetTransform();
+      ImGui::DragFloat3("Translate", &t.translate.x, 0.1f);
+      ImGui::DragFloat3("Rotate", &t.rotate.x, 0.01f);
+      ImGui::DragFloat3("Scale", &t.scale.x, 0.1f);
+    } else {
+      selectedEnemyIndex_ = -1; // 死んだら選択解除
+    }
+  } else {
+    ImGui::Text("No enemy selected.");
+  }
+
+  ImGui::End();
+
+  //=========================
+  // Timeline & Sequencer UI
+  //=========================
+  ImGui::Begin("Timeline & Sequencer");
+  
+  bool isAutoMove = railCamera_->GetAutoMove();
+  if (ImGui::Checkbox("Auto Play RailCamera", &isAutoMove)) {
+    railCamera_->SetAutoMove(isAutoMove);
+  }
+
+  ImGui::SameLine();
+  ImGui::Checkbox("Debug Camera [P]", &useDebugCamera_);
+
+  float currentT = railCamera_->GetT();
+  float maxT = static_cast<float>(railCamera_->GetWaypoints().size() - 1);
+  if (maxT < 0.0f) maxT = 0.0f;
+
+  if (ImGui::SliderFloat("Time (t)", &currentT, 0.0f, maxT)) {
+    railCamera_->SetT(currentT);
+    // スライダーを直接動かしている間は自動再生をオフにする
+    railCamera_->SetAutoMove(false);
+  }
+
+  ImGui::End();
+
+  // レールのデバッグ描画（線でウェイポイントを結ぶ）
+  const auto& waypoints = railCamera_->GetWaypoints();
+  if (waypoints.size() > 1) {
+    for (size_t i = 0; i < waypoints.size() - 1; ++i) {
+      engine_->GetLineRenderer()->DrawLine(waypoints[i], waypoints[i+1], {0.0f, 1.0f, 1.0f, 1.0f}); // シアン色の線
+    }
+    // 現在のカメラ位置に赤い目印をつける（短い線でクロスを描く等）
+    Vector3 camPos = railCamera_->CalcPosition(currentT);
+    engine_->GetLineRenderer()->DrawLine({camPos.x - 2, camPos.y, camPos.z}, {camPos.x + 2, camPos.y, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
+    engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y - 2, camPos.z}, {camPos.x, camPos.y + 2, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
+    engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y, camPos.z - 2}, {camPos.x, camPos.y, camPos.z + 2}, {1.0f, 0.0f, 0.0f, 1.0f});
+  }
+
+#endif
 }
 
 void GamePlayScene::Draw() {
@@ -283,14 +338,97 @@ void GamePlayScene::Draw3D() {
   // アクター群（弾など）の描画
   ActorManager::GetInstance()->Draw3D();
 
+#ifdef USE_IMGUI
+  // デバッグ用の線を描画
+  const ICamera* activeCamera = camera_.get();
+  if (useDebugCamera_) {
+    activeCamera = debugCamera_->GetCamera();
+  } else if (railCamera_) {
+    activeCamera = railCamera_.get();
+  }
+  engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
+#endif
+
   engine_->End3D();
 }
 
 void GamePlayScene::Draw2D() {
-  // ここから下で2DオブジェクトのDrawを呼ぶ
-  sprite_->Draw();
-
   if (player_) {
     player_->Draw2D();
   }
+}
+
+void GamePlayScene::SaveLevel() {
+  nlohmann::json root;
+  nlohmann::json enemiesArray = nlohmann::json::array();
+  
+  for (auto& enemy : enemies_) {
+    if (enemy->IsDead()) continue;
+    Transform& t = enemy->GetTransform();
+    nlohmann::json eJson;
+    eJson["translation"] = {t.translate.x, t.translate.y, t.translate.z};
+    eJson["rotation"] = {t.rotate.x, t.rotate.y, t.rotate.z};
+    eJson["scale"] = {t.scale.x, t.scale.y, t.scale.z};
+    enemiesArray.push_back(eJson);
+  }
+  root["enemies"] = enemiesArray;
+
+  // 保存先フォルダ（resources/levels）が存在しない場合は作成する
+  std::filesystem::create_directories("resources/levels");
+
+  std::ofstream file("resources/levels/level_editor.json");
+  if (file.is_open()) {
+    file << std::setw(4) << root << std::endl;
+  }
+}
+
+void GamePlayScene::LoadLevel() {
+  std::ifstream file("resources/levels/level_editor.json");
+  if (!file.is_open()) return;
+
+  nlohmann::json root;
+  file >> root;
+
+  // 古い敵をクリア
+  enemies_.clear();
+  selectedEnemyIndex_ = -1;
+
+  if (root.contains("enemies")) {
+    for (auto& eJson : root["enemies"]) {
+      Vector3 t = {eJson["translation"][0], eJson["translation"][1], eJson["translation"][2]};
+      Vector3 r = {eJson["rotation"][0], eJson["rotation"][1], eJson["rotation"][2]};
+      Vector3 s = {eJson["scale"][0], eJson["scale"][1], eJson["scale"][2]};
+      
+      auto dummy = std::make_unique<Enemy>();
+      dummy->Initialize();
+      
+      auto dummyModel = std::make_unique<Object3d>();
+      dummyModel->Initialize(engine_->GetObject3dRenderer());
+      dummyModel->SetModel("suzanne.obj");
+      dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+      dummy->SetModel(std::move(dummyModel));
+      
+      dummy->GetTransform().translate = t;
+      dummy->GetTransform().rotate = r;
+      dummy->GetTransform().scale = s;
+      
+      enemies_.push_back(std::move(dummy));
+    }
+  }
+}
+
+void GamePlayScene::AddEnemy(const Vector3& position) {
+  auto dummy = std::make_unique<Enemy>();
+  dummy->Initialize();
+
+  auto dummyModel = std::make_unique<Object3d>();
+  dummyModel->Initialize(engine_->GetObject3dRenderer());
+  dummyModel->SetModel("suzanne.obj");
+  dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+  dummy->SetModel(std::move(dummyModel));
+
+  dummy->GetTransform().translate = position;
+  dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};
+
+  enemies_.push_back(std::move(dummy));
 }

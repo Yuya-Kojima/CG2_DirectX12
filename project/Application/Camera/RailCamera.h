@@ -35,6 +35,12 @@ public:
   const Vector3& GetRotate() const { return transform_.rotate; }
   bool IsFinished() const { return isFinished_; }
   float GetT() const { return t_; }
+  void SetT(float t) { t_ = t; }
+  
+  // 自動進行フラグ
+  void SetAutoMove(bool autoMove) { isAutoMove_ = autoMove; }
+  bool GetAutoMove() const { return isAutoMove_; }
+  const std::vector<Vector3>& GetWaypoints() const { return waypoints_; }
 
   /// <summary>
   /// 進行度tから現在の座標を計算する
@@ -58,5 +64,6 @@ private:
   float t_ = 0.0f; // 現在の進行度
   float speed_ = 0.5f; // 進行スピード
   bool isFinished_ = false;
+  bool isAutoMove_ = true; // 自動で前進するかどうか
 
 };

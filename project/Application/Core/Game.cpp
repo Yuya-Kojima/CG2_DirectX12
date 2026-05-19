@@ -47,6 +47,14 @@ void Game::Initialize() {
   //===========================
   renderPipeline_ = std::make_unique<RenderPipeline>();
   renderPipeline_->Initialize(dx12Core_.get(), srvManager_.get());
+  
+#ifdef USE_IMGUI
+  // ImGuiが有効な場合のみエディタモード（オフスクリーン描画）を有効化
+  renderPipeline_->SetEditorMode(true);
+#else
+  // Release時などImGuiが無効な場合は直接バックバッファに描画
+  renderPipeline_->SetEditorMode(false);
+#endif
 
   // texture切り替え用
   bool useMonsterBall = true;
@@ -109,18 +117,23 @@ void Game::Update() {
   // FPSをセット
   dx12Core_->SetFPS(set60FPS_);
 
-  //=======================
-  // アクターの更新
-  //=======================
-
-  //=======================
-  // デバッグテキストの更新
-  //=======================
-
 #ifdef USE_IMGUI
 
-  // デモウィンドウ表示ON
-  ImGui::ShowDemoWindow();
+  // エディタ用：ゲーム画面のプレビューウィンドウ
+  ImGui::Begin("Game View");
+  uint32_t srvIndex = renderPipeline_->GetEditorGameViewSrvIndex();
+  D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = srvManager_->GetGPUDescriptorHandle(srvIndex);
+  // ゲーム画面のアスペクト比に合わせて描画 (例: 1280x720)
+  ImVec2 windowSize = ImGui::GetContentRegionAvail();
+  float aspect = 1280.0f / 720.0f;
+  float renderWidth = windowSize.x;
+  float renderHeight = windowSize.x / aspect;
+  if (renderHeight > windowSize.y) {
+    renderHeight = windowSize.y;
+    renderWidth = windowSize.y * aspect;
+  }
+  ImGui::Image((ImTextureID)gpuHandle.ptr, ImVec2(renderWidth, renderHeight));
+  ImGui::End();
 
   // ImGui受付終了
   if (imGuiManager_) {
@@ -152,6 +165,9 @@ void Game::Draw() {
 
   // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）
   SceneManager::GetInstance()->DrawOverlay();
+
+  // エディタテクスチャをSRVに変換し、ターゲットをバックバッファに戻す
+  renderPipeline_->EndEditorGameViewPass(dx12Core_.get());
 
   // 2D
   // EngineBase::Begin2D();
