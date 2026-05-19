@@ -461,6 +461,9 @@ void Dx12Core::InitializeDepthBuffer() {
   // DepthStencilTextureをウィンドウサイズで作成
   depthStencilResource = CreateDepthStencilTextureResource(
       device, WindowSystem::kClientWidth, WindowSystem::kClientHeight);
+
+  // 初期状態を記録
+  resourceStates_[depthStencilResource.Get()] = D3D12_RESOURCE_STATE_DEPTH_WRITE;
 }
 
 void Dx12Core::InitializeDescriptorHeap() {
@@ -513,6 +516,9 @@ void Dx12Core::InitializeRenderTargetView() {
     rtvHandles[i] = GetRtvCpuDescriptorHandle(AllocateRTV());
     device->CreateRenderTargetView(swapChainResources[i].Get(), &rtvDesc,
                                    rtvHandles[i]);
+                                   
+    // スワップチェーンバッファの初期状態はCOMMON
+    resourceStates_[swapChainResources[i].Get()] = D3D12_RESOURCE_STATE_COMMON;
   }
 }
 

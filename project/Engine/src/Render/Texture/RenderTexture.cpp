@@ -10,6 +10,9 @@ void RenderTexture::Initialize(Dx12Core *dx12Core, SrvManager *srvManager,
   resource_ = CreateRenderTextureResource(dx12Core->GetDevice(), width, height,
                                           format, clearColor_);
 
+  // 生成直後は RENDER_TARGET なので名簿に登録
+  dx12Core->RegisterResourceState(resource_.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET);
+
   // RTVの生成
   rtvIndex_ = dx12Core->AllocateRTV();
   rtvHandle_ = dx12Core->GetRtvCpuDescriptorHandle(rtvIndex_);

@@ -22,6 +22,7 @@ public:
     }
 
     void Initialize(Dx12Core* dx12Core);
+    void Finalize();
     
     /// <summary>
     /// 線を引く（リストに登録する）

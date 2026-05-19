@@ -78,6 +78,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Engine\include;$(SolutionDir)imgui;$(SolutionDir)externals\DirectXTex;$(SolutionDir)Engine\include\Render;$(SolutionDir)\externals\imgui;$(SolutionDir)\externals\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -96,6 +97,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Engine\include;$(SolutionDir)imgui;$(SolutionDir)externals\DirectXTex;$(SolutionDir)Engine\include\Render;$(SolutionDir)\externals\imgui;$(SolutionDir)\externals\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -114,6 +116,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Engine\include;$(SolutionDir)imgui;$(SolutionDir)externals\DirectXTex;$(SolutionDir)Engine\include\Render;$(SolutionDir)\externals\imgui;$(SolutionDir)\externals\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>
