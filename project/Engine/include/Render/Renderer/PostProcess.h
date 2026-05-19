@@ -14,7 +14,7 @@ public:
   /// <summary>
   /// ImGuiを使用したデバッグ用の設定UIを描画する
   /// </summary>
-  void DrawDebugUI(const char* windowName = "PostEffect Settings");
+  void DrawDebugUI(const char* windowName = "PostEffect Settings", bool createNewWindow = true);
 
   /// <summary>
   /// グレースケールの有効/無効を切り替える
