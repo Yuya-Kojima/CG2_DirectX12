@@ -501,7 +501,7 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		finalHDRColor = saturate(finalHDRColor);
 	}
 
-	output.color = float32_t4(finalHDRColor, output.color.a);
+	output.color = float32_t4(finalHDRColor, 1.0f);
 
 	return output;
 }

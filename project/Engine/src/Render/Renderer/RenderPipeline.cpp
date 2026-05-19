@@ -8,6 +8,10 @@ void RenderPipeline::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
   mainRenderTexture_ = std::make_unique<RenderTexture>();
   mainRenderTexture_->Initialize(dx12Core, srvManager, WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
+  // エディタ画面表示用テクスチャの作成 (LDR)
+  editorGameViewTexture_ = std::make_unique<RenderTexture>();
+  editorGameViewTexture_->Initialize(dx12Core, srvManager, WindowSystem::kClientWidth, WindowSystem::kClientHeight, kRenderTargetClearValue, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB);
+
   // Bloomの初期化
   bloom_ = std::make_unique<Bloom>();
   bloom_->Initialize(dx12Core, srvManager, WindowSystem::kClientWidth, WindowSystem::kClientHeight);
@@ -59,11 +63,13 @@ void RenderPipeline::DrawPostProcess(Dx12Core* dx12Core, SrvManager* srvManager,
   // スワップチェーン（メイン画面）へ描画先を切り替える準備（バックバッファクリア等）
   dx12Core->PreDrawImGui();
 
+  // エディタモードの場合はエディタ用テクスチャをターゲットにする
+  if (isEditorMode_) {
+    editorGameViewTexture_->TransitionToRenderTarget(dx12Core);
+    editorGameViewTexture_->Clear(dx12Core);
+  }
+
   if (currentScenePostProcess) {
-    // 逆行列のセットなどは一旦ここでは呼べないため、元のGame.cpp内で呼んでいた処理は後で整理するか、
-    // またはGame.cpp側でセット済みであることを前提とする。
-    // ※今回は PostProcess 側で必要なセットが完了していると想定
-    
     currentScenePostProcess->SetBloomSrvIndex(bloomSrvIndex);
     
     uint32_t prevHistoryIndex = (currentHistoryIndex_ + 1) % 2;
@@ -71,11 +77,10 @@ void RenderPipeline::DrawPostProcess(Dx12Core* dx12Core, SrvManager* srvManager,
     
     historyTextures_[currentHistoryIndex_]->TransitionToRenderTarget(dx12Core);
     
-    // MRTの設定：[0] バックバッファ, [1] 次フレーム用History
-    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2] = {
-      dx12Core->GetBackBufferRtvHandle(),
-      historyTextures_[currentHistoryIndex_]->GetRtvHandle()
-    };
+    // MRTの設定：[0] バックバッファ(またはエディタテクスチャ), [1] 次フレーム用History
+    D3D12_CPU_DESCRIPTOR_HANDLE targetRtv = isEditorMode_ ? editorGameViewTexture_->GetRtvHandle() : dx12Core->GetBackBufferRtvHandle();
+    D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles[2] = { targetRtv, historyTextures_[currentHistoryIndex_]->GetRtvHandle() };
+    
     auto commandList = dx12Core->GetCommandList();
     commandList->OMSetRenderTargets(2, rtvHandles, false, nullptr);
     
@@ -85,10 +90,26 @@ void RenderPipeline::DrawPostProcess(Dx12Core* dx12Core, SrvManager* srvManager,
     currentHistoryIndex_ = prevHistoryIndex;
   }
   
-  // 以降のオーバーレイやImGuiのためにターゲットをBackbufferのみに戻す
+  // 以降のオーバーレイ描画のためにターゲットを設定
   {
-      D3D12_CPU_DESCRIPTOR_HANDLE backBufferHandle = dx12Core->GetBackBufferRtvHandle();
+      D3D12_CPU_DESCRIPTOR_HANDLE overlayTarget = isEditorMode_ ? editorGameViewTexture_->GetRtvHandle() : dx12Core->GetBackBufferRtvHandle();
       auto commandList = dx12Core->GetCommandList();
-      commandList->OMSetRenderTargets(1, &backBufferHandle, false, nullptr);
+      commandList->OMSetRenderTargets(1, &overlayTarget, false, nullptr);
+  }
+}
+
+uint32_t RenderPipeline::GetEditorGameViewSrvIndex() const {
+  return editorGameViewTexture_->GetSrvIndex();
+}
+
+void RenderPipeline::EndEditorGameViewPass(Dx12Core* dx12Core) {
+  if (isEditorMode_) {
+    // SRVに遷移させてImGuiで読み取れるようにする
+    editorGameViewTexture_->TransitionToShaderResource(dx12Core);
+
+    // 描画ターゲットをバックバッファに戻す（この後ImGui自体を描画するため）
+    D3D12_CPU_DESCRIPTOR_HANDLE backBufferHandle = dx12Core->GetBackBufferRtvHandle();
+    auto commandList = dx12Core->GetCommandList();
+    commandList->OMSetRenderTargets(1, &backBufferHandle, false, nullptr);
   }
 }

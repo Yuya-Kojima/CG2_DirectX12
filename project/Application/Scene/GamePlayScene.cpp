@@ -17,6 +17,12 @@
 
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
+#include <imgui.h>
+#include <string>
+#include <fstream>
+#include <iomanip>
+#include <filesystem>
+#include "../../externals/nlohmann/json.hpp"
 
 void GamePlayScene::Initialize(EngineBase *engine) {
 
@@ -127,6 +133,11 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // パーティクル関係の初期化
   //===========================
+
+  // レベルデータのロード
+  LoadLevel();
+  // 古いハードコード生成が走らないようにtrueにしておく
+  hasSpawnedDummy_ = true;
 }
 
 void GamePlayScene::Finalize() {}
@@ -191,27 +202,8 @@ void GamePlayScene::Update() {
   //=======================
   // テスト用：ダミー敵のスポーン
   //=======================
-  // レールカメラの進行度（t_）が0.1（少し進んだところ）を超えたら1回だけスポーン
-  if (!hasSpawnedDummy_ && railCamera_->GetT() > 0.1f) {
-    hasSpawnedDummy_ = true;
+  // （エディタからのSave/Loadに移行したため削除）
 
-    auto dummy = std::make_unique<Enemy>();
-    dummy->Initialize(); // Colliderの登録など
-
-    auto dummyModel = std::make_unique<Object3d>();
-    dummyModel->Initialize(engine_->GetObject3dRenderer());
-    dummyModel->SetModel("suzanne.obj"); // 仮のモデル
-    dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
-    dummy->SetModel(std::move(dummyModel));
-
-    // カメラの少し奥（前進方向）に出現させる
-    Vector3 camPos = railCamera_->GetTranslate();
-    
-    dummy->GetTransform().translate = {camPos.x, camPos.y + 10.0f, camPos.z + 150.0f};
-    dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f}; // 少し大きめ
-
-    enemies_.push_back(std::move(dummy));
-  } // ここでダミー生成のif文を閉じる
 
   // 敵の更新
   for (auto& enemy : enemies_) {
@@ -252,6 +244,57 @@ void GamePlayScene::Update() {
 
   // アクター群（弾など）の更新
   ActorManager::GetInstance()->Update();
+
+#ifdef USE_IMGUI
+  ImGui::Begin("Hierarchy & Inspector");
+
+  if (ImGui::Button("Save Level")) {
+    SaveLevel();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Load Level")) {
+    LoadLevel();
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Add Enemy")) {
+    Vector3 camPos = activeCamera->GetTranslate();
+    AddEnemy({camPos.x, camPos.y + 5.0f, camPos.z + 50.0f});
+  }
+
+  ImGui::Spacing();
+  ImGui::Text("Enemy Hierarchy");
+  ImGui::Separator();
+
+  // 敵のリストを表示
+  for (size_t i = 0; i < enemies_.size(); ++i) {
+    if (enemies_[i]->IsDead()) continue;
+
+    std::string label = "Enemy " + std::to_string(i);
+    if (ImGui::Selectable(label.c_str(), selectedEnemyIndex_ == static_cast<int>(i))) {
+      selectedEnemyIndex_ = static_cast<int>(i);
+    }
+  }
+
+  ImGui::Spacing();
+  ImGui::Separator();
+  ImGui::Text("Inspector");
+
+  if (selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
+    Enemy* selected = enemies_[selectedEnemyIndex_].get();
+    if (!selected->IsDead()) {
+      Transform& t = selected->GetTransform();
+      ImGui::DragFloat3("Translate", &t.translate.x, 0.1f);
+      ImGui::DragFloat3("Rotate", &t.rotate.x, 0.01f);
+      ImGui::DragFloat3("Scale", &t.scale.x, 0.1f);
+    } else {
+      selectedEnemyIndex_ = -1; // 死んだら選択解除
+    }
+  } else {
+    ImGui::Text("No enemy selected.");
+  }
+
+  ImGui::End();
+#endif
 }
 
 void GamePlayScene::Draw() {
@@ -293,4 +336,79 @@ void GamePlayScene::Draw2D() {
   if (player_) {
     player_->Draw2D();
   }
+}
+
+void GamePlayScene::SaveLevel() {
+  nlohmann::json root;
+  nlohmann::json enemiesArray = nlohmann::json::array();
+  
+  for (auto& enemy : enemies_) {
+    if (enemy->IsDead()) continue;
+    Transform& t = enemy->GetTransform();
+    nlohmann::json eJson;
+    eJson["translation"] = {t.translate.x, t.translate.y, t.translate.z};
+    eJson["rotation"] = {t.rotate.x, t.rotate.y, t.rotate.z};
+    eJson["scale"] = {t.scale.x, t.scale.y, t.scale.z};
+    enemiesArray.push_back(eJson);
+  }
+  root["enemies"] = enemiesArray;
+
+  // 保存先フォルダ（resources/levels）が存在しない場合は作成する
+  std::filesystem::create_directories("resources/levels");
+
+  std::ofstream file("resources/levels/level_editor.json");
+  if (file.is_open()) {
+    file << std::setw(4) << root << std::endl;
+  }
+}
+
+void GamePlayScene::LoadLevel() {
+  std::ifstream file("resources/levels/level_editor.json");
+  if (!file.is_open()) return;
+
+  nlohmann::json root;
+  file >> root;
+
+  // 古い敵をクリア
+  enemies_.clear();
+  selectedEnemyIndex_ = -1;
+
+  if (root.contains("enemies")) {
+    for (auto& eJson : root["enemies"]) {
+      Vector3 t = {eJson["translation"][0], eJson["translation"][1], eJson["translation"][2]};
+      Vector3 r = {eJson["rotation"][0], eJson["rotation"][1], eJson["rotation"][2]};
+      Vector3 s = {eJson["scale"][0], eJson["scale"][1], eJson["scale"][2]};
+      
+      auto dummy = std::make_unique<Enemy>();
+      dummy->Initialize();
+      
+      auto dummyModel = std::make_unique<Object3d>();
+      dummyModel->Initialize(engine_->GetObject3dRenderer());
+      dummyModel->SetModel("suzanne.obj");
+      dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+      dummy->SetModel(std::move(dummyModel));
+      
+      dummy->GetTransform().translate = t;
+      dummy->GetTransform().rotate = r;
+      dummy->GetTransform().scale = s;
+      
+      enemies_.push_back(std::move(dummy));
+    }
+  }
+}
+
+void GamePlayScene::AddEnemy(const Vector3& position) {
+  auto dummy = std::make_unique<Enemy>();
+  dummy->Initialize();
+
+  auto dummyModel = std::make_unique<Object3d>();
+  dummyModel->Initialize(engine_->GetObject3dRenderer());
+  dummyModel->SetModel("suzanne.obj");
+  dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+  dummy->SetModel(std::move(dummyModel));
+
+  dummy->GetTransform().translate = position;
+  dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};
+
+  enemies_.push_back(std::move(dummy));
 }

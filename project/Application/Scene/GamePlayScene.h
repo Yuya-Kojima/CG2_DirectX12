@@ -54,6 +54,9 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Enemy>> enemies_;
   std::vector<Enemy*> enemyPtrs_;
 
+  // エディタ用：選択中の敵インデックス
+  int selectedEnemyIndex_ = -1;
+
 public: // メンバ関数
   /// <summary>
   /// 初期化
@@ -84,6 +87,21 @@ public: // メンバ関数
   /// 3Dオブジェクト描画
   /// </summary>
   void Draw3D() override;
+
+  /// <summary>
+  /// レベルデータの読み込み
+  /// </summary>
+  void LoadLevel();
+
+  /// <summary>
+  /// レベルデータの保存
+  /// </summary>
+  void SaveLevel();
+
+  /// <summary>
+  /// 敵を1体追加する
+  /// </summary>
+  void AddEnemy(const Vector3& position);
 
 private: // メンバ変数(システム用)
 private:
