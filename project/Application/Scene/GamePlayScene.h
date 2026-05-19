@@ -42,13 +42,6 @@ private: // メンバ変数(ゲーム用)
   // デバッグカメラ使用
   bool useDebugCamera_ = false;
 
-  // ImGui確認用Sprite
-  std::unique_ptr<Sprite> sprite_ = nullptr;
-
-  Vector2 spritePosition_{};
-
-  Transform uvTransformSprite_{};
-
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
   std::vector<std::unique_ptr<Enemy>> enemies_;

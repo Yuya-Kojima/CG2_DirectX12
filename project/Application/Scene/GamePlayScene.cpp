@@ -47,22 +47,6 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // スプライト関係の初期化
   //===========================
 
-  sprite_ = std::make_unique<Sprite>();
-  sprite_->Initialize(engine_->GetSpriteRenderer(), "resources/white1x1.png");
-
-  spritePosition_ = {
-      100.0f,
-      100.0f,
-  };
-
-  sprite_->SetPosition(spritePosition_);
-
-  uvTransformSprite_ = {
-      {1.0f, 1.0f, 1.0f},
-      {0.0f, 0.0f, 0.0f},
-      {0.0f, 0.0f, 0.0f},
-  };
-
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
@@ -83,6 +67,16 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   railCamera_ = std::make_unique<RailCamera>();
   railCamera_->Initialize(waypoints_);
   railCamera_->SetSpeed(0.2f); // スピードも少し落として照準を合わせやすくする
+
+#ifdef USE_IMGUI
+  // エディタモードの初期状態：デバッグカメラON、自動進行OFF
+  useDebugCamera_ = true;
+  railCamera_->SetAutoMove(false);
+#else
+  // Release版の初期状態：デバッグカメラOFF、自動進行ON
+  useDebugCamera_ = false;
+  railCamera_->SetAutoMove(true);
+#endif
 
   // デフォルトカメラをレールカメラに設定
   engine_->GetObject3dRenderer()->SetDefaultCamera(railCamera_.get());
@@ -160,27 +154,6 @@ void GamePlayScene::Update() {
       useDebugCamera_ = true;
     }
   }
-
-  //=======================
-  // スプライトの更新
-  //=======================
-
-#ifdef USE_IMGUI
-  //========================
-  // Sprite座標をImGuiで操作
-  //========================
-  ImGui::SetNextWindowSize(ImVec2(500.0f, 100.0f), ImGuiCond_Once);
-
-  ImGui::Begin("Sprite Pos");
-
-  ImGui::SliderFloat2("position", &spritePosition_.x, 0.0f, 1280.0f, "%.1f");
-
-  ImGui::End();
-#endif
-
-  sprite_->SetPosition(spritePosition_);
-  sprite_->SetSize({100.0f, 100.0f});
-  sprite_->Update(uvTransformSprite_);
 
   //=======================
   // 3Dオブジェクトの更新
@@ -294,6 +267,45 @@ void GamePlayScene::Update() {
   }
 
   ImGui::End();
+
+  //=========================
+  // Timeline & Sequencer UI
+  //=========================
+  ImGui::Begin("Timeline & Sequencer");
+  
+  bool isAutoMove = railCamera_->GetAutoMove();
+  if (ImGui::Checkbox("Auto Play RailCamera", &isAutoMove)) {
+    railCamera_->SetAutoMove(isAutoMove);
+  }
+
+  ImGui::SameLine();
+  ImGui::Checkbox("Debug Camera [P]", &useDebugCamera_);
+
+  float currentT = railCamera_->GetT();
+  float maxT = static_cast<float>(railCamera_->GetWaypoints().size() - 1);
+  if (maxT < 0.0f) maxT = 0.0f;
+
+  if (ImGui::SliderFloat("Time (t)", &currentT, 0.0f, maxT)) {
+    railCamera_->SetT(currentT);
+    // スライダーを直接動かしている間は自動再生をオフにする
+    railCamera_->SetAutoMove(false);
+  }
+
+  ImGui::End();
+
+  // レールのデバッグ描画（線でウェイポイントを結ぶ）
+  const auto& waypoints = railCamera_->GetWaypoints();
+  if (waypoints.size() > 1) {
+    for (size_t i = 0; i < waypoints.size() - 1; ++i) {
+      engine_->GetLineRenderer()->DrawLine(waypoints[i], waypoints[i+1], {0.0f, 1.0f, 1.0f, 1.0f}); // シアン色の線
+    }
+    // 現在のカメラ位置に赤い目印をつける（短い線でクロスを描く等）
+    Vector3 camPos = railCamera_->CalcPosition(currentT);
+    engine_->GetLineRenderer()->DrawLine({camPos.x - 2, camPos.y, camPos.z}, {camPos.x + 2, camPos.y, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
+    engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y - 2, camPos.z}, {camPos.x, camPos.y + 2, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
+    engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y, camPos.z - 2}, {camPos.x, camPos.y, camPos.z + 2}, {1.0f, 0.0f, 0.0f, 1.0f});
+  }
+
 #endif
 }
 
@@ -326,13 +338,21 @@ void GamePlayScene::Draw3D() {
   // アクター群（弾など）の描画
   ActorManager::GetInstance()->Draw3D();
 
+#ifdef USE_IMGUI
+  // デバッグ用の線を描画
+  const ICamera* activeCamera = camera_.get();
+  if (useDebugCamera_) {
+    activeCamera = debugCamera_->GetCamera();
+  } else if (railCamera_) {
+    activeCamera = railCamera_.get();
+  }
+  engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
+#endif
+
   engine_->End3D();
 }
 
 void GamePlayScene::Draw2D() {
-  // ここから下で2DオブジェクトのDrawを呼ぶ
-  sprite_->Draw();
-
   if (player_) {
     player_->Draw2D();
   }
