@@ -18,7 +18,9 @@
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
 #include <imgui.h>
+#include "ImGuizmo.h"
 #include <string>
+#include <numbers>
 #include <fstream>
 #include <iomanip>
 #include <filesystem>
@@ -172,6 +174,9 @@ void GamePlayScene::Update() {
     activeCamera = railCamera_.get();
   }
 
+  // 基底クラスにも現在のアクティブカメラを教える（Gizmo描画などで使うため）
+  SetActiveCamera(const_cast<ICamera*>(activeCamera));
+
   //=======================
   // テスト用：ダミー敵のスポーン
   //=======================
@@ -202,7 +207,8 @@ void GamePlayScene::Update() {
 
   // プレイヤーの更新
   if (player_) {
-    player_->SetCamera(activeCamera);
+    // プレイヤーの照準や挙動の計算には常にレールカメラを使用する（DebugCameraに追従させないため）
+    player_->SetCamera(railCamera_.get());
     player_->Update();
     
     // ロックオン中は画面をグレースケールにする（課題要件＋演出効果）
@@ -368,6 +374,91 @@ void GamePlayScene::Update() {
     engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y, camPos.z - 2}, {camPos.x, camPos.y, camPos.z + 2}, {1.0f, 0.0f, 0.0f, 1.0f});
   }
 
+#endif
+}
+
+void GamePlayScene::DrawEditorUI() {
+#ifdef USE_IMGUI
+  if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
+    Enemy* selected = enemies_[selectedEnemyIndex_].get();
+    if (!selected->IsDead()) {
+      // Game Viewの現在の領域を取得
+      ImVec2 windowPos = ImGui::GetCursorScreenPos();
+      ImVec2 windowSize = ImGui::GetContentRegionAvail();
+      // 上にImageが描画されたあとだとCursorが下に移動しているので、上に戻すか描画前に取る必要がある。
+      // Wait, DrawEditorUI() is called AFTER ImGui::Image() in Game.cpp.
+      // So GetCursorScreenPos() is at the bottom of the image!
+      // Image size was `renderWidth, renderHeight`.
+      // We can use ImGui::GetWindowPos() and ImGui::GetWindowSize() or ImGui::GetItemRectMin(), ImGui::GetItemRectMax()!
+      ImVec2 vMin = ImGui::GetItemRectMin();
+      ImVec2 vMax = ImGui::GetItemRectMax();
+
+      ImGuizmo::SetDrawlist();
+      ImGuizmo::SetRect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
+
+      // アクティブなカメラの取得
+      ICamera* camera = GetActiveCamera();
+      if (!camera) return;
+
+      Matrix4x4 viewMatrix = camera->GetViewMatrix();
+      Matrix4x4 projectionMatrix = camera->GetProjectionMatrix();
+
+      Transform& t = selected->GetTransform();
+      Matrix4x4 worldMatrix = MakeAffineMatrix(t.scale, t.rotate, t.translate);
+
+      static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+      static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+
+      // 右クリック中はカメラ操作中なので、Gizmoのショートカットを無効にする
+      if (!ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_W))
+          mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_E))
+          mCurrentGizmoOperation = ImGuizmo::ROTATE;
+        if (ImGui::IsKeyPressed(ImGuiKey_R))
+          mCurrentGizmoOperation = ImGuizmo::SCALE;
+      }
+
+      // Gizmo操作用のUIウィンドウ
+      ImGui::Begin("Gizmo Tools");
+      if (ImGui::RadioButton("Translate [W]", mCurrentGizmoOperation == ImGuizmo::TRANSLATE)) {
+        mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Rotate [E]", mCurrentGizmoOperation == ImGuizmo::ROTATE)) {
+        mCurrentGizmoOperation = ImGuizmo::ROTATE;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Scale [R]", mCurrentGizmoOperation == ImGuizmo::SCALE)) {
+        mCurrentGizmoOperation = ImGuizmo::SCALE;
+      }
+
+      if (mCurrentGizmoOperation != ImGuizmo::SCALE) {
+        if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL)) {
+          mCurrentGizmoMode = ImGuizmo::LOCAL;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD)) {
+          mCurrentGizmoMode = ImGuizmo::WORLD;
+        }
+      }
+      ImGui::End();
+
+      ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0]);
+
+      if (ImGuizmo::IsUsing()) {
+        float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+        ImGuizmo::DecomposeMatrixToComponents(&worldMatrix.m[0][0], matrixTranslation, matrixRotation, matrixScale);
+        t.translate = {matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]};
+        // ImGuizmo returns rotation in degrees
+        t.rotate = {
+            matrixRotation[0] * (std::numbers::pi_v<float> / 180.0f),
+            matrixRotation[1] * (std::numbers::pi_v<float> / 180.0f),
+            matrixRotation[2] * (std::numbers::pi_v<float> / 180.0f)};
+        t.scale = {matrixScale[0], matrixScale[1], matrixScale[2]};
+      }
+    }
+  }
 #endif
 }
 

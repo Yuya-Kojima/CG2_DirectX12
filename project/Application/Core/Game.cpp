@@ -17,6 +17,9 @@
 #include "Texture/TextureManager.h"
 #include <cassert>
 #include <fstream>
+#ifdef USE_IMGUI
+#include "ImGuizmo.h"
+#endif
 
 void Game::Initialize() {
 
@@ -108,6 +111,7 @@ void Game::Update() {
   // ImGui受付開始
   if (imGuiManager_) {
     imGuiManager_->Begin();
+    ImGuizmo::BeginFrame();
   }
 
 #endif // USE_IMGUI
@@ -133,6 +137,10 @@ void Game::Update() {
     renderWidth = windowSize.y * aspect;
   }
   ImGui::Image((ImTextureID)gpuHandle.ptr, ImVec2(renderWidth, renderHeight));
+
+  // GameView上に重ねてエディタ用UIを描画
+  SceneManager::GetInstance()->DrawEditorUI();
+
   ImGui::End();
 
   // ImGui受付終了

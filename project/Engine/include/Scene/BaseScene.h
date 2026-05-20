@@ -3,7 +3,7 @@
 
 class EngineBase;
 class SceneManager;
-class GameCamera;
+class ICamera;
 class PostProcess;
 
 class BaseScene {
@@ -18,11 +18,12 @@ public:
 	virtual void Draw() = 0;
 	virtual void Draw2D() = 0;
 	virtual void Draw3D() = 0;
+	virtual void DrawEditorUI() {}
 
 private:
 	SceneManager* sceneManager_ = nullptr;
 
-	GameCamera* activeCamera_ = nullptr;
+	ICamera* activeCamera_ = nullptr;
 
 protected:
 	std::unique_ptr<PostProcess> postProcess_ = nullptr;
@@ -32,9 +33,9 @@ public:
 		sceneManager_ = sceneManager;
 	}
 
-	void SetActiveCamera(GameCamera* camera);
+	void SetActiveCamera(ICamera* camera);
 
-	GameCamera* GetActiveCamera() const;
+	ICamera* GetActiveCamera() const;
 
 	PostProcess* GetPostProcess() const { return postProcess_.get(); }
 };

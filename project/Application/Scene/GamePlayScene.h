@@ -89,6 +89,11 @@ public: // メンバ関数
   void Draw3D() override;
 
   /// <summary>
+  /// エディタ用UIとGizmoの描画
+  /// </summary>
+  void DrawEditorUI() override;
+
+  /// <summary>
   /// レベルデータの読み込み
   /// </summary>
   void LoadLevel();

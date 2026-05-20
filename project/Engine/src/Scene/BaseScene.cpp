@@ -10,10 +10,10 @@ void BaseScene::Initialize(EngineBase* engine) {
 BaseScene::BaseScene() = default;
 BaseScene::~BaseScene() = default;
 
-void BaseScene::SetActiveCamera(GameCamera* camera) {
+void BaseScene::SetActiveCamera(ICamera* camera) {
 	activeCamera_ = camera;
 }
 
-GameCamera* BaseScene::GetActiveCamera() const {
+ICamera* BaseScene::GetActiveCamera() const {
 	return activeCamera_;
 }

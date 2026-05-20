@@ -51,6 +51,9 @@ public:
   // ポストプロセスの影響を受けないUIやフェードを描画するパス
   void DrawOverlay();
 
+  // エディタ用のUI（ImGui関連など）を描画するパス
+  void DrawEditorUI();
+
   void ChangeScene(const std::string &sceneName);
 
   void SetNextTransitionFade(

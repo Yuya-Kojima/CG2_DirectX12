@@ -84,7 +84,13 @@ void RenderPipeline::DrawPostProcess(Dx12Core* dx12Core, SrvManager* srvManager,
     auto commandList = dx12Core->GetCommandList();
     commandList->OMSetRenderTargets(2, rtvHandles, false, nullptr);
     
+    // DepthBufferをSRVとして読み取るために状態遷移
+    dx12Core->TransitionResource(dx12Core->GetDepthStencilResource(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
     currentScenePostProcess->Draw(mainRenderTexture_->GetSrvIndex(), depthTextureSrvIndex_, srvManager);
+    
+    // DepthBufferを元のDEPTH_WRITEに戻す
+    dx12Core->TransitionResource(dx12Core->GetDepthStencilResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
     
     historyTextures_[currentHistoryIndex_]->TransitionToShaderResource(dx12Core);
     currentHistoryIndex_ = prevHistoryIndex;
