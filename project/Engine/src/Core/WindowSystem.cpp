@@ -93,13 +93,14 @@ void WindowSystem::Finalize() {
 bool WindowSystem::ProcessMessage() {
   MSG msg{};
 
-  if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+  // キューに溜まっているすべてのメッセージを1フレームで処理する（標準的なゲームループ）
+  while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
-  }
-
-  if (msg.message == WM_QUIT) {
-    return true;
+    
+    if (msg.message == WM_QUIT) {
+      return true;
+    }
   }
 
   return false;

@@ -1,4 +1,6 @@
 #include "Core/Game.h"
+#include "Debug/Logger.h"
+#include <filesystem>
 #include "Collision/CollisionManager.h"
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
@@ -123,6 +125,61 @@ void Game::Update() {
 
 #ifdef USE_IMGUI
 
+  // =====================================
+  // Main Toolbar
+  // =====================================
+  ImGui::Begin("Main Toolbar");
+  if (ImGui::Button("TITLE")) {
+    SceneManager::GetInstance()->ChangeScene("TITLE");
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("GAMEPLAY")) {
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("DEBUG")) {
+    SceneManager::GetInstance()->ChangeScene("DEBUG");
+  }
+  ImGui::End();
+
+  // =====================================
+  // Console
+  // =====================================
+  ImGui::Begin("Console");
+  if (ImGui::Button("Clear")) {
+    Logger::ClearConsoleLog();
+  }
+  ImGui::Separator();
+  ImGui::BeginChild("ScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+  std::string logs = Logger::GetConsoleLog();
+  ImGui::TextUnformatted(logs.c_str(), logs.c_str() + logs.size());
+  // 自動スクロール
+  if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+      ImGui::SetScrollHereY(1.0f);
+  ImGui::EndChild();
+  ImGui::End();
+
+  // =====================================
+  // Project
+  // =====================================
+  ImGui::Begin("Project");
+  if (std::filesystem::exists("resources")) {
+    if (ImGui::TreeNode("resources")) {
+      for (const auto& entry : std::filesystem::recursive_directory_iterator("resources")) {
+        if (entry.is_regular_file()) {
+          ImGui::BulletText("%s", entry.path().filename().string().c_str());
+        }
+      }
+      ImGui::TreePop();
+    }
+  }
+  ImGui::End();
+
+  // =====================================
+  // World Settings
+  // =====================================
+  DrawWorldSettingsUI();
+
   // エディタ用：ゲーム画面のプレビューウィンドウ
   ImGui::Begin("Game View");
   uint32_t srvIndex = renderPipeline_->GetEditorGameViewSrvIndex();
@@ -185,4 +242,107 @@ void Game::Draw() {
   }
 
   EngineBase::EndFrame();
+}
+
+void Game::DrawWorldSettingsUI() {
+#ifdef USE_IMGUI
+  ImGui::Begin("World Settings");
+  
+  if (ImGui::CollapsingHeader("Lighting", ImGuiTreeNodeFlags_DefaultOpen)) {
+    auto* renderer = GetObject3dRenderer();
+    if (renderer) {
+      static bool showDirectionalLight = true;
+      static bool showPointLight = false;
+      static bool showSpotLight = false;
+      static float directionalIntensityBackup = 1.0f;
+      static float pointIntensityBackup = 1.0f;
+      static float spotIntensityBackup = 4.0f;
+
+      // Checkboxes
+      if (ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight)) {
+        if (auto *dl = renderer->GetDirectionalLightData()) {
+          if (!showDirectionalLight) {
+            directionalIntensityBackup = dl->intensity;
+            dl->intensity = 0.0f;
+          } else {
+            dl->intensity = (directionalIntensityBackup > 0.0f) ? directionalIntensityBackup : 1.0f;
+          }
+        }
+      }
+      if (ImGui::Checkbox("Enable PointLight", &showPointLight)) {
+        if (auto *pl = renderer->GetPointLightData()) {
+          if (!showPointLight) {
+            pointIntensityBackup = pl->intensity;
+            pl->intensity = 0.0f;
+          } else {
+            pl->intensity = (pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
+          }
+        }
+      }
+      if (ImGui::Checkbox("Enable SpotLight", &showSpotLight)) {
+        if (auto *sl = renderer->GetSpotLightData()) {
+          if (!showSpotLight) {
+            spotIntensityBackup = sl->intensity;
+            sl->intensity = 0.0f;
+          } else {
+            sl->intensity = (spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
+          }
+        }
+      }
+      
+      ImGui::Separator();
+
+      if (showDirectionalLight) {
+        if (auto* dl = renderer->GetDirectionalLightData()) {
+          ImGui::Text("Directional Light");
+          ImGui::ColorEdit3("Color##DL", &dl->color.x);
+          ImGui::DragFloat("Intensity##DL", &dl->intensity, 0.01f, 0.0f, 10.0f);
+          ImGui::Separator();
+        }
+      }
+      if (showPointLight) {
+        if (auto* pl = renderer->GetPointLightData()) {
+          ImGui::Text("Point Light");
+          ImGui::ColorEdit3("Color##PL", &pl->color.x);
+          ImGui::DragFloat3("Position##PL", &pl->position.x, 0.05f);
+          ImGui::DragFloat("Intensity##PL", &pl->intensity, 0.05f, 0.0f, 10.0f);
+          ImGui::DragFloat("Radius##PL", &pl->radius, 0.1f, 0.0f, 100.0f);
+          ImGui::DragFloat("Decay##PL", &pl->decay, 0.05f, 0.01f, 8.0f);
+          ImGui::Separator();
+        }
+      }
+      if (showSpotLight) {
+        if (auto* sl = renderer->GetSpotLightData()) {
+          ImGui::Text("Spot Light");
+          ImGui::ColorEdit3("Color##SL", &sl->color.x);
+          ImGui::DragFloat3("Position##SL", &sl->position.x, 0.05f);
+          ImGui::DragFloat("Intensity##SL", &sl->intensity, 0.05f, 0.0f, 10.0f);
+
+          static float yawDeg = 0.0f;
+          static float pitchDeg = -20.0f;
+          ImGui::SliderFloat("Yaw(deg)##SL", &yawDeg, -180.0f, 180.0f);
+          ImGui::SliderFloat("Pitch(deg)##SL", &pitchDeg, -89.0f, 89.0f);
+
+          float yaw = DegToRad(yawDeg);
+          float pitch = DegToRad(pitchDeg);
+          sl->direction = {
+              std::cos(pitch) * std::sin(yaw),
+              std::sin(pitch),
+              std::cos(pitch) * std::cos(yaw),
+          };
+
+          ImGui::DragFloat("Distance##SL", &sl->distance, 0.1f, 0.01f, 100.0f);
+          ImGui::DragFloat("Decay##SL", &sl->decay, 0.05f, 0.01f, 8.0f);
+
+          static float spotAngleDeg = 30.0f;
+          ImGui::DragFloat("Angle(deg)##SL", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
+          sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
+          ImGui::Separator();
+        }
+      }
+    }
+  }
+
+  ImGui::End();
+#endif
 }

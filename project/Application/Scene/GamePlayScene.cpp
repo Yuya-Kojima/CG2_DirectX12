@@ -258,8 +258,26 @@ void GamePlayScene::Update() {
   if (ImGui::Selectable("Environment (PostProcess)", currentSelectType_ == EditorSelectType::Environment)) {
     currentSelectType_ = EditorSelectType::Environment;
   }
-  if (ImGui::Selectable("Rail Camera", currentSelectType_ == EditorSelectType::RailCamera)) {
+  bool isRailCameraOpen = ImGui::TreeNodeEx("Rail Camera", ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | (currentSelectType_ == EditorSelectType::RailCamera && selectedWaypointIndex_ == -1 ? ImGuiTreeNodeFlags_Selected : 0));
+  if (ImGui::IsItemClicked()) {
     currentSelectType_ = EditorSelectType::RailCamera;
+    selectedWaypointIndex_ = -1;
+  }
+  if (isRailCameraOpen) {
+    if (railCamera_) {
+      auto& waypoints = railCamera_->GetWaypointsRef();
+      for (size_t i = 0; i < waypoints.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        std::string wpLabel = "Waypoint " + std::to_string(i);
+        bool wpSelected = (currentSelectType_ == EditorSelectType::RailCamera && selectedWaypointIndex_ == static_cast<int>(i));
+        if (ImGui::Selectable(wpLabel.c_str(), wpSelected)) {
+          currentSelectType_ = EditorSelectType::RailCamera;
+          selectedWaypointIndex_ = static_cast<int>(i);
+        }
+        ImGui::PopID();
+      }
+    }
+    ImGui::TreePop();
   }
 
   ImGui::Spacing();
@@ -361,88 +379,110 @@ void GamePlayScene::Update() {
 
   ImGui::End();
 
-  // レールのデバッグ描画（線でウェイポイントを結ぶ）
+  // レールのデバッグ描画（スプライン曲線をサンプリングして描画）
   const auto& waypoints = railCamera_->GetWaypoints();
   if (waypoints.size() > 1) {
-    for (size_t i = 0; i < waypoints.size() - 1; ++i) {
-      engine_->GetLineRenderer()->DrawLine(waypoints[i], waypoints[i+1], {0.0f, 1.0f, 1.0f, 1.0f}); // シアン色の線
+    float maxPathT = static_cast<float>(waypoints.size() - 1);
+    const float step = 0.05f; // サンプリング間隔
+    Vector3 prevPos = railCamera_->CalcPosition(0.0f);
+    
+    // スプライン曲線を滑らかに描画する
+    for (float t = step; t <= maxPathT; t += step) {
+      Vector3 currentPos = railCamera_->CalcPosition(t);
+      engine_->GetLineRenderer()->DrawLine(prevPos, currentPos, {0.0f, 1.0f, 1.0f, 1.0f}); // シアン色の線
+      prevPos = currentPos;
     }
+    // 端数調整（最後の終点まで確実に結ぶ）
+    engine_->GetLineRenderer()->DrawLine(prevPos, railCamera_->CalcPosition(maxPathT), {0.0f, 1.0f, 1.0f, 1.0f});
+    
     // 現在のカメラ位置に赤い目印をつける（短い線でクロスを描く等）
     Vector3 camPos = railCamera_->CalcPosition(currentT);
     engine_->GetLineRenderer()->DrawLine({camPos.x - 2, camPos.y, camPos.z}, {camPos.x + 2, camPos.y, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
     engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y - 2, camPos.z}, {camPos.x, camPos.y + 2, camPos.z}, {1.0f, 0.0f, 0.0f, 1.0f});
     engine_->GetLineRenderer()->DrawLine({camPos.x, camPos.y, camPos.z - 2}, {camPos.x, camPos.y, camPos.z + 2}, {1.0f, 0.0f, 0.0f, 1.0f});
   }
-
 #endif
 }
 
 void GamePlayScene::DrawEditorUI() {
 #ifdef USE_IMGUI
+  // ======================================
+  // 共通の Gizmo UI および状態管理
+  // ======================================
+  static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
+  static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
+
+  // 右クリック中はカメラ操作中なので、Gizmoのショートカットを無効にする
+  if (!ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+    if (ImGui::IsKeyPressed(ImGuiKey_W))
+      mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+    if (ImGui::IsKeyPressed(ImGuiKey_E))
+      mCurrentGizmoOperation = ImGuizmo::ROTATE;
+    if (ImGui::IsKeyPressed(ImGuiKey_R))
+      mCurrentGizmoOperation = ImGuizmo::SCALE;
+  }
+
+  // 共通の描画領域取得 (ImGui::Image の直後に呼ばれる前提なので、直前のItemRectがGame Viewの画像サイズになる)
+  ImVec2 vMin = ImGui::GetItemRectMin();
+  ImVec2 vMax = ImGui::GetItemRectMax();
+
+  // Gizmo操作用のUIを Main Toolbar に追記する
+  ImGui::Begin("Main Toolbar");
+  ImGui::SameLine();
+  ImGui::Text("   |   Gizmo:");
+  ImGui::SameLine();
+  
+  // Waypoint選択時はTranslateモードに固定する
+  bool isWaypointMode = (currentSelectType_ == EditorSelectType::RailCamera && selectedWaypointIndex_ >= 0);
+  if (isWaypointMode) {
+    mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+    ImGui::TextDisabled("Rotate [E]");
+    ImGui::SameLine();
+    ImGui::TextDisabled("Scale [R]");
+  } else {
+    if (ImGui::RadioButton("Translate [W]", mCurrentGizmoOperation == ImGuizmo::TRANSLATE)) {
+      mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Rotate [E]", mCurrentGizmoOperation == ImGuizmo::ROTATE)) {
+      mCurrentGizmoOperation = ImGuizmo::ROTATE;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Scale [R]", mCurrentGizmoOperation == ImGuizmo::SCALE)) {
+      mCurrentGizmoOperation = ImGuizmo::SCALE;
+    }
+  }
+
+  if (mCurrentGizmoOperation != ImGuizmo::SCALE) {
+    ImGui::SameLine();
+    ImGui::Text("  Mode:");
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL)) {
+      mCurrentGizmoMode = ImGuizmo::LOCAL;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD)) {
+      mCurrentGizmoMode = ImGuizmo::WORLD;
+    }
+  }
+  ImGui::End();
+
+  ImGuizmo::SetDrawlist();
+  ImGuizmo::SetRect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
+
+  ICamera* camera = GetActiveCamera();
+  if (!camera) return;
+  Matrix4x4 viewMatrix = camera->GetViewMatrix();
+  Matrix4x4 projectionMatrix = camera->GetProjectionMatrix();
+
+  // ======================================
+  // 敵の Gizmo 編集
+  // ======================================
   if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
     Enemy* selected = enemies_[selectedEnemyIndex_].get();
     if (!selected->IsDead()) {
-      // Game Viewの現在の領域を取得
-      ImVec2 windowPos = ImGui::GetCursorScreenPos();
-      ImVec2 windowSize = ImGui::GetContentRegionAvail();
-      // 上にImageが描画されたあとだとCursorが下に移動しているので、上に戻すか描画前に取る必要がある。
-      // Wait, DrawEditorUI() is called AFTER ImGui::Image() in Game.cpp.
-      // So GetCursorScreenPos() is at the bottom of the image!
-      // Image size was `renderWidth, renderHeight`.
-      // We can use ImGui::GetWindowPos() and ImGui::GetWindowSize() or ImGui::GetItemRectMin(), ImGui::GetItemRectMax()!
-      ImVec2 vMin = ImGui::GetItemRectMin();
-      ImVec2 vMax = ImGui::GetItemRectMax();
-
-      ImGuizmo::SetDrawlist();
-      ImGuizmo::SetRect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
-
-      // アクティブなカメラの取得
-      ICamera* camera = GetActiveCamera();
-      if (!camera) return;
-
-      Matrix4x4 viewMatrix = camera->GetViewMatrix();
-      Matrix4x4 projectionMatrix = camera->GetProjectionMatrix();
-
       Transform& t = selected->GetTransform();
       Matrix4x4 worldMatrix = MakeAffineMatrix(t.scale, t.rotate, t.translate);
-
-      static ImGuizmo::OPERATION mCurrentGizmoOperation(ImGuizmo::TRANSLATE);
-      static ImGuizmo::MODE mCurrentGizmoMode(ImGuizmo::WORLD);
-
-      // 右クリック中はカメラ操作中なので、Gizmoのショートカットを無効にする
-      if (!ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-        if (ImGui::IsKeyPressed(ImGuiKey_W))
-          mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-        if (ImGui::IsKeyPressed(ImGuiKey_E))
-          mCurrentGizmoOperation = ImGuizmo::ROTATE;
-        if (ImGui::IsKeyPressed(ImGuiKey_R))
-          mCurrentGizmoOperation = ImGuizmo::SCALE;
-      }
-
-      // Gizmo操作用のUIウィンドウ
-      ImGui::Begin("Gizmo Tools");
-      if (ImGui::RadioButton("Translate [W]", mCurrentGizmoOperation == ImGuizmo::TRANSLATE)) {
-        mCurrentGizmoOperation = ImGuizmo::TRANSLATE;
-      }
-      ImGui::SameLine();
-      if (ImGui::RadioButton("Rotate [E]", mCurrentGizmoOperation == ImGuizmo::ROTATE)) {
-        mCurrentGizmoOperation = ImGuizmo::ROTATE;
-      }
-      ImGui::SameLine();
-      if (ImGui::RadioButton("Scale [R]", mCurrentGizmoOperation == ImGuizmo::SCALE)) {
-        mCurrentGizmoOperation = ImGuizmo::SCALE;
-      }
-
-      if (mCurrentGizmoOperation != ImGuizmo::SCALE) {
-        if (ImGui::RadioButton("Local", mCurrentGizmoMode == ImGuizmo::LOCAL)) {
-          mCurrentGizmoMode = ImGuizmo::LOCAL;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("World", mCurrentGizmoMode == ImGuizmo::WORLD)) {
-          mCurrentGizmoMode = ImGuizmo::WORLD;
-        }
-      }
-      ImGui::End();
 
       ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0]);
 
@@ -450,12 +490,33 @@ void GamePlayScene::DrawEditorUI() {
         float matrixTranslation[3], matrixRotation[3], matrixScale[3];
         ImGuizmo::DecomposeMatrixToComponents(&worldMatrix.m[0][0], matrixTranslation, matrixRotation, matrixScale);
         t.translate = {matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]};
-        // ImGuizmo returns rotation in degrees
+        
+        // マイナススケール対策: スケールを常に正にする
+        t.scale = {abs(matrixScale[0]), abs(matrixScale[1]), abs(matrixScale[2])};
+        
+        // 角度はそのまま適用
         t.rotate = {
             matrixRotation[0] * (std::numbers::pi_v<float> / 180.0f),
             matrixRotation[1] * (std::numbers::pi_v<float> / 180.0f),
             matrixRotation[2] * (std::numbers::pi_v<float> / 180.0f)};
-        t.scale = {matrixScale[0], matrixScale[1], matrixScale[2]};
+      }
+    }
+  }
+  // ======================================
+  // Waypoint の Gizmo 編集
+  // ======================================
+  else if (isWaypointMode) {
+    if (railCamera_) {
+      auto& waypoints = railCamera_->GetWaypointsRef();
+      if (selectedWaypointIndex_ < waypoints.size()) {
+        Vector3 wp = waypoints[selectedWaypointIndex_];
+        Matrix4x4 worldMatrix = MakeTranslateMatrix(wp);
+
+        ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0]);
+
+        if (ImGuizmo::IsUsing()) {
+          waypoints[selectedWaypointIndex_] = {worldMatrix.m[3][0], worldMatrix.m[3][1], worldMatrix.m[3][2]};
+        }
       }
     }
   }
@@ -526,6 +587,15 @@ void GamePlayScene::SaveLevel() {
   }
   root["enemies"] = enemiesArray;
 
+  // Waypoint の保存
+  nlohmann::json waypointsArray = nlohmann::json::array();
+  if (railCamera_) {
+    for (const auto& wp : railCamera_->GetWaypoints()) {
+      waypointsArray.push_back({wp.x, wp.y, wp.z});
+    }
+  }
+  root["waypoints"] = waypointsArray;
+
   // 保存先フォルダ（resources/levels）が存在しない場合は作成する
   std::filesystem::create_directories("resources/levels");
 
@@ -566,6 +636,17 @@ void GamePlayScene::LoadLevel() {
       dummy->GetTransform().scale = s;
       
       enemies_.push_back(std::move(dummy));
+    }
+  }
+
+  // Waypoint の読み込み
+  if (root.contains("waypoints")) {
+    std::vector<Vector3> loadedWaypoints;
+    for (auto& wJson : root["waypoints"]) {
+      loadedWaypoints.push_back({wJson[0], wJson[1], wJson[2]});
+    }
+    if (railCamera_ && !loadedWaypoints.empty()) {
+      railCamera_->Initialize(loadedWaypoints);
     }
   }
 }

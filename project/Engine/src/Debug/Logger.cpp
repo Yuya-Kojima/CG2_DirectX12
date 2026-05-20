@@ -22,6 +22,7 @@ constexpr int kFlushIntervalMs = 50;
 std::mutex gMutex;
 std::condition_variable gCv;
 std::string gBuffer;
+std::string gConsoleBuffer;
 
 std::atomic<bool> gRunning{false};
 std::atomic<bool> gStarted{false};
@@ -89,9 +90,17 @@ void Log(const std::string &message) {
       const size_t remain = kMaxBytesBuffered - gBuffer.size();
       if (message.size() <= remain) {
         gBuffer += message;
+        gConsoleBuffer += message;
       } else {
         gBuffer.append(message.data(), remain);
         gBuffer += "\n[Logger] (log truncated: too much output)\n";
+        gConsoleBuffer.append(message.data(), remain);
+        gConsoleBuffer += "\n[Logger] (log truncated: too much output)\n";
+      }
+
+      // ConsoleBufferが大きすぎたら古いものを消す (簡易的に後半を残す)
+      if (gConsoleBuffer.size() > kMaxBytesBuffered) {
+          gConsoleBuffer = gConsoleBuffer.substr(gConsoleBuffer.size() - (kMaxBytesBuffered / 2));
       }
 
       if (gBuffer.size() >= kNotifyThreshold) {
@@ -105,12 +114,24 @@ void Log(const std::string &message) {
   }
 }
 
+std::string GetConsoleLog() {
+    std::lock_guard<std::mutex> lock(gMutex);
+    return gConsoleBuffer;
+}
+
+void ClearConsoleLog() {
+    std::lock_guard<std::mutex> lock(gMutex);
+    gConsoleBuffer.clear();
+}
+
 } // namespace Logger
 
 #else
 
 namespace Logger {
 void Log(const std::string &message) { (void)message; }
+std::string GetConsoleLog() { return ""; }
+void ClearConsoleLog() {}
 } // namespace Logger
 
 #endif

@@ -732,122 +732,6 @@ void DebugScene::Update() {
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
-  static bool showDirectionalLight = true;
-  static bool showPointLight = false;
-  static bool showSpotLight = false;
-  static float directionalIntensityBackup = 1.0f;
-  static float pointIntensityBackup = 1.0f;
-  static float spotIntensityBackup = 4.0f;
-
-  ImGui::Begin("Lighting");
-
-  // DirectionalLight
-  bool changedDirectional =
-      ImGui::Checkbox("Enable DirectionalLight", &showDirectionalLight);
-  if (changedDirectional) {
-    if (auto *dl = renderer->GetDirectionalLightData()) {
-      if (!showDirectionalLight) {
-        directionalIntensityBackup = dl->intensity;
-        dl->intensity = 0.0f;
-      } else {
-        dl->intensity = (directionalIntensityBackup > 0.0f)
-                            ? directionalIntensityBackup
-                            : 1.0f;
-      }
-    }
-  }
-
-  // PointLight
-  bool changedPoint = ImGui::Checkbox("Enable PointLight", &showPointLight);
-  if (changedPoint) {
-    if (auto *pl = renderer->GetPointLightData()) {
-      if (!showPointLight) {
-        pointIntensityBackup = pl->intensity;
-        pl->intensity = 0.0f;
-      } else {
-        pl->intensity =
-            (pointIntensityBackup > 0.0f) ? pointIntensityBackup : 1.0f;
-      }
-    }
-  }
-
-  // SpotLight
-  bool changedSpot = ImGui::Checkbox("Enable SpotLight", &showSpotLight);
-  if (changedSpot) {
-    if (auto *sl = renderer->GetSpotLightData()) {
-      if (!showSpotLight) {
-        spotIntensityBackup = sl->intensity;
-        sl->intensity = 0.0f;
-      } else {
-        sl->intensity =
-            (spotIntensityBackup > 0.0f) ? spotIntensityBackup : 1.0f;
-      }
-    }
-  }
-
-  ImGui::End();
-
-  //========================
-  // DirectionalLight
-  //========================
-  if (auto *dl = renderer->GetDirectionalLightData()) {
-    if (showDirectionalLight) {
-      ImGui::Begin("DirectionalLight");
-      ImGui::ColorEdit3("Color", &dl->color.x);
-      ImGui::DragFloat("Intensity", &dl->intensity, 0.01f, 0.0f, 10.0f);
-      ImGui::End();
-    }
-  }
-
-  //========================
-  // PointLight
-  //========================
-  if (auto *pl = renderer->GetPointLightData()) {
-    if (showPointLight) {
-      ImGui::Begin("PointLight");
-
-      ImGui::ColorEdit3("Color", &pl->color.x);
-      ImGui::DragFloat3("Position", &pl->position.x, 0.05f, -20.0f, 20.0f);
-      ImGui::DragFloat("Intensity", &pl->intensity, 0.05f, 0.0f, 10.0f);
-      ImGui::DragFloat("Radius", &pl->radius, 0.1f, 0.01f, 100.0f);
-      ImGui::DragFloat("Decay", &pl->decay, 0.05f, 0.01f, 8.0f);
-      ImGui::End();
-    }
-  }
-
-  //========================
-  // SpotLight
-  //========================
-  if (auto *sl = renderer->GetSpotLightData()) {
-    if (showSpotLight) {
-      ImGui::Begin("SpotLight");
-
-      ImGui::ColorEdit3("Color", &sl->color.x);
-      ImGui::DragFloat3("Position", &sl->position.x, 0.05f, -20.0f, 20.0f);
-      ImGui::DragFloat("Intensity", &sl->intensity, 0.05f, 0.0f, 10.0f);
-
-      static float yawDeg = 0.0f;
-      static float pitchDeg = -20.0f;
-      ImGui::SliderFloat("Yaw(deg)", &yawDeg, -180.0f, 180.0f);
-      ImGui::SliderFloat("Pitch(deg)", &pitchDeg, -89.0f, 89.0f);
-
-      float yaw = DegToRad(yawDeg);
-      float pitch = DegToRad(pitchDeg);
-      sl->direction = {
-          std::cos(pitch) * std::sin(yaw),
-          std::sin(pitch),
-          std::cos(pitch) * std::cos(yaw),
-      };
-
-      ImGui::DragFloat("Distance", &sl->distance, 0.1f, 0.01f, 100.0f);
-      ImGui::DragFloat("Decay", &sl->decay, 0.05f, 0.01f, 8.0f);
-
-      static float spotAngleDeg = 30.0f;
-      ImGui::DragFloat("Angle(deg)", &spotAngleDeg, 0.1f, 1.0f, 89.0f);
-      sl->cosAngle = std::cos(DegToRad(spotAngleDeg));
-      ImGui::End();
-    }
-  }
 
   //========================
   // PostProcess Settings UI
@@ -860,14 +744,17 @@ void DebugScene::Update() {
     postProcess_->SetMaskSrvIndex(currentMaskSrvIndex);
 
 #ifdef USE_IMGUI
-    postProcess_->DrawDebugUI();
+    ImGui::Begin("World Settings");
+    
+    // Draw the main PostProcess UI inside World Settings (without creating a new window)
+    postProcess_->DrawDebugUI("World Settings", false);
 
-    ImGui::Begin("PostEffect Settings");
+    // Draw the extra noise texture combo box if Dissolve is selected
     if (postProcess_->GetPostEffectType() == 6) { // Dissolve
       const char *noiseTypes[] = {"noise0.png", "noise1.png"};
-      ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes,
-                   IM_ARRAYSIZE(noiseTypes));
+      ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes, IM_ARRAYSIZE(noiseTypes));
     }
+    
     ImGui::End();
 #endif
   }
@@ -876,8 +763,8 @@ void DebugScene::Update() {
   // Object3D Dissolve Test (Suzanne)
   //========================
   if (!testTargets_.empty() && testTargets_[0]) {
-    ImGui::Begin("Object3D Dissolve Test (Suzanne)");
-
+    ImGui::Begin("World Settings");
+    if (ImGui::CollapsingHeader("Object3D Dissolve Test (Suzanne)", ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
     ImGui::SliderFloat("Threshold", &suzanneDissolveThreshold_, 0.0f, 1.0f);
     ImGui::SliderFloat("Edge Range", &suzanneDissolveEdgeRange_, 0.0f, 0.5f);
@@ -908,7 +795,6 @@ void DebugScene::Update() {
         testTargets_[0]->SetMaskTexturePath("resources/noise0.png"); // 元に戻す
       }
     }
-    ImGui::Separator();
 
     testTargets_[0]->SetEnableDissolve(suzanneEnableDissolve_);
     testTargets_[0]->SetDissolveThreshold(suzanneDissolveThreshold_);
@@ -916,6 +802,7 @@ void DebugScene::Update() {
     testTargets_[0]->SetMaskTransform(suzanneMaskTransform_);
     testTargets_[0]->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
 
+    }
     ImGui::End();
   }
 
@@ -1022,16 +909,17 @@ void DebugScene::Draw2D() {
   // その上に、波エフェクト専用のシェーダーでもう一度描画（波の形にマスクされる）
   static float effectTime = 0.0f;
   effectTime += 1.0f / 60.0f;
-
+  if (effectTime > 2.0f) {
+    effectTime = 0.0f;
+  }
   //  波打ちエフェクト (時間, タイプ, Yの境界線, 揺れ幅, 細かさ, スピード)
   sprites_[0]->SetUIEffectParams(effectTime, 1, 0.2f, 0.05f, 20.0f, 1.0f);
-
+  
   engine_->GetSpriteRenderer()->BeginUIEffect();
   sprites_[0]->DrawUIEffect();
 
   // 通常描画に戻す
   engine_->GetSpriteRenderer()->Begin();
-
   // for (uint32_t i = 0; i < kSpriteCount_; ++i) {
   //   sprites_[i]->Draw();
   // }

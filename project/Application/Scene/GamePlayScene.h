@@ -56,6 +56,7 @@ private: // メンバ変数(ゲーム用)
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedEnemyIndex_ = -1;
+  int selectedWaypointIndex_ = -1;
 
 public: // メンバ関数
   /// <summary>
