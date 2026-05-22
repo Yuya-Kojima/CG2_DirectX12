@@ -1,4 +1,5 @@
 #include "Debug/ImGuiManager.h"
+#include <imgui_internal.h>
 
 void ImGuiManager::Initialize([[maybe_unused]] WindowSystem *winApp,
                               [[maybe_unused]] Dx12Core *dx12Core,
@@ -105,7 +106,42 @@ void ImGuiManager::Begin() {
   ImGui::NewFrame();
 
   // 画面全体をDockingの領域として設定
-  ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+  ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+  ImGui::DockSpaceOverViewport(dockspace_id, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+  // 初回起動時（imgui.iniが存在しないか、明示的なレイアウトリセット時）にデフォルトのドッキングレイアウトを構築する
+  static bool first_time = true;
+  if (first_time) {
+      first_time = false;
+
+      // すでにレイアウトが構築されているか（imgui.iniが読み込まれているか）を判定する
+      // Central Node がまだ作成されていない、もしくは設定がロードされていない場合のみ構築を行う
+      if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr || ImGui::DockBuilderGetNode(dockspace_id)->IsSplitNode() == false) {
+          ImGui::DockBuilderRemoveNode(dockspace_id);
+          ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+          ImGui::DockBuilderSetNodeSize(dockspace_id, ImGui::GetMainViewport()->Size);
+
+          ImGuiID dock_main_id = dockspace_id;
+          
+          ImGuiID dock_id_top = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Up, 0.05f, nullptr, &dock_main_id);
+          ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+          ImGuiID dock_id_left = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.2f, nullptr, &dock_main_id);
+          ImGuiID dock_id_right = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, nullptr, &dock_main_id);
+
+          ImGuiID dock_id_right_bottom = ImGui::DockBuilderSplitNode(dock_id_right, ImGuiDir_Down, 0.5f, nullptr, &dock_id_right);
+
+          ImGui::DockBuilderDockWindow("Main Toolbar", dock_id_top);
+          ImGui::DockBuilderDockWindow("Game View", dock_main_id);
+          ImGui::DockBuilderDockWindow("Hierarchy", dock_id_left);
+          ImGui::DockBuilderDockWindow("Inspector", dock_id_right);
+          ImGui::DockBuilderDockWindow("World Settings", dock_id_right_bottom);
+          ImGui::DockBuilderDockWindow("Project", dock_id_bottom);
+          ImGui::DockBuilderDockWindow("Timeline & Sequencer", dock_id_bottom);
+          ImGui::DockBuilderDockWindow("Console", dock_id_bottom);
+          
+          ImGui::DockBuilderFinish(dockspace_id);
+      }
+  }
 
 #endif // USE_IMGUI
 }

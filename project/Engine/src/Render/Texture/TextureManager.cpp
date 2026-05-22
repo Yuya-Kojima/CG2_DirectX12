@@ -56,7 +56,16 @@ void TextureManager::LoadTexture(const std::string &filePath) {
     hr = DirectX::LoadFromWICFile(
         filePathW.c_str(), DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
   }
-  assert(SUCCEEDED(hr));
+  
+  // 読み込み失敗時のフォールバック処理
+  if (FAILED(hr)) {
+    Logger::Log("Texture failed to load: " + filePath + ", fallback to white1x1.png\n");
+    hr = DirectX::LoadFromWICFile(L"resources/white1x1.png", DirectX::WIC_FLAGS_FORCE_SRGB, nullptr, image);
+    if (FAILED(hr)) {
+      Logger::Log("Fallback texture white1x1.png also failed to load.\n");
+      return;
+    }
+  }
 
   const auto &meta = image.GetMetadata();
 

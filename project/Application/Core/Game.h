@@ -23,6 +23,7 @@ public:
   void Draw() override;
 
 private:
+  void DrawWorldSettingsUI();
   bool set60FPS_ = true;
 
   std::unique_ptr<ImGuiManager> imGuiManager_ = nullptr;

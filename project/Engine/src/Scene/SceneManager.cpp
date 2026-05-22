@@ -131,6 +131,12 @@ void SceneManager::DrawOverlay() {
   engine_->End2D();
 }
 
+void SceneManager::DrawEditorUI() {
+  if (scene_) {
+    scene_->DrawEditorUI();
+  }
+}
+
 void SceneManager::ChangeScene(const std::string &sceneName) {
 
   assert(sceneFactory_);

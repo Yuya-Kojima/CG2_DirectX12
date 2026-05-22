@@ -8,161 +8,41 @@ void DebugCamera::Initialize(const Vector3& translate) {
 
 void DebugCamera::Update(const Input& input) {
 
-	// 追加回転分の回転行列を生成
-	const float rotateSpeed = 0.05f;
+	// 右クリック中のみカメラ操作を有効にする (AAAエンジンの標準操作)
+	if (input.IsMousePress(1)) {
+		// マウスによる視点移動
+		const float mouseSpeed = 0.005f;
+		rotate_.y += input.GetMouseDeltaX() * mouseSpeed;
+		rotate_.x += input.GetMouseDeltaY() * mouseSpeed;
 
-	//if (input.IsPressKey(DIK_C)) {
-	//	matRotDelta = Multiply(MakeRotateYMatrix(rotateSpeed), matRotDelta);
-	//}
+		// 矢印キーでの視点移動も一応残しておく
+		const float rotateSpeed = 0.05f;
+		if (input.IsPressKey(DIK_UP)) { rotate_.x -= rotateSpeed; }
+		if (input.IsPressKey(DIK_DOWN)) { rotate_.x += rotateSpeed; }
+		if (input.IsPressKey(DIK_RIGHT)) { rotate_.y += rotateSpeed; }
+		if (input.IsPressKey(DIK_LEFT)) { rotate_.y -= rotateSpeed; }
 
-	//if (input.IsPressKey(DIK_Z)) {
-	//	matRotDelta = Multiply(MakeRotateYMatrix(-rotateSpeed), matRotDelta);
-	//}
+		// キーボードによる移動 (WASD + EQ)
+		float speed = 0.3f;
+		
+		// Shiftキーを押している間は高速移動（AAAエンジンの標準機能）
+		if (input.IsPressKey(DIK_LSHIFT) || input.IsPressKey(DIK_RSHIFT)) {
+			speed *= 3.0f;
+		}
 
-	//if (input.IsPressKey(DIK_UP)) {
-	//	matRotDelta = Multiply(MakeRotateXMatrix(-rotateSpeed), matRotDelta);
-	//}
+		Vector3 moveLocal = { 0, 0, 0 };
 
-	//if (input.IsPressKey(DIK_DOWN)) {
-	//	matRotDelta = Multiply(MakeRotateXMatrix(rotateSpeed), matRotDelta);
-	//}
+		if (input.IsPressKey(DIK_W)) { moveLocal.z += speed; } // 前
+		if (input.IsPressKey(DIK_S)) { moveLocal.z -= speed; } // 後ろ
+		if (input.IsPressKey(DIK_D)) { moveLocal.x += speed; } // 右
+		if (input.IsPressKey(DIK_A)) { moveLocal.x -= speed; } // 左
+		if (input.IsPressKey(DIK_E)) { moveLocal.y += speed; } // 上
+		if (input.IsPressKey(DIK_Q)) { moveLocal.y -= speed; } // 下
 
-	//if (input.IsPressKey(DIK_RIGHT)) {
-	//	matRotDelta = Multiply(MakeRotateZMatrix(rotateSpeed), matRotDelta);
-	//}
-
-	//if (input.IsPressKey(DIK_LEFT)) {
-	//	matRotDelta = Multiply(MakeRotateZMatrix(-rotateSpeed), matRotDelta);
-	//}
-
-	if (input.IsPressKey(DIK_C)) { rotate_.z += rotateSpeed; }
-	if (input.IsPressKey(DIK_Z)) { rotate_.z -= rotateSpeed; }
-
-	if (input.IsPressKey(DIK_UP)) { rotate_.x -= rotateSpeed; }
-	if (input.IsPressKey(DIK_DOWN)) { rotate_.x += rotateSpeed; }
-
-	if (input.IsPressKey(DIK_RIGHT)) { rotate_.y += rotateSpeed; }
-	if (input.IsPressKey(DIK_LEFT)) { rotate_.y -= rotateSpeed; }
-
-
-	// 累積の回転行列を合成
-	//matRot_ = Multiply(matRotDelta, matRot_);
-	//matRot_ = Multiply(MakeRotateZMatrix(rotate_.z),
-	//	Multiply(MakeRotateXMatrix(rotate_.x),
-	//		MakeRotateYMatrix(rotate_.y)));
-
-
-	//if (input.IsPressKey(DIK_E)) {
-
-	//	//==================
-	//	// 前入力
-	//	//==================
-
-	//	const float speed = 0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { 0, 0, speed };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//} else if (input.IsPressKey(DIK_Q)) {
-
-	//	//==================
-	//	// 後ろ入力
-	//	//==================
-
-	//	const float speed = -0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { 0, 0, speed };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//} else if (input.IsPressKey(DIK_A)) {
-
-	//	//==================
-	//	// 左入力
-	//	//==================
-
-	//	const float speed = -0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { speed, 0, 0 };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//} else if (input.IsPressKey(DIK_D)) {
-
-	//	//==================
-	//	// 右入力
-	//	//==================
-
-	//	const float speed = 0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { speed, 0, 0 };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//} else if (input.IsPressKey(DIK_W)) {
-
-	//	//==================
-	//	// 上入力
-	//	//==================
-
-	//	const float speed = 0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { 0, speed, 0 };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//} else if (input.IsPressKey(DIK_S)) {
-
-	//	//==================
-	//	// 下入力
-	//	//==================
-
-	//	const float speed = -0.3f;
-
-	//	// カメラ位置ベクトル
-	//	Vector3 move = { 0, speed, 0 };
-
-	//	// 移動ベクトルを角度分だけ回転させる
-	//	move = TransformNormal(move, matRot_);
-
-	//	// 移動ベクトル分だけ座標を加算する
-	//	translation_ = Add(translation_, move);
-	//}
-
-	const float speed = 0.3f;
-	Vector3 moveLocal = { 0, 0, 0 };
-
-	if (input.IsPressKey(DIK_E)) { moveLocal.z += speed; }
-	if (input.IsPressKey(DIK_Q)) { moveLocal.z -= speed; }
-	if (input.IsPressKey(DIK_D)) { moveLocal.x += speed; }
-	if (input.IsPressKey(DIK_A)) { moveLocal.x -= speed; }
-	if (input.IsPressKey(DIK_W)) { moveLocal.y += speed; }
-	if (input.IsPressKey(DIK_S)) { moveLocal.y -= speed; }
-
-	if (moveLocal.x != 0 || moveLocal.y != 0 || moveLocal.z != 0) {
-		Vector3 moveWorld = TransformNormal(moveLocal, matRot_);
-		translation_ = Add(translation_, moveWorld);
+		if (moveLocal.x != 0 || moveLocal.y != 0 || moveLocal.z != 0) {
+			Vector3 moveWorld = TransformNormal(moveLocal, matRot_);
+			translation_ = Add(translation_, moveWorld);
+		}
 	}
 
 
