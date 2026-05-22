@@ -81,6 +81,57 @@ void Game::Initialize() {
   // accelerationField.area.max = {1.0f, 1.0f, 1.0f};
 }
 
+#ifdef USE_IMGUI
+static void DrawProjectDirectoryTree(const std::filesystem::path& dirPath) {
+  for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
+    if (entry.is_directory()) {
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.4f, 1.0f)); // Folder color
+      bool isOpen = ImGui::TreeNodeEx(entry.path().filename().string().c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
+      ImGui::PopStyleColor();
+      if (isOpen) {
+        DrawProjectDirectoryTree(entry.path());
+        ImGui::TreePop();
+      }
+    } else if (entry.is_regular_file()) {
+      std::string filename = entry.path().filename().string();
+      std::string ext = entry.path().extension().string();
+      std::string relativePath = entry.path().string();
+      std::replace(relativePath.begin(), relativePath.end(), '\\', '/');
+
+      ImVec4 color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+      std::string icon = "  ";
+      
+      if (ext == ".obj" || ext == ".gltf") {
+        color = ImVec4(0.4f, 1.0f, 0.4f, 1.0f); // Green
+        icon = "[M] ";
+      } else if (ext == ".png" || ext == ".dds") {
+        color = ImVec4(0.4f, 0.8f, 1.0f, 1.0f); // Cyan
+        icon = "[T] ";
+      } else if (ext == ".mtl" || ext == ".json" || ext == ".bin") {
+        color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray
+        icon = "[D] ";
+      } else if (ext == ".wav" || ext == ".mp3") {
+        color = ImVec4(1.0f, 0.6f, 0.8f, 1.0f); // Pink
+        icon = "[A] ";
+      }
+
+      std::string displayStr = icon + filename;
+      ImGui::PushStyleColor(ImGuiCol_Text, color);
+      ImGui::Selectable(displayStr.c_str());
+      ImGui::PopStyleColor();
+
+      if (ext == ".obj" || ext == ".gltf") {
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+          ImGui::SetDragDropPayload("DND_MODEL_PATH", relativePath.c_str(), relativePath.size() + 1);
+          ImGui::Text("Deploy %s", filename.c_str());
+          ImGui::EndDragDropSource();
+        }
+      }
+    }
+  }
+}
+#endif
+
 void Game::Finalize() {
 
   imGuiManager_->Finalize();
@@ -164,12 +215,11 @@ void Game::Update() {
   // =====================================
   ImGui::Begin("Project");
   if (std::filesystem::exists("resources")) {
-    if (ImGui::TreeNode("resources")) {
-      for (const auto& entry : std::filesystem::recursive_directory_iterator("resources")) {
-        if (entry.is_regular_file()) {
-          ImGui::BulletText("%s", entry.path().filename().string().c_str());
-        }
-      }
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.4f, 1.0f));
+    bool isOpen = ImGui::TreeNodeEx("resources", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow);
+    ImGui::PopStyleColor();
+    if (isOpen) {
+      DrawProjectDirectoryTree("resources");
       ImGui::TreePop();
     }
   }
@@ -194,6 +244,16 @@ void Game::Update() {
     renderWidth = windowSize.y * aspect;
   }
   ImGui::Image((ImTextureID)gpuHandle.ptr, ImVec2(renderWidth, renderHeight));
+
+  if (ImGui::BeginDragDropTarget()) {
+    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MODEL_PATH")) {
+      std::string path(static_cast<const char*>(payload->Data));
+      if (auto scene = SceneManager::GetInstance()->GetCurrentScene()) {
+        scene->OnFileDropped(path);
+      }
+    }
+    ImGui::EndDragDropTarget();
+  }
 
   // GameView上に重ねてエディタ用UIを描画
   SceneManager::GetInstance()->DrawEditorUI();

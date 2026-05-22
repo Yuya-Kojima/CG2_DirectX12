@@ -187,6 +187,9 @@ void GamePlayScene::Update() {
   for (auto& enemy : enemies_) {
     enemy->Update();
   }
+  for (auto& obj : sceneObjects_) {
+    obj->Update();
+  }
 
   // LockOn用にPlayerに敵リストを渡す（毎回最新の状態を渡す）
   enemyPtrs_.clear();
@@ -295,6 +298,19 @@ void GamePlayScene::Update() {
       selectedEnemyIndex_ = static_cast<int>(i);
     }
   }
+
+  ImGui::Spacing();
+  ImGui::Text("Scene Objects (Dynamic)");
+  ImGui::Separator();
+  for (size_t i = 0; i < sceneObjects_.size(); ++i) {
+    std::string label = "Object " + std::to_string(i) + " (" + sceneObjects_[i]->GetModelPath() + ")";
+    bool isSelected = (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ == static_cast<int>(i));
+    if (ImGui::Selectable(label.c_str(), isSelected)) {
+      currentSelectType_ = EditorSelectType::SceneObject;
+      selectedSceneObjectIndex_ = static_cast<int>(i);
+    }
+  }
+
   ImGui::End();
 
   //=========================
@@ -349,6 +365,17 @@ void GamePlayScene::Update() {
     } else {
       currentSelectType_ = EditorSelectType::None; // 死んだら選択解除
     }
+  } else if (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ >= 0 && selectedSceneObjectIndex_ < sceneObjects_.size()) {
+    Object3d* selected = sceneObjects_[selectedSceneObjectIndex_].get();
+    ImGui::Text("Scene Object %d", selectedSceneObjectIndex_);
+    ImGui::TextDisabled("%s", selected->GetModelPath().c_str());
+    ImGui::Separator();
+    Vector3 t = selected->GetTranslation();
+    Vector3 r = selected->GetRotation();
+    Vector3 s = selected->GetScale();
+    if (ImGui::DragFloat3("Translate", &t.x, 0.1f)) selected->SetTranslation(t);
+    if (ImGui::DragFloat3("Rotate", &r.x, 0.01f)) selected->SetRotation(r);
+    if (ImGui::DragFloat3("Scale", &s.x, 0.1f)) selected->SetScale(s);
   } else {
     ImGui::Text("No object selected.");
   }
@@ -484,9 +511,7 @@ void GamePlayScene::DrawEditorUI() {
       Transform& t = selected->GetTransform();
       Matrix4x4 worldMatrix = MakeAffineMatrix(t.scale, t.rotate, t.translate);
 
-      ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0]);
-
-      if (ImGuizmo::IsUsing()) {
+      if (ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0])) {
         float matrixTranslation[3], matrixRotation[3], matrixScale[3];
         ImGuizmo::DecomposeMatrixToComponents(&worldMatrix.m[0][0], matrixTranslation, matrixRotation, matrixScale);
         t.translate = {matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]};
@@ -500,6 +525,36 @@ void GamePlayScene::DrawEditorUI() {
             matrixRotation[1] * (std::numbers::pi_v<float> / 180.0f),
             matrixRotation[2] * (std::numbers::pi_v<float> / 180.0f)};
       }
+    }
+  }
+  // ======================================
+  // SceneObject の Gizmo 編集
+  // ======================================
+  else if (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ >= 0 && selectedSceneObjectIndex_ < sceneObjects_.size()) {
+    Object3d* selected = sceneObjects_[selectedSceneObjectIndex_].get();
+    Vector3 t = selected->GetTranslation();
+    Vector3 r = selected->GetRotation();
+    Vector3 s = selected->GetScale();
+    
+    Matrix4x4 worldMatrix = MakeAffineMatrix(s, r, t);
+
+    if (ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0])) {
+      float matrixTranslation[3], matrixRotation[3], matrixScale[3];
+      ImGuizmo::DecomposeMatrixToComponents(&worldMatrix.m[0][0], matrixTranslation, matrixRotation, matrixScale);
+      t = {matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]};
+      
+      // マイナススケール対策: スケールを常に正にする
+      s = {abs(matrixScale[0]), abs(matrixScale[1]), abs(matrixScale[2])};
+      
+      // 角度はそのまま適用
+      r = {
+          matrixRotation[0] * (std::numbers::pi_v<float> / 180.0f),
+          matrixRotation[1] * (std::numbers::pi_v<float> / 180.0f),
+          matrixRotation[2] * (std::numbers::pi_v<float> / 180.0f)};
+          
+      selected->SetTranslation(t);
+      selected->SetRotation(r);
+      selected->SetScale(s);
     }
   }
   // ======================================
@@ -544,6 +599,9 @@ void GamePlayScene::Draw3D() {
       enemy->Draw3D();
     }
   }
+  for (auto& obj : sceneObjects_) {
+    obj->Draw();
+  }
 
   if (player_) {
     player_->Draw3D();
@@ -587,6 +645,20 @@ void GamePlayScene::SaveLevel() {
   }
   root["enemies"] = enemiesArray;
 
+  nlohmann::json sceneObjectsArray = nlohmann::json::array();
+  for (auto& obj : sceneObjects_) {
+    nlohmann::json oJson;
+    Vector3 t = obj->GetTranslation();
+    Vector3 r = obj->GetRotation();
+    Vector3 s = obj->GetScale();
+    oJson["translation"] = {t.x, t.y, t.z};
+    oJson["rotation"] = {r.x, r.y, r.z};
+    oJson["scale"] = {s.x, s.y, s.z};
+    oJson["modelPath"] = obj->GetModelPath();
+    sceneObjectsArray.push_back(oJson);
+  }
+  root["sceneObjects"] = sceneObjectsArray;
+
   // Waypoint の保存
   nlohmann::json waypointsArray = nlohmann::json::array();
   if (railCamera_) {
@@ -615,6 +687,8 @@ void GamePlayScene::LoadLevel() {
   // 古い敵をクリア
   enemies_.clear();
   selectedEnemyIndex_ = -1;
+  sceneObjects_.clear();
+  selectedSceneObjectIndex_ = -1;
 
   if (root.contains("enemies")) {
     for (auto& eJson : root["enemies"]) {
@@ -636,6 +710,19 @@ void GamePlayScene::LoadLevel() {
       dummy->GetTransform().scale = s;
       
       enemies_.push_back(std::move(dummy));
+    }
+  }
+
+  if (root.contains("sceneObjects")) {
+    for (auto& oJson : root["sceneObjects"]) {
+      std::string path = oJson["modelPath"];
+      Vector3 t = {oJson["translation"][0], oJson["translation"][1], oJson["translation"][2]};
+      Vector3 r = {oJson["rotation"][0], oJson["rotation"][1], oJson["rotation"][2]};
+      Vector3 s = {oJson["scale"][0], oJson["scale"][1], oJson["scale"][2]};
+      SpawnSceneObject(path, t);
+      auto& obj = sceneObjects_.back();
+      obj->SetRotation(r);
+      obj->SetScale(s);
     }
   }
 
@@ -665,4 +752,25 @@ void GamePlayScene::AddEnemy(const Vector3& position) {
   dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};
 
   enemies_.push_back(std::move(dummy));
+}
+
+void GamePlayScene::SpawnSceneObject(const std::string& modelPath, const Vector3& position) {
+  auto obj = std::make_unique<Object3d>();
+  obj->Initialize(engine_->GetObject3dRenderer());
+  obj->SetModel(modelPath);
+  obj->SetTranslation(position);
+  sceneObjects_.push_back(std::move(obj));
+}
+
+void GamePlayScene::OnFileDropped(const std::string& filePath) {
+  // Game View のカメラの前方に配置するなど工夫できますが、今回は原点付近に配置
+  Vector3 spawnPos = {0.0f, 0.0f, 0.0f};
+  if (camera_) {
+    spawnPos = camera_->GetTranslate() + Vector3{0.0f, 0.0f, 10.0f}; // カメラの少し前
+  }
+  SpawnSceneObject(filePath, spawnPos);
+  
+  // 生成後、すぐ選択状態にする
+  currentSelectType_ = EditorSelectType::SceneObject;
+  selectedSceneObjectIndex_ = static_cast<int>(sceneObjects_.size() - 1);
 }

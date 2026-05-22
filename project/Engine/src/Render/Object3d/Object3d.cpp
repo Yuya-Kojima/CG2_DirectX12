@@ -149,7 +149,11 @@ void Object3d::Draw() {
 }
 
 void Object3d::SetModel(const std::string &filePath) {
-
+  modelFilePath_ = filePath;
+  
+  // 自動で読み込む
+  ModelManager::GetInstance()->LoadModel(filePath);
+  
   // モデルを検索し、セット
   model_ = ModelManager::GetInstance()->FindModel(filePath);
 

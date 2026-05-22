@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <string>
 
 class EngineBase;
 class SceneManager;
@@ -19,6 +20,7 @@ public:
 	virtual void Draw2D() = 0;
 	virtual void Draw3D() = 0;
 	virtual void DrawEditorUI() {}
+	virtual void OnFileDropped(const std::string& filePath) {}
 
 private:
 	SceneManager* sceneManager_ = nullptr;

@@ -53,6 +53,8 @@ public:
   void SetModel(const std::string &filePath);
 
   void SetModel(Model *model) { model_ = model; }
+  
+  const std::string& GetModelPath() const { return modelFilePath_; }
 
   void SetSkinCluster(SkinCluster *skinCluster) { skinCluster_ = skinCluster; }
 
@@ -226,6 +228,7 @@ public:
 
 private:
   std::string maskTexturePath_ = "resources/noise0.png";
+  std::string modelFilePath_ = "";
 
 private:
   const ICamera *camera_ = nullptr;

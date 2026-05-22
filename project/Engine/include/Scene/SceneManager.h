@@ -63,6 +63,8 @@ public:
 
   PostProcess* GetCurrentScenePostProcess() const;
 
+  BaseScene* GetCurrentScene() const { return scene_.get(); }
+
 private:
   SceneManager() = default;
   ~SceneManager() = default;
