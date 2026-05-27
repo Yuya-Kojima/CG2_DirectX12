@@ -58,6 +58,9 @@ public:
 
   void SetSkinCluster(SkinCluster *skinCluster) { skinCluster_ = skinCluster; }
 
+  std::string name_ = "Object3d";
+  std::string tag_ = "Untagged";
+
 private:
   /* 座標変換行列データ
   -----------------------------*/

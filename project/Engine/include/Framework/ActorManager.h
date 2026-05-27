@@ -2,6 +2,8 @@
 #include "BaseActor.h"
 #include <list>
 #include <memory>
+#include <vector>
+#include <string>
 
 /// <summary>
 /// すべてのActorを一括管理するマネージャークラス（シングルトン）
@@ -26,6 +28,16 @@ public:
     /// 登録されている全てのActorを削除する（シーン切り替え時などに呼ぶ）
     /// </summary>
     void Clear();
+
+    /// <summary>
+    /// 指定したタグを持つ最初のActorを取得する
+    /// </summary>
+    BaseActor* FindActorWithTag(const std::string& tag);
+
+    /// <summary>
+    /// 指定したタグを持つすべてのActorを取得する
+    /// </summary>
+    std::vector<BaseActor*> FindActorsWithTag(const std::string& tag);
 
 private:
     ActorManager() = default;
