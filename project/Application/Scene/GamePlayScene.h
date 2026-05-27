@@ -19,6 +19,13 @@ class PostProcess;
 #include "Actor/Player.h"
 #include "Actor/Enemy.h"
 
+struct SpawnEvent {
+  float spawnTime = 0.0f;
+  std::string prefabName = "ZakoEnemy";
+  Vector3 spawnPosition = {0.0f, 0.0f, 0.0f};
+  bool hasSpawned = false; // 実行時の管理用フラグ（保存はしない）
+};
+
 class GamePlayScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
@@ -47,6 +54,9 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Enemy>> enemies_;
   std::vector<Enemy*> enemyPtrs_;
 
+  // スポーンイベント
+  std::vector<SpawnEvent> spawnEvents_;
+
   // 動的配置オブジェクト (ドラッグ＆ドロップで追加された背景・モデル等)
   std::vector<std::unique_ptr<Object3d>> sceneObjects_;
 
@@ -56,12 +66,14 @@ private: // メンバ変数(ゲーム用)
     Enemy,
     RailCamera,
     Environment,
-    SceneObject
+    SceneObject,
+    SpawnEvent
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedEnemyIndex_ = -1;
   int selectedWaypointIndex_ = -1;
   int selectedSceneObjectIndex_ = -1;
+  int selectedSpawnEventIndex_ = -1;
 
 public: // メンバ関数
   /// <summary>

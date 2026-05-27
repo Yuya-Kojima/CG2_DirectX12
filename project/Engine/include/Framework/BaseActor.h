@@ -33,6 +33,10 @@ public:
 
     // 識別用の名前やタグ
     std::string name_ = "Actor";
+    std::string tag_ = "Untagged";
+
+    const std::string& GetTag() const { return tag_; }
+    void SetTag(const std::string& tag) { tag_ = tag; }
 
 protected:
     // 3D空間上の位置・回転・スケール

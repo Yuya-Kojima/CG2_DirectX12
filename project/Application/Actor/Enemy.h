@@ -17,6 +17,7 @@ public:
 
   // 表示用の3Dモデルを外から渡してセットする
   void SetModel(std::unique_ptr<Object3d> model) { model_ = std::move(model); }
+  Object3d* GetModel() const { return model_.get(); }
 
 private:
   std::unique_ptr<Object3d> model_;

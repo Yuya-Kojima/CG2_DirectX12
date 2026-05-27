@@ -17,6 +17,7 @@
 
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
+#include "Framework/PrefabManager.h"
 #include <imgui.h>
 #include "ImGuizmo.h"
 #include <string>
@@ -33,6 +34,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   
   // シーン初期化時に前シーンの残留アクター（弾や古いプレイヤー）を全消去
   ActorManager::GetInstance()->Clear();
+  PrefabManager::GetInstance()->Initialize(engine->GetObject3dRenderer());
   
   // 参照をコピー
   engine_ = engine;
@@ -172,6 +174,21 @@ void GamePlayScene::Update() {
   } else {
     railCamera_->Update();
     activeCamera = railCamera_.get();
+    
+    // スポナーロジック
+    if (railCamera_) {
+      float t = railCamera_->GetT();
+      for (auto& ev : spawnEvents_) {
+        if (t < ev.spawnTime) {
+          ev.hasSpawned = false; // シークバック時にフラグをリセット
+        } else if (!ev.hasSpawned && t >= ev.spawnTime) {
+          // スポーン実行
+          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{ev.spawnPosition, {0,0,0}, {1,1,1}});
+          enemies_.push_back(std::move(newEnemy));
+          ev.hasSpawned = true;
+        }
+      }
+    }
   }
 
   // 基底クラスにも現在のアクティブカメラを教える（Gizmo描画などで使うため）
@@ -358,6 +375,23 @@ void GamePlayScene::Update() {
     if (!selected->IsDead()) {
       ImGui::Text("Enemy %d", selectedEnemyIndex_);
       ImGui::Separator();
+      
+      char tagBuf[128] = {0};
+      snprintf(tagBuf, sizeof(tagBuf), "%s", selected->GetTag().c_str());
+      if (ImGui::InputText("Tag", tagBuf, sizeof(tagBuf))) {
+        selected->SetTag(tagBuf);
+      }
+      
+      ImGui::Spacing();
+      static char prefabNameBuf[64] = "ZakoEnemy";
+      ImGui::InputText("Prefab Name", prefabNameBuf, sizeof(prefabNameBuf));
+      if (ImGui::Button("Save as Prefab")) {
+        // PrefabManager は後で include して実装します
+        PrefabManager::GetInstance()->SavePrefab(prefabNameBuf, selected);
+      }
+      
+      ImGui::Separator();
+      
       Transform& t = selected->GetTransform();
       ImGui::DragFloat3("Translate", &t.translate.x, 0.1f);
       ImGui::DragFloat3("Rotate", &t.rotate.x, 0.01f);
@@ -370,6 +404,14 @@ void GamePlayScene::Update() {
     ImGui::Text("Scene Object %d", selectedSceneObjectIndex_);
     ImGui::TextDisabled("%s", selected->GetModelPath().c_str());
     ImGui::Separator();
+    
+    char tagBuf[128] = {0};
+    snprintf(tagBuf, sizeof(tagBuf), "%s", selected->tag_.c_str());
+    if (ImGui::InputText("Tag", tagBuf, sizeof(tagBuf))) {
+      selected->tag_ = tagBuf;
+    }
+    ImGui::Separator();
+    
     Vector3 t = selected->GetTranslation();
     Vector3 r = selected->GetRotation();
     Vector3 s = selected->GetScale();
@@ -400,9 +442,50 @@ void GamePlayScene::Update() {
 
   if (ImGui::SliderFloat("Time (t)", &currentT, 0.0f, maxT)) {
     railCamera_->SetT(currentT);
-    // スライダーを直接動かしている間は自動再生をオフにする
+    // スライダーを直接動かした時は自動再生をオフにする
     railCamera_->SetAutoMove(false);
   }
+
+  ImGui::Separator();
+  ImGui::Text("Spawn Events");
+  static char spawnPrefabBuf[64] = "ZakoEnemy";
+  ImGui::InputText("Prefab Name", spawnPrefabBuf, sizeof(spawnPrefabBuf));
+  ImGui::SameLine();
+  if (ImGui::Button("Add Spawn Event at Current Time")) {
+      SpawnEvent ev;
+      ev.spawnTime = currentT;
+      ev.prefabName = spawnPrefabBuf;
+      ev.spawnPosition = railCamera_->GetCamera()->GetTranslate() + Vector3{0, 0, 50.0f}; // カメラの前方
+      spawnEvents_.push_back(ev);
+  }
+  
+  ImGui::BeginChild("SpawnEventsList", ImVec2(0, 150), true);
+  for (size_t i = 0; i < spawnEvents_.size(); ++i) {
+      ImGui::PushID(static_cast<int>(i));
+      auto& ev = spawnEvents_[i];
+      ImGui::Text("Event %zu: ", i);
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(100);
+      ImGui::DragFloat("Time", &ev.spawnTime, 0.01f);
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
+      char pNameBuf[64];
+      snprintf(pNameBuf, sizeof(pNameBuf), "%s", ev.prefabName.c_str());
+      if (ImGui::InputText("Prefab", pNameBuf, sizeof(pNameBuf))) {
+          ev.prefabName = pNameBuf;
+      }
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
+      ImGui::DragFloat3("Pos", &ev.spawnPosition.x, 0.1f);
+      ImGui::SameLine();
+      if (ImGui::Button("Delete")) {
+          spawnEvents_.erase(spawnEvents_.begin() + i);
+          ImGui::PopID();
+          break; // イテレータが壊れるのでループを抜ける
+      }
+      ImGui::PopID();
+  }
+  ImGui::EndChild();
 
   ImGui::End();
 
@@ -641,9 +724,20 @@ void GamePlayScene::SaveLevel() {
     eJson["translation"] = {t.translate.x, t.translate.y, t.translate.z};
     eJson["rotation"] = {t.rotate.x, t.rotate.y, t.rotate.z};
     eJson["scale"] = {t.scale.x, t.scale.y, t.scale.z};
+    eJson["tag"] = enemy->GetTag();
     enemiesArray.push_back(eJson);
   }
   root["enemies"] = enemiesArray;
+
+  nlohmann::json spawnEventsArray = nlohmann::json::array();
+  for (auto& ev : spawnEvents_) {
+    nlohmann::json evJson;
+    evJson["spawnTime"] = ev.spawnTime;
+    evJson["prefabName"] = ev.prefabName;
+    evJson["spawnPosition"] = {ev.spawnPosition.x, ev.spawnPosition.y, ev.spawnPosition.z};
+    spawnEventsArray.push_back(evJson);
+  }
+  root["spawnEvents"] = spawnEventsArray;
 
   nlohmann::json sceneObjectsArray = nlohmann::json::array();
   for (auto& obj : sceneObjects_) {
@@ -655,6 +749,7 @@ void GamePlayScene::SaveLevel() {
     oJson["rotation"] = {r.x, r.y, r.z};
     oJson["scale"] = {s.x, s.y, s.z};
     oJson["modelPath"] = obj->GetModelPath();
+    oJson["tag"] = obj->tag_;
     sceneObjectsArray.push_back(oJson);
   }
   root["sceneObjects"] = sceneObjectsArray;
@@ -689,6 +784,8 @@ void GamePlayScene::LoadLevel() {
   selectedEnemyIndex_ = -1;
   sceneObjects_.clear();
   selectedSceneObjectIndex_ = -1;
+  spawnEvents_.clear();
+  selectedSpawnEventIndex_ = -1;
 
   if (root.contains("enemies")) {
     for (auto& eJson : root["enemies"]) {
@@ -698,6 +795,7 @@ void GamePlayScene::LoadLevel() {
       
       auto dummy = std::make_unique<Enemy>();
       dummy->Initialize();
+      if (eJson.contains("tag")) dummy->SetTag(eJson["tag"]);
       
       auto dummyModel = std::make_unique<Object3d>();
       dummyModel->Initialize(engine_->GetObject3dRenderer());
@@ -713,6 +811,17 @@ void GamePlayScene::LoadLevel() {
     }
   }
 
+  if (root.contains("spawnEvents")) {
+    for (auto& evJson : root["spawnEvents"]) {
+      SpawnEvent ev;
+      ev.spawnTime = evJson["spawnTime"];
+      ev.prefabName = evJson["prefabName"];
+      ev.spawnPosition = {evJson["spawnPosition"][0], evJson["spawnPosition"][1], evJson["spawnPosition"][2]};
+      ev.hasSpawned = false;
+      spawnEvents_.push_back(ev);
+    }
+  }
+
   if (root.contains("sceneObjects")) {
     for (auto& oJson : root["sceneObjects"]) {
       std::string path = oJson["modelPath"];
@@ -723,6 +832,7 @@ void GamePlayScene::LoadLevel() {
       auto& obj = sceneObjects_.back();
       obj->SetRotation(r);
       obj->SetScale(s);
+      if (oJson.contains("tag")) obj->tag_ = oJson["tag"];
     }
   }
 
