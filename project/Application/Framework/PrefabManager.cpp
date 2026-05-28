@@ -87,7 +87,9 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
     auto dummyModel = std::make_unique<Object3d>();
     dummyModel->Initialize(object3dRenderer_);
     dummyModel->SetModel(modelPath);
+    dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
     newEnemy->SetModel(std::move(dummyModel));
+    newEnemy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
 
     return newEnemy;
 }

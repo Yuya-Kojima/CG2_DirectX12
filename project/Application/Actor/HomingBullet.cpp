@@ -43,10 +43,10 @@ void HomingBullet::Update() {
 
     // 当たり判定（簡易的に距離が近づいたらヒットとする）
     if (dist < 3.0f) { 
-      isDead_ = true; // 着弾して消滅
+      isDead_ = true; // 弾が消える
       
-      // 敵を撃破（Destroy関数を呼ぶ）
-      target_->Destroy();
+      // 敵に大ダメージを与える（ホーミングは強力）
+      target_->TakeDamage(3);
       
       #include <Windows.h>
       OutputDebugStringA("Enemy Destroyed!\n");

@@ -183,7 +183,7 @@ void GamePlayScene::Update() {
           ev.hasSpawned = false; // シークバック時にフラグをリセット
         } else if (!ev.hasSpawned && t >= ev.spawnTime) {
           // スポーン実行
-          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{ev.spawnPosition, {0,0,0}, {1,1,1}});
+          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{{3.0f, 3.0f, 3.0f}, {0,0,0}, ev.spawnPosition});
           enemies_.push_back(std::move(newEnemy));
           ev.hasSpawned = true;
         }
@@ -260,8 +260,8 @@ void GamePlayScene::Update() {
     }
     if (ImGui::BeginMenu("GameObject")) {
       if (ImGui::MenuItem("Add Enemy")) {
-        Vector3 camPos = activeCamera->GetTranslate();
-        AddEnemy({camPos.x, camPos.y + 5.0f, camPos.z + 50.0f});
+        Vector3 pPos = player_ ? player_->GetTransform().translate : Vector3{0,0,0};
+        AddEnemy({pPos.x, pPos.y + 2.0f, pPos.z + 10.0f});
       }
       ImGui::EndMenu();
     }
@@ -455,7 +455,8 @@ void GamePlayScene::Update() {
       SpawnEvent ev;
       ev.spawnTime = currentT;
       ev.prefabName = spawnPrefabBuf;
-      ev.spawnPosition = railCamera_->GetCamera()->GetTranslate() + Vector3{0, 0, 50.0f}; // カメラの前方
+      Vector3 pPos = player_ ? player_->GetTransform().translate : railCamera_->GetTranslate();
+      ev.spawnPosition = pPos + Vector3{0, 2.0f, 10.0f};
       spawnEvents_.push_back(ev);
   }
   
@@ -802,6 +803,7 @@ void GamePlayScene::LoadLevel() {
       dummyModel->SetModel("suzanne.obj");
       dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
       dummy->SetModel(std::move(dummyModel));
+      dummy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
       
       dummy->GetTransform().translate = t;
       dummy->GetTransform().rotate = r;
@@ -857,6 +859,7 @@ void GamePlayScene::AddEnemy(const Vector3& position) {
   dummyModel->SetModel("suzanne.obj");
   dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
   dummy->SetModel(std::move(dummyModel));
+  dummy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
 
   dummy->GetTransform().translate = position;
   dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};

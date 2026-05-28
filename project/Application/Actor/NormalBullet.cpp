@@ -53,7 +53,7 @@ void NormalBullet::Update() {
 
     if (dist < 3.0f) {
       isDead_ = true; // 弾が消える
-      enemy->Destroy(); // 敵を倒す
+      enemy->TakeDamage(1); // 敵に1ダメージ与える
       OutputDebugStringA("Normal Bullet Hit!\n");
       break;
     }
