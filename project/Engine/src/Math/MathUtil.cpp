@@ -534,12 +534,15 @@ Vector2 WorldToScreen(const Vector3 &worldPos, const Matrix4x4 &viewProjMatrix,
             worldPos.y * viewProjMatrix.m[1][3] +
             worldPos.z * viewProjMatrix.m[2][3] + 1.0f * viewProjMatrix.m[3][3];
 
-  // 透視投影分割
-  if (w != 0.0f) {
-    ndc.x /= w;
-    ndc.y /= w;
-    ndc.z /= w;
+  // 透視投影除算
+  if (w <= 0.0f) {
+    // カメラの後ろにいる場合は画面外の座標を返す
+    return Vector2{-10000.0f, -10000.0f};
   }
+
+  ndc.x /= w;
+  ndc.y /= w;
+  ndc.z /= w;
 
   // NDC (-1.0 ~ 1.0) をスクリーン座標に変換
   // Xは右がプラス、Yは下がプラスになるよう調整

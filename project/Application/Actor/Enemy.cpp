@@ -3,6 +3,8 @@
 #include "Collision/SphereCollider.h"
 #include "Render/Object3d/Object3d.h"
 #include <Windows.h> // OutputDebugStringA用
+#include "Render/Particle/ParticleManager.h"
+#include "Render/Particle/IParticleEmitter.h"
 
 Enemy::Enemy() = default;
 
@@ -32,6 +34,21 @@ void Enemy::Update() {
     return;
   }
 
+  // 奥から手前へ直進する移動処理
+  transform_.translate.z -= speed_;
+
+  // 被弾時の点滅処理（赤色にする）
+  if (hitFlashTimer_ > 0) {
+    hitFlashTimer_--;
+    if (model_) {
+      model_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤色
+    }
+  } else {
+    if (model_) {
+      model_->SetColor({1.0f, 1.0f, 1.0f, 1.0f}); // 元の色（白）
+    }
+  }
+
   // モデルが存在していれば、敵の座標をモデルに反映して更新
   if (model_) {
     model_->SetTranslation(transform_.translate);
@@ -54,6 +71,18 @@ void Enemy::OnCollision(Collider *other) {
   OutputDebugStringA("Enemy hit something!\n");
   OutputDebugStringA("========================\n");
 
-  // ぶつかったら自分を破壊
-  Destroy();
+  // ここでは即死させず、TakeDamageは弾の側から呼ぶようにする
+}
+
+void Enemy::TakeDamage(int damage) {
+  if (isDead_) return;
+  
+  hp_ -= damage;
+  hitFlashTimer_ = 5; // 5フレーム赤く点滅
+
+  if (hp_ <= 0) {
+    OutputDebugStringA("Enemy Destroyed!\n");
+    // TODO: ここにド派手なパーティクル発生処理を追加する
+    Destroy();
+  }
 }
