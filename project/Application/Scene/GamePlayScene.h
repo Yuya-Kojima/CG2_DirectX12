@@ -22,7 +22,7 @@ class PostProcess;
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
-  Vector3 spawnPosition = {0.0f, 0.0f, 0.0f};
+  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥に50）
   bool hasSpawned = false; // 実行時の管理用フラグ（保存はしない）
 };
 
@@ -46,8 +46,14 @@ private: // メンバ変数(ゲーム用)
   // デバッグカメラ
   std::unique_ptr<DebugCamera> debugCamera_ = nullptr;
 
-  // デバッグカメラ使用
+  // デバッグカメラスイッチ
   bool useDebugCamera_ = false;
+
+  // プレイ/ストップモードフラグ
+  bool isPlayMode_ = false;
+  bool isPaused_ = false;
+  bool doStep_ = false;
+  float playStartT_ = 0.0f; // Play開始時のtの値を保存しておく変数
 
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
@@ -118,12 +124,12 @@ private:
   /// <summary>
   /// レベルデータの読み込み
   /// </summary>
-  void LoadLevel();
+  void LoadLevel(const std::string& filename = "level_editor.json");
 
   /// <summary>
   /// レベルデータの保存
   /// </summary>
-  void SaveLevel();
+  void SaveLevel(const std::string& filename = "level_editor.json");
 
   /// <summary>
   /// 敵を1体追加する

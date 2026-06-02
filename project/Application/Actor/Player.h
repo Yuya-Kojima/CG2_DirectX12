@@ -19,6 +19,8 @@ public:
 
   void Initialize() override;
   void Update() override;
+  void UpdateTransform() override;
+  void ForceSnapToCamera();
   void Draw3D() override;
   void Draw2D() override;
   void OnCollision(class Collider *other) override;

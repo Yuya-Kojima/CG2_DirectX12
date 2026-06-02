@@ -57,7 +57,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // デバッグカメラ
   debugCamera_ = std::make_unique<DebugCamera>();
-  debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
+  debugCamera_->Initialize({0.0f, 10.0f, -30.0f});
 
   // レールカメラの初期化（真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {
@@ -107,6 +107,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   
   // プレイヤーの初期化（照準やコライダーの生成など）
   player_->Initialize();
+  player_->GetTransform().translate = {0.0f, 4.0f, 0.0f}; // レールカメラの初期位置に合わせる
   
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
@@ -122,7 +123,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // デバッグカメラ
   debugCamera_ = std::make_unique<DebugCamera>();
-  debugCamera_->Initialize({0.0f, 4.0f, -10.0f});
+  debugCamera_->Initialize({0.0f, 10.0f, -30.0f});
 
   // モデルの読み込み
 
@@ -160,7 +161,13 @@ void GamePlayScene::Update() {
   }
 
   //=======================
-  // 3Dオブジェクトの更新
+  bool shouldUpdateLogic = (isPlayMode_ && !isPaused_) || doStep_;
+
+  if (doStep_) {
+    doStep_ = false; // Reset step flag after one frame
+  }
+
+  // ポストエフェクトの更新
   //=======================
 
   //=======================
@@ -172,7 +179,14 @@ void GamePlayScene::Update() {
     debugCamera_->Update(*engine_->GetInputManager());
     activeCamera = debugCamera_->GetCamera();
   } else {
-    railCamera_->Update();
+    if (!shouldUpdateLogic) {
+      bool autoMoveCache = railCamera_->GetAutoMove();
+      railCamera_->SetAutoMove(false);
+      railCamera_->Update();
+      railCamera_->SetAutoMove(autoMoveCache);
+    } else {
+      railCamera_->Update();
+    }
     activeCamera = railCamera_.get();
     
     // スポナーロジック
@@ -181,9 +195,25 @@ void GamePlayScene::Update() {
       for (auto& ev : spawnEvents_) {
         if (t < ev.spawnTime) {
           ev.hasSpawned = false; // シークバック時にフラグをリセット
-        } else if (!ev.hasSpawned && t >= ev.spawnTime) {
-          // スポーン実行
-          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{{3.0f, 3.0f, 3.0f}, {0,0,0}, ev.spawnPosition});
+        } else if (shouldUpdateLogic && !ev.hasSpawned && t >= ev.spawnTime) {
+          // スポーン (カメラの現在位置からの相対座標で計算)
+          Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
+          Matrix4x4 cameraWorld = Inverse(viewMatrix);
+          Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
+          Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
+          Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
+          Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
+
+          Vector3 spawnWorldPos = cameraPos 
+                                + Vector3{cameraRight.x * ev.spawnOffset.x, cameraRight.y * ev.spawnOffset.x, cameraRight.z * ev.spawnOffset.x}
+                                + Vector3{cameraUp.x * ev.spawnOffset.y, cameraUp.y * ev.spawnOffset.y, cameraUp.z * ev.spawnOffset.y}
+                                + Vector3{cameraForward.x * ev.spawnOffset.z, cameraForward.y * ev.spawnOffset.z, cameraForward.z * ev.spawnOffset.z};
+
+          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{{3.0f, 3.0f, 3.0f}, {0,0,0}, spawnWorldPos});
+          
+          // 進行方向をカメラの逆（画面奥から手前）に設定
+          newEnemy->SetMoveDirection({-cameraForward.x, -cameraForward.y, -cameraForward.z});
+
           enemies_.push_back(std::move(newEnemy));
           ev.hasSpawned = true;
         }
@@ -202,7 +232,11 @@ void GamePlayScene::Update() {
 
   // 敵の更新
   for (auto& enemy : enemies_) {
-    enemy->Update();
+    if (shouldUpdateLogic) {
+      enemy->Update();
+    } else {
+      enemy->UpdateTransform();
+    }
   }
   for (auto& obj : sceneObjects_) {
     obj->Update();
@@ -229,7 +263,11 @@ void GamePlayScene::Update() {
   if (player_) {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する（DebugCameraに追従させないため）
     player_->SetCamera(railCamera_.get());
-    player_->Update();
+    if (shouldUpdateLogic) {
+      player_->Update();
+    } else {
+      player_->UpdateTransform();
+    }
     
     // ロックオン中は画面をグレースケールにする（課題要件＋演出効果）
     if (postProcess_) {
@@ -265,6 +303,7 @@ void GamePlayScene::Update() {
       }
       ImGui::EndMenu();
     }
+
     ImGui::EndMainMenuBar();
   }
 
@@ -428,22 +467,35 @@ void GamePlayScene::Update() {
   //=========================
   ImGui::Begin("Timeline & Sequencer");
   
-  bool isAutoMove = railCamera_->GetAutoMove();
-  if (ImGui::Checkbox("Auto Play RailCamera", &isAutoMove)) {
-    railCamera_->SetAutoMove(isAutoMove);
-  }
-
-  ImGui::SameLine();
   ImGui::Checkbox("Debug Camera [P]", &useDebugCamera_);
 
   float currentT = railCamera_->GetT();
   float maxT = static_cast<float>(railCamera_->GetWaypoints().size() - 1);
   if (maxT < 0.0f) maxT = 0.0f;
-
-  if (ImGui::SliderFloat("Time (t)", &currentT, 0.0f, maxT)) {
+  // Playモード中はスライダーの操作を無効化（表示のみ）
+  if (isPlayMode_) {
+    ImGui::BeginDisabled();
+  }
+  
+  if (ImGui::SliderFloat("Rail Progress (t)", &currentT, 0.0f, maxT)) {
     railCamera_->SetT(currentT);
-    // スライダーを直接動かした時は自動再生をオフにする
+
+    // レールカメラの位置を即座に更新してプレイヤーを追従させる
+    bool autoMoveCache = railCamera_->GetAutoMove();
     railCamera_->SetAutoMove(false);
+    railCamera_->Update();
+    railCamera_->SetAutoMove(autoMoveCache);
+    
+    // スライダーを直接動かした時は自動再生をオフにする（ポーズ状態にする）
+    isPaused_ = true;
+    if (player_) {
+      player_->SetCamera(railCamera_.get());
+      player_->ForceSnapToCamera();
+    }
+  }
+
+  if (isPlayMode_) {
+    ImGui::EndDisabled();
   }
 
   ImGui::Separator();
@@ -455,8 +507,7 @@ void GamePlayScene::Update() {
       SpawnEvent ev;
       ev.spawnTime = currentT;
       ev.prefabName = spawnPrefabBuf;
-      Vector3 pPos = player_ ? player_->GetTransform().translate : railCamera_->GetTranslate();
-      ev.spawnPosition = pPos + Vector3{0, 2.0f, 10.0f};
+      ev.spawnOffset = {0.0f, 0.0f, 50.0f}; // デフォルトは画面正面の50m奥
       spawnEvents_.push_back(ev);
   }
   
@@ -477,7 +528,7 @@ void GamePlayScene::Update() {
       }
       ImGui::SameLine();
       ImGui::SetNextItemWidth(150);
-      ImGui::DragFloat3("Pos", &ev.spawnPosition.x, 0.1f);
+      ImGui::DragFloat3("Offset", &ev.spawnOffset.x, 0.1f);
       ImGui::SameLine();
       if (ImGui::Button("Delete")) {
           spawnEvents_.erase(spawnEvents_.begin() + i);
@@ -537,8 +588,73 @@ void GamePlayScene::DrawEditorUI() {
   ImVec2 vMin = ImGui::GetItemRectMin();
   ImVec2 vMax = ImGui::GetItemRectMax();
 
-  // Gizmo操作用のUIを Main Toolbar に追記する
+  // Gizmo用UIを Main Toolbar に追記
   ImGui::Begin("Main Toolbar");
+  
+  // ===================
+  // Play / Stop Buttons
+  // ===================
+  if (!isPlayMode_) {
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f)); // 緑っぽく
+    if (ImGui::Button(" [ PLAY ] ", ImVec2(80, 0))) {
+      SaveLevel("level_editor_temp.json");
+      isPlayMode_ = true;
+      isPaused_ = false;
+      useDebugCamera_ = false; // Play時は強制的にゲームカメラに戻す
+      if (railCamera_) {
+        railCamera_->SetAutoMove(true);
+        playStartT_ = railCamera_->GetT(); // Playを開始した時点の時間を記憶
+      }
+    }
+    ImGui::PopStyleColor();
+  } else {
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f)); // 赤っぽく
+    if (ImGui::Button(" [ STOP ] ", ImVec2(80, 0))) {
+      isPlayMode_ = false;
+      isPaused_ = false;
+      useDebugCamera_ = true; // Stop時はエディタカメラ（DebugCamera）に戻す
+      LoadLevel("level_editor_temp.json");
+      if (railCamera_) {
+        railCamera_->SetT(playStartT_); // STOP時はPlay開始時の時間に戻す（Play From Hereの動作）
+        // レールカメラの位置を即座に更新してプレイヤーを追従させる
+        bool autoMoveCache = railCamera_->GetAutoMove();
+        railCamera_->SetAutoMove(false);
+        railCamera_->Update();
+        railCamera_->SetAutoMove(autoMoveCache);
+        for (auto& ev : spawnEvents_) {
+          ev.hasSpawned = false;
+        }
+      }
+      if (player_) {
+        player_->SetCamera(railCamera_.get());
+        player_->ForceSnapToCamera();
+      }
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::SameLine();
+    if (isPaused_) {
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f)); // 緑
+      if (ImGui::Button(" [ RESUME ] ", ImVec2(80, 0))) {
+        isPaused_ = false;
+      }
+      ImGui::PopStyleColor();
+      
+      ImGui::SameLine();
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.7f, 0.2f, 1.0f)); // 黄色
+      if (ImGui::Button(" [ STEP ] ", ImVec2(80, 0))) {
+        doStep_ = true;
+      }
+      ImGui::PopStyleColor();
+    } else {
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.7f, 0.2f, 1.0f)); // 黄色
+      if (ImGui::Button(" [ PAUSE ] ", ImVec2(80, 0))) {
+        isPaused_ = true;
+      }
+      ImGui::PopStyleColor();
+    }
+  }
+  
   ImGui::SameLine();
   ImGui::Text("   |   Gizmo:");
   ImGui::SameLine();
@@ -578,8 +694,12 @@ void GamePlayScene::DrawEditorUI() {
   }
   ImGui::End();
 
-  ImGuizmo::SetDrawlist();
-  ImGuizmo::SetRect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
+  if (!isPlayMode_) {
+    ImGuizmo::SetDrawlist();
+    ImGuizmo::SetRect(vMin.x, vMin.y, vMax.x - vMin.x, vMax.y - vMin.y);
+  } else {
+    return; // PlayMode中はGizmoの操作や描画を行わない
+  }
 
   ICamera* camera = GetActiveCamera();
   if (!camera) return;
@@ -714,7 +834,7 @@ void GamePlayScene::Draw2D() {
   }
 }
 
-void GamePlayScene::SaveLevel() {
+void GamePlayScene::SaveLevel(const std::string& filename) {
   nlohmann::json root;
   nlohmann::json enemiesArray = nlohmann::json::array();
   
@@ -735,7 +855,7 @@ void GamePlayScene::SaveLevel() {
     nlohmann::json evJson;
     evJson["spawnTime"] = ev.spawnTime;
     evJson["prefabName"] = ev.prefabName;
-    evJson["spawnPosition"] = {ev.spawnPosition.x, ev.spawnPosition.y, ev.spawnPosition.z};
+    evJson["spawnOffset"] = {ev.spawnOffset.x, ev.spawnOffset.y, ev.spawnOffset.z};
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -767,14 +887,17 @@ void GamePlayScene::SaveLevel() {
   // 保存先フォルダ（resources/levels）が存在しない場合は作成する
   std::filesystem::create_directories("resources/levels");
 
-  std::ofstream file("resources/levels/level_editor.json");
+  // Save to the specified file path
+  std::string filePath = "resources/levels/" + filename;
+  std::ofstream file(filePath);
   if (file.is_open()) {
     file << std::setw(4) << root << std::endl;
   }
 }
 
-void GamePlayScene::LoadLevel() {
-  std::ifstream file("resources/levels/level_editor.json");
+void GamePlayScene::LoadLevel(const std::string& filename) {
+  std::string filePath = "resources/levels/" + filename;
+  std::ifstream file(filePath);
   if (!file.is_open()) return;
 
   nlohmann::json root;
@@ -818,7 +941,11 @@ void GamePlayScene::LoadLevel() {
       SpawnEvent ev;
       ev.spawnTime = evJson["spawnTime"];
       ev.prefabName = evJson["prefabName"];
-      ev.spawnPosition = {evJson["spawnPosition"][0], evJson["spawnPosition"][1], evJson["spawnPosition"][2]};
+      if (evJson.contains("spawnOffset")) {
+        ev.spawnOffset = {evJson["spawnOffset"][0], evJson["spawnOffset"][1], evJson["spawnOffset"][2]};
+      } else if (evJson.contains("spawnPosition")) { // 古いセーブデータ互換性
+        ev.spawnOffset = {0.0f, 0.0f, 50.0f};
+      }
       ev.hasSpawned = false;
       spawnEvents_.push_back(ev);
     }

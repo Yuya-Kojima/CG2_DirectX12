@@ -34,8 +34,10 @@ void Enemy::Update() {
     return;
   }
 
-  // 奥から手前へ直進する移動処理
-  transform_.translate.z -= speed_;
+  // moveDirection_ に従って移動処理
+  transform_.translate.x += moveDirection_.x * speed_;
+  transform_.translate.y += moveDirection_.y * speed_;
+  transform_.translate.z += moveDirection_.z * speed_;
 
   // 被弾時の点滅処理（赤色にする）
   if (hitFlashTimer_ > 0) {
@@ -45,10 +47,14 @@ void Enemy::Update() {
     }
   } else {
     if (model_) {
-      model_->SetColor({1.0f, 1.0f, 1.0f, 1.0f}); // 元の色（白）
+      model_->SetColor(baseColor_); // 元の色（基本色）
     }
   }
 
+  UpdateTransform();
+}
+
+void Enemy::UpdateTransform() {
   // モデルが存在していれば、敵の座標をモデルに反映して更新
   if (model_) {
     model_->SetTranslation(transform_.translate);

@@ -17,6 +17,7 @@ public:
 
     virtual void Initialize() {}
     virtual void Update() {}
+    virtual void UpdateTransform() {} // トランスフォーム（描画用）のみの更新処理
     virtual void Draw3D() {} // 3Dモデルなどの描画
     virtual void Draw2D() {} // UIやカーソルなどの2D描画
 

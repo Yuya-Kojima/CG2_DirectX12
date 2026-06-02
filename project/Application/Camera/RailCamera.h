@@ -35,7 +35,12 @@ public:
   const Vector3& GetRotate() const { return transform_.rotate; }
   bool IsFinished() const { return isFinished_; }
   float GetT() const { return t_; }
-  void SetT(float t) { t_ = t; }
+  void SetT(float t) { 
+    t_ = t; 
+    if (waypoints_.size() > 0 && t_ < static_cast<float>(waypoints_.size() - 1)) {
+      isFinished_ = false;
+    }
+  }
   
   // 自動進行フラグ
   void SetAutoMove(bool autoMove) { isAutoMove_ = autoMove; }
