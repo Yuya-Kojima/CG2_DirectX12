@@ -29,9 +29,13 @@ private:
   // 累積回転行列
   Matrix4x4 matRot_ = MakeIdentity4x4();
 
-  // ローカル座標
-  Vector3 rotate_{0.3f, 0.0f, 0.0f};
+  // ローカル角
+  Vector3 rotate_{0.0f, 0.0f, 0.0f};
   Vector3 translation_ = {0.0f, 0.0f, -50.0f};
+
+public:
+  void SetRotate(const Vector3& rotate) { rotate_ = rotate; }
+  void SetTranslate(const Vector3& translate) { translation_ = translate; }
 
   // ビュー行列
   Matrix4x4 viewMatrix_ = MakeIdentity4x4();

@@ -111,7 +111,15 @@ void Player::Update() {
 
     // 4. 自機を目標座標へ遅延追従 (Lerp)
     Vector3 prevPos = transform_.translate;
-    transform_.translate = Lerp(transform_.translate, targetPos, 0.15f);
+    
+    // カメラのワープ時（シークやリセット）はLerpせずに瞬時にスナップする
+    Vector3 diff = {targetPos.x - transform_.translate.x, targetPos.y - transform_.translate.y, targetPos.z - transform_.translate.z};
+    float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
+      transform_.translate = targetPos;
+    } else {
+      transform_.translate = Lerp(transform_.translate, targetPos, 0.15f);
+    }
 
     // 5. 姿勢制御 (バンク角・ピッチ角)
     Vector3 velocity = {transform_.translate.x - prevPos.x, 
@@ -135,13 +143,7 @@ void Player::Update() {
     transform_.rotate.y = Lerp(transform_.rotate.y, camRotY, 0.1f); // ヨーも滑らかにカメラに追従
   }
 
-  // 3Dモデルの更新
-  if (object3d_) {
-    object3d_->SetTranslation(transform_.translate);
-    object3d_->SetRotation(transform_.rotate);
-    object3d_->SetScale(transform_.scale);
-    object3d_->Update();
-  }
+  UpdateTransform();
 
   // 射撃入力とステート管理（1ボタン方式）
   if (input_) {
@@ -287,4 +289,39 @@ void Player::OnCollision(Collider *other) {
   OutputDebugStringA("========================\n");
   OutputDebugStringA("Player hit by something!\n");
   OutputDebugStringA("========================\n");
+}
+
+void Player::UpdateTransform() {
+  if (object3d_) {
+    object3d_->SetTranslation(transform_.translate);
+    object3d_->SetRotation(transform_.rotate);
+    object3d_->SetScale(transform_.scale);
+    object3d_->Update();
+  }
+}
+
+void Player::ForceSnapToCamera() {
+  if (!camera_) return;
+
+  float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
+  float ndcY = 1.0f - (reticlePosition_.y / 720.0f) * 2.0f;
+
+  Matrix4x4 viewMatrix = camera_->GetViewMatrix();
+  Matrix4x4 cameraWorld = Inverse(viewMatrix);
+  Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
+  Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
+  Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
+  Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
+
+  float distance = 10.0f;
+  float maxMoveX = 8.0f;
+  float maxMoveY = 4.0f;
+  
+  Vector3 targetPos = cameraPos 
+                    + Vector3{cameraForward.x * distance, cameraForward.y * distance, cameraForward.z * distance}
+                    + Vector3{cameraRight.x * (ndcX * maxMoveX), cameraRight.y * (ndcX * maxMoveX), cameraRight.z * (ndcX * maxMoveX)}
+                    + Vector3{cameraUp.x * (ndcY * maxMoveY), cameraUp.y * (ndcY * maxMoveY), cameraUp.z * (ndcY * maxMoveY)};
+
+  transform_.translate = targetPos;
+  UpdateTransform();
 }
