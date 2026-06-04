@@ -57,7 +57,8 @@ private: // メンバ変数(ゲーム用)
 
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
-  std::vector<std::unique_ptr<Enemy>> enemies_;
+  std::vector<std::unique_ptr<Enemy>> editorEnemies_;
+  std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
 
   // スポーンイベント

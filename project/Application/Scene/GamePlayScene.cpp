@@ -214,7 +214,11 @@ void GamePlayScene::Update() {
           // 進行方向をカメラの逆（画面奥から手前）に設定
           newEnemy->SetMoveDirection({-cameraForward.x, -cameraForward.y, -cameraForward.z});
 
-          enemies_.push_back(std::move(newEnemy));
+          if (isPlayMode_) {
+            runtimeEnemies_.push_back(std::move(newEnemy));
+          } else {
+            editorEnemies_.push_back(std::move(newEnemy));
+          }
           ev.hasSpawned = true;
         }
       }
@@ -231,7 +235,8 @@ void GamePlayScene::Update() {
 
 
   // 敵の更新
-  for (auto& enemy : enemies_) {
+  auto& activeEnemies = isPlayMode_ ? runtimeEnemies_ : editorEnemies_;
+  for (auto& enemy : activeEnemies) {
     if (shouldUpdateLogic) {
       enemy->Update();
     } else {
@@ -244,7 +249,7 @@ void GamePlayScene::Update() {
 
   // LockOn用にPlayerに敵リストを渡す（毎回最新の状態を渡す）
   enemyPtrs_.clear();
-  for (auto& e : enemies_) {
+  for (auto& e : activeEnemies) {
     enemyPtrs_.push_back(e.get());
   }
   if (player_) {
@@ -344,8 +349,8 @@ void GamePlayScene::Update() {
   ImGui::Separator();
 
   // 敵のリストを表示
-  for (size_t i = 0; i < enemies_.size(); ++i) {
-    if (enemies_[i]->IsDead()) continue;
+  for (size_t i = 0; i < editorEnemies_.size(); ++i) {
+    if (editorEnemies_[i]->IsDead()) continue;
 
     std::string label = "Enemy " + std::to_string(i);
     bool isSelected = (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ == static_cast<int>(i));
@@ -409,8 +414,8 @@ void GamePlayScene::Update() {
         }
       }
     }
-  } else if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
-    Enemy* selected = enemies_[selectedEnemyIndex_].get();
+  } else if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < editorEnemies_.size()) {
+    Enemy* selected = editorEnemies_[selectedEnemyIndex_].get();
     if (!selected->IsDead()) {
       ImGui::Text("Enemy %d", selectedEnemyIndex_);
       ImGui::Separator();
@@ -605,6 +610,26 @@ void GamePlayScene::DrawEditorUI() {
         railCamera_->SetAutoMove(true);
         playStartT_ = railCamera_->GetT(); // Playを開始した時点の時間を記憶
       }
+      
+      // Data Separation: editorEnemies_ を複製して runtimeEnemies_ を作成
+      runtimeEnemies_.clear();
+      for (auto& e : editorEnemies_) {
+        if (e->IsDead()) continue;
+        auto clone = std::make_unique<Enemy>();
+        clone->Initialize();
+        
+        // 仮のモデルを割り当て（本来はPrefabManagerを使うべきだが既存コードに合わせる）
+        auto cloneModel = std::make_unique<Object3d>();
+        cloneModel->Initialize(engine_->GetObject3dRenderer());
+        cloneModel->SetModel("suzanne.obj");
+        cloneModel->SetColor(e->GetBaseColor());
+        clone->SetModel(std::move(cloneModel));
+        clone->SetBaseColor(e->GetBaseColor());
+        
+        clone->GetTransform() = e->GetTransform();
+        clone->SetTag(e->GetTag());
+        runtimeEnemies_.push_back(std::move(clone));
+      }
     }
     ImGui::PopStyleColor();
   } else {
@@ -709,8 +734,8 @@ void GamePlayScene::DrawEditorUI() {
   // ======================================
   // 敵の Gizmo 編集
   // ======================================
-  if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < enemies_.size()) {
-    Enemy* selected = enemies_[selectedEnemyIndex_].get();
+  if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < editorEnemies_.size()) {
+    Enemy* selected = editorEnemies_[selectedEnemyIndex_].get();
     if (!selected->IsDead()) {
       Transform& t = selected->GetTransform();
       Matrix4x4 worldMatrix = MakeAffineMatrix(t.scale, t.rotate, t.translate);
@@ -798,7 +823,8 @@ void GamePlayScene::Draw3D() {
   }
 
   // 敵の描画
-  for (auto& enemy : enemies_) {
+  auto& activeEnemies = isPlayMode_ ? runtimeEnemies_ : editorEnemies_;
+  for (auto& enemy : activeEnemies) {
     if (!enemy->IsDead()) {
       enemy->Draw3D();
     }
@@ -838,7 +864,7 @@ void GamePlayScene::SaveLevel(const std::string& filename) {
   nlohmann::json root;
   nlohmann::json enemiesArray = nlohmann::json::array();
   
-  for (auto& enemy : enemies_) {
+  for (auto& enemy : editorEnemies_) {
     if (enemy->IsDead()) continue;
     Transform& t = enemy->GetTransform();
     nlohmann::json eJson;
@@ -904,7 +930,8 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
   file >> root;
 
   // 古い敵をクリア
-  enemies_.clear();
+  editorEnemies_.clear();
+  runtimeEnemies_.clear();
   selectedEnemyIndex_ = -1;
   sceneObjects_.clear();
   selectedSceneObjectIndex_ = -1;
@@ -932,7 +959,7 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
       dummy->GetTransform().rotate = r;
       dummy->GetTransform().scale = s;
       
-      enemies_.push_back(std::move(dummy));
+      editorEnemies_.push_back(std::move(dummy));
     }
   }
 
@@ -991,7 +1018,7 @@ void GamePlayScene::AddEnemy(const Vector3& position) {
   dummy->GetTransform().translate = position;
   dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};
 
-  enemies_.push_back(std::move(dummy));
+  editorEnemies_.push_back(std::move(dummy));
 }
 
 void GamePlayScene::SpawnSceneObject(const std::string& modelPath, const Vector3& position) {
