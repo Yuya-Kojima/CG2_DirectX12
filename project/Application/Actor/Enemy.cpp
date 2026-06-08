@@ -5,6 +5,9 @@
 #include <Windows.h> // OutputDebugStringA用
 #include "Render/Particle/ParticleManager.h"
 #include "Render/Particle/IParticleEmitter.h"
+#include "Camera/ICamera.h"
+#include "Math/MathUtil.h"
+#include <cmath>
 
 Enemy::Enemy() = default;
 
@@ -34,10 +37,39 @@ void Enemy::Update() {
     return;
   }
 
-  // moveDirection_ に従って移動処理
-  transform_.translate.x += moveDirection_.x * speed_;
-  transform_.translate.y += moveDirection_.y * speed_;
-  transform_.translate.z += moveDirection_.z * speed_;
+  aliveTime_ += 1.0f / 60.0f; // 簡易的に60FPS固定で時間計算
+
+  if (camera_) {
+    Matrix4x4 viewMatrix = camera_->GetViewMatrix();
+    Matrix4x4 cameraWorld = Inverse(viewMatrix);
+    Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
+    Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
+    Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
+    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
+
+    float currentXOffset = spawnOffset_.x;
+    float currentYOffset = spawnOffset_.y;
+    float currentZOffset = spawnOffset_.z;
+
+    if (moveType_ == MoveType::Straight) {
+      currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前へ直進
+    } else if (moveType_ == MoveType::Parallel) {
+      // オフセットそのまま（並走）
+    } else if (moveType_ == MoveType::SineWave) {
+      currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前へ直進しつつ
+      currentXOffset += std::sin(aliveTime_ * 5.0f) * 20.0f; // 左右に波打つ
+    }
+
+    transform_.translate = cameraPos 
+      + Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset}
+      + Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset}
+      + Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
+  } else {
+    // カメラ情報がない場合のフォールバック
+    transform_.translate.x += moveDirection_.x * speed_;
+    transform_.translate.y += moveDirection_.y * speed_;
+    transform_.translate.z += moveDirection_.z * speed_;
+  }
 
   // 被弾時の点滅処理（赤色にする）
   if (hitFlashTimer_ > 0) {
@@ -47,7 +79,7 @@ void Enemy::Update() {
     }
   } else {
     if (model_) {
-      model_->SetColor(baseColor_); // 元の色（基本色）
+      model_->SetColor(baseColor_); // 元の色
     }
   }
 

@@ -211,8 +211,13 @@ void GamePlayScene::Update() {
 
           auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(ev.prefabName, Transform{{3.0f, 3.0f, 3.0f}, {0,0,0}, spawnWorldPos});
           
-          // 進行方向をカメラの逆（画面奥から手前）に設定
+          // 旧式の進行方向（フォールバック用）
           newEnemy->SetMoveDirection({-cameraForward.x, -cameraForward.y, -cameraForward.z});
+          
+          // カメラとオフセット、MoveTypeをセット
+          newEnemy->SetCamera(railCamera_.get());
+          newEnemy->SetSpawnOffset(ev.spawnOffset);
+          newEnemy->SetMoveType(static_cast<MoveType>(ev.moveType));
 
           if (isPlayMode_) {
             runtimeEnemies_.push_back(std::move(newEnemy));
@@ -462,6 +467,39 @@ void GamePlayScene::Update() {
     if (ImGui::DragFloat3("Translate", &t.x, 0.1f)) selected->SetTranslation(t);
     if (ImGui::DragFloat3("Rotate", &r.x, 0.01f)) selected->SetRotation(r);
     if (ImGui::DragFloat3("Scale", &s.x, 0.1f)) selected->SetScale(s);
+  } else if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
+    SpawnEvent& ev = spawnEvents_[selectedSpawnEventIndex_];
+    ImGui::Text("Spawn Event %d", selectedSpawnEventIndex_);
+    ImGui::Separator();
+    
+    // 最大時間（レール終点）を取得
+    float maxT = 0.0f;
+    if (railCamera_ && railCamera_->GetWaypoints().size() > 0) {
+      maxT = static_cast<float>(railCamera_->GetWaypoints().size() - 1);
+    }
+
+    ImGui::DragFloat("Time", &ev.spawnTime, 0.01f, 0.0f, maxT);
+    
+    char prefabBuf[64] = {0};
+    snprintf(prefabBuf, sizeof(prefabBuf), "%s", ev.prefabName.c_str());
+    if (ImGui::InputText("Prefab", prefabBuf, sizeof(prefabBuf))) {
+      ev.prefabName = prefabBuf;
+    }
+    
+    ImGui::DragFloat3("Offset", &ev.spawnOffset.x, 0.1f);
+    
+    const char* moveTypeNames[] = { 
+      "Straight (奥から手前へ直進)", 
+      "Parallel (カメラと並走して追従)", 
+      "SineWave (波打って接近)" 
+    };
+    ImGui::Combo("Move Type", &ev.moveType, moveTypeNames, IM_ARRAYSIZE(moveTypeNames));
+    
+    ImGui::Spacing();
+    if (ImGui::Button("Delete Event", ImVec2(-1, 0))) {
+      spawnEvents_.erase(spawnEvents_.begin() + selectedSpawnEventIndex_);
+      currentSelectType_ = EditorSelectType::None;
+    }
   } else {
     ImGui::Text("No object selected.");
   }
@@ -503,46 +541,66 @@ void GamePlayScene::Update() {
     ImGui::EndDisabled();
   }
 
-  ImGui::Separator();
-  ImGui::Text("Spawn Events");
-  static char spawnPrefabBuf[64] = "ZakoEnemy";
-  ImGui::InputText("Prefab Name", spawnPrefabBuf, sizeof(spawnPrefabBuf));
-  ImGui::SameLine();
-  if (ImGui::Button("Add Spawn Event at Current Time")) {
+  ImDrawList* drawList = ImGui::GetWindowDrawList();
+  ImVec2 p = ImGui::GetCursorScreenPos();
+  float trackWidth = ImGui::GetContentRegionAvail().x;
+  float trackHeight = 40.0f;
+  
+  // 背景描画
+  drawList->AddRectFilled(p, ImVec2(p.x + trackWidth, p.y + trackHeight), IM_COL32(50, 50, 50, 255));
+  
+  // マウス操作判定用の非表示ボタン
+  ImGui::InvisibleButton("TimelineTrack", ImVec2(trackWidth, trackHeight));
+  bool isTrackHovered = ImGui::IsItemHovered();
+  
+  // ダブルクリックで新規スポーンイベント追加
+  if (isTrackHovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+      float mouseX = ImGui::GetMousePos().x - p.x;
+      float t = (mouseX / trackWidth) * maxT;
       SpawnEvent ev;
-      ev.spawnTime = currentT;
-      ev.prefabName = spawnPrefabBuf;
-      ev.spawnOffset = {0.0f, 0.0f, 50.0f}; // デフォルトは画面正面の50m奥
+      ev.spawnTime = t;
+      ev.prefabName = "ZakoEnemy";
+      ev.spawnOffset = {0.0f, 0.0f, 50.0f};
+      ev.moveType = 0; // MoveType::Straight
       spawnEvents_.push_back(ev);
+      
+      // 生成後すぐに選択状態にする
+      currentSelectType_ = EditorSelectType::SpawnEvent;
+      selectedSpawnEventIndex_ = static_cast<int>(spawnEvents_.size() - 1);
+  }
+
+  // イベントのピンを描画
+  for (size_t i = 0; i < spawnEvents_.size(); ++i) {
+      float evX = p.x + (spawnEvents_[i].spawnTime / maxT) * trackWidth;
+      ImVec2 evCenter(evX, p.y + trackHeight / 2.0f);
+      
+      // 選択状態なら色を変える
+      bool isSelected = (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ == static_cast<int>(i));
+      ImU32 col = isSelected ? IM_COL32(255, 200, 0, 255) : IM_COL32(100, 150, 250, 255);
+      
+      // ひし形描画
+      float size = 8.0f;
+      drawList->AddQuadFilled(
+          ImVec2(evCenter.x, evCenter.y - size),
+          ImVec2(evCenter.x + size, evCenter.y),
+          ImVec2(evCenter.x, evCenter.y + size),
+          ImVec2(evCenter.x - size, evCenter.y),
+          col
+      );
+      
+      // クリック判定
+      if (isTrackHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+          float mouseX = ImGui::GetMousePos().x;
+          if (abs(mouseX - evX) < size * 1.5f) {
+              currentSelectType_ = EditorSelectType::SpawnEvent;
+              selectedSpawnEventIndex_ = static_cast<int>(i);
+          }
+      }
   }
   
-  ImGui::BeginChild("SpawnEventsList", ImVec2(0, 150), true);
-  for (size_t i = 0; i < spawnEvents_.size(); ++i) {
-      ImGui::PushID(static_cast<int>(i));
-      auto& ev = spawnEvents_[i];
-      ImGui::Text("Event %zu: ", i);
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(100);
-      ImGui::DragFloat("Time", &ev.spawnTime, 0.01f);
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(150);
-      char pNameBuf[64];
-      snprintf(pNameBuf, sizeof(pNameBuf), "%s", ev.prefabName.c_str());
-      if (ImGui::InputText("Prefab", pNameBuf, sizeof(pNameBuf))) {
-          ev.prefabName = pNameBuf;
-      }
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(150);
-      ImGui::DragFloat3("Offset", &ev.spawnOffset.x, 0.1f);
-      ImGui::SameLine();
-      if (ImGui::Button("Delete")) {
-          spawnEvents_.erase(spawnEvents_.begin() + i);
-          ImGui::PopID();
-          break; // イテレータが壊れるのでループを抜ける
-      }
-      ImGui::PopID();
-  }
-  ImGui::EndChild();
+  // 現在の再生位置(Playhead)を描画
+  float playheadX = p.x + (currentT / maxT) * trackWidth;
+  drawList->AddLine(ImVec2(playheadX, p.y), ImVec2(playheadX, p.y + trackHeight), IM_COL32(255, 0, 0, 255), 2.0f);
 
   ImGui::End();
 
@@ -804,6 +862,50 @@ void GamePlayScene::DrawEditorUI() {
       }
     }
   }
+  // ======================================
+  // SpawnEvent の Gizmo 編集 (ゴースト)
+  // ======================================
+  else if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
+    SpawnEvent& ev = spawnEvents_[selectedSpawnEventIndex_];
+    
+    if (railCamera_) {
+      // 指定時間(ev.spawnTime)におけるカメラのワールド行列をシミュレーション
+      Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
+      Vector3 camTarget = railCamera_->CalcPosition(ev.spawnTime + 0.1f);
+      
+      // 簡易的に前・上・右ベクトルを計算 (RailCamera内部のUpdateに類似)
+      Vector3 forward = Normalize(camTarget - camPos);
+      Vector3 up = {0.0f, 1.0f, 0.0f};
+      Vector3 right = Normalize(Cross(up, forward));
+      up = Normalize(Cross(forward, right));
+      
+      // そのカメラ位置から、ev.spawnOffset 分だけローカル空間で移動させた位置がゴーストのワールド座標
+      Vector3 ghostWorldPos = camPos 
+                            + Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x, right.z * ev.spawnOffset.x}
+                            + Vector3{up.x * ev.spawnOffset.y, up.y * ev.spawnOffset.y, up.z * ev.spawnOffset.y}
+                            + Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z, forward.z * ev.spawnOffset.z};
+
+      // ゴーストのワールド行列
+      Matrix4x4 ghostWorldMatrix = MakeTranslateMatrix(ghostWorldPos);
+
+      // Gizmo で動かす (Translate のみ)
+      if (ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], ImGuizmo::TRANSLATE, mCurrentGizmoMode, &ghostWorldMatrix.m[0][0])) {
+        // 動かした後の新しいワールド座標
+        Vector3 newGhostPos = {ghostWorldMatrix.m[3][0], ghostWorldMatrix.m[3][1], ghostWorldMatrix.m[3][2]};
+        
+        // 新しいワールド座標から、カメラのローカル座標(offset)を逆算する
+        Vector3 diff = newGhostPos - camPos;
+        ev.spawnOffset.x = diff.x * right.x + diff.y * right.y + diff.z * right.z;
+        ev.spawnOffset.y = diff.x * up.x   + diff.y * up.y   + diff.z * up.z;
+        ev.spawnOffset.z = diff.x * forward.x + diff.y * forward.y + diff.z * forward.z;
+      }
+      
+      // 3D空間へのゴーストの描画
+      engine_->GetLineRenderer()->DrawLine(ghostWorldPos - Vector3{1,0,0}, ghostWorldPos + Vector3{1,0,0}, {1, 0, 1, 1});
+      engine_->GetLineRenderer()->DrawLine(ghostWorldPos - Vector3{0,1,0}, ghostWorldPos + Vector3{0,1,0}, {1, 0, 1, 1});
+      engine_->GetLineRenderer()->DrawLine(ghostWorldPos - Vector3{0,0,1}, ghostWorldPos + Vector3{0,0,1}, {1, 0, 1, 1});
+    }
+  }
 #endif
 }
 
@@ -882,6 +984,7 @@ void GamePlayScene::SaveLevel(const std::string& filename) {
     evJson["spawnTime"] = ev.spawnTime;
     evJson["prefabName"] = ev.prefabName;
     evJson["spawnOffset"] = {ev.spawnOffset.x, ev.spawnOffset.y, ev.spawnOffset.z};
+    evJson["moveType"] = ev.moveType;
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -972,6 +1075,11 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
         ev.spawnOffset = {evJson["spawnOffset"][0], evJson["spawnOffset"][1], evJson["spawnOffset"][2]};
       } else if (evJson.contains("spawnPosition")) { // 古いセーブデータ互換性
         ev.spawnOffset = {0.0f, 0.0f, 50.0f};
+      }
+      if (evJson.contains("moveType")) {
+        ev.moveType = evJson["moveType"];
+      } else {
+        ev.moveType = 0; // デフォはStraight
       }
       ev.hasSpawned = false;
       spawnEvents_.push_back(ev);

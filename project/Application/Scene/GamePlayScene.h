@@ -23,7 +23,8 @@ struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
   Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥に50）
-  bool hasSpawned = false; // 実行時の管理用フラグ（保存はしない）
+  int moveType = 0; // 0:Straight, 1:Parallel, 2:SineWave
+  bool hasSpawned = false; // 実行時の管理用フラグ
 };
 
 class GamePlayScene : public BaseScene {

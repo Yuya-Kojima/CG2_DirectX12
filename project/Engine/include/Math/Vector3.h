@@ -66,16 +66,16 @@ inline Vector3 Multiply(const float &f, const Vector3 vector) {
   return result;
 }
 
-// Vector3 operator-(const Vector3 &v) { return {-v.x, -v.y, -v.z}; }
+inline Vector3 operator-(const Vector3 &v) { return {-v.x, -v.y, -v.z}; }
 
 // Vector3 operator+(const Vector3 &v) { return v; }
 
 // Vector3 operator+(const Vector3 &v1, const Vector3 &v2) { return Add(v1, v2);
 // }
 
-// Vector3 operator-(const Vector3 &v1, const Vector3 &v2) {
-// return Subtract(v1, v2);
-//}
+inline Vector3 operator-(const Vector3 &v1, const Vector3 &v2) {
+ return Subtract(v1, v2);
+}
 
 inline Vector3 operator*(float s, const Vector3 &v) { return Multiply(s, v); }
 
