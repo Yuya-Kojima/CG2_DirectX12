@@ -19,6 +19,9 @@ void ImGuiManager::Initialize([[maybe_unused]] WindowSystem *winApp,
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable; // Enable Multi-Viewport / Platform Windows
 
+  // 日本語フォント（メイリオ）の読み込み
+  io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\meiryo.ttc", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
+
   // ImGuiのスタイルを設定
   ImGui::StyleColorsDark();
   

@@ -58,6 +58,7 @@
     "sceneObjects": [],
     "spawnEvents": [
         {
+            "moveType": 1,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 0.0,

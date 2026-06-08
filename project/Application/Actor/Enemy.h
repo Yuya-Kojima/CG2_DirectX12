@@ -6,6 +6,13 @@
 
 class Object3d;
 class SphereCollider;
+class ICamera;
+
+enum class MoveType {
+  Straight,
+  Parallel,
+  SineWave
+};
 
 class Enemy : public BaseActor {
 public:
@@ -24,8 +31,11 @@ public:
   void SetBaseColor(const Vector4& color) { baseColor_ = color; }
   const Vector4& GetBaseColor() const { return baseColor_; }
 
-  // 移動方向のセッター
+  // 移動方向・軌道のセッター
   void SetMoveDirection(const Vector3& dir) { moveDirection_ = dir; }
+  void SetMoveType(MoveType type) { moveType_ = type; }
+  void SetCamera(const ICamera* camera) { camera_ = camera; }
+  void SetSpawnOffset(const Vector3& offset) { spawnOffset_ = offset; }
 
   // ダメージを受ける処理
   void TakeDamage(int damage);
@@ -38,6 +48,10 @@ private:
   int hp_ = 3;             // 体力
   float speed_ = 0.5f;     // 移動速度
   Vector3 moveDirection_ = {0.0f, 0.0f, -1.0f}; // 進行方向ベクトル（デフォルトはワールドZマイナス方向）
+  MoveType moveType_ = MoveType::Straight;
+  const ICamera* camera_ = nullptr;
+  Vector3 spawnOffset_ = {0.0f, 0.0f, 0.0f};
+  float aliveTime_ = 0.0f;
   
   // --- 演出用パラメータ ---
   int hitFlashTimer_ = 0;  // 被弾時の点滅タイマー
