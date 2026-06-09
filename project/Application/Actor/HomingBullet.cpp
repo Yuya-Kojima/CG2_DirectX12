@@ -2,6 +2,9 @@
 #include "Render/Object3d/Object3d.h"
 #include "Math/MathUtil.h"
 #include "Actor/Enemy.h"
+#include "Render/Renderer/LineRenderer.h"
+#include <cmath>
+#include <Windows.h>
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {}
@@ -31,6 +34,12 @@ void HomingBullet::Update() {
 
   // ターゲットが生きていれば誘導ベクトルを計算
   if (target_) {
+    if (target_->IsDead()) {
+      target_ = nullptr; // ターゲットが死んだら誘導をやめ、そのまま直進・落下させる
+    }
+  }
+
+  if (target_) {
     Vector3 currentPos = object3d_->GetTranslation();
     Vector3 targetPos = target_->GetTransform().translate;
 
@@ -39,20 +48,6 @@ void HomingBullet::Update() {
       targetPos.y - currentPos.y,
       targetPos.z - currentPos.z
     };
-    float dist = Length(toTarget);
-
-    // 当たり判定（簡易的に距離が近づいたらヒットとする）
-    if (dist < 3.0f) { 
-      isDead_ = true; // 弾が消える
-      
-      // 敵に大ダメージを与える（ホーミングは強力）
-      target_->TakeDamage(3);
-      
-      #include <Windows.h>
-      OutputDebugStringA("Enemy Destroyed!\n");
-      
-      return;
-    }
 
     // 発射直後（最初の15フレーム≒0.25秒）は誘導せず、重力でふんわりさせる
     if (lifeTimer_ > 165) {
@@ -74,6 +69,11 @@ void HomingBullet::Update() {
         homingStrength_ = 0.25f;
       }
     }
+  } else {
+    // ターゲットがいない場合でも発射直後は重力をかける
+    if (lifeTimer_ > 165) {
+      velocity_.y -= 0.02f;
+    }
   }
 
   // 座標を更新
@@ -83,6 +83,39 @@ void HomingBullet::Update() {
   pos.z += velocity_.z;
   object3d_->SetTranslation(pos);
 
+  // 敵への当たり判定
+  if (target_) {
+    Vector3 enemyPos = target_->GetTransform().translate;
+    
+    Vector3 prevPos = {pos.x - velocity_.x, pos.y - velocity_.y, pos.z - velocity_.z};
+    Vector3 lineDir = velocity_;
+    float lineLen = Length(lineDir);
+    if (lineLen > 0.001f) {
+      lineDir.x /= lineLen; lineDir.y /= lineLen; lineDir.z /= lineLen;
+    }
+    
+    Vector3 toEnemy = {enemyPos.x - prevPos.x, enemyPos.y - prevPos.y, enemyPos.z - prevPos.z};
+    float t = Dot(toEnemy, lineDir);
+    t = (std::max)(0.0f, (std::min)(lineLen, t)); 
+    
+    Vector3 closestPoint = {prevPos.x + lineDir.x * t, prevPos.y + lineDir.y * t, prevPos.z + lineDir.z * t};
+    Vector3 diff = {enemyPos.x - closestPoint.x, enemyPos.y - closestPoint.y, enemyPos.z - closestPoint.z};
+    
+    float dist = Length(diff);
+    float bulletRadius = 3.0f;
+    
+    Vector3 enemyScale = target_->GetTransform().scale;
+    float maxScale = (std::max)(enemyScale.x, (std::max)(enemyScale.y, enemyScale.z));
+    float enemyRadius = 1.5f * maxScale;
+
+    if (dist < bulletRadius + enemyRadius) {
+      isDead_ = true; 
+      target_->TakeDamage(3);
+      OutputDebugStringA("Homing Bullet Hit!\n");
+      return;
+    }
+  }
+
   // TODO: 弾の向き（回転）を進行方向（velocity_）に向ける処理を追加するとさらに綺麗になる
 
   object3d_->Update();
@@ -91,5 +124,35 @@ void HomingBullet::Update() {
 void HomingBullet::Draw3D() {
   if (!isDead_ && object3d_) {
     object3d_->Draw();
+
+#ifdef USE_IMGUI
+    // ==== デバッグ描画 ====
+    LineRenderer* lineRenderer = LineRenderer::GetInstance();
+    int segments = 16;
+    float angleStep = 2.0f * 3.14159265f / segments;
+    Vector4 color = {0.0f, 1.0f, 1.0f, 1.0f}; 
+    float radius = 3.0f;
+    Vector3 pos = object3d_->GetTranslation();
+
+    for (int i = 0; i < segments; ++i) {
+      float angle1 = i * angleStep;
+      float angle2 = (i + 1) * angleStep;
+
+      // XY plane
+      Vector3 p1_xy = {pos.x + std::cos(angle1) * radius, pos.y + std::sin(angle1) * radius, pos.z};
+      Vector3 p2_xy = {pos.x + std::cos(angle2) * radius, pos.y + std::sin(angle2) * radius, pos.z};
+      lineRenderer->DrawLine(p1_xy, p2_xy, color);
+
+      // XZ plane
+      Vector3 p1_xz = {pos.x + std::cos(angle1) * radius, pos.y, pos.z + std::sin(angle1) * radius};
+      Vector3 p2_xz = {pos.x + std::cos(angle2) * radius, pos.y, pos.z + std::sin(angle2) * radius};
+      lineRenderer->DrawLine(p1_xz, p2_xz, color);
+
+      // YZ plane
+      Vector3 p1_yz = {pos.x, pos.y + std::cos(angle1) * radius, pos.z + std::sin(angle1) * radius};
+      Vector3 p2_yz = {pos.x, pos.y + std::cos(angle2) * radius, pos.z + std::sin(angle2) * radius};
+      lineRenderer->DrawLine(p1_yz, p2_yz, color);
+    }
+#endif
   }
 }

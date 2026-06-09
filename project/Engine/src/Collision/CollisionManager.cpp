@@ -2,6 +2,7 @@
 #include "Collision/Collider.h"
 #include "Collision/SphereCollider.h"
 #include "Math/CollisionMath.h"
+#include "Math/MathUtil.h"
 
 CollisionManager *CollisionManager::GetInstance() {
   static CollisionManager instance;
@@ -21,13 +22,19 @@ void CollisionManager::Remove(Collider *collider) {
 void CollisionManager::Clear() { colliders_.clear(); }
 
 void CollisionManager::Update() {
-  // 全コライダーの座標を更新（オーナーのTransformに追従）
+  // 全コライダーの座標を更新
   for (Collider *collider : colliders_) {
     collider->Update();
   }
 
   // 総当り判定
   CheckAllCollisions();
+}
+
+void CollisionManager::DrawDebug() {
+  for (Collider *collider : colliders_) {
+    collider->DrawDebug();
+  }
 }
 
 void CollisionManager::CheckAllCollisions() {
@@ -69,4 +76,37 @@ void CollisionManager::CheckAllCollisions() {
       }
     }
   }
+}
+
+bool CollisionManager::Raycast(const Ray& ray, uint32_t mask, Collider** outCollider, float* outDistance) {
+  bool hit = false;
+  float closestDist = 1e20f;
+  Collider* closestCollider = nullptr;
+
+  for (Collider* collider : colliders_) {
+    // マスクでフィルタリング
+    if (!(collider->GetAttribute() & mask)) {
+      continue;
+    }
+
+    if (collider->GetShapeType() == Collider::ShapeType::Sphere) {
+      SphereCollider* sphere = static_cast<SphereCollider*>(collider);
+      float dist = 0.0f;
+      if (IsCollision(ray, sphere->GetWorldSphere(), &dist)) {
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestCollider = collider;
+          hit = true;
+        }
+      }
+    }
+  }
+
+  if (hit) {
+    if (outCollider) *outCollider = closestCollider;
+    if (outDistance) *outDistance = closestDist;
+    return true;
+  }
+
+  return false;
 }

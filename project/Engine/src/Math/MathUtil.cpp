@@ -1,6 +1,7 @@
 #include "Math/MathUtil.h"
 #include <algorithm>
 #include <cmath>
+#include "Math/Geometry.h"
 
 Quaternion Slerp(const Quaternion &q0, const Quaternion &q1, float t) {
   float dot = q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w;
@@ -657,4 +658,38 @@ Vector3 HSVToRGB(const Vector3 &hsv) {
   }
 
   return {r + m, g + m, b + m};
+}
+
+// レイと球の交差判定
+bool IsCollision(const Ray& ray, const Sphere& sphere, float* outDistance) {
+  Vector3 m = {ray.origin.x - sphere.center.x, ray.origin.y - sphere.center.y, ray.origin.z - sphere.center.z};
+  float b = Dot(m, ray.diff);
+  float c = Dot(m, m) - sphere.radius * sphere.radius;
+
+  // レイの始点が球の外側にあり、かつレイが球と反対方向を向いている場合は交差しない
+  if (c > 0.0f && b > 0.0f) {
+    return false;
+  }
+
+  // 判別式
+  float discr = b * b - c;
+  
+  // 負の場合は交差しない
+  if (discr < 0.0f) {
+    return false;
+  }
+
+  // 交差距離 t を求める（最も近い点）
+  float t = -b - std::sqrt(discr);
+
+  // t が負の場合は球の内部から発射されている。その場合は t = 0 (もしくは反対側の交点) とする
+  if (t < 0.0f) {
+    t = 0.0f;
+  }
+
+  if (outDistance) {
+    *outDistance = t;
+  }
+
+  return true;
 }

@@ -57,7 +57,12 @@ private:
 
   // 照準用
   Vector2 reticlePosition_;
-  std::unique_ptr<Sprite> reticleSprite_;
+  
+  // 多重レティクル用スプライト群
+  std::vector<std::unique_ptr<Sprite>> reticleOuterSprites_; // 外側の枠（線4本）
+  std::vector<std::unique_ptr<Sprite>> reticleInnerSprites_; // 内側の枠（線4本）
+  float reticleOuterRot_ = 0.0f; // 外枠の回転角
+  float reticleInnerRot_ = 0.0f; // 内枠の回転角
   
   // 自機の3Dモデル
   std::unique_ptr<Object3d> object3d_;
