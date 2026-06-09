@@ -11,7 +11,8 @@ class ICamera;
 enum class MoveType {
   Straight,
   Parallel,
-  SineWave
+  SineWave,
+  Stationary
 };
 
 class Enemy : public BaseActor {
