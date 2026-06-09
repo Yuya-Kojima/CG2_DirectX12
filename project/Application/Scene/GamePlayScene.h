@@ -58,7 +58,6 @@ private: // メンバ変数(ゲーム用)
 
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
-  std::vector<std::unique_ptr<Enemy>> editorEnemies_;
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
 
@@ -71,17 +70,22 @@ private: // メンバ変数(ゲーム用)
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {
     None,
-    Enemy,
     RailCamera,
     Environment,
     SceneObject,
     SpawnEvent
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
-  int selectedEnemyIndex_ = -1;
   int selectedWaypointIndex_ = -1;
   int selectedSceneObjectIndex_ = -1;
   int selectedSpawnEventIndex_ = -1;
+
+public: // Undo/Redo用アクセッサ
+  std::vector<SpawnEvent>& GetSpawnEvents() { return spawnEvents_; }
+  void SelectSpawnEvent(int index) { 
+    selectedSpawnEventIndex_ = index; 
+    currentSelectType_ = (index >= 0) ? EditorSelectType::SpawnEvent : EditorSelectType::None; 
+  }
 
 public: // メンバ関数
   /// <summary>
@@ -132,11 +136,6 @@ private:
   /// レベルデータの保存
   /// </summary>
   void SaveLevel(const std::string& filename = "level_editor.json");
-
-  /// <summary>
-  /// 敵を1体追加する
-  /// </summary>
-  void AddEnemy(const Vector3& position);
 
 private: // メンバ変数(システム用)
 private:

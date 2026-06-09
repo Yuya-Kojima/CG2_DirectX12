@@ -18,6 +18,68 @@
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
 #include "Framework/PrefabManager.h"
+#include "../Editor/CommandManager.h"
+
+// ======================================
+// Undo/Redo用コマンドクラス 
+// ======================================
+class CmdAddSpawnEvent : public ICommand {
+    GamePlayScene* scene_;
+    SpawnEvent event_;
+    int index_;
+public:
+    CmdAddSpawnEvent(GamePlayScene* scene, const SpawnEvent& ev, int idx) : scene_(scene), event_(ev), index_(idx) {}
+    void Execute() override {
+        auto& events = scene_->GetSpawnEvents();
+        events.insert(events.begin() + index_, event_);
+        scene_->SelectSpawnEvent(index_);
+    }
+    void Undo() override {
+        auto& events = scene_->GetSpawnEvents();
+        events.erase(events.begin() + index_);
+        scene_->SelectSpawnEvent(-1);
+    }
+};
+
+class CmdDeleteSpawnEvent : public ICommand {
+    GamePlayScene* scene_;
+    SpawnEvent event_;
+    int index_;
+public:
+    CmdDeleteSpawnEvent(GamePlayScene* scene, int idx) : scene_(scene), index_(idx) {
+        event_ = scene_->GetSpawnEvents()[idx];
+    }
+    void Execute() override {
+        auto& events = scene_->GetSpawnEvents();
+        events.erase(events.begin() + index_);
+        scene_->SelectSpawnEvent(-1);
+    }
+    void Undo() override {
+        auto& events = scene_->GetSpawnEvents();
+        events.insert(events.begin() + index_, event_);
+        scene_->SelectSpawnEvent(index_);
+    }
+};
+
+class CmdModifySpawnEvent : public ICommand {
+    GamePlayScene* scene_;
+    int index_;
+    SpawnEvent oldEvent_;
+    SpawnEvent newEvent_;
+public:
+    CmdModifySpawnEvent(GamePlayScene* scene, int idx, const SpawnEvent& oldEv, const SpawnEvent& newEv) 
+        : scene_(scene), index_(idx), oldEvent_(oldEv), newEvent_(newEv) {}
+    void Execute() override {
+        scene_->GetSpawnEvents()[index_] = newEvent_;
+        scene_->SelectSpawnEvent(index_);
+    }
+    void Undo() override {
+        scene_->GetSpawnEvents()[index_] = oldEvent_;
+        scene_->SelectSpawnEvent(index_);
+    }
+};
+
+// ======================================
 #include <imgui.h>
 #include "ImGuizmo.h"
 #include <string>
@@ -143,6 +205,19 @@ void GamePlayScene::Finalize() {}
 
 void GamePlayScene::Update() {
 
+#ifdef USE_IMGUI
+  // Undo/Redo ショートカット (Ctrl + Z / Ctrl + Y)
+  // Playモード中は編集操作のUndo/Redoを禁止する
+  if (!isPlayMode_ && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))) {
+      if (ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+          CommandManager::GetInstance()->Undo();
+      }
+      if (ImGui::IsKeyPressed(ImGuiKey_Y, false)) {
+          CommandManager::GetInstance()->Redo();
+      }
+  }
+#endif
+
   // Sound更新
   SoundManager::GetInstance()->Update();
 
@@ -164,7 +239,7 @@ void GamePlayScene::Update() {
   bool shouldUpdateLogic = (isPlayMode_ && !isPaused_) || doStep_;
 
   if (doStep_) {
-    doStep_ = false; // Reset step flag after one frame
+    doStep_ = false; 
   }
 
   // ポストエフェクトの更新
@@ -219,10 +294,9 @@ void GamePlayScene::Update() {
           newEnemy->SetSpawnOffset(ev.spawnOffset);
           newEnemy->SetMoveType(static_cast<MoveType>(ev.moveType));
 
+          // Playモード時のみ実際の敵を生成
           if (isPlayMode_) {
             runtimeEnemies_.push_back(std::move(newEnemy));
-          } else {
-            editorEnemies_.push_back(std::move(newEnemy));
           }
           ev.hasSpawned = true;
         }
@@ -233,15 +307,9 @@ void GamePlayScene::Update() {
   // 基底クラスにも現在のアクティブカメラを教える（Gizmo描画などで使うため）
   SetActiveCamera(const_cast<ICamera*>(activeCamera));
 
-  //=======================
-  // テスト用：ダミー敵のスポーン
-  //=======================
-  // （エディタからのSave/Loadに移行したため削除）
 
-
-  // 敵の更新
-  auto& activeEnemies = isPlayMode_ ? runtimeEnemies_ : editorEnemies_;
-  for (auto& enemy : activeEnemies) {
+  // 敵の更新 (Playモードで生成された敵のみ)
+  for (auto& enemy : runtimeEnemies_) {
     if (shouldUpdateLogic) {
       enemy->Update();
     } else {
@@ -254,7 +322,7 @@ void GamePlayScene::Update() {
 
   // LockOn用にPlayerに敵リストを渡す（毎回最新の状態を渡す）
   enemyPtrs_.clear();
-  for (auto& e : activeEnemies) {
+  for (auto& e : runtimeEnemies_) {
     enemyPtrs_.push_back(e.get());
   }
   if (player_) {
@@ -279,7 +347,7 @@ void GamePlayScene::Update() {
       player_->UpdateTransform();
     }
     
-    // ロックオン中は画面をグレースケールにする（課題要件＋演出効果）
+    // ロックオン中は画面をグレースケールにする
     if (postProcess_) {
       if (player_->IsLockOnMode()) {
         postProcess_->SetUseGrayscale(true);
@@ -306,13 +374,7 @@ void GamePlayScene::Update() {
       }
       ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("GameObject")) {
-      if (ImGui::MenuItem("Add Enemy")) {
-        Vector3 pPos = player_ ? player_->GetTransform().translate : Vector3{0,0,0};
-        AddEnemy({pPos.x, pPos.y + 2.0f, pPos.z + 10.0f});
-      }
-      ImGui::EndMenu();
-    }
+
 
     ImGui::EndMainMenuBar();
   }
@@ -350,18 +412,17 @@ void GamePlayScene::Update() {
   }
 
   ImGui::Spacing();
-  ImGui::Text("Enemies");
+  ImGui::Text("Spawn Events (Timeline)");
   ImGui::Separator();
 
-  // 敵のリストを表示
-  for (size_t i = 0; i < editorEnemies_.size(); ++i) {
-    if (editorEnemies_[i]->IsDead()) continue;
-
-    std::string label = "Enemy " + std::to_string(i);
-    bool isSelected = (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ == static_cast<int>(i));
-    if (ImGui::Selectable(label.c_str(), isSelected)) {
-      currentSelectType_ = EditorSelectType::Enemy;
-      selectedEnemyIndex_ = static_cast<int>(i);
+  // タイムラインピンのリストを表示
+  for (size_t i = 0; i < spawnEvents_.size(); ++i) {
+    char label[128];
+    snprintf(label, sizeof(label), "[%zu] %s (t=%.2f)", i, spawnEvents_[i].prefabName.c_str(), spawnEvents_[i].spawnTime);
+    
+    bool isSelected = (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ == static_cast<int>(i));
+    if (ImGui::Selectable(label, isSelected)) {
+      SelectSpawnEvent(static_cast<int>(i));
     }
   }
 
@@ -419,35 +480,6 @@ void GamePlayScene::Update() {
         }
       }
     }
-  } else if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < editorEnemies_.size()) {
-    Enemy* selected = editorEnemies_[selectedEnemyIndex_].get();
-    if (!selected->IsDead()) {
-      ImGui::Text("Enemy %d", selectedEnemyIndex_);
-      ImGui::Separator();
-      
-      char tagBuf[128] = {0};
-      snprintf(tagBuf, sizeof(tagBuf), "%s", selected->GetTag().c_str());
-      if (ImGui::InputText("Tag", tagBuf, sizeof(tagBuf))) {
-        selected->SetTag(tagBuf);
-      }
-      
-      ImGui::Spacing();
-      static char prefabNameBuf[64] = "ZakoEnemy";
-      ImGui::InputText("Prefab Name", prefabNameBuf, sizeof(prefabNameBuf));
-      if (ImGui::Button("Save as Prefab")) {
-        // PrefabManager は後で include して実装します
-        PrefabManager::GetInstance()->SavePrefab(prefabNameBuf, selected);
-      }
-      
-      ImGui::Separator();
-      
-      Transform& t = selected->GetTransform();
-      ImGui::DragFloat3("Translate", &t.translate.x, 0.1f);
-      ImGui::DragFloat3("Rotate", &t.rotate.x, 0.01f);
-      ImGui::DragFloat3("Scale", &t.scale.x, 0.1f);
-    } else {
-      currentSelectType_ = EditorSelectType::None; // 死んだら選択解除
-    }
   } else if (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ >= 0 && selectedSceneObjectIndex_ < sceneObjects_.size()) {
     Object3d* selected = sceneObjects_[selectedSceneObjectIndex_].get();
     ImGui::Text("Scene Object %d", selectedSceneObjectIndex_);
@@ -469,6 +501,18 @@ void GamePlayScene::Update() {
     if (ImGui::DragFloat3("Scale", &s.x, 0.1f)) selected->SetScale(s);
   } else if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
     SpawnEvent& ev = spawnEvents_[selectedSpawnEventIndex_];
+    
+    // 編集前状態の保存用
+    static SpawnEvent s_editStartState;
+    static int s_lastSelectedIndex = -1;
+    bool isAnyEditActive = ImGui::IsAnyItemActive() || ImGuizmo::IsUsing();
+
+    if (!isAnyEditActive || s_lastSelectedIndex != selectedSpawnEventIndex_) {
+        s_editStartState = ev;
+    }
+    s_lastSelectedIndex = selectedSpawnEventIndex_;
+    bool editFinished = false;
+
     ImGui::Text("Spawn Event %d", selectedSpawnEventIndex_);
     ImGui::Separator();
     
@@ -479,26 +523,36 @@ void GamePlayScene::Update() {
     }
 
     ImGui::DragFloat("Time", &ev.spawnTime, 0.01f, 0.0f, maxT);
+    if (ImGui::IsItemDeactivatedAfterEdit()) editFinished = true;
     
     char prefabBuf[64] = {0};
     snprintf(prefabBuf, sizeof(prefabBuf), "%s", ev.prefabName.c_str());
     if (ImGui::InputText("Prefab", prefabBuf, sizeof(prefabBuf))) {
       ev.prefabName = prefabBuf;
     }
+    if (ImGui::IsItemDeactivatedAfterEdit()) editFinished = true;
     
     ImGui::DragFloat3("Offset", &ev.spawnOffset.x, 0.1f);
+    if (ImGui::IsItemDeactivatedAfterEdit()) editFinished = true;
     
     const char* moveTypeNames[] = { 
       "Straight (奥から手前へ直進)", 
       "Parallel (カメラと並走して追従)", 
-      "SineWave (波打って接近)" 
+      "SineWave (波打って接近)",
+      "Stationary (固定砲台・静止)"
     };
-    ImGui::Combo("Move Type", &ev.moveType, moveTypeNames, IM_ARRAYSIZE(moveTypeNames));
+    if (ImGui::Combo("Move Type", &ev.moveType, moveTypeNames, IM_ARRAYSIZE(moveTypeNames))) {
+        editFinished = true;
+    }
+
+    if (editFinished) {
+        CommandManager::GetInstance()->ExecuteCommand(std::make_unique<CmdModifySpawnEvent>(this, selectedSpawnEventIndex_, s_editStartState, ev));
+        s_editStartState = ev;
+    }
     
     ImGui::Spacing();
     if (ImGui::Button("Delete Event", ImVec2(-1, 0))) {
-      spawnEvents_.erase(spawnEvents_.begin() + selectedSpawnEventIndex_);
-      currentSelectType_ = EditorSelectType::None;
+      CommandManager::GetInstance()->ExecuteCommand(std::make_unique<CmdDeleteSpawnEvent>(this, selectedSpawnEventIndex_));
     }
   } else {
     ImGui::Text("No object selected.");
@@ -515,7 +569,7 @@ void GamePlayScene::Update() {
   float currentT = railCamera_->GetT();
   float maxT = static_cast<float>(railCamera_->GetWaypoints().size() - 1);
   if (maxT < 0.0f) maxT = 0.0f;
-  // Playモード中はスライダーの操作を無効化（表示のみ）
+  // Playモード中はスライダーの操作を無効化
   if (isPlayMode_) {
     ImGui::BeginDisabled();
   }
@@ -562,11 +616,9 @@ void GamePlayScene::Update() {
       ev.prefabName = "ZakoEnemy";
       ev.spawnOffset = {0.0f, 0.0f, 50.0f};
       ev.moveType = 0; // MoveType::Straight
-      spawnEvents_.push_back(ev);
       
-      // 生成後すぐに選択状態にする
-      currentSelectType_ = EditorSelectType::SpawnEvent;
-      selectedSpawnEventIndex_ = static_cast<int>(spawnEvents_.size() - 1);
+      int newIndex = static_cast<int>(spawnEvents_.size());
+      CommandManager::GetInstance()->ExecuteCommand(std::make_unique<CmdAddSpawnEvent>(this, ev, newIndex));
   }
 
   // イベントのピンを描画
@@ -669,25 +721,12 @@ void GamePlayScene::DrawEditorUI() {
         playStartT_ = railCamera_->GetT(); // Playを開始した時点の時間を記憶
       }
       
-      // Data Separation: editorEnemies_ を複製して runtimeEnemies_ を作成
-      runtimeEnemies_.clear();
-      for (auto& e : editorEnemies_) {
-        if (e->IsDead()) continue;
-        auto clone = std::make_unique<Enemy>();
-        clone->Initialize();
-        
-        // 仮のモデルを割り当て（本来はPrefabManagerを使うべきだが既存コードに合わせる）
-        auto cloneModel = std::make_unique<Object3d>();
-        cloneModel->Initialize(engine_->GetObject3dRenderer());
-        cloneModel->SetModel("suzanne.obj");
-        cloneModel->SetColor(e->GetBaseColor());
-        clone->SetModel(std::move(cloneModel));
-        clone->SetBaseColor(e->GetBaseColor());
-        
-        clone->GetTransform() = e->GetTransform();
-        clone->SetTag(e->GetTag());
-        runtimeEnemies_.push_back(std::move(clone));
+      // プレイモード開始時にタイムラインの状態をリセット
+      for (auto& ev : spawnEvents_) {
+        ev.hasSpawned = false;
       }
+      
+
     }
     ImGui::PopStyleColor();
   } else {
@@ -790,34 +829,9 @@ void GamePlayScene::DrawEditorUI() {
   Matrix4x4 projectionMatrix = camera->GetProjectionMatrix();
 
   // ======================================
-  // 敵の Gizmo 編集
-  // ======================================
-  if (currentSelectType_ == EditorSelectType::Enemy && selectedEnemyIndex_ >= 0 && selectedEnemyIndex_ < editorEnemies_.size()) {
-    Enemy* selected = editorEnemies_[selectedEnemyIndex_].get();
-    if (!selected->IsDead()) {
-      Transform& t = selected->GetTransform();
-      Matrix4x4 worldMatrix = MakeAffineMatrix(t.scale, t.rotate, t.translate);
-
-      if (ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], mCurrentGizmoOperation, mCurrentGizmoMode, &worldMatrix.m[0][0])) {
-        float matrixTranslation[3], matrixRotation[3], matrixScale[3];
-        ImGuizmo::DecomposeMatrixToComponents(&worldMatrix.m[0][0], matrixTranslation, matrixRotation, matrixScale);
-        t.translate = {matrixTranslation[0], matrixTranslation[1], matrixTranslation[2]};
-        
-        // マイナススケール対策: スケールを常に正にする
-        t.scale = {abs(matrixScale[0]), abs(matrixScale[1]), abs(matrixScale[2])};
-        
-        // 角度はそのまま適用
-        t.rotate = {
-            matrixRotation[0] * (std::numbers::pi_v<float> / 180.0f),
-            matrixRotation[1] * (std::numbers::pi_v<float> / 180.0f),
-            matrixRotation[2] * (std::numbers::pi_v<float> / 180.0f)};
-      }
-    }
-  }
-  // ======================================
   // SceneObject の Gizmo 編集
   // ======================================
-  else if (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ >= 0 && selectedSceneObjectIndex_ < sceneObjects_.size()) {
+  if (currentSelectType_ == EditorSelectType::SceneObject && selectedSceneObjectIndex_ >= 0 && selectedSceneObjectIndex_ < sceneObjects_.size()) {
     Object3d* selected = sceneObjects_[selectedSceneObjectIndex_].get();
     Vector3 t = selected->GetTranslation();
     Vector3 r = selected->GetRotation();
@@ -889,6 +903,14 @@ void GamePlayScene::DrawEditorUI() {
       Matrix4x4 ghostWorldMatrix = MakeTranslateMatrix(ghostWorldPos);
 
       // Gizmo で動かす (Translate のみ)
+      static SpawnEvent s_gizmoStartState;
+      static bool s_wasUsingGizmo = false;
+      bool isUsingGizmo = ImGuizmo::IsUsing();
+
+      if (isUsingGizmo && !s_wasUsingGizmo) {
+          s_gizmoStartState = ev;
+      }
+
       if (ImGuizmo::Manipulate(&viewMatrix.m[0][0], &projectionMatrix.m[0][0], ImGuizmo::TRANSLATE, mCurrentGizmoMode, &ghostWorldMatrix.m[0][0])) {
         // 動かした後の新しいワールド座標
         Vector3 newGhostPos = {ghostWorldMatrix.m[3][0], ghostWorldMatrix.m[3][1], ghostWorldMatrix.m[3][2]};
@@ -899,6 +921,11 @@ void GamePlayScene::DrawEditorUI() {
         ev.spawnOffset.y = diff.x * up.x   + diff.y * up.y   + diff.z * up.z;
         ev.spawnOffset.z = diff.x * forward.x + diff.y * forward.y + diff.z * forward.z;
       }
+
+      if (!isUsingGizmo && s_wasUsingGizmo) {
+          CommandManager::GetInstance()->ExecuteCommand(std::make_unique<CmdModifySpawnEvent>(this, selectedSpawnEventIndex_, s_gizmoStartState, ev));
+      }
+      s_wasUsingGizmo = isUsingGizmo;
       
       // 3D空間へのゴーストの描画
       engine_->GetLineRenderer()->DrawLine(ghostWorldPos - Vector3{1,0,0}, ghostWorldPos + Vector3{1,0,0}, {1, 0, 1, 1});
@@ -925,8 +952,7 @@ void GamePlayScene::Draw3D() {
   }
 
   // 敵の描画
-  auto& activeEnemies = isPlayMode_ ? runtimeEnemies_ : editorEnemies_;
-  for (auto& enemy : activeEnemies) {
+  for (auto& enemy : runtimeEnemies_) {
     if (!enemy->IsDead()) {
       enemy->Draw3D();
     }
@@ -964,19 +990,7 @@ void GamePlayScene::Draw2D() {
 
 void GamePlayScene::SaveLevel(const std::string& filename) {
   nlohmann::json root;
-  nlohmann::json enemiesArray = nlohmann::json::array();
-  
-  for (auto& enemy : editorEnemies_) {
-    if (enemy->IsDead()) continue;
-    Transform& t = enemy->GetTransform();
-    nlohmann::json eJson;
-    eJson["translation"] = {t.translate.x, t.translate.y, t.translate.z};
-    eJson["rotation"] = {t.rotate.x, t.rotate.y, t.rotate.z};
-    eJson["scale"] = {t.scale.x, t.scale.y, t.scale.z};
-    eJson["tag"] = enemy->GetTag();
-    enemiesArray.push_back(eJson);
-  }
-  root["enemies"] = enemiesArray;
+  // (静的Enemyは廃止されたため、保存しない)
 
   nlohmann::json spawnEventsArray = nlohmann::json::array();
   for (auto& ev : spawnEvents_) {
@@ -1030,41 +1044,19 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
   if (!file.is_open()) return;
 
   nlohmann::json root;
+  
+  // レベルロード時は配列のインデックスや参照が完全に破壊されるため、Undo履歴をリセットする
+  CommandManager::GetInstance()->Clear();
   file >> root;
 
   // 古い敵をクリア
-  editorEnemies_.clear();
   runtimeEnemies_.clear();
-  selectedEnemyIndex_ = -1;
   sceneObjects_.clear();
   selectedSceneObjectIndex_ = -1;
   spawnEvents_.clear();
   selectedSpawnEventIndex_ = -1;
 
-  if (root.contains("enemies")) {
-    for (auto& eJson : root["enemies"]) {
-      Vector3 t = {eJson["translation"][0], eJson["translation"][1], eJson["translation"][2]};
-      Vector3 r = {eJson["rotation"][0], eJson["rotation"][1], eJson["rotation"][2]};
-      Vector3 s = {eJson["scale"][0], eJson["scale"][1], eJson["scale"][2]};
-      
-      auto dummy = std::make_unique<Enemy>();
-      dummy->Initialize();
-      if (eJson.contains("tag")) dummy->SetTag(eJson["tag"]);
-      
-      auto dummyModel = std::make_unique<Object3d>();
-      dummyModel->Initialize(engine_->GetObject3dRenderer());
-      dummyModel->SetModel("suzanne.obj");
-      dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
-      dummy->SetModel(std::move(dummyModel));
-      dummy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
-      
-      dummy->GetTransform().translate = t;
-      dummy->GetTransform().rotate = r;
-      dummy->GetTransform().scale = s;
-      
-      editorEnemies_.push_back(std::move(dummy));
-    }
-  }
+  // 古いセーブデータの互換性維持（enemiesキーがあっても無視する）
 
   if (root.contains("spawnEvents")) {
     for (auto& evJson : root["spawnEvents"]) {
@@ -1112,22 +1104,6 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
   }
 }
 
-void GamePlayScene::AddEnemy(const Vector3& position) {
-  auto dummy = std::make_unique<Enemy>();
-  dummy->Initialize();
-
-  auto dummyModel = std::make_unique<Object3d>();
-  dummyModel->Initialize(engine_->GetObject3dRenderer());
-  dummyModel->SetModel("suzanne.obj");
-  dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
-  dummy->SetModel(std::move(dummyModel));
-  dummy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
-
-  dummy->GetTransform().translate = position;
-  dummy->GetTransform().scale = {3.0f, 3.0f, 3.0f};
-
-  editorEnemies_.push_back(std::move(dummy));
-}
 
 void GamePlayScene::SpawnSceneObject(const std::string& modelPath, const Vector3& position) {
   auto obj = std::make_unique<Object3d>();

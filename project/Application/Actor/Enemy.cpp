@@ -47,23 +47,25 @@ void Enemy::Update() {
     Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
     Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
 
-    float currentXOffset = spawnOffset_.x;
-    float currentYOffset = spawnOffset_.y;
-    float currentZOffset = spawnOffset_.z;
+    if (moveType_ != MoveType::Stationary) {
+      float currentXOffset = spawnOffset_.x;
+      float currentYOffset = spawnOffset_.y;
+      float currentZOffset = spawnOffset_.z;
 
-    if (moveType_ == MoveType::Straight) {
-      currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前へ直進
-    } else if (moveType_ == MoveType::Parallel) {
-      // オフセットそのまま（並走）
-    } else if (moveType_ == MoveType::SineWave) {
-      currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前へ直進しつつ
-      currentXOffset += std::sin(aliveTime_ * 5.0f) * 20.0f; // 左右に波打つ
+      if (moveType_ == MoveType::Straight) {
+        currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前
+      } else if (moveType_ == MoveType::Parallel) {
+        // オフセットのまま（追従）
+      } else if (moveType_ == MoveType::SineWave) {
+        currentZOffset -= speed_ * aliveTime_ * 60.0f; // 奥から手前へつつ
+        currentXOffset += std::sin(aliveTime_ * 5.0f) * 20.0f; // 左右に波打つ
+      }
+
+      transform_.translate = cameraPos 
+        + Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset}
+        + Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset}
+        + Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
     }
-
-    transform_.translate = cameraPos 
-      + Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset}
-      + Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset}
-      + Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
   } else {
     // カメラ情報がない場合のフォールバック
     transform_.translate.x += moveDirection_.x * speed_;
