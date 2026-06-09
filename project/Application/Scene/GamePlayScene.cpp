@@ -18,6 +18,7 @@
 #include "Renderer/PostProcess.h"
 #include "Framework/ActorManager.h"
 #include "Framework/PrefabManager.h"
+#include "Collision/CollisionManager.h"
 #include "../Editor/CommandManager.h"
 
 // ======================================
@@ -169,7 +170,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   
   // プレイヤーの初期化（照準やコライダーの生成など）
   player_->Initialize();
-  player_->GetTransform().translate = {0.0f, 4.0f, 0.0f}; // レールカメラの初期位置に合わせる
+  player_->GetTransform().translate = {0.0f, 4.0f, 0.0f}; // ローカルの初期位置に仮置き
+  player_->GetTransform().scale = {0.7f, 0.7f, 0.7f}; // スケールを少し小さくして視界を確保
   
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
@@ -357,8 +359,13 @@ void GamePlayScene::Update() {
     }
   }
 
-  // アクター群（弾など）の更新
+  // アクター群の更新
   ActorManager::GetInstance()->Update();
+
+  // 当たり判定の更新
+  if (shouldUpdateLogic) {
+    CollisionManager::GetInstance()->Update();
+  }
 
 #ifdef USE_IMGUI
   //=========================
@@ -970,12 +977,19 @@ void GamePlayScene::Draw3D() {
 
 #ifdef USE_IMGUI
   // デバッグ用の線を描画
-  const ICamera* activeCamera = camera_.get();
+  const ICamera* activeCamera = nullptr;
   if (useDebugCamera_) {
     activeCamera = debugCamera_->GetCamera();
-  } else if (railCamera_) {
-    activeCamera = railCamera_.get();
+  } else {
+    activeCamera = GetActiveCamera();
+    if (activeCamera == nullptr) {
+      activeCamera = railCamera_.get();
+    }
   }
+  
+  // デバッグ描画
+  CollisionManager::GetInstance()->DrawDebug();
+
   engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
 #endif
 

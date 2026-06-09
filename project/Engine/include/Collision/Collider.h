@@ -18,6 +18,9 @@ public:
   // オーナーの座標に追従させるための更新処理
   virtual void Update() = 0;
 
+  // デバッグ描画用
+  virtual void DrawDebug() {}
+
   // 衝突時のコールバック
   virtual void OnCollision(Collider *other) = 0;
 

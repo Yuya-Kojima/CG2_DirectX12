@@ -53,11 +53,13 @@ void RailCamera::Update() {
 
   // 進行方向からY軸の回転(ヨー)とX軸の回転(ピッチ)を求める
   transform_.translate = currentPos;
+  transform_.translate.y += 2.5f; // レールシューター的な俯瞰オフセット（高さを上げる）
+  
   // atan2(x, z) でY軸回転を求める (Z+が前方の環境を想定)
   transform_.rotate.y = std::atan2(forward.x, forward.z);
   // X軸回転 (ピッチ) を求める
   float xzLen = std::sqrt(forward.x * forward.x + forward.z * forward.z);
-  transform_.rotate.x = std::atan2(-forward.y, xzLen);
+  transform_.rotate.x = std::atan2(-forward.y, xzLen) + 0.1f; // 少し下を向く（俯瞰）
 
   // カメラ行列の更新
   worldMatrix_ = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);

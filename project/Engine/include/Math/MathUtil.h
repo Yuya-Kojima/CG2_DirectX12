@@ -65,6 +65,14 @@ inline Vector3 CatmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p
 Quaternion Slerp(const Quaternion& q0, const Quaternion& q1, float t);
 
 //=========================
+// Collision (Intersection)
+//=========================
+struct Ray;
+struct Sphere;
+// レイと球の交差判定。ヒットした場合は true を返し、outDistance にレイの始点から交点までの距離を格納する（任意）
+bool IsCollision(const Ray& ray, const Sphere& sphere, float* outDistance = nullptr);
+
+//=========================
 // Matrix4x4
 //=========================
 

@@ -12,6 +12,9 @@
 #include "Math/MathUtil.h"
 #include <Windows.h>
 #include <algorithm>
+#include "Actor/Enemy.h"
+#include "Collision/CollisionConfig.h"
+#include "Math/Geometry.h"
 
 Player::Player() = default;
 Player::~Player() {
@@ -30,10 +33,24 @@ void Player::Initialize() {
     lockOn_->Initialize(spriteRenderer_);
 
     // メイン照準カーソル
-    reticleSprite_ = std::make_unique<Sprite>();
-    reticleSprite_->Initialize(spriteRenderer_, "resources/white1x1.png");
-    reticleSprite_->SetSize({30.0f, 30.0f});
-    reticleSprite_->SetColor({0.0f, 1.0f, 0.0f, 0.5f}); // 半透明の緑
+    // 外枠 
+    for (int i = 0; i < 4; ++i) {
+      auto line = std::make_unique<Sprite>();
+      line->Initialize(spriteRenderer_, "resources/white1x1.png");
+      line->SetSize({40.0f, 2.0f}); // 長さ40、太さ2
+      line->SetColor({1.0f, 0.5f, 0.0f, 0.8f}); // オレンジ
+      line->SetAnchorPoint({0.5f, 0.5f}); // 中心をアンカーに
+      reticleOuterSprites_.push_back(std::move(line));
+    }
+    // 内枠
+    for (int i = 0; i < 4; ++i) {
+      auto line = std::make_unique<Sprite>();
+      line->Initialize(spriteRenderer_, "resources/white1x1.png");
+      line->SetSize({25.0f, 2.0f}); // 長さ25、太さ2
+      line->SetColor({1.0f, 1.0f, 0.0f, 0.9f}); // 黄色
+      line->SetAnchorPoint({0.5f, 0.5f}); // 中心をアンカーに
+      reticleInnerSprites_.push_back(std::move(line));
+    }
   }
 
   // コライダーの初期化
@@ -46,6 +63,8 @@ void Player::Initialize() {
 }
 
 void Player::Update() {
+  if (!camera_ || !object3d_) return;
+
   // プレイヤー自身の更新処理
 
   // 照準の移動操作
@@ -75,23 +94,66 @@ void Player::Update() {
     reticlePosition_.y = std::clamp(reticlePosition_.y, 0.0f, 720.0f);
   }
 
-  // 照準スプライトの更新
-  if (reticleSprite_) {
-    reticleSprite_->SetPosition({reticlePosition_.x - 15.0f, reticlePosition_.y - 15.0f});
-    Transform defaultUV;
-    defaultUV.scale = {1.0f, 1.0f, 1.0f};
-    defaultUV.rotate = {0.0f, 0.0f, 0.0f};
-    defaultUV.translate = {0.0f, 0.0f, 0.0f};
-    reticleSprite_->Update(defaultUV);
+  // 照準スプライト（多重レティクル）の更新
+  reticleOuterRot_ += 0.03f; // 外枠はゆっくり右回転
+
+  Transform defaultUV;
+  defaultUV.scale = {1.0f, 1.0f, 1.0f};
+  defaultUV.rotate = {0.0f, 0.0f, 0.0f};
+  defaultUV.translate = {0.0f, 0.0f, 0.0f};
+
+  // 視界行列と投影行列の取得
+  Matrix4x4 viewProj = Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
+  
+  // 自機のワールド座標を取得してスクリーン座標に変換
+  Matrix4x4 playerWorld = object3d_->GetWorldMatrix();
+  Vector3 playerPos = {playerWorld.m[3][0], playerWorld.m[3][1], playerWorld.m[3][2]};
+  Vector2 playerScreenPos = WorldToScreen(playerPos, viewProj, 1280.0f, 720.0f);
+
+  float ix = reticlePosition_.x;
+  float iy = reticlePosition_.y;
+
+  float t = 0.85f; 
+  float ox = Lerp(playerScreenPos.x, ix, t);
+  float oy = Lerp(playerScreenPos.y, iy, t);
+  
+  // 外枠のサイズを大幅に大きくし、分離しても重なるようにする
+  float outerSize = 50.0f;
+  
+  for (int i = 0; i < 4; ++i) {
+    float angle = reticleOuterRot_ + (i * 3.14159265f / 2.0f);
+    
+    float posX = ox + std::sin(angle) * outerSize;
+    float posY = oy - std::cos(angle) * outerSize;
+    
+    reticleOuterSprites_[i]->SetPosition({posX, posY});
+    reticleOuterSprites_[i]->SetRotation(angle);
+    reticleOuterSprites_[i]->Update(defaultUV);
   }
 
-  // 自機の追従と姿勢制御 (パターンAの実装)
+  // 内枠の更新（十字キー型）
+  float innerSize = 15.0f;
+  
+  reticleInnerSprites_[0]->SetPosition({ix, iy - innerSize}); // 上
+  reticleInnerSprites_[0]->SetRotation(3.141592f / 2.0f);
+  reticleInnerSprites_[1]->SetPosition({ix, iy + innerSize}); // 下
+  reticleInnerSprites_[1]->SetRotation(3.141592f / 2.0f);
+  reticleInnerSprites_[2]->SetPosition({ix - innerSize, iy}); // 左
+  reticleInnerSprites_[2]->SetRotation(0.0f);
+  reticleInnerSprites_[3]->SetPosition({ix + innerSize, iy}); // 右
+  reticleInnerSprites_[3]->SetRotation(0.0f);
+
+  for (int i = 0; i < 4; ++i) {
+    reticleInnerSprites_[i]->Update(defaultUV);
+  }
+
+  // 自機の追従と姿勢制御 
   if (camera_) {
-    // 1. レティクルのNDC（正規化デバイス座標）を計算 (-1.0 ~ 1.0)
+    // レティクルのNDCを計算 
     float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
     float ndcY = 1.0f - (reticlePosition_.y / 720.0f) * 2.0f;
 
-    // 2. カメラ空間のベクトルを取得
+    // カメラ空間のベクトルを取得
     Matrix4x4 viewMatrix = camera_->GetViewMatrix();
     Matrix4x4 cameraWorld = Inverse(viewMatrix);
     Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
@@ -99,20 +161,35 @@ void Player::Update() {
     Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
     Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
 
-    // 3. 自機の目標座標を計算 (カメラから一定距離前方に配置)
-    float distance = 10.0f; // カメラからの距離
-    float maxMoveX = 8.0f; // 左右の最大移動幅
-    float maxMoveY = 4.0f; // 上下の最大移動幅
+    //  自機の目標座標を計算 (カメラから一定距離前方に配置)
+    // カメラからの距離
+    float distance = 10.0f; 
+    
+    //自機の移動範囲をレティクルより狭くする（画面内に収める）
+    float playerMaxMoveX = 3.0f; // 
+    float playerMaxMoveY = 1.5f; // 
+    
+    //自機の基本位置をレティクル中心より下に設定する
+    float playerBaseOffsetY = -2.0f;
     
     Vector3 targetPos = cameraPos 
                       + Vector3{cameraForward.x * distance, cameraForward.y * distance, cameraForward.z * distance}
-                      + Vector3{cameraRight.x * (ndcX * maxMoveX), cameraRight.y * (ndcX * maxMoveX), cameraRight.z * (ndcX * maxMoveX)}
-                      + Vector3{cameraUp.x * (ndcY * maxMoveY), cameraUp.y * (ndcY * maxMoveY), cameraUp.z * (ndcY * maxMoveY)};
+                      + Vector3{cameraRight.x * (ndcX * playerMaxMoveX), cameraRight.y * (ndcX * playerMaxMoveX), cameraRight.z * (ndcX * playerMaxMoveX)}
+                      + Vector3{cameraUp.x * (ndcY * playerMaxMoveY + playerBaseOffsetY), cameraUp.y * (ndcY * playerMaxMoveY + playerBaseOffsetY), cameraUp.z * (ndcY * playerMaxMoveY + playerBaseOffsetY)};
 
-    // 4. 自機を目標座標へ遅延追従 (Lerp)
+    //  弾の実際の目標地点を計算し、自機をそちらに向かせる
+    float bulletTargetDist = 1000.0f;
+    float bulletMaxMoveY = bulletTargetDist * std::tan(45.0f * 3.14159265f / 180.0f / 2.0f);
+    float bulletMaxMoveX = bulletMaxMoveY * (1280.0f / 720.0f);
+    Vector3 bulletTargetPos = cameraPos
+      + Vector3{cameraForward.x * bulletTargetDist, cameraForward.y * bulletTargetDist, cameraForward.z * bulletTargetDist}
+      + Vector3{cameraRight.x * (ndcX * bulletMaxMoveX), cameraRight.y * (ndcX * bulletMaxMoveX), cameraRight.z * (ndcX * bulletMaxMoveX)}
+      + Vector3{cameraUp.x * (ndcY * bulletMaxMoveY), cameraUp.y * (ndcY * bulletMaxMoveY), cameraUp.z * (ndcY * bulletMaxMoveY)};
+
+    // 自機を目標座標へ遅延追従 
     Vector3 prevPos = transform_.translate;
     
-    // カメラのワープ時（シークやリセット）はLerpせずに瞬時にスナップする
+    // カメラのワープ時はLerpせずに瞬時にスナップする
     Vector3 diff = {targetPos.x - transform_.translate.x, targetPos.y - transform_.translate.y, targetPos.z - transform_.translate.z};
     float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
     if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
@@ -121,7 +198,7 @@ void Player::Update() {
       transform_.translate = Lerp(transform_.translate, targetPos, 0.15f);
     }
 
-    // 5. 姿勢制御 (バンク角・ピッチ角)
+    // 姿勢制御 
     Vector3 velocity = {transform_.translate.x - prevPos.x, 
                         transform_.translate.y - prevPos.y, 
                         transform_.translate.z - prevPos.z};
@@ -134,20 +211,31 @@ void Player::Update() {
     float xzLen = std::sqrt(cameraForward.x * cameraForward.x + cameraForward.z * cameraForward.z);
     float camRotX = std::atan2(-cameraForward.y, xzLen);
 
+    //  自機から弾の目標地点へのベクトル
+    Vector3 toTarget = {bulletTargetPos.x - transform_.translate.x,
+                        bulletTargetPos.y - transform_.translate.y,
+                        bulletTargetPos.z - transform_.translate.z};
+    float aimYaw = std::atan2(toTarget.x, toTarget.z);
+    float xzLenToTarget = std::sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
+    float aimPitch = std::atan2(-toTarget.y, xzLenToTarget);
+
     // 速度に応じて機体を傾ける
-    float targetRoll = -localVelX * 1.5f; // 右移動で右下がり(負のZ回転)
-    float targetPitch = camRotX + localVelY * 1.5f;
-    
+    // ピッチとヨーの基本姿勢を、カメラ正面ではなく照準の方向にする
+    float targetRoll = -localVelX * 2.0f; 
+    float targetPitch = aimPitch + localVelY * 1.5f; 
+    float targetYaw = aimYaw + localVelX * 0.8f; 
+
+    // Lerpで回転を滑らかに
     transform_.rotate.z = Lerp(transform_.rotate.z, targetRoll, 0.1f);
     transform_.rotate.x = Lerp(transform_.rotate.x, targetPitch, 0.1f);
-    transform_.rotate.y = Lerp(transform_.rotate.y, camRotY, 0.1f); // ヨーも滑らかにカメラに追従
+    transform_.rotate.y = Lerp(transform_.rotate.y, targetYaw, 0.1f);
   }
 
   UpdateTransform();
 
-  // 射撃入力とステート管理（1ボタン方式）
+  // 射撃入力とステート管理
   if (input_) {
-    // スペースキーまたはパッドのRB(右バンパー)を射撃/ロックオンボタンとする
+    // スペースキーまたはパッドのRBを射撃/ロックオンボタンとする
     bool isTrigger = input_->IsTriggerKey(DIK_SPACE) || input_->IsPadTrigger(PadButton::RB);
     bool isPress = input_->IsPressKey(DIK_SPACE) || input_->IsPadPress(PadButton::RB);
     bool isRelease = input_->IsReleaseKey(DIK_SPACE) || input_->IsPadRelease(PadButton::RB);
@@ -222,8 +310,9 @@ void Player::FireHomingShot() {
 void Player::FireNormalShot() {
   if (!object3dRenderer_ || !object3d_ || !camera_) return;
 
-  // プレイヤーの現在位置を弾の始点とする
-  Vector3 startPos = object3d_->GetTranslation();
+  // プレイヤーのワールド座標を弾の始点とする
+  Matrix4x4 playerWorld = object3d_->GetWorldMatrix();
+  Vector3 startPos = {playerWorld.m[3][0], playerWorld.m[3][1], playerWorld.m[3][2]};
 
   // レティクルのNDC座標を計算 (-1.0 ~ 1.0)
   float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
@@ -232,36 +321,31 @@ void Player::FireNormalShot() {
   // カメラ空間のベクトルを取得
   Matrix4x4 viewMatrix = camera_->GetViewMatrix();
   Matrix4x4 cameraWorld = Inverse(viewMatrix);
+  Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
   Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
   Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
   Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
 
-  // 画面の少し奥（距離50.0f）のレティクル位置を目標座標とする
-  float distance = 50.0f; 
-  float maxMoveX = 40.0f; // 画面端の場合のX移動幅
-  float maxMoveY = 22.5f; // 画面端の場合のY移動幅
+  // 照準の奥深くを目標座標とすることで、交差して弾が外れるのを防ぐ
+  float distance = 1000.0f; 
+  float maxMoveY = distance * std::tan(45.0f * 3.14159265f / 180.0f / 2.0f);
+  float maxMoveX = maxMoveY * (1280.0f / 720.0f);
   
-  Vector3 targetPos = startPos 
+  // 弾の目標地点は「自機から」ではなく「カメラから」見たレティクルの延長線上で計算する！
+  Vector3 targetPos = cameraPos 
                     + Vector3{cameraForward.x * distance, cameraForward.y * distance, cameraForward.z * distance}
                     + Vector3{cameraRight.x * (ndcX * maxMoveX), cameraRight.y * (ndcX * maxMoveX), cameraRight.z * (ndcX * maxMoveX)}
                     + Vector3{cameraUp.x * (ndcY * maxMoveY), cameraUp.y * (ndcY * maxMoveY), cameraUp.z * (ndcY * maxMoveY)};
 
-  // 始点から目標座標への方向ベクトルを弾の速度ベクトルにする
-  Vector3 toTarget = {
-      targetPos.x - startPos.x,
-      targetPos.y - startPos.y,
-      targetPos.z - startPos.z
-  };
+  // 弾(startPos)から最終目標地点へのベクトルを弾の初速度ベクトルとする
+  Vector3 toTarget = {targetPos.x - startPos.x, targetPos.y - startPos.y, targetPos.z - startPos.z};
   Vector3 velocity = Normalize(toTarget);
   
-  float speed = 2.0f; // 通常弾は速い
-  velocity.x *= speed;
-  velocity.y *= speed;
-  velocity.z *= speed;
+  float speed = 10.0f; // 少しスピードを落として弾道を見やすくする
+  velocity.x *= speed; velocity.y *= speed; velocity.z *= speed;
 
   auto bullet = std::make_unique<NormalBullet>();
   bullet->Initialize(object3dRenderer_, startPos, velocity, enemies_);
-
   ActorManager::GetInstance()->AddActor(std::move(bullet));
 }
 
@@ -273,12 +357,15 @@ void Player::Draw3D() {
 }
 
 void Player::Draw2D() {
-  // メインカーソルの描画
-  if (reticleSprite_) {
-    reticleSprite_->Draw();
+  // メイン照準の描画
+  for (auto& sprite : reticleOuterSprites_) {
+    sprite->Draw();
+  }
+  for (auto& sprite : reticleInnerSprites_) {
+    sprite->Draw();
   }
 
-  // ロックオンカーソルの描画
+  // ロックオン照準の描画
   if (lockOn_) {
     lockOn_->Draw();
   }
@@ -314,13 +401,14 @@ void Player::ForceSnapToCamera() {
   Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
 
   float distance = 10.0f;
-  float maxMoveX = 8.0f;
-  float maxMoveY = 4.0f;
+  float playerMaxMoveX = 5.0f;
+  float playerMaxMoveY = 2.5f;
+  float playerBaseOffsetY = -2.0f;
   
   Vector3 targetPos = cameraPos 
                     + Vector3{cameraForward.x * distance, cameraForward.y * distance, cameraForward.z * distance}
-                    + Vector3{cameraRight.x * (ndcX * maxMoveX), cameraRight.y * (ndcX * maxMoveX), cameraRight.z * (ndcX * maxMoveX)}
-                    + Vector3{cameraUp.x * (ndcY * maxMoveY), cameraUp.y * (ndcY * maxMoveY), cameraUp.z * (ndcY * maxMoveY)};
+                    + Vector3{cameraRight.x * (ndcX * playerMaxMoveX), cameraRight.y * (ndcX * playerMaxMoveX), cameraRight.z * (ndcX * playerMaxMoveX)}
+                    + Vector3{cameraUp.x * (ndcY * playerMaxMoveY + playerBaseOffsetY), cameraUp.y * (ndcY * playerMaxMoveY + playerBaseOffsetY), cameraUp.z * (ndcY * playerMaxMoveY + playerBaseOffsetY)};
 
   transform_.translate = targetPos;
   UpdateTransform();
