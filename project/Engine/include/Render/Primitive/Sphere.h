@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-class Sphere {
+struct Sphere {
 public:
     const std::vector<VertexData>& GetVertices() const { return vertices_; }
     uint32_t GetVertexCount() const { return static_cast<uint32_t>(vertices_.size()); }

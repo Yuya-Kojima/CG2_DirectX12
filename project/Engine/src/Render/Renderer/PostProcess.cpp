@@ -327,18 +327,6 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->padding8 = 0.0f;
   constBuffer_->Unmap(0, nullptr);
 
-  // Barrier: DEPTH_WRITE -> PIXEL_SHADER_RESOURCE
-  D3D12_RESOURCE_BARRIER depthBarrier1{};
-  depthBarrier1.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  depthBarrier1.Transition.pResource = depthStencilResource;
-  depthBarrier1.Transition.StateBefore = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-  depthBarrier1.Transition.StateAfter =
-      D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-  depthBarrier1.Transition.Subresource =
-      D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-  commandList->ResourceBarrier(1, &depthBarrier1);
-
   // パイプライン設定
   commandList->SetGraphicsRootSignature(rootSignature_.Get());
   commandList->SetPipelineState(graphicsPipelineState_.Get());
@@ -357,18 +345,6 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
 
   // 描画コマンド
   commandList->DrawInstanced(3, 1, 0, 0);
-
-  // Barrier: PIXEL_SHADER_RESOURCE -> DEPTH_WRITE
-  D3D12_RESOURCE_BARRIER depthBarrier2{};
-  depthBarrier2.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-  depthBarrier2.Transition.pResource = depthStencilResource;
-  depthBarrier2.Transition.StateBefore =
-      D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-  depthBarrier2.Transition.StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-  depthBarrier2.Transition.Subresource =
-      D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-  commandList->ResourceBarrier(1, &depthBarrier2);
 }
 
 void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
