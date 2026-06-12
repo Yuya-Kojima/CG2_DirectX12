@@ -67,6 +67,9 @@ private: // メンバ変数(ゲーム用)
   // 動的配置オブジェクト (ドラッグ＆ドロップで追加された背景・モデル等)
   std::vector<std::unique_ptr<Object3d>> sceneObjects_;
 
+  // 環境マッピング確認用オブジェクト
+  std::unique_ptr<Object3d> metallicObject_ = nullptr;
+
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {
     None,
