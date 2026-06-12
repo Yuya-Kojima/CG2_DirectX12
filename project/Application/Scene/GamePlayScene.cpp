@@ -179,6 +179,16 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f});
   player_->SetModel(std::move(playerModel));
 
+  // 環境マッピングのテスト用オブジェクト（メタリックなモンスターボール）
+  ModelManager::GetInstance()->LoadModel("monsterBall.obj");
+  metallicObject_ = std::make_unique<Object3d>();
+  metallicObject_->Initialize(engine_->GetObject3dRenderer());
+  metallicObject_->SetModel("monsterBall.obj");
+  metallicObject_->SetEnvironmentCoefficient(1.0f); // 100%反射
+  metallicObject_->SetTranslation({0.0f, 5.0f, 50.0f}); // レール上の奥に配置
+  metallicObject_->SetScale({3.0f, 3.0f, 3.0f}); // 少し大きめに
+  metallicObject_->Update();
+
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},
       {0.3f, 0.0f, 0.0f},
@@ -337,6 +347,14 @@ void GamePlayScene::Update() {
   if (skybox_) {
     skybox_->SetCamera(activeCamera);
     skybox_->Update();
+  }
+  
+  if (metallicObject_) {
+    // ゆっくり回転させて環境マップの反射を分かりやすくする
+    Vector3 rot = metallicObject_->GetRotation();
+    rot.y += 0.01f;
+    metallicObject_->SetRotation(rot);
+    metallicObject_->Update();
   }
 
   // プレイヤーの更新
@@ -966,6 +984,11 @@ void GamePlayScene::Draw3D() {
   }
   for (auto& obj : sceneObjects_) {
     obj->Draw();
+  }
+
+  // 環境マッピングオブジェクトの描画
+  if (metallicObject_) {
+    metallicObject_->Draw();
   }
 
   if (player_) {
