@@ -1,6 +1,7 @@
 #include "Model/ModelManager.h"
 #include "Model/Model.h"
 #include "Renderer/ModelRenderer.h"
+#include "Debug/Logger.h"
 #include <cassert>
 #include <filesystem>
 
@@ -93,9 +94,13 @@ void ModelManager::LoadModel(const std::string &filePath) {
   // }
 
   std::unique_ptr<Model> model = std::make_unique<Model>();
-  model->Initialize(modelRenderer.get(), directoryPath, filename);
-
-  models.insert(std::make_pair(resolved, std::move(model)));
+  try {
+      model->Initialize(modelRenderer.get(), directoryPath, filename);
+      models.insert(std::make_pair(resolved, std::move(model)));
+  } catch (const std::exception& e) {
+      // 失敗した場合はエラーログを出力し、マップには登録しない
+      Logger::Log(std::string("[ModelManager] Failed to load model: ") + resolved + " - " + e.what() + "\n");
+  }
 
   //// モデルの生成とファイル読み込み、初期化
   // std::unique_ptr<Model> model = std::make_unique<Model>();

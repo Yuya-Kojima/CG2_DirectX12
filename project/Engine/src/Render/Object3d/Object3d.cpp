@@ -161,16 +161,19 @@ void Object3d::SetModel(const std::string &filePath) {
   if (!model_) {
     Logger::Log(std::string("[Object3d] SetModel failed. Model not found: ") +
                 filePath);
+    Logger::Log("[Object3d] Falling back to ERROR model (magenta cube).");
 
-    // Debug では assert、Release でも沈黙しないように abort
-    assert(false && "Object3d::SetModel: model not loaded / not found");
-#if defined(NDEBUG)
-    std::abort();
-#endif
+    // リリースビルドでのクラッシュを防ぐため、目立つエラー用モデルをセットする
+    std::string fallbackPath = "error.obj";
+    ModelManager::GetInstance()->LoadModel(fallbackPath);
+    model_ = ModelManager::GetInstance()->FindModel(fallbackPath);
+
+    // 開発中はエラーに気づけるようアサートを残す（リリースビルドでは無視され進行する）
+    assert(false && "Object3d::SetModel: model not loaded / not found (Fallback applied)");
   }
 
   // モデルのデフォルトマテリアルをコピー
-  if (materialData) {
+  if (materialData && model_) {
     *materialData = model_->GetDefaultMaterial();
   }
 }

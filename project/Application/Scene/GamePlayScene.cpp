@@ -1,6 +1,7 @@
 #include "GamePlayScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Debug/Logger.h"
 #include "Debug/ImGuiManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
@@ -162,17 +163,13 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   ModelManager::GetInstance()->LoadModel("suzanne.obj");
 
-  player_ = std::make_unique<Player>();
+  player_ = std::make_unique<Player>(railCamera_.get());
   player_->SetSpriteRenderer(engine_->GetSpriteRenderer());
   player_->SetObject3dRenderer(engine_->GetObject3dRenderer());
-  player_->SetCamera(railCamera_.get());
   player_->SetInput(engine_->GetInputManager());
   
   // プレイヤーの初期化（照準やコライダーの生成など）
   player_->Initialize();
-  player_->GetTransform().translate = {0.0f, 4.0f, 0.0f}; // ローカルの初期位置に仮置き
-  player_->GetTransform().scale = {0.7f, 0.7f, 0.7f}; // スケールを少し小さくして視界を確保
-  
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
   playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
@@ -199,18 +196,15 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   debugCamera_ = std::make_unique<DebugCamera>();
   debugCamera_->Initialize({0.0f, 10.0f, -30.0f});
 
-  // モデルの読み込み
-
-  // オブジェクトの生成と初期化
-
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
-
   // レベルデータのロード
   LoadLevel();
   // 古いハードコード生成が走らないようにtrueにしておく
   hasSpawnedDummy_ = true;
+
+#ifndef _DEBUG
+  // Releaseビルドではエディタ操作をスキップして自動でPlayモードにする
+  isPlayMode_ = true;
+#endif
 }
 
 void GamePlayScene::Finalize() {}
@@ -360,7 +354,6 @@ void GamePlayScene::Update() {
   // プレイヤーの更新
   if (player_) {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する（DebugCameraに追従させないため）
-    player_->SetCamera(railCamera_.get());
     if (shouldUpdateLogic) {
       player_->Update();
     } else {
@@ -611,7 +604,6 @@ void GamePlayScene::Update() {
     // スライダーを直接動かした時は自動再生をオフにする（ポーズ状態にする）
     isPaused_ = true;
     if (player_) {
-      player_->SetCamera(railCamera_.get());
       player_->ForceSnapToCamera();
     }
   }
@@ -773,7 +765,6 @@ void GamePlayScene::DrawEditorUI() {
         }
       }
       if (player_) {
-        player_->SetCamera(railCamera_.get());
         player_->ForceSnapToCamera();
       }
     }
@@ -1084,7 +1075,13 @@ void GamePlayScene::LoadLevel(const std::string& filename) {
   
   // レベルロード時は配列のインデックスや参照が完全に破壊されるため、Undo履歴をリセットする
   CommandManager::GetInstance()->Clear();
-  file >> root;
+  
+  try {
+    file >> root;
+  } catch (const nlohmann::json::parse_error& e) {
+    Logger::Log(std::string("[GamePlayScene] LoadLevel JSON parse error: ") + e.what());
+    return;
+  }
 
   // 古い敵をクリア
   runtimeEnemies_.clear();
