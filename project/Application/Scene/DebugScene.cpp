@@ -30,22 +30,7 @@ void DebugScene::Initialize(EngineBase *engine) {
   // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む
   ActorManager::GetInstance()->Initialize();
 
-  // 自機用のモデルをロードしておく
-  ModelManager::GetInstance()->LoadModel("suzanne.obj");
 
-  auto player = std::make_unique<Player>();
-  player->SetSpriteRenderer(engine_->GetSpriteRenderer());
-  player->SetObject3dRenderer(engine_->GetObject3dRenderer()); // 追加
-  player->SetInput(engine_->GetInputManager()); // Inputを渡す
-  
-  auto playerModel = std::make_unique<Object3d>();
-  playerModel->Initialize(engine_->GetObject3dRenderer());
-  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
-  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
-  player->SetModel(std::move(playerModel));
-  
-  playerPtr_ = player.get(); // ポインタを控えておく
-  ActorManager::GetInstance()->AddActor(std::move(player));
 
   // PostProcess用テクスチャ
   TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
@@ -161,6 +146,24 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   // デフォルトカメラをレールカメラに設定
   engine_->GetObject3dRenderer()->SetDefaultCamera(railCamera_.get());
+
+  // === Playerの初期化をここへ移動（railCamera_が生成された後に行う） ===
+  // 自機用のモデルをロードしておく
+  ModelManager::GetInstance()->LoadModel("suzanne.obj");
+
+  auto player = std::make_unique<Player>(railCamera_.get());
+  player->SetSpriteRenderer(engine_->GetSpriteRenderer());
+  player->SetObject3dRenderer(engine_->GetObject3dRenderer()); // 追加
+  player->SetInput(engine_->GetInputManager()); // Inputを渡す
+  
+  auto playerModel = std::make_unique<Object3d>();
+  playerModel->Initialize(engine_->GetObject3dRenderer());
+  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
+  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
+  player->SetModel(std::move(playerModel));
+  
+  playerPtr_ = player.get(); // ポインタを控えておく
+  ActorManager::GetInstance()->AddActor(std::move(player));
 
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},

@@ -5,6 +5,7 @@
 #include "Texture/TextureManager.h"
 #include "Render/Model/SkinCluster.h"
 #include <fstream>
+#include <stdexcept>
 
 void Model::Initialize(ModelRenderer* modelRenderer,
 	const std::string& directorypath,
@@ -97,7 +98,9 @@ Model::LoadMaterialTemplateFile(const std::string& directoryPath,
 
 	// 2. ファイルを開く
 	std::ifstream file(directoryPath + "/" + filename);
-	assert(file.is_open()); // とりあえず開けなかったら止める
+	if (!file.is_open()) {
+		throw std::runtime_error("Material file not found: " + directoryPath + "/" + filename);
+	}
 
 	// 3. 実際にファイルを読み、MaterialDataを構築していく
 	while (std::getline(file, line)) {
@@ -134,8 +137,9 @@ void Model::LoadModelFile(const std::string& directoryPath,
 		filePath.c_str(),
 		aiProcess_Triangulate | aiProcess_FlipWindingOrder | aiProcess_FlipUVs);
 
-	assert(scene);
-	assert(scene->HasMeshes());
+	if (!scene || !scene->HasMeshes()) {
+		throw std::runtime_error("Assimp failed to load model: " + filePath + " - " + importer.GetErrorString());
+	}
 
 	modelData.rootNode = ReadNode(scene->mRootNode);
 

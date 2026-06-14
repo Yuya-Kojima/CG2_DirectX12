@@ -3,6 +3,7 @@
 #include "Math/Vector2.h"
 #include <memory>
 #include <vector>
+#include <cassert>
 
 class LockOn;
 class SpriteRenderer;
@@ -14,7 +15,7 @@ class Enemy;
 
 class Player : public BaseActor {
 public:
-  Player();
+  Player(const ICamera* camera);
   ~Player() override;
 
   void Initialize() override;
@@ -34,7 +35,10 @@ public:
   void SetObject3dRenderer(class Object3dRenderer* renderer) {
     object3dRenderer_ = renderer;
   }
-  void SetCamera(const ICamera *camera) { camera_ = camera; }
+  void SetCamera(const ICamera *camera) { 
+    assert(camera);
+    camera_ = camera; 
+  }
   void SetInput(class Input *input) { input_ = input; }
   void SetModel(std::unique_ptr<Object3d> model) { object3d_ = std::move(model); }
 
