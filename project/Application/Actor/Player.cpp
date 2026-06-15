@@ -72,6 +72,13 @@ void Player::Update() {
 
   // 照準の移動操作
   if (input_) {
+#ifdef USE_IMGUI
+    // デバッグキー：Kキーでダメージを受ける
+    if (input_->IsTriggerKey(DIK_K)) {
+      TakeDamage(1);
+    }
+#endif
+
     float moveSpeed = 10.0f;
     
     // キーボードと十字キー入力
@@ -377,6 +384,25 @@ void Player::OnCollision(Collider *other) {
   OutputDebugStringA("========================\n");
   OutputDebugStringA("Player hit by something!\n");
   OutputDebugStringA("========================\n");
+
+  TakeDamage(1);
+}
+
+void Player::TakeDamage(int damage) {
+  if (hp_ > 0) {
+    hp_ -= damage;
+    if (hp_ < 0) {
+      hp_ = 0;
+    }
+    
+    if (hp_ == 0) {
+      OutputDebugStringA("Player is DEAD!\n");
+    } else {
+      OutputDebugStringA("Player took damage! Current HP: ");
+      OutputDebugStringA(std::to_string(hp_).c_str());
+      OutputDebugStringA("\n");
+    }
+  }
 }
 
 void Player::UpdateTransform() {

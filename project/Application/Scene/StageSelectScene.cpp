@@ -1,44 +1,22 @@
-#include "TitleScene.h"
+#include "StageSelectScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
 #include "Input/InputKeyState.h"
-#include "Model/Model.h"
 #include "Model/ModelManager.h"
-#include "Object3d/Object3d.h"
-#include "Particle/Particle.h"
-#include "Particle/ParticleEmitter.h"
-#include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
-#include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
+#include "Framework/GameManager.h"
 
-// ImGuiを使用するためのインクルード
 #ifdef USE_IMGUI
 #include "Debug/ImGuiManager.h"
 #endif
 
-void TitleScene::Initialize(EngineBase *engine) {
+void StageSelectScene::Initialize(EngineBase *engine) {
 
   // 参照をコピー
   engine_ = engine;
-
-  //===========================
-  // テクスチャファイルの読み込み
-  //===========================
-
-  //===========================
-  // オーディオファイルの読み込み
-  //===========================
-
-  //===========================
-  // スプライト関係の初期化
-  //===========================
-
-  //===========================
-  // 3Dオブジェクト関係の初期化
-  //===========================
 
   // カメラの生成と初期化
   camera_ = std::make_unique<GameCamera>();
@@ -51,28 +29,14 @@ void TitleScene::Initialize(EngineBase *engine) {
 
   // デフォルトカメラのセット
   engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
-
-  // モデルの読み込み
-
-  // オブジェクトの生成と初期化
-
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
 }
 
-void TitleScene::Finalize() {}
+void StageSelectScene::Finalize() {}
 
-void TitleScene::Update() {
+void StageSelectScene::Update() {
 
   // Sound更新
   SoundManager::GetInstance()->Update();
-
-  // ステージセレクトシーンへ移行
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-    SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
-  }
 
   // デバッグカメラ切り替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
@@ -83,25 +47,37 @@ void TitleScene::Update() {
     }
   }
 
-  //=======================
-  // スプライトの更新
-  //=======================
-
 #ifdef USE_IMGUI
+  // ImGuiを使った仮のステージ選択UI
   ImGuiViewport* viewport = ImGui::GetMainViewport();
   ImVec2 center = ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + viewport->Size.y * 0.5f);
   ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-  ImGui::Begin("Title UI", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
-  ImGui::SetWindowFontScale(3.0f);
-  ImGui::Text("RAIL SHOOTER (Temp Title)");
-  ImGui::SetWindowFontScale(1.5f);
-  ImGui::Text("Press ENTER to Start");
+  ImGui::Begin("Stage Select", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
+  
+  ImGui::Text("Select a Stage:");
+  ImGui::Separator();
+
+  if (ImGui::Button("Stage 1 (level_editor.json)", ImVec2(300, 50))) {
+    GameManager::GetInstance()->SetCurrentLevel("level_editor.json");
+    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+  }
+
+  // 今後ステージが増えたらここに追加
+  if (ImGui::Button("Stage 2 (TBD)", ImVec2(300, 50))) {
+    GameManager::GetInstance()->SetCurrentLevel("level_editor.json"); // とりあえず同じ
+    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+  }
+
+  ImGui::Separator();
+  if (ImGui::Button("Back to Title", ImVec2(300, 30))) {
+    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+    SceneManager::GetInstance()->ChangeScene("TITLE");
+  }
+
   ImGui::End();
 #endif
-
-  //=======================
-  // 3Dオブジェクトの更新
-  //=======================
 
   //=======================
   // カメラの更新
@@ -120,16 +96,16 @@ void TitleScene::Update() {
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
 }
 
-void TitleScene::Draw() {
+void StageSelectScene::Draw() {
   Draw3D();
 }
 
-void TitleScene::Draw3D() {
+void StageSelectScene::Draw3D() {
   engine_->Begin3D();
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
 }
 
-void TitleScene::Draw2D() {
+void StageSelectScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
 }

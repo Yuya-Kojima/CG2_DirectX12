@@ -33,8 +33,8 @@ void Game::Initialize() {
   sceneFactory_ = std::make_unique<SceneFactory>();
 
   SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
-
-  SceneManager::GetInstance()->ChangeScene("DEBUG");
+  // 初期シーンの設定
+  SceneManager::GetInstance()->ChangeScene("TITLE");
 
   //===========================
   // ローカル変数宣言
@@ -180,17 +180,21 @@ void Game::Update() {
   // Main Toolbar
   // =====================================
   ImGui::Begin("Main Toolbar");
-  if (ImGui::Button("TITLE")) {
-    SceneManager::GetInstance()->ChangeScene("TITLE");
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("GAMEPLAY")) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("DEBUG")) {
-    SceneManager::GetInstance()->ChangeScene("DEBUG");
-  }
+    if (ImGui::Button("TITLE")) {
+      SceneManager::GetInstance()->ChangeScene("TITLE");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("STAGE_SELECT")) {
+      SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("GAMEPLAY")) {
+      SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("DEBUG")) {
+      SceneManager::GetInstance()->ChangeScene("DEBUG");
+    }
   ImGui::End();
 
   // =====================================

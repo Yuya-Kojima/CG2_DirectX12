@@ -201,8 +201,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // 古いハードコード生成が走らないようにtrueにしておく
   hasSpawnedDummy_ = true;
 
-#ifndef _DEBUG
-  // Releaseビルドではエディタ操作をスキップして自動でPlayモードにする
+#ifndef USE_IMGUI
+  // ImGui無効時（純粋な製品版ビルド等）はエディタ操作をスキップして自動でPlayモードにする
   isPlayMode_ = true;
 #endif
 }
@@ -242,6 +242,18 @@ void GamePlayScene::Update() {
   }
 
   //=======================
+  // ゲーム進行状態の更新
+  //=======================
+  if (gameState_ == GameState::Play) {
+    if (railCamera_ && railCamera_->IsFinished()) {
+      gameState_ = GameState::Clear;
+      if (railCamera_) railCamera_->SetAutoMove(false);
+    } else if (player_ && player_->IsDead()) {
+      gameState_ = GameState::GameOver;
+      if (railCamera_) railCamera_->SetAutoMove(false);
+    }
+  }
+
   bool shouldUpdateLogic = (isPlayMode_ && !isPaused_) || doStep_;
 
   if (doStep_) {
@@ -353,8 +365,9 @@ void GamePlayScene::Update() {
 
   // プレイヤーの更新
   if (player_) {
-    // プレイヤーの照準や挙動の計算には常にレールカメラを使用する（DebugCameraに追従させないため）
-    if (shouldUpdateLogic) {
+    // プレイヤーの照準や挙動の計算には常にレールカメラを使用する
+    // GameState::Play 以外の時（クリア後など）は操作を受け付けないようにUpdateTransformのみ呼ぶ
+    if (shouldUpdateLogic && gameState_ == GameState::Play) {
       player_->Update();
     } else {
       player_->UpdateTransform();
@@ -1012,8 +1025,43 @@ void GamePlayScene::Draw3D() {
 
 void GamePlayScene::Draw2D() {
   if (player_) {
-    player_->Draw2D();
+    // リザルト画面中はレティクルを消す
+    if (gameState_ == GameState::Play) {
+      player_->Draw2D();
+    }
   }
+
+#ifdef USE_IMGUI
+  if (gameState_ == GameState::Clear) {
+    ImGui::SetNextWindowPos(ImVec2(1280.0f / 2.0f, 720.0f / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::Begin("Result UI", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::SetWindowFontScale(4.0f);
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "STAGE CLEAR!");
+    ImGui::SetWindowFontScale(1.5f);
+    ImGui::Text("Press ENTER to return to Stage Select");
+    ImGui::End();
+
+    // EnterでStageSelectSceneへ帰還
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+      SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+      SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+    }
+  } else if (gameState_ == GameState::GameOver) {
+    ImGui::SetNextWindowPos(ImVec2(1280.0f / 2.0f, 720.0f / 2.0f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::Begin("Game Over UI", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::SetWindowFontScale(4.0f);
+    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "GAME OVER");
+    ImGui::SetWindowFontScale(1.5f);
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Press ENTER to return to Stage Select");
+    ImGui::End();
+
+    // EnterでStageSelectSceneへ帰還
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+      SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+      SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+    }
+  }
+#endif
 }
 
 void GamePlayScene::SaveLevel(const std::string& filename) {

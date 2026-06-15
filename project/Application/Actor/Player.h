@@ -22,6 +22,7 @@ public:
   void Update() override;
   void UpdateTransform() override;
   void ForceSnapToCamera();
+  void TakeDamage(int damage);
   void Draw3D() override;
   void Draw2D() override;
   void OnCollision(class Collider *other) override;
@@ -45,7 +46,11 @@ public:
   // 今回はテストとして直接ターゲットリストを渡す
   void SetEnemies(const std::vector<Enemy*>& enemies) { enemies_ = enemies; }
 
+  int GetHp() const { return hp_; }
+  bool IsDead() const { return hp_ <= 0; }
+
 private:
+  int hp_ = 3; // プロトタイプ版の仮HP（パンツァードラグーンのようなライフ制を見据える）
   std::unique_ptr<class SphereCollider> collider_;
   std::unique_ptr<LockOn> lockOn_;
 

@@ -27,6 +27,12 @@ struct SpawnEvent {
   bool hasSpawned = false; // 実行時の管理用フラグ
 };
 
+enum class GameState {
+  Play,
+  Clear,
+  GameOver
+};
+
 class GamePlayScene : public BaseScene {
 
 private: // メンバ変数(ゲーム用)
@@ -55,6 +61,9 @@ private: // メンバ変数(ゲーム用)
   bool isPaused_ = false;
   bool doStep_ = false;
   float playStartT_ = 0.0f; // Play開始時のtの値を保存しておく変数
+
+  // ゲーム状態
+  GameState gameState_ = GameState::Play;
 
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
