@@ -1,0 +1,166 @@
+{
+    "anchorPoint": [
+        0.0,
+        0.0
+    ],
+    "children": [
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": false,
+            "name": "Scene",
+            "position": [
+                392.03668212890625,
+                94.08882141113281
+            ],
+            "scale": [
+                1.5,
+                1.5
+            ],
+            "textString": "SelectScene",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": true,
+            "name": "Stage1Text",
+            "position": [
+                533.1699829101563,
+                276.3858947753906
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "textString": "Stage1",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": true,
+            "name": "Stage2Text",
+            "position": [
+                533.1699829101563,
+                370.4747314453125
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "textString": "Stage2",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": true,
+            "name": "BackText",
+            "position": [
+                560.612548828125,
+                472.4042663574219
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "textString": "Back",
+            "textureName": "",
+            "type": 1
+        }
+    ],
+    "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "focusedColor": [
+        1.0,
+        1.0,
+        0.0,
+        1.0
+    ],
+    "fontName": "Roboto",
+    "isSelectable": false,
+    "name": "Canvas",
+    "position": [
+        0.0,
+        0.0
+    ],
+    "scale": [
+        1.0,
+        1.0
+    ],
+    "textString": "Text",
+    "textureName": "",
+    "type": 0
+}

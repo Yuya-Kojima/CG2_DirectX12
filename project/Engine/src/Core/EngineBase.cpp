@@ -4,6 +4,8 @@
 #include "Core/WindowSystem.h"
 #include "Model/ModelManager.h"
 #include "Texture/TextureManager.h"
+#include "Render/Text/FontManager.h"
+#include "Framework/UIManager.h"
 #include <cassert>
 #include <xaudio2.h>
 
@@ -79,9 +81,17 @@ void EngineBase::Initialize() {
 
   // ラインレンダラーの初期化
   LineRenderer::GetInstance()->Initialize(dx12Core_.get());
+
+  // フォントマネージャーの初期化とフォントのロード
+  FontManager::GetInstance()->Initialize();
+
+  // UIManagerの初期化
+  UIManager::GetInstance()->Initialize(spriteRenderer_.get());
 }
 
 void EngineBase::Finalize() {
+  UIManager::GetInstance()->Finalize();
+  FontManager::GetInstance()->Finalize();
 
   SoundManager::GetInstance()->Finalize();
 

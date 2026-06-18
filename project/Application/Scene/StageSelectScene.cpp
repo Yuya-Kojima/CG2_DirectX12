@@ -1,19 +1,23 @@
 #include "StageSelectScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Framework/GameManager.h"
+#include "Framework/UIManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/ModelManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Texture/TextureManager.h"
-#include "Framework/GameManager.h"
 
 #ifdef USE_IMGUI
 #include "Debug/ImGuiManager.h"
 #endif
 
 void StageSelectScene::Initialize(EngineBase *engine) {
+
+  // 基底クラスの初期化（PostProcessの生成など）
+  BaseScene::Initialize(engine);
 
   // 参照をコピー
   engine_ = engine;
@@ -29,6 +33,9 @@ void StageSelectScene::Initialize(EngineBase *engine) {
 
   // デフォルトカメラのセット
   engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
+
+  // UIのクリアとこのシーン用のUIの準備
+  UIManager::GetInstance()->Load("resources/UI/StageSelectUI.json");
 }
 
 void StageSelectScene::Finalize() {}
@@ -37,6 +44,12 @@ void StageSelectScene::Update() {
 
   // Sound更新
   SoundManager::GetInstance()->Update();
+
+  // スプライト（UI）の更新
+  Input *input = GameManager::GetInstance()->IsGlobalPlayMode()
+                     ? engine_->GetInputManager()
+                     : nullptr;
+  UIManager::GetInstance()->Update(input);
 
   // デバッグカメラ切り替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
@@ -47,37 +60,27 @@ void StageSelectScene::Update() {
     }
   }
 
-#ifdef USE_IMGUI
-  // ImGuiを使った仮のステージ選択UI
-  ImGuiViewport* viewport = ImGui::GetMainViewport();
-  ImVec2 center = ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + viewport->Size.y * 0.5f);
-  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-  ImGui::Begin("Stage Select", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
-  
-  ImGui::Text("Select a Stage:");
-  ImGui::Separator();
+  // 決定キー（エンターキーまたはパッドのAボタン）の処理
+  if (GameManager::GetInstance()->IsGlobalPlayMode()) {
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN) ||
+        engine_->GetInputManager()->IsPadTrigger(PadButton::A)) {
+      std::string selectedName = UIManager::GetInstance()->GetFocusedNodeName();
 
-  if (ImGui::Button("Stage 1 (level_editor.json)", ImVec2(300, 50))) {
-    GameManager::GetInstance()->SetCurrentLevel("level_editor.json");
-    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+      if (selectedName == "Stage1Text") {
+        GameManager::GetInstance()->SetCurrentLevel("level_editor.json");
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+      } else if (selectedName == "Stage2Text") {
+        GameManager::GetInstance()->SetCurrentLevel(
+            "level_editor.json"); // とりあえず同じ
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+      } else if (selectedName == "BackText") {
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("TITLE");
+      }
+    }
   }
-
-  // 今後ステージが増えたらここに追加
-  if (ImGui::Button("Stage 2 (TBD)", ImVec2(300, 50))) {
-    GameManager::GetInstance()->SetCurrentLevel("level_editor.json"); // とりあえず同じ
-    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
-  }
-
-  ImGui::Separator();
-  if (ImGui::Button("Back to Title", ImVec2(300, 30))) {
-    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-    SceneManager::GetInstance()->ChangeScene("TITLE");
-  }
-
-  ImGui::End();
-#endif
 
   //=======================
   // カメラの更新
@@ -96,9 +99,7 @@ void StageSelectScene::Update() {
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
 }
 
-void StageSelectScene::Draw() {
-  Draw3D();
-}
+void StageSelectScene::Draw() { Draw3D(); }
 
 void StageSelectScene::Draw3D() {
   engine_->Begin3D();
@@ -108,4 +109,5 @@ void StageSelectScene::Draw3D() {
 
 void StageSelectScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
+  UIManager::GetInstance()->Draw();
 }

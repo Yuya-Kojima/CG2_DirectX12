@@ -1,0 +1,100 @@
+{
+    "anchorPoint": [
+        0.0,
+        0.0
+    ],
+    "children": [
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": false,
+            "name": "ClearText",
+            "position": [
+                288.26953125,
+                176.5084228515625
+            ],
+            "scale": [
+                2.0,
+                2.0
+            ],
+            "textString": "STAGE CLEAR!",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": false,
+            "name": "ReturnText",
+            "position": [
+                422.55743408203125,
+                397.0750427246094
+            ],
+            "scale": [
+                0.5,
+                0.5
+            ],
+            "textString": "Press ENTER to return to Stage Select",
+            "textureName": "",
+            "type": 1
+        }
+    ],
+    "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "focusedColor": [
+        1.0,
+        1.0,
+        0.0,
+        1.0
+    ],
+    "fontName": "Roboto",
+    "isSelectable": false,
+    "name": "Canvas",
+    "position": [
+        0.0,
+        0.0
+    ],
+    "scale": [
+        1.0,
+        1.0
+    ],
+    "textString": "",
+    "textureName": "",
+    "type": 0
+}

@@ -4,6 +4,7 @@
 #include "Debug/Logger.h"
 #include "Util/StringUtil.h"
 #include <filesystem>
+#include <unordered_set>
 
 // ImGuiで０番を使用するため、1番から使用する
 // uint32_t TextureManager::kSRVIndexTop = 1;
@@ -126,11 +127,65 @@ void TextureManager::LoadTexture(const std::string &filePath) {
       textureData.resource.Get(), &srvDesc, textureData.srvHandleCPU);
 }
 
+void TextureManager::LoadTextureFromMemory(const std::string &name, const uint8_t *pixels, int width, int height) {
+  if (textureDatas.contains(name)) {
+    return;
+  }
+
+  assert(srvManager_->CanAllocate());
+
+  DirectX::ScratchImage image{};
+  HRESULT hr = image.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1);
+  assert(SUCCEEDED(hr));
+
+  uint8_t* dest = image.GetPixels();
+  size_t rowPitch = image.GetImages()->rowPitch;
+  size_t srcRowPitch = width * 4; // RGBA 8bit
+
+  for (int y = 0; y < height; ++y) {
+    memcpy(dest + y * rowPitch, pixels + y * srcRowPitch, srcRowPitch);
+  }
+
+  const auto &meta = image.GetMetadata();
+
+  TextureData &textureData = textureDatas[name];
+  textureData.metadata = meta;
+  textureData.resource = dx12Core_->CreateTextureResource(textureData.metadata);
+
+  intermediateResources_.push_back(
+      dx12Core_->UploadTextureData(textureData.resource, image));
+
+  textureData.srvIndex = srvManager_->Allocate();
+  textureData.srvHandleCPU = srvManager_->GetCPUDescriptorHandle(textureData.srvIndex);
+  textureData.srvHandleGPU = srvManager_->GetGPUDescriptorHandle(textureData.srvIndex);
+
+  D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+  srvDesc.Format = textureData.metadata.format;
+  srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+  srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+  srvDesc.Texture2D.MostDetailedMip = 0;
+  srvDesc.Texture2D.MipLevels = 1;
+  srvDesc.Texture2D.PlaneSlice = 0;
+  srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+  dx12Core_->GetDevice()->CreateShaderResourceView(
+      textureData.resource.Get(), &srvDesc, textureData.srvHandleCPU);
+}
+
 D3D12_GPU_DESCRIPTOR_HANDLE
 TextureManager::GetSrvHandleGPU(const std::string &filePath) const {
 
-  // 範囲外指定違反チェック
-  assert(textureDatas.contains(filePath));
+  if (!textureDatas.contains(filePath)) {
+    static std::unordered_set<std::string> loggedErrors;
+    if (!loggedErrors.contains(filePath)) {
+      Logger::Log("Texture not found in GetSrvHandleGPU: " + filePath + "\n");
+      loggedErrors.insert(filePath);
+    }
+    if (!textureDatas.empty()) {
+      return textureDatas.begin()->second.srvHandleGPU;
+    }
+    return D3D12_GPU_DESCRIPTOR_HANDLE{};
+  }
 
   const TextureData &textureData = textureDatas.at(filePath);
   return textureData.srvHandleGPU;
@@ -138,9 +193,13 @@ TextureManager::GetSrvHandleGPU(const std::string &filePath) const {
 
 const DirectX::TexMetadata &
 TextureManager::GetMetaData(const std::string &filePath) const {
-  // 範囲外指定違反チェック
-  assert(textureDatas.contains(filePath));
-
+  if (!textureDatas.contains(filePath)) {
+    if (!textureDatas.empty()) {
+      return textureDatas.begin()->second.metadata;
+    }
+    static DirectX::TexMetadata emptyMeta{};
+    return emptyMeta;
+  }
   const TextureData &textureData = textureDatas.at(filePath);
   return textureData.metadata;
 }

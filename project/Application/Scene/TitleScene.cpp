@@ -1,6 +1,8 @@
 #include "TitleScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
+#include "Framework/GameManager.h"
+#include "Framework/UIManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
@@ -20,6 +22,9 @@
 #endif
 
 void TitleScene::Initialize(EngineBase *engine) {
+
+  // 基底クラスの初期化（PostProcessの生成など）
+  BaseScene::Initialize(engine);
 
   // 参照をコピー
   engine_ = engine;
@@ -59,6 +64,9 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
   // パーティクル関係の初期化
   //===========================
+
+  // UIの読み込み
+  UIManager::GetInstance()->Load("resources/UI/TitleUI.json");
 }
 
 void TitleScene::Finalize() {}
@@ -69,9 +77,11 @@ void TitleScene::Update() {
   SoundManager::GetInstance()->Update();
 
   // ステージセレクトシーンへ移行
-  if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-    SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-    SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+  if (GameManager::GetInstance()->IsGlobalPlayMode()) {
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+      SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+      SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+    }
   }
 
   // デバッグカメラ切り替え
@@ -86,18 +96,10 @@ void TitleScene::Update() {
   //=======================
   // スプライトの更新
   //=======================
-
-#ifdef USE_IMGUI
-  ImGuiViewport* viewport = ImGui::GetMainViewport();
-  ImVec2 center = ImVec2(viewport->Pos.x + viewport->Size.x * 0.5f, viewport->Pos.y + viewport->Size.y * 0.5f);
-  ImGui::SetNextWindowPos(center, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-  ImGui::Begin("Title UI", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize);
-  ImGui::SetWindowFontScale(3.0f);
-  ImGui::Text("RAIL SHOOTER (Temp Title)");
-  ImGui::SetWindowFontScale(1.5f);
-  ImGui::Text("Press ENTER to Start");
-  ImGui::End();
-#endif
+  Input *input = GameManager::GetInstance()->IsGlobalPlayMode()
+                     ? engine_->GetInputManager()
+                     : nullptr;
+  UIManager::GetInstance()->Update(input);
 
   //=======================
   // 3Dオブジェクトの更新
@@ -120,9 +122,7 @@ void TitleScene::Update() {
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
 }
 
-void TitleScene::Draw() {
-  Draw3D();
-}
+void TitleScene::Draw() { Draw3D(); }
 
 void TitleScene::Draw3D() {
   engine_->Begin3D();
@@ -132,4 +132,5 @@ void TitleScene::Draw3D() {
 
 void TitleScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
+  UIManager::GetInstance()->Draw();
 }

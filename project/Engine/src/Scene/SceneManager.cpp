@@ -71,7 +71,7 @@ void SceneManager::Update() {
     }
   }
 
-  // シーン切替
+  // シーン切り替え
   if (transitionState_ == TransitionState::SwitchScene) {
 
     // 旧シーン終了
@@ -82,6 +82,7 @@ void SceneManager::Update() {
 
     // 次シーンへ
     scene_ = std::move(nextScene_);
+    currentSceneName_ = nextSceneName_;
 
     scene_->SetSceneManger(this);
     scene_->Initialize(engine_);
@@ -153,6 +154,7 @@ void SceneManager::ChangeScene(const std::string &sceneName) {
 
   // 次シーンを生成
   nextScene_ = sceneFactory_->CreateScene(sceneName);
+  nextSceneName_ = sceneName;
 }
 
 PostProcess* SceneManager::GetCurrentScenePostProcess() const {

@@ -57,7 +57,7 @@ private: // メンバ変数(ゲーム用)
   bool useDebugCamera_ = false;
 
   // プレイ/ストップモードフラグ
-  bool isPlayMode_ = false;
+  bool previousGlobalPlayMode_ = false;
   bool isPaused_ = false;
   bool doStep_ = false;
   float playStartT_ = 0.0f; // Play開始時のtの値を保存しておく変数

@@ -2,7 +2,7 @@
 #include "Core/WindowSystem.h"
 
 void RenderPipeline::Initialize(Dx12Core* dx12Core, SrvManager* srvManager) {
-  const Vector4 kRenderTargetClearValue{ 0.0f, 0.0f, 0.0f, 1.0f }; // 背景は黒
+  const Vector4 kRenderTargetClearValue{ 0.1f, 0.25f, 0.5f, 1.0f }; // 背景色をDx12Coreと同じ青色に統一
 
   // HDRキャンバス (mainRenderTexture_) の作成
   mainRenderTexture_ = std::make_unique<RenderTexture>();

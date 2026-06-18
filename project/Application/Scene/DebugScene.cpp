@@ -30,8 +30,6 @@ void DebugScene::Initialize(EngineBase *engine) {
   // マネージャーを初期化して、テスト用のプレイヤーを1人放り込む
   ActorManager::GetInstance()->Initialize();
 
-
-
   // PostProcess用テクスチャ
   TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
   TextureManager::GetInstance()->LoadTexture("resources/noise1.png");
@@ -132,14 +130,9 @@ void DebugScene::Initialize(EngineBase *engine) {
   camera_->SetTranslate({0.0f, 4.0f, -10.0f});
 
   // レールカメラの初期化
-  waypoints_ = {
-      {0.0f, 4.0f, -10.0f},
-      {0.0f, 4.0f, 10.0f},
-      {15.0f, 4.0f, 20.0f},
-      {0.0f, 10.0f, 40.0f},
-      {-15.0f, 4.0f, 60.0f},
-      {0.0f, 4.0f, 80.0f}
-  };
+  waypoints_ = {{0.0f, 4.0f, -10.0f},  {0.0f, 4.0f, 10.0f},
+                {15.0f, 4.0f, 20.0f},  {0.0f, 10.0f, 40.0f},
+                {-15.0f, 4.0f, 60.0f}, {0.0f, 4.0f, 80.0f}};
   railCamera_ = std::make_unique<RailCamera>();
   railCamera_->Initialize(waypoints_);
   railCamera_->SetSpeed(0.5f); // 1秒間に0.5セグメント進む
@@ -154,14 +147,15 @@ void DebugScene::Initialize(EngineBase *engine) {
   auto player = std::make_unique<Player>(railCamera_.get());
   player->SetSpriteRenderer(engine_->GetSpriteRenderer());
   player->SetObject3dRenderer(engine_->GetObject3dRenderer()); // 追加
-  player->SetInput(engine_->GetInputManager()); // Inputを渡す
-  
+  player->SetInput(engine_->GetInputManager());                // Inputを渡す
+
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
   playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
-  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
+  playerModel->SetColor(
+      {0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
   player->SetModel(std::move(playerModel));
-  
+
   playerPtr_ = player.get(); // ポインタを控えておく
   ActorManager::GetInstance()->AddActor(std::move(player));
 
@@ -201,13 +195,13 @@ void DebugScene::Initialize(EngineBase *engine) {
     auto target = std::make_unique<Object3d>();
     target->Initialize(engine_->GetObject3dRenderer());
     target->SetModel("suzanne.obj");
-    
+
     // X座標をずらして横に並べ、Y座標で少し高低差をつける
     float posX = -10.0f + (i * 5.0f);
     float posY = 4.0f + (i % 2) * 2.0f;
-    target->SetTranslation({posX, posY, 35.0f}); 
+    target->SetTranslation({posX, posY, 35.0f});
     target->SetColor(Vector4{1.0f, 1.0f, 0.0f, 1.0f});
-    
+
     testTargets_.push_back(std::move(target));
   }
 
@@ -448,11 +442,11 @@ void DebugScene::Update() {
 
   // フェードはデフォで 0.35秒 & 黒色
   if (engine_->GetInputManager()->IsKeyTrigger(KeyCode::Enter)) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+    // SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
   if (input->IsPadTrigger(PadButton::A)) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+    // SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
   // フェードにかかる時間とフェードタイプと色とイージングを指定できる
@@ -462,10 +456,10 @@ void DebugScene::Update() {
     // WipeLeft(左から右へ塗りつぶし)
     // 白色フェード
     // EaseOut
-    SceneManager::GetInstance()->SetNextTransitionFade(
-        0.5f, Fade::FadeType::WipeLeft, Vector4{1.0f, 1.0f, 1.0f, 1.0f});
+    //   SceneManager::GetInstance()->SetNextTransitionFade(
+    //      0.5f, Fade::FadeType::WipeLeft, Vector4{1.0f, 1.0f, 1.0f, 1.0f});
 
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+    // SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
   }
 
   // テクスチャ差し替え
@@ -576,7 +570,7 @@ void DebugScene::Update() {
 
   object3d_->Update();
 
-  for (auto& target : testTargets_) {
+  for (auto &target : testTargets_) {
     target->Update();
   }
 
@@ -668,13 +662,14 @@ void DebugScene::Update() {
   // === Playerにロックオン用の情報を渡す ===
   if (playerPtr_) {
     playerPtr_->SetCamera(activeCamera);
-    
+
     // 敵のポインタリストを作成して渡す
     // std::vector<Object3d*> enemyPointers;
     // for (auto& t : testTargets_) {
     //     enemyPointers.push_back(t.get());
     // }
-    // playerPtr_->SetEnemies(enemyPointers); // Enemyクラスへの変更に伴い一旦無効化
+    // playerPtr_->SetEnemies(enemyPointers); //
+    // Enemyクラスへの変更に伴い一旦無効化
   }
 
   // シリンダーの回転アニメーション
@@ -735,7 +730,6 @@ void DebugScene::Update() {
 #ifdef USE_IMGUI
   auto *renderer = engine_->GetObject3dRenderer();
 
-
   //========================
   // PostProcess Settings UI
   //========================
@@ -748,16 +742,18 @@ void DebugScene::Update() {
 
 #ifdef USE_IMGUI
     ImGui::Begin("World Settings");
-    
-    // Draw the main PostProcess UI inside World Settings (without creating a new window)
+
+    // Draw the main PostProcess UI inside World Settings (without creating a
+    // new window)
     postProcess_->DrawDebugUI("World Settings", false);
 
     // Draw the extra noise texture combo box if Dissolve is selected
     if (postProcess_->GetPostEffectType() == 6) { // Dissolve
       const char *noiseTypes[] = {"noise0.png", "noise1.png"};
-      ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes, IM_ARRAYSIZE(noiseTypes));
+      ImGui::Combo("Noise Texture", &useNoiseTextureType_, noiseTypes,
+                   IM_ARRAYSIZE(noiseTypes));
     }
-    
+
     ImGui::End();
 #endif
   }
@@ -767,44 +763,45 @@ void DebugScene::Update() {
   //========================
   if (!testTargets_.empty() && testTargets_[0]) {
     ImGui::Begin("World Settings");
-    if (ImGui::CollapsingHeader("Object3D Dissolve Test (Suzanne)", ImGuiTreeNodeFlags_DefaultOpen)) {
-    ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
-    ImGui::SliderFloat("Threshold", &suzanneDissolveThreshold_, 0.0f, 1.0f);
-    ImGui::SliderFloat("Edge Range", &suzanneDissolveEdgeRange_, 0.0f, 0.5f);
-    ImGui::ColorEdit4("Edge Color", &suzanneDissolveEdgeColor_.x);
-    ImGui::DragFloat2("Mask UV Offset", &suzanneMaskTransform_.x, 0.01f);
+    if (ImGui::CollapsingHeader("Object3D Dissolve Test (Suzanne)",
+                                ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::Checkbox("Enable Dissolve", &suzanneEnableDissolve_);
+      ImGui::SliderFloat("Threshold", &suzanneDissolveThreshold_, 0.0f, 1.0f);
+      ImGui::SliderFloat("Edge Range", &suzanneDissolveEdgeRange_, 0.0f, 0.5f);
+      ImGui::ColorEdit4("Edge Color", &suzanneDissolveEdgeColor_.x);
+      ImGui::DragFloat2("Mask UV Offset", &suzanneMaskTransform_.x, 0.01f);
 
-    if (ImGui::Button("Play Animation (or Press '1' Key)")) {
-      suzanneEnableDissolve_ = true;
-      suzanneDissolveThreshold_ = 0.0f;
-      isPlayingSuzanneDissolve_ = true;
-      isHologramMode_ = false;
-    }
-
-    ImGui::Separator();
-    // ホログラム演出
-    if (ImGui::Checkbox("Hologram / Energy Shield Mode", &isHologramMode_)) {
-      if (isHologramMode_) {
+      if (ImGui::Button("Play Animation (or Press '1' Key)")) {
         suzanneEnableDissolve_ = true;
-        isPlayingSuzanneDissolve_ = false; // アニメーションを止める
-        suzanneDissolveThreshold_ = 0.5f;  // 半分だけ表示
-        suzanneDissolveEdgeRange_ = 0.1f;  // エッジを少し太めに
-        suzanneDissolveEdgeColor_ = {0.0f, 1.0f, 1.0f, 1.0f}; // シアン色
-        testTargets_[0]->SetMaskTexturePath(
-            "resources/hex_noise.png"); // 六角形テクスチャを使用
-      } else {
-        suzanneEnableDissolve_ = false;
         suzanneDissolveThreshold_ = 0.0f;
-        testTargets_[0]->SetMaskTexturePath("resources/noise0.png"); // 元に戻す
+        isPlayingSuzanneDissolve_ = true;
+        isHologramMode_ = false;
       }
-    }
 
-    testTargets_[0]->SetEnableDissolve(suzanneEnableDissolve_);
-    testTargets_[0]->SetDissolveThreshold(suzanneDissolveThreshold_);
-    testTargets_[0]->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
-    testTargets_[0]->SetMaskTransform(suzanneMaskTransform_);
-    testTargets_[0]->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
+      ImGui::Separator();
+      // ホログラム演出
+      if (ImGui::Checkbox("Hologram / Energy Shield Mode", &isHologramMode_)) {
+        if (isHologramMode_) {
+          suzanneEnableDissolve_ = true;
+          isPlayingSuzanneDissolve_ = false; // アニメーションを止める
+          suzanneDissolveThreshold_ = 0.5f;  // 半分だけ表示
+          suzanneDissolveEdgeRange_ = 0.1f;  // エッジを少し太めに
+          suzanneDissolveEdgeColor_ = {0.0f, 1.0f, 1.0f, 1.0f}; // シアン色
+          testTargets_[0]->SetMaskTexturePath(
+              "resources/hex_noise.png"); // 六角形テクスチャを使用
+        } else {
+          suzanneEnableDissolve_ = false;
+          suzanneDissolveThreshold_ = 0.0f;
+          testTargets_[0]->SetMaskTexturePath(
+              "resources/noise0.png"); // 元に戻す
+        }
+      }
 
+      testTargets_[0]->SetEnableDissolve(suzanneEnableDissolve_);
+      testTargets_[0]->SetDissolveThreshold(suzanneDissolveThreshold_);
+      testTargets_[0]->SetDissolveEdgeRange(suzanneDissolveEdgeRange_);
+      testTargets_[0]->SetMaskTransform(suzanneMaskTransform_);
+      testTargets_[0]->SetDissolveEdgeColor(suzanneDissolveEdgeColor_);
     }
     ImGui::End();
   }
@@ -828,7 +825,7 @@ void DebugScene::Draw3D() {
   }
 
   object3d_->Draw();
-  for (auto& target : testTargets_) {
+  for (auto &target : testTargets_) {
     target->Draw();
   }
   animatedCube_->Draw();
@@ -886,11 +883,12 @@ void DebugScene::Draw3D() {
     const int divisions = 20; // 1区間あたりの分割数
     Vector3 prevPos = waypoints_[0];
     float maxT = static_cast<float>(waypoints_.size() - 1);
-    
+
     // 曲線を緑色の線で描画
     for (float t = 0.0f; t <= maxT; t += 1.0f / divisions) {
       Vector3 currentPos = railCamera_->CalcPosition(t);
-      engine_->GetLineRenderer()->DrawLine(prevPos, currentPos, {0.0f, 1.0f, 0.0f, 1.0f});
+      engine_->GetLineRenderer()->DrawLine(prevPos, currentPos,
+                                           {0.0f, 1.0f, 0.0f, 1.0f});
       prevPos = currentPos;
     }
   }
@@ -917,7 +915,7 @@ void DebugScene::Draw2D() {
   }
   //  波打ちエフェクト (時間, タイプ, Yの境界線, 揺れ幅, 細かさ, スピード)
   sprites_[0]->SetUIEffectParams(effectTime, 1, 0.2f, 0.05f, 20.0f, 1.0f);
-  
+
   engine_->GetSpriteRenderer()->BeginUIEffect();
   sprites_[0]->DrawUIEffect();
 
