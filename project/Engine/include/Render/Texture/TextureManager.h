@@ -35,6 +35,15 @@ public:
   /// <returns>画像イメージデータ</returns>
   void LoadTexture(const std::string &filePath);
 
+  /// <summary>
+  /// メモリ上のピクセルデータからテクスチャを生成・登録する
+  /// </summary>
+  /// <param name="name">登録名（キー名）</param>
+  /// <param name="pixels">ピクセルデータ（RGBA）</param>
+  /// <param name="width">幅</param>
+  /// <param name="height">高さ</param>
+  void LoadTextureFromMemory(const std::string &name, const uint8_t *pixels, int width, int height);
+
 private:
   TextureManager() = default;
   ~TextureManager() = default;

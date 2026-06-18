@@ -2,6 +2,7 @@
 #include "DebugScene.h"
 #include "GamePlayScene.h"
 #include "TitleScene.h"
+#include "StageSelectScene.h"
 
 std::unique_ptr<BaseScene>
 SceneFactory::CreateScene(const std::string &sceneName) {
@@ -13,6 +14,8 @@ SceneFactory::CreateScene(const std::string &sceneName) {
     return std::make_unique<TitleScene>();
   } else if (sceneName == "GAMEPLAY") {
     return std::make_unique<GamePlayScene>();
+  } else if (sceneName == "STAGE_SELECT") {
+    return std::make_unique<StageSelectScene>();
   } else if (sceneName == "DEBUG") {
     return std::make_unique<DebugScene>();
   }

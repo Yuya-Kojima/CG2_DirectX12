@@ -12,8 +12,10 @@ class SceneManager {
 
 private:
   std::unique_ptr<BaseScene> scene_ = nullptr;
+  std::string currentSceneName_ = "";
 
   std::unique_ptr<BaseScene> nextScene_ = nullptr;
+  std::string nextSceneName_ = "";
 
   EngineBase *engine_ = nullptr;
 
@@ -64,6 +66,7 @@ public:
   PostProcess* GetCurrentScenePostProcess() const;
 
   BaseScene* GetCurrentScene() const { return scene_.get(); }
+  const std::string& GetCurrentSceneName() const { return currentSceneName_; }
 
 private:
   SceneManager() = default;

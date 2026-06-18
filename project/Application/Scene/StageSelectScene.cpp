@@ -1,49 +1,26 @@
-#include "TitleScene.h"
+#include "StageSelectScene.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
 #include "Framework/GameManager.h"
 #include "Framework/UIManager.h"
 #include "Input/InputKeyState.h"
-#include "Model/Model.h"
 #include "Model/ModelManager.h"
-#include "Object3d/Object3d.h"
-#include "Particle/Particle.h"
-#include "Particle/ParticleEmitter.h"
-#include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
-#include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 
-// ImGuiを使用するためのインクルード
 #ifdef USE_IMGUI
 #include "Debug/ImGuiManager.h"
 #endif
 
-void TitleScene::Initialize(EngineBase *engine) {
+void StageSelectScene::Initialize(EngineBase *engine) {
 
   // 基底クラスの初期化（PostProcessの生成など）
   BaseScene::Initialize(engine);
 
   // 参照をコピー
   engine_ = engine;
-
-  //===========================
-  // テクスチャファイルの読み込み
-  //===========================
-
-  //===========================
-  // オーディオファイルの読み込み
-  //===========================
-
-  //===========================
-  // スプライト関係の初期化
-  //===========================
-
-  //===========================
-  // 3Dオブジェクト関係の初期化
-  //===========================
 
   // カメラの生成と初期化
   camera_ = std::make_unique<GameCamera>();
@@ -57,32 +34,22 @@ void TitleScene::Initialize(EngineBase *engine) {
   // デフォルトカメラのセット
   engine_->GetObject3dRenderer()->SetDefaultCamera(camera_.get());
 
-  // モデルの読み込み
-
-  // オブジェクトの生成と初期化
-
-  //===========================
-  // パーティクル関係の初期化
-  //===========================
-
-  // UIの読み込み
-  UIManager::GetInstance()->Load("resources/UI/TitleUI.json");
+  // UIのクリアとこのシーン用のUIの準備
+  UIManager::GetInstance()->Load("resources/UI/StageSelectUI.json");
 }
 
-void TitleScene::Finalize() {}
+void StageSelectScene::Finalize() {}
 
-void TitleScene::Update() {
+void StageSelectScene::Update() {
 
   // Sound更新
   SoundManager::GetInstance()->Update();
 
-  // ステージセレクトシーンへ移行
-  if (GameManager::GetInstance()->IsGlobalPlayMode()) {
-    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
-      SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
-      SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
-    }
-  }
+  // スプライト（UI）の更新
+  Input *input = GameManager::GetInstance()->IsGlobalPlayMode()
+                     ? engine_->GetInputManager()
+                     : nullptr;
+  UIManager::GetInstance()->Update(input);
 
   // デバッグカメラ切り替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
@@ -93,17 +60,27 @@ void TitleScene::Update() {
     }
   }
 
-  //=======================
-  // スプライトの更新
-  //=======================
-  Input *input = GameManager::GetInstance()->IsGlobalPlayMode()
-                     ? engine_->GetInputManager()
-                     : nullptr;
-  UIManager::GetInstance()->Update(input);
+  // 決定キー（エンターキーまたはパッドのAボタン）の処理
+  if (GameManager::GetInstance()->IsGlobalPlayMode()) {
+    if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN) ||
+        engine_->GetInputManager()->IsPadTrigger(PadButton::A)) {
+      std::string selectedName = UIManager::GetInstance()->GetFocusedNodeName();
 
-  //=======================
-  // 3Dオブジェクトの更新
-  //=======================
+      if (selectedName == "Stage1Text") {
+        GameManager::GetInstance()->SetCurrentLevel("level_editor.json");
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+      } else if (selectedName == "Stage2Text") {
+        GameManager::GetInstance()->SetCurrentLevel(
+            "level_editor.json"); // とりあえず同じ
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+      } else if (selectedName == "BackText") {
+        SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
+        SceneManager::GetInstance()->ChangeScene("TITLE");
+      }
+    }
+  }
 
   //=======================
   // カメラの更新
@@ -122,15 +99,15 @@ void TitleScene::Update() {
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
 }
 
-void TitleScene::Draw() { Draw3D(); }
+void StageSelectScene::Draw() { Draw3D(); }
 
-void TitleScene::Draw3D() {
+void StageSelectScene::Draw3D() {
   engine_->Begin3D();
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
 }
 
-void TitleScene::Draw2D() {
+void StageSelectScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
   UIManager::GetInstance()->Draw();
 }

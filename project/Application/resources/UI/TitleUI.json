@@ -1,0 +1,79 @@
+{
+    "anchorPoint": [
+        0.0,
+        0.0
+    ],
+    "children": [
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "name": "TitleText",
+            "position": [
+                350.99542236328125,
+                241.19448852539063
+            ],
+            "scale": [
+                2.0,
+                2.0
+            ],
+            "textString": "TitleScene",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "name": "StartText",
+            "position": [
+                465.68145751953125,
+                428.4379577636719
+            ],
+            "scale": [
+                0.5,
+                0.5
+            ],
+            "textString": "Press ENTER to Start",
+            "textureName": "",
+            "type": 1
+        }
+    ],
+    "color": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "fontName": "Roboto",
+    "name": "Canvas",
+    "position": [
+        0.0,
+        0.0
+    ],
+    "scale": [
+        1.0,
+        1.0
+    ],
+    "textString": "",
+    "textureName": "",
+    "type": 0
+}

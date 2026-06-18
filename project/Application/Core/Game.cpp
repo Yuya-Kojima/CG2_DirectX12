@@ -5,6 +5,7 @@
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
 #include "Framework/ActorManager.h"
+#include "Framework/UIManager.h"
 #include "Model/Model.h"
 #include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
@@ -15,6 +16,7 @@
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneFactory.h"
 #include "Scene/SceneManager.h"
+#include "Framework/GameManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include <cassert>
@@ -33,8 +35,8 @@ void Game::Initialize() {
   sceneFactory_ = std::make_unique<SceneFactory>();
 
   SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
-
-  SceneManager::GetInstance()->ChangeScene("DEBUG");
+  // 初期シーンの設定
+  SceneManager::GetInstance()->ChangeScene("TITLE");
 
   //===========================
   // ローカル変数宣言
@@ -82,6 +84,8 @@ void Game::Initialize() {
 }
 
 #ifdef USE_IMGUI
+static bool g_showUIEditor = false;
+
 static void DrawProjectDirectoryTree(const std::filesystem::path& dirPath) {
   for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
     if (entry.is_directory()) {
@@ -117,7 +121,12 @@ static void DrawProjectDirectoryTree(const std::filesystem::path& dirPath) {
 
       std::string displayStr = icon + filename;
       ImGui::PushStyleColor(ImGuiCol_Text, color);
-      ImGui::Selectable(displayStr.c_str());
+      if (ImGui::Selectable(displayStr.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick)) {
+        if (ImGui::IsMouseDoubleClicked(0) && ext == ".json") {
+          g_showUIEditor = true;
+          UIManager::GetInstance()->Load(relativePath);
+        }
+      }
       ImGui::PopStyleColor();
 
       if (ext == ".obj" || ext == ".gltf") {
@@ -180,18 +189,77 @@ void Game::Update() {
   // Main Toolbar
   // =====================================
   ImGui::Begin("Main Toolbar");
-  if (ImGui::Button("TITLE")) {
-    SceneManager::GetInstance()->ChangeScene("TITLE");
+    
+    // Play / Stop Buttons
+    bool isPlayMode = GameManager::GetInstance()->IsGlobalPlayMode();
+        if (!isPlayMode) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+        if (ImGui::Button(" [ > PLAY ] ")) {
+          GameManager::GetInstance()->SetPlayStartSceneName(SceneManager::GetInstance()->GetCurrentSceneName());
+          GameManager::GetInstance()->SetPlayStartLevelName(GameManager::GetInstance()->GetCurrentLevel());
+          GameManager::GetInstance()->SetGlobalPlayMode(true);
+        }
+        ImGui::PopStyleColor();
+      } else {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+        if (ImGui::Button(" [ ■ STOP ] ")) {
+          GameManager::GetInstance()->SetGlobalPlayMode(false);
+          
+          // Play開始時のシーンに戻る（ただし同じシーンの場合は何もしない）
+          std::string startScene = GameManager::GetInstance()->GetPlayStartSceneName();
+          if (SceneManager::GetInstance()->GetCurrentSceneName() != startScene) {
+              GameManager::GetInstance()->SetCurrentLevel(GameManager::GetInstance()->GetPlayStartLevelName());
+              SceneManager::GetInstance()->SetNextTransitionFade(0.0f); // フェードなしで瞬時に戻る
+              SceneManager::GetInstance()->ChangeScene(startScene);
+          }
+        }
+        ImGui::PopStyleColor();
+      }
+    
+    ImGui::End();
+
+    // =====================================
+    // Main Menu Bar
+    // =====================================
+    if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("Scene")) {
+        if (ImGui::MenuItem("Title")) {
+          SceneManager::GetInstance()->ChangeScene("TITLE");
+        }
+        if (ImGui::MenuItem("Stage Select")) {
+          SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
+        }
+        if (ImGui::BeginMenu("Gameplay")) {
+          std::string levelsPath = "resources/levels";
+          if (std::filesystem::exists(levelsPath)) {
+            for (const auto& entry : std::filesystem::directory_iterator(levelsPath)) {
+              if (entry.path().extension() == ".json") {
+                std::string fileName = entry.path().filename().string();
+                if (ImGui::MenuItem(fileName.c_str())) {
+                  GameManager::GetInstance()->SetCurrentLevel(fileName);
+                  SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+                }
+              }
+            }
+          }
+          ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Debug")) {
+          SceneManager::GetInstance()->ChangeScene("DEBUG");
+        }
+        ImGui::EndMenu();
+      }
+
+      if (ImGui::BeginMenu("Window")) {
+      ImGui::MenuItem("UI Editor", NULL, &g_showUIEditor);
+      ImGui::EndMenu();
+    }
+    ImGui::EndMainMenuBar();
   }
-  ImGui::SameLine();
-  if (ImGui::Button("GAMEPLAY")) {
-    SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
+
+  if (g_showUIEditor) {
+    UIManager::GetInstance()->DrawEditor();
   }
-  ImGui::SameLine();
-  if (ImGui::Button("DEBUG")) {
-    SceneManager::GetInstance()->ChangeScene("DEBUG");
-  }
-  ImGui::End();
 
   // =====================================
   // Console
@@ -243,7 +311,12 @@ void Game::Update() {
     renderHeight = windowSize.y;
     renderWidth = windowSize.y * aspect;
   }
+  ImVec2 screenPos = ImGui::GetCursorScreenPos();
   ImGui::Image((ImTextureID)gpuHandle.ptr, ImVec2(renderWidth, renderHeight));
+
+  if (g_showUIEditor) {
+    UIManager::GetInstance()->DrawEditorGizmo(screenPos, ImVec2(renderWidth, renderHeight));
+  }
 
   if (ImGui::BeginDragDropTarget()) {
     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MODEL_PATH")) {
@@ -290,6 +363,13 @@ void Game::Draw() {
 
   // 2Dオーバーレイ描画パス（ポストプロセスの後に上書き描画する）
   SceneManager::GetInstance()->DrawOverlay();
+
+  // エディタ表示中はUIManagerを強制描画
+#ifdef USE_IMGUI
+  if (g_showUIEditor) {
+    UIManager::GetInstance()->Draw();
+  }
+#endif
 
   // エディタテクスチャをSRVに変換し、ターゲットをバックバッファに戻す
   renderPipeline_->EndEditorGameViewPass(dx12Core_.get());
@@ -406,3 +486,4 @@ void Game::DrawWorldSettingsUI() {
   ImGui::End();
 #endif
 }
+
