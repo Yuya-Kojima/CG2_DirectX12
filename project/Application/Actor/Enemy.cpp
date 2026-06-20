@@ -1,12 +1,13 @@
 #include "Actor/Enemy.h"
+#include "Camera/ICamera.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
-#include "Render/Object3d/Object3d.h"
-#include <Windows.h> // OutputDebugStringA用
-#include "Render/Particle/ParticleManager.h"
-#include "Render/Particle/IParticleEmitter.h"
-#include "Camera/ICamera.h"
 #include "Math/MathUtil.h"
+#include "Render/Object3d/Object3d.h"
+#include "Render/Particle/IParticleEmitter.h"
+#include "Render/Particle/ParticleEmitter.h"
+#include "Render/Particle/ParticleManager.h"
+#include <Windows.h> // OutputDebugStringA用
 #include <cmath>
 
 Enemy::Enemy() = default;
@@ -42,10 +43,14 @@ void Enemy::Update() {
   if (camera_) {
     Matrix4x4 viewMatrix = camera_->GetViewMatrix();
     Matrix4x4 cameraWorld = Inverse(viewMatrix);
-    Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
-    Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
-    Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
-    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
+    Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
+                         cameraWorld.m[3][2]};
+    Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
+                           cameraWorld.m[0][2]};
+    Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
+                        cameraWorld.m[1][2]};
+    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                             cameraWorld.m[2][2]};
 
     if (moveType_ != MoveType::Stationary) {
       float currentXOffset = spawnOffset_.x;
@@ -61,10 +66,16 @@ void Enemy::Update() {
         currentXOffset += std::sin(aliveTime_ * 5.0f) * 20.0f; // 左右に波打つ
       }
 
-      transform_.translate = cameraPos 
-        + Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset}
-        + Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset}
-        + Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
+      transform_.translate =
+          cameraPos +
+          Vector3{cameraRight.x * currentXOffset,
+                  cameraRight.y * currentXOffset,
+                  cameraRight.z * currentXOffset} +
+          Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset,
+                  cameraUp.z * currentYOffset} +
+          Vector3{cameraForward.x * currentZOffset,
+                  cameraForward.y * currentZOffset,
+                  cameraForward.z * currentZOffset};
     }
   } else {
     // カメラ情報がない場合のフォールバック
@@ -115,14 +126,58 @@ void Enemy::OnCollision(Collider *other) {
 }
 
 void Enemy::TakeDamage(int damage) {
-  if (isDead_) return;
-  
+  if (isDead_) {
+    return;
+  }
+
   hp_ -= damage;
   hitFlashTimer_ = 5; // 5フレーム赤く点滅
 
   if (hp_ <= 0) {
     OutputDebugStringA("Enemy Destroyed!\n");
-    // TODO: ここにド派手なパーティクル発生処理を追加する
+    if (deathCoreEmitter_) {
+      deathCoreEmitter_->SetCenter(transform_.translate);
+      deathCoreEmitter_->Emit();
+    }
+    if (deathFlareEmitter_) {
+      deathFlareEmitter_->SetCenter(transform_.translate);
+      deathFlareEmitter_->Emit();
+    }
+    if (deathRingEmitter_) {
+      deathRingEmitter_->SetCenter(transform_.translate);
+      deathRingEmitter_->Emit();
+    }
+    if (onDestroyedCallback_) {
+      onDestroyedCallback_();
+    }
     Destroy();
   }
+}
+
+void Enemy::SetParticleEmitters(IParticleEmitter *core, IParticleEmitter *flare,
+                                IParticleEmitter *ring) {
+  // 1. コア
+  deathCoreEmitter_ = std::make_unique<ParticleEmitter>(
+      core, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
+  deathCoreEmitter_->SetBaseScale({20.0f, 20.0f, 20.0f});
+  deathCoreEmitter_->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
+  deathCoreEmitter_->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
+
+  // 2. フレア
+  deathFlareEmitter_ = std::make_unique<ParticleEmitter>(
+      flare, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
+      Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f,
+      0.6f);
+  deathFlareEmitter_->SetBaseScale({0.8f, 0.8f, 0.8f});
+  deathFlareEmitter_->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
+  deathFlareEmitter_->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
+
+  // 3. リング衝撃波
+  deathRingEmitter_ = std::make_unique<ParticleEmitter>(
+      ring, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
+  deathRingEmitter_->SetBaseScale({0.1f, 0.1f, 0.1f});
+  deathRingEmitter_->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
+  deathRingEmitter_->SetScaleVelocity({80.0f, 80.0f, 80.0f});
 }

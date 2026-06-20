@@ -24,6 +24,11 @@ public:
   /// </summary>
   void Update();
 
+  /// <summary>
+  /// カメラを揺らす
+  /// </summary>
+  void Shake(float intensity, float duration);
+
   // --- ICamera インターフェースの実装 ---
   const Matrix4x4& GetViewMatrix() const override { return viewMatrix_; }
   const Matrix4x4& GetProjectionMatrix() const override { return projectionMatrix_; }
@@ -71,5 +76,10 @@ private:
   float speed_ = 0.5f; // 進行スピード
   bool isFinished_ = false;
   bool isAutoMove_ = true; // 自動で前進するかどうか
+
+  // 画面揺れ用
+  float shakeIntensity_ = 0.0f;
+  float shakeDuration_ = 0.0f;
+  float shakeTimer_ = 0.0f;
 
 };

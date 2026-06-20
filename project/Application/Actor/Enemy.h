@@ -1,12 +1,15 @@
 #pragma once
 #include "Framework/BaseActor.h"
 #include <memory>
+#include <functional>
 #include "Math/Vector4.h"
 #include "Math/Vector3.h"
 
 class Object3d;
 class SphereCollider;
 class ICamera;
+class IParticleEmitter;
+class ParticleEmitter;
 
 enum class MoveType {
   Straight,
@@ -41,6 +44,12 @@ public:
   // ダメージを受ける処理
   void TakeDamage(int damage);
 
+  // ヒットエフェクト用エミッターのセッター
+  void SetParticleEmitters(IParticleEmitter* core, IParticleEmitter* flare, IParticleEmitter* ring);
+
+  // 撃破時のコールバック設定
+  void SetOnDestroyedCallback(std::function<void()> cb) { onDestroyedCallback_ = cb; }
+
 private:
   std::unique_ptr<Object3d> model_;
   std::unique_ptr<SphereCollider> collider_;
@@ -57,4 +66,10 @@ private:
   // --- 演出用パラメータ ---
   int hitFlashTimer_ = 0;  // 被弾時の点滅タイマー
   Vector4 baseColor_ = {1.0f, 1.0f, 1.0f, 1.0f}; // 基本色
+
+  std::unique_ptr<ParticleEmitter> deathCoreEmitter_;
+  std::unique_ptr<ParticleEmitter> deathFlareEmitter_;
+  std::unique_ptr<ParticleEmitter> deathRingEmitter_;
+
+  std::function<void()> onDestroyedCallback_ = nullptr;
 };

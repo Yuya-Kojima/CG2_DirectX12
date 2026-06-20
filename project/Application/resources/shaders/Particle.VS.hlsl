@@ -14,11 +14,6 @@ struct Particle {
     float32_t padding3;
 };
 
-struct PerView {
-    float32_t4x4 viewProjection;
-    float32_t4x4 billboardMatrix;
-};
-
 StructuredBuffer<Particle> gParticles : register(t0);
 ConstantBuffer<PerView> gPerView : register(b0);
 ConstantBuffer<Material> gMaterial : register(b1);

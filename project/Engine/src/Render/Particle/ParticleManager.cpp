@@ -112,9 +112,9 @@ void ParticleManager::CreateRootSignature() {
   rootParameters[2].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRangeParticle); // Tableで利用する数
 
-  // VS用のPerView(CBV)
+  // VSとPS用のPerView(CBV)
   rootParameters[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-  rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+  rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
   rootParameters[3].Descriptor.ShaderRegister = 0; // レジスタ番号b0
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};

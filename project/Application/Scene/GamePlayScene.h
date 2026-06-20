@@ -13,6 +13,8 @@ class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
 class PostProcess;
+class BillboardParticleEmitter;
+class MeshParticleEmitter;
 
 #include "Render/SkyBox/SkyBox.h"
 #include "Camera/RailCamera.h"
@@ -78,6 +80,16 @@ private: // メンバ変数(ゲーム用)
 
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
+
+  // 全体エフェクト（ポストプロセス・カメラシェイク用）のタイマー
+  float hitEffectTimer_ = 0.0f;
+  Vector3 lastDestroyedEnemyPos_ = {0.0f, 0.0f, 0.0f};
+
+  // ヒットエフェクト用パーティクル（敵撃破時など）
+  // ヒットエフェクト用のパーティクルグループ群
+  std::unique_ptr<BillboardParticleEmitter> hitCoreParticleGroup_ = nullptr;
+  std::unique_ptr<BillboardParticleEmitter> hitFlareParticleGroup_ = nullptr;
+  std::unique_ptr<BillboardParticleEmitter> hitRingParticleGroup_ = nullptr;
 
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {

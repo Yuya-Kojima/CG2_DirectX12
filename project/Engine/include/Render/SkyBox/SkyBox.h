@@ -33,6 +33,7 @@ public:
   void SetTranslation(const Vector3 &translate) {
     transform_.translate = translate;
   }
+  void SetColor(const Vector4 &color) { materialData_->color = color; }
 
   Vector3 GetScale() const { return transform_.scale; }
   Vector3 GetRotation() const { return transform_.rotate; }

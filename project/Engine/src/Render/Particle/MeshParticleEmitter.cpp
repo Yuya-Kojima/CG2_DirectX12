@@ -2,6 +2,7 @@
 #include "Particle/ParticleManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Primitive/Ring.h"
+#include "Render/Primitive/Sphere.h"
 #include "Render/Primitive/Cylinder.h"
 #include <cstring>
 
@@ -19,6 +20,15 @@ void MeshParticleEmitter::InitializeAsRing(const std::string& textureFilePath,
     Ring ring;
     ring.Build(divide, outerRadius, innerRadius);
     CreateVertexDataFromVertices(ring.GetVertices());
+}
+
+void MeshParticleEmitter::InitializeAsSphere(const std::string& textureFilePath, uint32_t divide, float radius) {
+    BaseInitialize(textureFilePath);
+    materialData_->isBillboard = 0;
+
+    Sphere sphere;
+    sphere.Build(divide, radius);
+    CreateVertexDataFromVertices(sphere.GetVertices());
 }
 
 void MeshParticleEmitter::InitializeAsCylinder(const std::string& textureFilePath, 
@@ -90,5 +100,7 @@ void MeshParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4x4& p
     auto pm = ParticleManager::GetInstance();
     if (pm->GetPerViewData()) {
         pm->GetPerViewData()->viewProjection = Multiply(viewMatrix, projectionMatrix);
+        Matrix4x4 cameraMatrix = Inverse(viewMatrix);
+        pm->GetPerViewData()->cameraPosition = {cameraMatrix.m[3][0], cameraMatrix.m[3][1], cameraMatrix.m[3][2]};
     }
 }

@@ -71,6 +71,7 @@ void IParticleEmitter::CreateMaterialResource() {
     materialData_->color = { 1.0f, 1.0f, 1.0f, 1.0f };
     materialData_->enableLighting = 0;
     materialData_->isBillboard = 1; // デフォルトはビルボード
+    materialData_->isRingMode = 0;
     materialData_->uvTransform = MakeIdentity4x4();
 }
 

@@ -10,12 +10,15 @@
 #include "Object3d/Object3d.h"
 #include "Particle/Particle.h"
 #include "Particle/ParticleEmitter.h"
+#include "Render/Particle/BillboardParticleEmitter.h"
+#include "Render/Particle/MeshParticleEmitter.h"
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
+#include "Math/MathUtil.h"
 
 #include "../Editor/CommandManager.h"
 #include "Collision/CollisionManager.h"
@@ -126,12 +129,15 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
+  hitCoreParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  hitCoreParticleGroup_->Initialize("resources/circle.png");
+  hitFlareParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  hitFlareParticleGroup_->Initialize("resources/circle.png");
+  hitRingParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  hitRingParticleGroup_->Initialize("resources/circle.png");
+  hitRingParticleGroup_->SetIsRingMode(true);
 
-  // デバッグカメラ
-  debugCamera_ = std::make_unique<DebugCamera>();
-  debugCamera_->Initialize({0.0f, 10.0f, -30.0f});
-
-  // レールカメラの初期化（真っ直ぐ奥へ進むだけの自然なレールに変更）
+  // デバッグカメラの初期化（開発用の自由カメラ）真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {{0.0f, 4.0f, -10.0f}, {0.0f, 4.0f, 40.0f},
                 {0.0f, 4.0f, 90.0f},  {0.0f, 4.0f, 140.0f},
                 {0.0f, 4.0f, 190.0f}, {0.0f, 4.0f, 240.0f}};
@@ -160,6 +166,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   skybox_->Initialize(engine_->GetSkyboxRenderer());
   skybox_->SetTexture("resources/Skybox/Skybox.dds");
   skybox_->SetScale({100.0f, 100.0f, 100.0f});
+  skybox_->SetColor({0.6f,0.6f,0.6f,1.0f});
 
   //===========================
   // プレイヤーの初期化
@@ -309,8 +316,55 @@ void GamePlayScene::Update() {
   }
 
   // ポストエフェクトの更新
-  //=======================
+  if (postProcess_) {
+    if (hitEffectTimer_ > 0.0f) {
+      if (shouldUpdateLogic) {
+        hitEffectTimer_ -= 1.0f / 60.0f;
+      }
+      float t = hitEffectTimer_ / 0.5f; // 1.0 -> 0.0に減衰
+      
+      // しきい値(Threshold)を極端に上げる(例:10.0f)ことで、SkyboxのHDR的な白さも無視し、
+      // パーティクルが加算合成で重なりまくった「爆発のコア」だけを強烈に光らせる
+      postProcess_->SetBloomIntensity(1.0f + t * 2.5f); // 4.0から2.5に少しマイルド化
+      postProcess_->SetBloomThreshold(10.0f); 
+      postProcess_->SetUseBloom(true);
 
+      // ショックウェーブ（空間の歪み）の適用
+      postProcess_->SetPostEffectType(10); // 10: Shockwave
+      
+      // 敵のワールド座標をスクリーン(UV)座標に変換する
+      Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
+      Vector3 pos = lastDestroyedEnemyPos_;
+      float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] + pos.z * viewProj.m[2][3] + viewProj.m[3][3];
+      Vector3 ndcPos = {
+          (pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] + pos.z * viewProj.m[2][0] + viewProj.m[3][0]) / w,
+          (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] + pos.z * viewProj.m[2][1] + viewProj.m[3][1]) / w,
+          (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] + pos.z * viewProj.m[2][2] + viewProj.m[3][2]) / w
+      };
+      
+      // NDCをUVに変換
+      float uvX = (ndcPos.x + 1.0f) * 0.5f;
+      float uvY = (1.0f - ndcPos.y) * 0.5f;
+      
+      postProcess_->SetShockwaveCenter(uvX, uvY);
+      // 広がり：0.0 から 0.8 へ拡大 (t は 1.0->0.0)
+      postProcess_->SetShockwaveRadius((1.0f - t) * 0.8f);
+      // 波紋の太さ：0.05 から 0.2 へ太くなる
+      float thickness = 0.05f * t + 0.2f * (1.0f - t);
+      postProcess_->SetShockwaveThickness(thickness);
+      // 歪みの強さ：最初は強く、徐々に消える
+      postProcess_->SetShockwaveWeight(t);
+      postProcess_->SetShockwaveDistortion(0.05f);
+    } else {
+      postProcess_->SetUseBloom(false);
+      postProcess_->SetBloomIntensity(1.0f);
+      postProcess_->SetBloomThreshold(0.8f); // デフォルト値に戻す
+      
+      // ポストエフェクトを通常に戻す
+      postProcess_->SetPostEffectType(0);
+      postProcess_->SetShockwaveWeight(0.0f);
+    }
+  }
   //=======================
   // カメラの更新
   //=======================
@@ -360,13 +414,27 @@ void GamePlayScene::Update() {
                                           cameraForward.y * ev.spawnOffset.z,
                                           cameraForward.z * ev.spawnOffset.z};
 
+          // 敵の生成
           auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(
               ev.prefabName,
               Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
+          // パーティクルエミッターを渡す
+          newEnemy->SetParticleEmitters(hitCoreParticleGroup_.get(), hitFlareParticleGroup_.get(), hitRingParticleGroup_.get());
+
           // 旧式の進行方向（フォールバック用）
           newEnemy->SetMoveDirection(
               {-cameraForward.x, -cameraForward.y, -cameraForward.z});
+
+          // 撃破時の全体エフェクト演出コールバックを登録
+          Enemy* enemyPtr = newEnemy.get();
+          newEnemy->SetOnDestroyedCallback([this, enemyPtr]() {
+            hitEffectTimer_ = 0.5f; // 0.5秒のフラッシュ・歪み演出
+            if (railCamera_) {
+              railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
+            }
+            lastDestroyedEnemyPos_ = enemyPtr->GetTransform().translate;
+          });
 
           // カメラとオフセット、MoveTypeをセット
           newEnemy->SetCamera(railCamera_.get());
@@ -1100,6 +1168,19 @@ void GamePlayScene::Draw3D() {
 
   engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
 #endif
+
+  // パーティクルの更新と発生（ルートシグネチャが変わるため、3Dモデル描画後に）
+  ParticleManager::GetInstance()->Update();
+  if (activeCamera) {
+    hitCoreParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    hitFlareParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    hitRingParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+  }
+  ParticleManager::GetInstance()->Emit();
+
+  hitCoreParticleGroup_->Draw();
+  hitFlareParticleGroup_->Draw();
+  hitRingParticleGroup_->Draw();
 
   engine_->End3D();
 }

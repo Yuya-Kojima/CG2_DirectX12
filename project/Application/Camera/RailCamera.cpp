@@ -61,6 +61,23 @@ void RailCamera::Update() {
   float xzLen = std::sqrt(forward.x * forward.x + forward.z * forward.z);
   transform_.rotate.x = std::atan2(-forward.y, xzLen) + 0.1f; // 少し下を向く（俯瞰）
 
+  // カメラシェイクの適用
+  if (shakeTimer_ > 0.0f) {
+    float power = shakeIntensity_ * (shakeTimer_ / shakeDuration_);
+    float rx = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * power;
+    float ry = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * power;
+    float rz = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * power;
+    transform_.translate.x += rx;
+    transform_.translate.y += ry;
+    transform_.translate.z += rz;
+
+    shakeTimer_ -= 1.0f / 60.0f;
+    if (shakeTimer_ <= 0.0f) {
+      shakeTimer_ = 0.0f;
+      shakeIntensity_ = 0.0f;
+    }
+  }
+
   // カメラ行列の更新
   worldMatrix_ = MakeAffineMatrix(transform_.scale, transform_.rotate, transform_.translate);
   viewMatrix_ = Inverse(worldMatrix_);
@@ -92,4 +109,10 @@ Vector3 RailCamera::CalcPosition(float t) const {
   const Vector3& p3 = waypoints_[idx3];
 
   return CatmullRom(p0, p1, p2, p3, localT);
+}
+
+void RailCamera::Shake(float intensity, float duration) {
+  shakeIntensity_ = intensity;
+  shakeDuration_ = duration;
+  shakeTimer_ = duration;
 }

@@ -48,6 +48,12 @@ cbuffer PostProcessData : register(b0) {
 	float32_t dofFocusDistance;
 	float32_t dofFocusRange;
 	float32_t padding8;
+	float32_t shockwaveWeight;
+	float32_t shockwaveDistortion;
+	float32_t shockwaveRadius;
+	float32_t shockwaveThickness;
+	float32_t2 shockwaveCenter;
+	float32_t2 padding9;
 };
 
 static const float32_t PI = 3.14159265f;
@@ -442,6 +448,36 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
 		output.color.rgb = rgb;
 		output.color.a = textureColor.a;
+	} else if (postEffectType == 10) { // Shockwave (空間の屈折歪み)
+		float32_t2 uv = input.texcoord;
+		
+		// 画面のアスペクト比補正（歪みが楕円になるのを防ぐ）
+		// ここではアスペクト比を16:9(1.777)と仮定して簡易的に補正するか、そのまま計算する。
+		// 本格的にはwidth/heightを渡すべきだが、今回はシンプルにdirを計算する。
+		uint32_t width, height;
+		gTexture.GetDimensions(width, height);
+		float32_t aspect = (float32_t)width / (float32_t)height;
+		
+		float32_t2 dir = uv - shockwaveCenter;
+		dir.x *= aspect; // アスペクト比補正して距離を測る
+		float32_t dist = length(dir);
+		dir.x /= aspect; // 実際のUVのズレには戻した方向を使う
+		
+		float32_t diff = abs(dist - shockwaveRadius);
+		
+		if (diff < shockwaveThickness) {
+			// 中心に近いほど歪みが大きい (0.0 ~ 1.0)
+			float32_t force = 1.0f - (diff / shockwaveThickness);
+			
+			// サイン波で滑らかな屈折レンズのような歪みを作る
+			float32_t distortion = sin(force * PI) * shockwaveDistortion * shockwaveWeight;
+			
+			// 正規化した方向に歪み量をかける
+			uv += normalize(dir) * distortion;
+		}
+		
+		output.color.rgb = gTexture.Sample(gSampler, uv).rgb;
+		output.color.a = 1.0f;
 	} else {
 		output.color = gTexture.Sample(gSampler, input.texcoord);
 	}

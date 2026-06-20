@@ -18,7 +18,7 @@ void PostProcess::Initialize(Dx12Core *dx12Core) {
 
   D3D12_RESOURCE_DESC resourceDesc{};
   resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-  resourceDesc.Width = 256; // 256バイトアラインメント
+  resourceDesc.Width = 512; // 256バイトアラインメントの2倍(512バイト)
   resourceDesc.Height = 1;
   resourceDesc.DepthOrArraySize = 1;
   resourceDesc.MipLevels = 1;
@@ -277,6 +277,12 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     float dofFocusDistance;
     float dofFocusRange;
     float padding8;
+    float shockwaveWeight;
+    float shockwaveDistortion;
+    float shockwaveRadius;
+    float shockwaveThickness;
+    float shockwaveCenter[2];
+    float padding9[2];
   };
   PostProcessData *data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void **>(&data));
@@ -325,6 +331,16 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->dofFocusDistance = dofFocusDistance_;
   data->dofFocusRange = dofFocusRange_;
   data->padding8 = 0.0f;
+
+  data->shockwaveWeight = shockwaveWeight_;
+  data->shockwaveDistortion = shockwaveDistortion_;
+  data->shockwaveRadius = shockwaveRadius_;
+  data->shockwaveThickness = shockwaveThickness_;
+  data->shockwaveCenter[0] = shockwaveCenter_[0];
+  data->shockwaveCenter[1] = shockwaveCenter_[1];
+  data->padding9[0] = 0.0f;
+  data->padding9[1] = 0.0f;
+
   constBuffer_->Unmap(0, nullptr);
 
   // パイプライン設定

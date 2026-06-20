@@ -65,8 +65,11 @@ private:
 
 	// PerView 用構造体とリソース
 	struct PerView {
-		Matrix4x4 viewProjection;
-		Matrix4x4 billboardMatrix;
+		Matrix4x4 viewProjection;  // 64 bytes
+		Matrix4x4 billboardMatrix; // 64 bytes
+		Vector3 cameraPosition;    // 12 bytes
+		float padding;             // 4 bytes
+		Vector4 padding2[7];       // 112 bytes (合計 256 bytes)
 	};
 	Microsoft::WRL::ComPtr<ID3D12Resource> perViewResource_ = nullptr;
 	PerView* perViewData_ = nullptr;
