@@ -135,49 +135,10 @@ void Enemy::TakeDamage(int damage) {
 
   if (hp_ <= 0) {
     OutputDebugStringA("Enemy Destroyed!\n");
-    if (deathCoreEmitter_) {
-      deathCoreEmitter_->SetCenter(transform_.translate);
-      deathCoreEmitter_->Emit();
-    }
-    if (deathFlareEmitter_) {
-      deathFlareEmitter_->SetCenter(transform_.translate);
-      deathFlareEmitter_->Emit();
-    }
-    if (deathRingEmitter_) {
-      deathRingEmitter_->SetCenter(transform_.translate);
-      deathRingEmitter_->Emit();
-    }
+    
     if (onDestroyedCallback_) {
       onDestroyedCallback_();
     }
     Destroy();
   }
-}
-
-void Enemy::SetParticleEmitters(IParticleEmitter *core, IParticleEmitter *flare,
-                                IParticleEmitter *ring) {
-  // 1. コア
-  deathCoreEmitter_ = std::make_unique<ParticleEmitter>(
-      core, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
-  deathCoreEmitter_->SetBaseScale({20.0f, 20.0f, 20.0f});
-  deathCoreEmitter_->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
-  deathCoreEmitter_->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
-
-  // 2. フレア
-  deathFlareEmitter_ = std::make_unique<ParticleEmitter>(
-      flare, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
-      Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f,
-      0.6f);
-  deathFlareEmitter_->SetBaseScale({0.8f, 0.8f, 0.8f});
-  deathFlareEmitter_->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
-  deathFlareEmitter_->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
-
-  // 3. リング衝撃波
-  deathRingEmitter_ = std::make_unique<ParticleEmitter>(
-      ring, Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
-  deathRingEmitter_->SetBaseScale({0.1f, 0.1f, 0.1f});
-  deathRingEmitter_->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
-  deathRingEmitter_->SetScaleVelocity({80.0f, 80.0f, 80.0f});
 }

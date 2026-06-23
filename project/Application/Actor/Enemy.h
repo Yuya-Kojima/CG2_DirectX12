@@ -44,9 +44,6 @@ public:
   // ダメージを受ける処理
   void TakeDamage(int damage);
 
-  // ヒットエフェクト用エミッターのセッター
-  void SetParticleEmitters(IParticleEmitter* core, IParticleEmitter* flare, IParticleEmitter* ring);
-
   // 撃破時のコールバック設定
   void SetOnDestroyedCallback(std::function<void()> cb) { onDestroyedCallback_ = cb; }
 
@@ -66,10 +63,6 @@ private:
   // --- 演出用パラメータ ---
   int hitFlashTimer_ = 0;  // 被弾時の点滅タイマー
   Vector4 baseColor_ = {1.0f, 1.0f, 1.0f, 1.0f}; // 基本色
-
-  std::unique_ptr<ParticleEmitter> deathCoreEmitter_;
-  std::unique_ptr<ParticleEmitter> deathFlareEmitter_;
-  std::unique_ptr<ParticleEmitter> deathRingEmitter_;
 
   std::function<void()> onDestroyedCallback_ = nullptr;
 };

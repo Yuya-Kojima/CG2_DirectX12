@@ -3,6 +3,7 @@
 #include "Math/Matrix4x4.h"
 #include "Math/Vector3.h"
 #include <wrl.h>
+#include <vector>
 
 class SrvManager;
 
@@ -237,15 +238,14 @@ public:
   /// </summary>
   void SetHsvFilterValue(float value) { hsvFilterValue_ = value; }
 
-  // Shockwave (屈折歪み) パラメータ
-  void SetShockwaveWeight(float weight) { shockwaveWeight_ = weight; }
-  void SetShockwaveDistortion(float distortion) { shockwaveDistortion_ = distortion; }
-  void SetShockwaveRadius(float radius) { shockwaveRadius_ = radius; }
-  void SetShockwaveThickness(float thickness) { shockwaveThickness_ = thickness; }
-  void SetShockwaveCenter(float x, float y) {
-    shockwaveCenter_[0] = x;
-    shockwaveCenter_[1] = y;
-  }
+  struct ShockwaveParams {
+    float weight = 1.0f;
+    float distortion = 0.05f;
+    float radius = 0.0f;
+    float thickness = 0.1f;
+    float center[2] = {0.5f, 0.5f};
+  };
+  void SetShockwaves(const std::vector<ShockwaveParams>& shockwaves) { shockwaves_ = shockwaves; }
 
 private:
   Dx12Core *dx12Core_ = nullptr;
@@ -293,12 +293,16 @@ private:
     float dofFocusDistance;
     float dofFocusRange;
     float padding8;
-    float shockwaveWeight;
-    float shockwaveDistortion;
-    float shockwaveRadius;
-    float shockwaveThickness;
-    float shockwaveCenter[2];
-    float padding9[2];
+    int32_t activeShockwaveCount;
+    float padding9[3]; // 16バイトアライメント調整用
+    struct ShockwaveData {
+      float weight;
+      float distortion;
+      float radius;
+      float thickness;
+      float center[2];
+      float padding[2];
+    } shockwaves[5];
   };
 
   PostProcessData* mappedData_ = nullptr;
@@ -345,11 +349,7 @@ private:
   float dofFocusDistance_ = 10.0f;
   float dofFocusRange_ = 5.0f;
 
-  float shockwaveWeight_ = 1.0f;
-  float shockwaveDistortion_ = 0.05f;
-  float shockwaveRadius_ = 0.0f;
-  float shockwaveThickness_ = 0.1f;
-  float shockwaveCenter_[2] = {0.5f, 0.5f};
+  std::vector<ShockwaveParams> shockwaves_;
 
   Matrix4x4 projectionInverse_;
 

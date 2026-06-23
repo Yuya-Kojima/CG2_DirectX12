@@ -81,7 +81,7 @@ class CmdModifySpawnEvent : public ICommand {
 public:
   CmdModifySpawnEvent(GamePlayScene *scene, int idx, const SpawnEvent &oldEv,
                       const SpawnEvent &newEv)
-      : scene_(scene), index_(idx), oldEvent_(oldEv), newEvent_(newEvent_) {}
+      : scene_(scene), index_(idx), oldEvent_(oldEv), newEvent_(newEv) {}
   void Execute() override {
     scene_->GetSpawnEvents()[index_] = newEvent_;
     scene_->SelectSpawnEvent(index_);
@@ -94,10 +94,12 @@ public:
 
 // ======================================
 #include "../../externals/nlohmann/json.hpp"
+#ifdef USE_IMGUI
 #include "ImGuizmo.h"
+#include <imgui.h>
+#endif
 #include <filesystem>
 #include <fstream>
-#include <imgui.h>
 #include <iomanip>
 #include <numbers>
 #include <string>
@@ -129,13 +131,39 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
-  hitCoreParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
-  hitCoreParticleGroup_->Initialize("resources/circle.png");
-  hitFlareParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
-  hitFlareParticleGroup_->Initialize("resources/circle.png");
-  hitRingParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
-  hitRingParticleGroup_->Initialize("resources/circle.png");
-  hitRingParticleGroup_->SetIsRingMode(true);
+  for (int i = 0; i < kMaxHitEffects; ++i) {
+    hitCoreParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitCoreParticleGroups_[i]->Initialize("resources/circle.png");
+    hitFlareParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitFlareParticleGroups_[i]->Initialize("resources/circle.png");
+    hitRingParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitRingParticleGroups_[i]->Initialize("resources/circle.png");
+    hitRingParticleGroups_[i]->SetIsRingMode(true);
+
+    // 1. コア
+    deathCoreEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
+    deathCoreEmitters_[i]->SetBaseScale({20.0f, 20.0f, 20.0f});
+    deathCoreEmitters_[i]->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
+    deathCoreEmitters_[i]->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
+
+    // 2. フレア
+    deathFlareEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitFlareParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
+        Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f, 0.6f);
+    deathFlareEmitters_[i]->SetBaseScale({0.8f, 0.8f, 0.8f});
+    deathFlareEmitters_[i]->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
+    deathFlareEmitters_[i]->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
+
+    // 3. リング衝撃波
+    deathRingEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitRingParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
+    deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f});
+    deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
+    deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
+  }
 
   // デバッグカメラの初期化（開発用の自由カメラ）真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {{0.0f, 4.0f, -10.0f}, {0.0f, 4.0f, 40.0f},
@@ -317,44 +345,66 @@ void GamePlayScene::Update() {
 
   // ポストエフェクトの更新
   if (postProcess_) {
-    if (hitEffectTimer_ > 0.0f) {
+    if (!activeShockwaves_.empty()) {
       if (shouldUpdateLogic) {
-        hitEffectTimer_ -= 1.0f / 60.0f;
+        for (auto it = activeShockwaves_.begin(); it != activeShockwaves_.end(); ) {
+          it->timer -= 1.0f / 60.0f;
+          if (it->timer <= 0.0f) {
+            it = activeShockwaves_.erase(it);
+          } else {
+            ++it;
+          }
+        }
       }
-      float t = hitEffectTimer_ / 0.5f; // 1.0 -> 0.0に減衰
-      
-      // しきい値(Threshold)を極端に上げる(例:10.0f)ことで、SkyboxのHDR的な白さも無視し、
-      // パーティクルが加算合成で重なりまくった「爆発のコア」だけを強烈に光らせる
-      postProcess_->SetBloomIntensity(1.0f + t * 2.5f); // 4.0から2.5に少しマイルド化
-      postProcess_->SetBloomThreshold(10.0f); 
-      postProcess_->SetUseBloom(true);
 
-      // ショックウェーブ（空間の歪み）の適用
-      postProcess_->SetPostEffectType(10); // 10: Shockwave
-      
-      // 敵のワールド座標をスクリーン(UV)座標に変換する
-      Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
-      Vector3 pos = lastDestroyedEnemyPos_;
-      float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] + pos.z * viewProj.m[2][3] + viewProj.m[3][3];
-      Vector3 ndcPos = {
-          (pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] + pos.z * viewProj.m[2][0] + viewProj.m[3][0]) / w,
-          (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] + pos.z * viewProj.m[2][1] + viewProj.m[3][1]) / w,
-          (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] + pos.z * viewProj.m[2][2] + viewProj.m[3][2]) / w
-      };
-      
-      // NDCをUVに変換
-      float uvX = (ndcPos.x + 1.0f) * 0.5f;
-      float uvY = (1.0f - ndcPos.y) * 0.5f;
-      
-      postProcess_->SetShockwaveCenter(uvX, uvY);
-      // 広がり：0.0 から 0.8 へ拡大 (t は 1.0->0.0)
-      postProcess_->SetShockwaveRadius((1.0f - t) * 0.8f);
-      // 波紋の太さ：0.05 から 0.2 へ太くなる
-      float thickness = 0.05f * t + 0.2f * (1.0f - t);
-      postProcess_->SetShockwaveThickness(thickness);
-      // 歪みの強さ：最初は強く、徐々に消える
-      postProcess_->SetShockwaveWeight(t);
-      postProcess_->SetShockwaveDistortion(0.05f);
+      if (!activeShockwaves_.empty()) {
+        postProcess_->SetPostEffectType(10); // 10: Shockwave
+        
+        // ブルームの最も強いタイマーを基準にする（一番新しいもの）
+        float maxT = 0.0f;
+        for (const auto& sw : activeShockwaves_) {
+          float t = sw.timer / 0.5f;
+          if (t > maxT) maxT = t;
+        }
+        
+        postProcess_->SetBloomIntensity(1.0f + maxT * 2.5f);
+        postProcess_->SetBloomThreshold(10.0f);
+        postProcess_->SetUseBloom(true);
+
+        std::vector<PostProcess::ShockwaveParams> shockwaveParams;
+        Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
+
+        for (const auto& sw : activeShockwaves_) {
+          Vector3 pos = sw.worldPos;
+          float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] + pos.z * viewProj.m[2][3] + viewProj.m[3][3];
+          Vector3 ndcPos = {
+              (pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] + pos.z * viewProj.m[2][0] + viewProj.m[3][0]) / w,
+              (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] + pos.z * viewProj.m[2][1] + viewProj.m[3][1]) / w,
+              (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] + pos.z * viewProj.m[2][2] + viewProj.m[3][2]) / w
+          };
+          
+          float uvX = (ndcPos.x + 1.0f) * 0.5f;
+          float uvY = (1.0f - ndcPos.y) * 0.5f;
+          float t = sw.timer / 0.5f;
+          
+          PostProcess::ShockwaveParams param;
+          param.center[0] = uvX;
+          param.center[1] = uvY;
+          param.radius = (1.0f - t) * 0.8f;
+          param.thickness = 0.05f * t + 0.2f * (1.0f - t);
+          param.weight = t;
+          param.distortion = 0.05f;
+          
+          shockwaveParams.push_back(param);
+        }
+        postProcess_->SetShockwaves(shockwaveParams);
+      } else {
+        postProcess_->SetUseBloom(false);
+        postProcess_->SetBloomIntensity(1.0f);
+        postProcess_->SetBloomThreshold(0.8f);
+        postProcess_->SetPostEffectType(0);
+        postProcess_->SetShockwaves({});
+      }
     } else {
       postProcess_->SetUseBloom(false);
       postProcess_->SetBloomIntensity(1.0f);
@@ -362,7 +412,7 @@ void GamePlayScene::Update() {
       
       // ポストエフェクトを通常に戻す
       postProcess_->SetPostEffectType(0);
-      postProcess_->SetShockwaveWeight(0.0f);
+      postProcess_->SetShockwaves({});
     }
   }
   //=======================
@@ -419,22 +469,31 @@ void GamePlayScene::Update() {
               ev.prefabName,
               Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
-          // パーティクルエミッターを渡す
-          newEnemy->SetParticleEmitters(hitCoreParticleGroup_.get(), hitFlareParticleGroup_.get(), hitRingParticleGroup_.get());
+          // 撃破時の全体エフェクト演出コールバックを登録
+          Enemy* enemyPtr = newEnemy.get();
+          newEnemy->SetOnDestroyedCallback([this, enemyPtr]() {
+            if (activeShockwaves_.size() < 5) { // 最大5個まで
+              activeShockwaves_.push_back({0.5f, enemyPtr->GetTransform().translate});
+            }
+            if (railCamera_) {
+              railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
+            }
+            
+            // パーティクル発生
+            int i = nextHitEffectIndex_;
+            deathCoreEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+            deathCoreEmitters_[i]->Emit();
+            deathFlareEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+            deathFlareEmitters_[i]->Emit();
+            deathRingEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+            deathRingEmitters_[i]->Emit();
+            
+            nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+          });
 
           // 旧式の進行方向（フォールバック用）
           newEnemy->SetMoveDirection(
               {-cameraForward.x, -cameraForward.y, -cameraForward.z});
-
-          // 撃破時の全体エフェクト演出コールバックを登録
-          Enemy* enemyPtr = newEnemy.get();
-          newEnemy->SetOnDestroyedCallback([this, enemyPtr]() {
-            hitEffectTimer_ = 0.5f; // 0.5秒のフラッシュ・歪み演出
-            if (railCamera_) {
-              railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
-            }
-            lastDestroyedEnemyPos_ = enemyPtr->GetTransform().translate;
-          });
 
           // カメラとオフセット、MoveTypeをセット
           newEnemy->SetCamera(railCamera_.get());
@@ -1151,16 +1210,14 @@ void GamePlayScene::Draw3D() {
   // アクター群（弾など）の描画
   ActorManager::GetInstance()->Draw3D();
 
-#ifdef USE_IMGUI
   // デバッグ用の線を描画
-  const ICamera *activeCamera = nullptr;
+  const ICamera *activeCamera = GetActiveCamera();
+  if (activeCamera == nullptr) {
+    activeCamera = railCamera_.get();
+  }
+#ifdef USE_IMGUI
   if (useDebugCamera_) {
     activeCamera = debugCamera_->GetCamera();
-  } else {
-    activeCamera = GetActiveCamera();
-    if (activeCamera == nullptr) {
-      activeCamera = railCamera_.get();
-    }
   }
 
   // デバッグ描画
@@ -1172,15 +1229,19 @@ void GamePlayScene::Draw3D() {
   // パーティクルの更新と発生（ルートシグネチャが変わるため、3Dモデル描画後に）
   ParticleManager::GetInstance()->Update();
   if (activeCamera) {
-    hitCoreParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-    hitFlareParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-    hitRingParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    for (int i = 0; i < kMaxHitEffects; ++i) {
+      hitCoreParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+      hitFlareParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+      hitRingParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    }
   }
   ParticleManager::GetInstance()->Emit();
 
-  hitCoreParticleGroup_->Draw();
-  hitFlareParticleGroup_->Draw();
-  hitRingParticleGroup_->Draw();
+  for (int i = 0; i < kMaxHitEffects; ++i) {
+    hitCoreParticleGroups_[i]->Draw();
+    hitFlareParticleGroups_[i]->Draw();
+    hitRingParticleGroups_[i]->Draw();
+  }
 
   engine_->End3D();
 }
