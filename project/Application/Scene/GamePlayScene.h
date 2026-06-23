@@ -13,6 +13,8 @@ class DebugCamera;
 class InputKeyState;
 class ParticleEmitter;
 class PostProcess;
+class BillboardParticleEmitter;
+class MeshParticleEmitter;
 
 #include "Render/SkyBox/SkyBox.h"
 #include "Camera/RailCamera.h"
@@ -78,6 +80,24 @@ private: // メンバ変数(ゲーム用)
 
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
+
+  // 全体エフェクト（ポストプロセス・カメラシェイク用）のリスト管理
+  struct ActiveShockwave {
+    float timer;
+    Vector3 worldPos;
+  };
+  std::vector<ActiveShockwave> activeShockwaves_;
+
+  // ヒットエフェクト用パーティクル（敵撃破時など）最大10個まで同時発生可能にする
+  static const int kMaxHitEffects = 10;
+  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitCoreParticleGroups_;
+  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitFlareParticleGroups_;
+  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitRingParticleGroups_;
+  
+  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathCoreEmitters_;
+  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathFlareEmitters_;
+  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathRingEmitters_;
+  int nextHitEffectIndex_ = 0;
 
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {

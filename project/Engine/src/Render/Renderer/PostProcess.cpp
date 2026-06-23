@@ -18,7 +18,7 @@ void PostProcess::Initialize(Dx12Core *dx12Core) {
 
   D3D12_RESOURCE_DESC resourceDesc{};
   resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-  resourceDesc.Width = 256; // 256バイトアラインメント
+  resourceDesc.Width = 512; // 256バイトアラインメントの2倍(512バイト)
   resourceDesc.Height = 1;
   resourceDesc.DepthOrArraySize = 1;
   resourceDesc.MipLevels = 1;
@@ -126,18 +126,18 @@ void PostProcess::CreateRootSignature() {
   // Sampler
   D3D12_STATIC_SAMPLER_DESC staticSamplers[2] = {};
   staticSamplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-  staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-  staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-  staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  staticSamplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  staticSamplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
   staticSamplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
   staticSamplers[0].MaxLOD = D3D12_FLOAT32_MAX;
   staticSamplers[0].ShaderRegister = 0; // s0
   staticSamplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
   staticSamplers[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-  staticSamplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-  staticSamplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-  staticSamplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+  staticSamplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  staticSamplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+  staticSamplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
   staticSamplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
   staticSamplers[1].MaxLOD = D3D12_FLOAT32_MAX;
   staticSamplers[1].ShaderRegister = 1; // s1
@@ -277,6 +277,16 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     float dofFocusDistance;
     float dofFocusRange;
     float padding8;
+    int32_t activeShockwaveCount;
+    float padding9[3]; // 16バイトアライメント調整用
+    struct ShockwaveData {
+      float weight;
+      float distortion;
+      float radius;
+      float thickness;
+      float center[2];
+      float padding[2];
+    } shockwaves[5];
   };
   PostProcessData *data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void **>(&data));
@@ -325,6 +335,31 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->dofFocusDistance = dofFocusDistance_;
   data->dofFocusRange = dofFocusRange_;
   data->padding8 = 0.0f;
+
+  data->activeShockwaveCount = static_cast<int32_t>(shockwaves_.size());
+  data->padding9[0] = 0.0f;
+  data->padding9[1] = 0.0f;
+  data->padding9[2] = 0.0f;
+  for (size_t i = 0; i < 5; ++i) {
+    if (i < shockwaves_.size()) {
+      data->shockwaves[i].weight = shockwaves_[i].weight;
+      data->shockwaves[i].distortion = shockwaves_[i].distortion;
+      data->shockwaves[i].radius = shockwaves_[i].radius;
+      data->shockwaves[i].thickness = shockwaves_[i].thickness;
+      data->shockwaves[i].center[0] = shockwaves_[i].center[0];
+      data->shockwaves[i].center[1] = shockwaves_[i].center[1];
+    } else {
+      data->shockwaves[i].weight = 0.0f;
+      data->shockwaves[i].distortion = 0.0f;
+      data->shockwaves[i].radius = 0.0f;
+      data->shockwaves[i].thickness = 0.0f;
+      data->shockwaves[i].center[0] = 0.0f;
+      data->shockwaves[i].center[1] = 0.0f;
+    }
+    data->shockwaves[i].padding[0] = 0.0f;
+    data->shockwaves[i].padding[1] = 0.0f;
+  }
+
   constBuffer_->Unmap(0, nullptr);
 
   // パイプライン設定

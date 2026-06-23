@@ -25,6 +25,14 @@ public:
         uint32_t divide, float outerRadius, float innerRadius);
         
     /// <summary>
+    /// 球体(Sphere)モデルとして初期化します
+    /// </summary>
+    /// <param name="textureFilePath">テクスチャのファイルパス</param>
+    /// <param name="divide">分割数（頂点の滑らかさ）</param>
+    /// <param name="radius">半径</param>
+    void InitializeAsSphere(const std::string& textureFilePath, uint32_t divide, float radius);
+        
+    /// <summary>
     /// 円柱(Cylinder)モデルとして初期化します
     /// </summary>
     /// <param name="textureFilePath">テクスチャのファイルパス</param>

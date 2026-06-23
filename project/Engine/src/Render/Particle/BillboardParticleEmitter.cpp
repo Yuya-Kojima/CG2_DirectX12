@@ -61,5 +61,6 @@ void BillboardParticleEmitter::Update(const Matrix4x4& viewMatrix, const Matrix4
     if (pm->GetPerViewData()) {
         pm->GetPerViewData()->viewProjection = Multiply(viewMatrix, projectionMatrix);
         pm->GetPerViewData()->billboardMatrix = billboardMatrix;
+        pm->GetPerViewData()->cameraPosition = {cameraMatrix.m[3][0], cameraMatrix.m[3][1], cameraMatrix.m[3][2]};
     }
 }

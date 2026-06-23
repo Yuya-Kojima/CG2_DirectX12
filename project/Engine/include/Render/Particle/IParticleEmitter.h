@@ -91,6 +91,7 @@ public:
     
     void SetUVTransform(const Matrix4x4& uvTransform) { materialData_->uvTransform = uvTransform; }
     void SetMaterialColor(const Vector4& color) { materialData_->color = color; }
+    void SetIsRingMode(bool isRing) { materialData_->isRingMode = isRing ? 1 : 0; }
 
     bool IsEmitting() const { return emitterData_->emit != 0; }
     ID3D12Resource* GetEmitterResource() const { return emitterResource_.Get(); }
@@ -145,7 +146,8 @@ protected:
         Vector4 color;
         int32_t enableLighting;
         int32_t isBillboard;
-        float padding[2];
+        int32_t isRingMode;
+        float padding;
         Matrix4x4 uvTransform;
     };
     Microsoft::WRL::ComPtr<ID3D12Resource> materialResource_;

@@ -1,7 +1,9 @@
 #pragma once
 #include "Core/Dx12Core.h"
 #include "Math/Matrix4x4.h"
+#include "Math/Vector3.h"
 #include <wrl.h>
+#include <vector>
 
 class SrvManager;
 
@@ -236,12 +238,74 @@ public:
   /// </summary>
   void SetHsvFilterValue(float value) { hsvFilterValue_ = value; }
 
+  struct ShockwaveParams {
+    float weight = 1.0f;
+    float distortion = 0.05f;
+    float radius = 0.0f;
+    float thickness = 0.1f;
+    float center[2] = {0.5f, 0.5f};
+  };
+  void SetShockwaves(const std::vector<ShockwaveParams>& shockwaves) { shockwaves_ = shockwaves; }
+
 private:
   Dx12Core *dx12Core_ = nullptr;
   int postEffectType_ = 0;
   int boxFilterK_ = 1;
   int gaussianFilterK_ = 1;
   float gaussianSigma_ = 4.0f;
+  struct PostProcessData {
+    int32_t postEffectType;
+    int32_t useGrayscale;
+    int32_t useVignette;
+    int32_t boxFilterK; 
+    Vector3 monotoneColor;
+    float vignetteScale;
+    float vignetteExponent;
+    int32_t gaussianFilterK;
+    float gaussianSigma;
+    float depthOutlineWeight;
+    float depthOutlineAttenuation;
+    float padding1;
+    float padding2;
+    float padding3;
+    Matrix4x4 projectionInverse;
+    float radialBlurCenter[2];
+    float radialBlurWidth;
+    int32_t radialBlurSamples;
+    float radialBlurInnerRadius;
+    float radialBlurOuterRadius;
+    float radialBlurAberration;
+    float padding4;
+    float dissolveThreshold;
+    float dissolveEdgeRange;
+    float padding5[2];
+    Vector3 dissolveEdgeColor;
+    float time;
+    float hsvFilterHue;
+    float hsvFilterSaturation;
+    float hsvFilterValue;
+    float padding6;
+    float bloomIntensity;
+    int32_t useBloom;
+    int32_t toneMappingType;
+    float exposure;
+    float motionBlurAlpha;
+    float dofFocusDistance;
+    float dofFocusRange;
+    float padding8;
+    int32_t activeShockwaveCount;
+    float padding9[3]; // 16バイトアライメント調整用
+    struct ShockwaveData {
+      float weight;
+      float distortion;
+      float radius;
+      float thickness;
+      float center[2];
+      float padding[2];
+    } shockwaves[5];
+  };
+
+  PostProcessData* mappedData_ = nullptr;
   bool useGrayscale_ = false;
   float monotoneColor_[3] = {1.0f, 1.0f, 1.0f};
 
@@ -284,6 +348,8 @@ private:
 
   float dofFocusDistance_ = 10.0f;
   float dofFocusRange_ = 5.0f;
+
+  std::vector<ShockwaveParams> shockwaves_;
 
   Matrix4x4 projectionInverse_;
 

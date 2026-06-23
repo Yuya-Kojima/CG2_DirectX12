@@ -48,6 +48,16 @@ cbuffer PostProcessData : register(b0) {
 	float32_t dofFocusDistance;
 	float32_t dofFocusRange;
 	float32_t padding8;
+	int32_t activeShockwaveCount;
+	float32_t3 padding9;
+	struct ShockwaveData {
+		float32_t weight;
+		float32_t distortion;
+		float32_t radius;
+		float32_t thickness;
+		float32_t2 center;
+		float32_t2 padding;
+	} shockwaves[5];
 };
 
 static const float32_t PI = 3.14159265f;
@@ -442,6 +452,35 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
 		output.color.rgb = rgb;
 		output.color.a = textureColor.a;
+	} else if (postEffectType == 10) { // Shockwave (空間の屈折歪み)
+		float32_t2 uv = input.texcoord;
+		float32_t2 totalDistortion = float32_t2(0.0f, 0.0f);
+		
+		uint32_t width, height;
+		gTexture.GetDimensions(width, height);
+		float32_t aspect = (float32_t)width / (float32_t)height;
+		
+		for (int i = 0; i < activeShockwaveCount; ++i) {
+			float32_t2 dir = input.texcoord - shockwaves[i].center;
+			dir.x *= aspect; 
+			float32_t dist = length(dir);
+			
+			if (dist > 0.0001f) {
+				dir.x /= aspect; // UV空間での方向に戻す
+				float32_t diff = abs(dist - shockwaves[i].radius);
+				
+				if (diff < shockwaves[i].thickness) {
+					float32_t force = 1.0f - (diff / shockwaves[i].thickness);
+					float32_t distortion = sin(force * PI) * shockwaves[i].distortion * shockwaves[i].weight;
+					totalDistortion += (dir / dist) * distortion;
+				}
+			}
+		}
+		
+		uv += totalDistortion;
+		
+		output.color.rgb = gTexture.Sample(gSampler, uv).rgb;
+		output.color.a = 1.0f;
 	} else {
 		output.color = gTexture.Sample(gSampler, input.texcoord);
 	}

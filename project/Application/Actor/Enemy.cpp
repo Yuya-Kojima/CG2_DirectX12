@@ -1,12 +1,13 @@
 #include "Actor/Enemy.h"
+#include "Camera/ICamera.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
-#include "Render/Object3d/Object3d.h"
-#include <Windows.h> // OutputDebugStringA用
-#include "Render/Particle/ParticleManager.h"
-#include "Render/Particle/IParticleEmitter.h"
-#include "Camera/ICamera.h"
 #include "Math/MathUtil.h"
+#include "Render/Object3d/Object3d.h"
+#include "Render/Particle/IParticleEmitter.h"
+#include "Render/Particle/ParticleEmitter.h"
+#include "Render/Particle/ParticleManager.h"
+#include <Windows.h> // OutputDebugStringA用
 #include <cmath>
 
 Enemy::Enemy() = default;
@@ -42,10 +43,14 @@ void Enemy::Update() {
   if (camera_) {
     Matrix4x4 viewMatrix = camera_->GetViewMatrix();
     Matrix4x4 cameraWorld = Inverse(viewMatrix);
-    Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
-    Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1], cameraWorld.m[0][2]};
-    Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1], cameraWorld.m[1][2]};
-    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
+    Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
+                         cameraWorld.m[3][2]};
+    Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
+                           cameraWorld.m[0][2]};
+    Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
+                        cameraWorld.m[1][2]};
+    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                             cameraWorld.m[2][2]};
 
     if (moveType_ != MoveType::Stationary) {
       float currentXOffset = spawnOffset_.x;
@@ -61,10 +66,16 @@ void Enemy::Update() {
         currentXOffset += std::sin(aliveTime_ * 5.0f) * 20.0f; // 左右に波打つ
       }
 
-      transform_.translate = cameraPos 
-        + Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset}
-        + Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset}
-        + Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
+      transform_.translate =
+          cameraPos +
+          Vector3{cameraRight.x * currentXOffset,
+                  cameraRight.y * currentXOffset,
+                  cameraRight.z * currentXOffset} +
+          Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset,
+                  cameraUp.z * currentYOffset} +
+          Vector3{cameraForward.x * currentZOffset,
+                  cameraForward.y * currentZOffset,
+                  cameraForward.z * currentZOffset};
     }
   } else {
     // カメラ情報がない場合のフォールバック
@@ -115,14 +126,19 @@ void Enemy::OnCollision(Collider *other) {
 }
 
 void Enemy::TakeDamage(int damage) {
-  if (isDead_) return;
-  
+  if (isDead_) {
+    return;
+  }
+
   hp_ -= damage;
   hitFlashTimer_ = 5; // 5フレーム赤く点滅
 
   if (hp_ <= 0) {
     OutputDebugStringA("Enemy Destroyed!\n");
-    // TODO: ここにド派手なパーティクル発生処理を追加する
+    
+    if (onDestroyedCallback_) {
+      onDestroyedCallback_();
+    }
     Destroy();
   }
 }
