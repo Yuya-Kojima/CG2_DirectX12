@@ -6,12 +6,17 @@
 #include "Framework/UIManager.h"
 #include "Input/InputKeyState.h"
 #include "Model/Model.h"
-#include "Model/ModelManager.h"
+#include "Audio/SoundManager.h"
+#include <fstream>
+#include <filesystem>
+#include "../../externals/nlohmann/json.hpp"
+#include "../Effect/EffectManager.h"
 #include "Object3d/Object3d.h"
 #include "Particle/Particle.h"
 #include "Particle/ParticleEmitter.h"
 #include "Render/Particle/BillboardParticleEmitter.h"
 #include "Render/Particle/MeshParticleEmitter.h"
+#include "Model/ModelManager.h"
 #include "Particle/ParticleManager.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
@@ -93,13 +98,10 @@ public:
 };
 
 // ======================================
-#include "../../externals/nlohmann/json.hpp"
 #ifdef USE_IMGUI
 #include "ImGuizmo.h"
 #include <imgui.h>
 #endif
-#include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <numbers>
 #include <string>
@@ -123,6 +125,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
+  EffectManager::GetInstance()->Initialize();
 
   //===========================
   // スプライト関係の初期化
@@ -343,77 +346,11 @@ void GamePlayScene::Update() {
     doStep_ = false;
   }
 
-  // ポストエフェクトの更新
+  // ポストエフェクトとエフェクトマネージャーの更新
   if (postProcess_) {
-    if (!activeShockwaves_.empty()) {
-      if (shouldUpdateLogic) {
-        for (auto it = activeShockwaves_.begin(); it != activeShockwaves_.end(); ) {
-          it->timer -= 1.0f / 60.0f;
-          if (it->timer <= 0.0f) {
-            it = activeShockwaves_.erase(it);
-          } else {
-            ++it;
-          }
-        }
-      }
+    Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
+    EffectManager::GetInstance()->Update(viewProj);
 
-      if (!activeShockwaves_.empty()) {
-        postProcess_->SetPostEffectType(10); // 10: Shockwave
-        
-        // ブルームの最も強いタイマーを基準にする（一番新しいもの）
-        float maxT = 0.0f;
-        for (const auto& sw : activeShockwaves_) {
-          float t = sw.timer / 0.5f;
-          if (t > maxT) maxT = t;
-        }
-        
-        postProcess_->SetBloomIntensity(1.0f + maxT * 2.5f);
-        postProcess_->SetBloomThreshold(10.0f);
-        postProcess_->SetUseBloom(true);
-
-        std::vector<PostProcess::ShockwaveParams> shockwaveParams;
-        Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
-
-        for (const auto& sw : activeShockwaves_) {
-          Vector3 pos = sw.worldPos;
-          float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] + pos.z * viewProj.m[2][3] + viewProj.m[3][3];
-          Vector3 ndcPos = {
-              (pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] + pos.z * viewProj.m[2][0] + viewProj.m[3][0]) / w,
-              (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] + pos.z * viewProj.m[2][1] + viewProj.m[3][1]) / w,
-              (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] + pos.z * viewProj.m[2][2] + viewProj.m[3][2]) / w
-          };
-          
-          float uvX = (ndcPos.x + 1.0f) * 0.5f;
-          float uvY = (1.0f - ndcPos.y) * 0.5f;
-          float t = sw.timer / 0.5f;
-          
-          PostProcess::ShockwaveParams param;
-          param.center[0] = uvX;
-          param.center[1] = uvY;
-          param.radius = (1.0f - t) * 0.8f;
-          param.thickness = 0.05f * t + 0.2f * (1.0f - t);
-          param.weight = t;
-          param.distortion = 0.05f;
-          
-          shockwaveParams.push_back(param);
-        }
-        postProcess_->SetShockwaves(shockwaveParams);
-      } else {
-        postProcess_->SetUseBloom(false);
-        postProcess_->SetBloomIntensity(1.0f);
-        postProcess_->SetBloomThreshold(0.8f);
-        postProcess_->SetPostEffectType(0);
-        postProcess_->SetShockwaves({});
-      }
-    } else {
-      postProcess_->SetUseBloom(false);
-      postProcess_->SetBloomIntensity(1.0f);
-      postProcess_->SetBloomThreshold(0.8f); // デフォルト値に戻す
-      
-      // ポストエフェクトを通常に戻す
-      postProcess_->SetPostEffectType(0);
-      postProcess_->SetShockwaves({});
-    }
   }
   //=======================
   // カメラの更新
@@ -472,9 +409,7 @@ void GamePlayScene::Update() {
           // 撃破時の全体エフェクト演出コールバックを登録
           Enemy* enemyPtr = newEnemy.get();
           newEnemy->SetOnDestroyedCallback([this, enemyPtr]() {
-            if (activeShockwaves_.size() < 5) { // 最大5個まで
-              activeShockwaves_.push_back({0.5f, enemyPtr->GetTransform().translate});
-            }
+            EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
             if (railCamera_) {
               railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
             }
@@ -608,10 +543,13 @@ void GamePlayScene::Update() {
   if (ImGui::Selectable("Player", currentSelectType_ == EditorSelectType::Player)) {
     currentSelectType_ = EditorSelectType::Player;
   }
-  if (ImGui::Selectable("Environment (PostProcess)",
-                        currentSelectType_ == EditorSelectType::Environment)) {
+  if (ImGui::Selectable("Environment", currentSelectType_ == EditorSelectType::Environment)) {
     currentSelectType_ = EditorSelectType::Environment;
   }
+  if (ImGui::Selectable("Effect (Shockwave)", currentSelectType_ == EditorSelectType::Effect)) {
+    currentSelectType_ = EditorSelectType::Effect;
+  }
+  ImGui::Separator();
   bool isRailCameraOpen = ImGui::TreeNodeEx(
       "Rail Camera", ImGuiTreeNodeFlags_OpenOnArrow |
                          ImGuiTreeNodeFlags_OpenOnDoubleClick |
@@ -683,12 +621,38 @@ void GamePlayScene::Update() {
     ImGui::Text("Player Action Settings");
     ImGui::Separator();
     if (player_) {
+      bool isDirty = player_->IsActionConfigDirty();
+      
+      if (isDirty) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 1.0f)); // 警告色（オレンジ）
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
+      }
+      
+      std::string buttonText = isDirty ? (const char*)u8"[* 未保存] Save Config" : (const char*)u8"Save Config";
+      if (ImGui::Button(buttonText.c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+        player_->SaveActionConfig();
+        isDirty = false;
+      }
+      
+      if (isDirty) {
+        ImGui::PopStyleColor(3);
+      }
+      
+      ImGui::Spacing();
+      
       auto& config = player_->GetActionConfig();
-      ImGui::SliderFloat((const char*)u8"ロックオンの吸いつき範囲", &config.lockOnRadius, 10.0f, 500.0f);
-      ImGui::SliderFloat((const char*)u8"ホーミング弾のスピード", &config.homingSpeed, 0.1f, 5.0f);
-      ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
-      ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
-      ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+      bool changed = false;
+      
+      changed |= ImGui::SliderFloat((const char*)u8"ロックオンの吸いつき範囲", &config.lockOnRadius, 10.0f, 500.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾のスピード", &config.homingSpeed, 0.1f, 5.0f);
+      changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
+      changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
+      changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+      
+      if (changed) {
+        player_->SetActionConfigDirty(true);
+      }
     } else {
       ImGui::Text("Player is not active.");
     }
@@ -701,6 +665,8 @@ void GamePlayScene::Update() {
     } else {
       ImGui::Text("No PostProcess active.");
     }
+  } else if (currentSelectType_ == EditorSelectType::Effect) {
+    EffectManager::GetInstance()->DrawEditorUI(railCamera_.get());
   } else if (currentSelectType_ == EditorSelectType::RailCamera) {
     ImGui::Text("Rail Camera Waypoints");
     ImGui::Separator();

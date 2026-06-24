@@ -16,6 +16,9 @@
 #include "Actor/Enemy.h"
 #include "Collision/CollisionConfig.h"
 #include "Math/Geometry.h"
+#include <fstream>
+#include <filesystem>
+#include "../../externals/nlohmann/json.hpp"
 
 Player::Player(const ICamera* camera) : camera_(camera) {
   assert(camera_);
@@ -63,6 +66,9 @@ void Player::Initialize() {
   collider_->SetMask(kCollisionAttributeEnemy |
                      kCollisionAttributeEnemyBullet); // 敵や敵の弾と当たる
   CollisionManager::GetInstance()->Register(collider_.get());
+
+  // アクション設定の読み込み
+  LoadActionConfig();
 }
 
 void Player::Update() {
@@ -448,3 +454,41 @@ void Player::ForceSnapToCamera() {
   transform_.translate = targetPos;
   UpdateTransform();
 }
+
+void Player::SaveActionConfig() {
+  nlohmann::json root;
+  root["lockOnRadius"] = actionConfig_.lockOnRadius;
+  root["homingSpeed"] = actionConfig_.homingSpeed;
+  root["homingFallTime"] = actionConfig_.homingFallTime;
+  root["homingStrengthIncrease"] = actionConfig_.homingStrengthIncrease;
+  root["homingStrengthMax"] = actionConfig_.homingStrengthMax;
+
+  if (!std::filesystem::exists("resources/config")) {
+    std::filesystem::create_directories("resources/config");
+  }
+
+  std::ofstream file("resources/config/PlayerActionConfig.json");
+  if (file.is_open()) {
+    file << std::setw(4) << root << std::endl;
+    isActionConfigDirty_ = false;
+  }
+}
+
+void Player::LoadActionConfig() {
+  std::ifstream file("resources/config/PlayerActionConfig.json");
+  if (file.is_open()) {
+    nlohmann::json root;
+    try {
+      file >> root;
+      if (root.contains("lockOnRadius")) actionConfig_.lockOnRadius = root["lockOnRadius"];
+      if (root.contains("homingSpeed")) actionConfig_.homingSpeed = root["homingSpeed"];
+      if (root.contains("homingFallTime")) actionConfig_.homingFallTime = root["homingFallTime"];
+      if (root.contains("homingStrengthIncrease")) actionConfig_.homingStrengthIncrease = root["homingStrengthIncrease"];
+      if (root.contains("homingStrengthMax")) actionConfig_.homingStrengthMax = root["homingStrengthMax"];
+    } catch (...) {
+      // Parse error, keep defaults
+    }
+  }
+  isActionConfigDirty_ = false;
+}
+

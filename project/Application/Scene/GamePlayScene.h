@@ -81,12 +81,6 @@ private: // メンバ変数(ゲーム用)
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
-  // 全体エフェクト（ポストプロセス・カメラシェイク用）のリスト管理
-  struct ActiveShockwave {
-    float timer;
-    Vector3 worldPos;
-  };
-  std::vector<ActiveShockwave> activeShockwaves_;
 
   // ヒットエフェクト用パーティクル（敵撃破時など）最大10個まで同時発生可能にする
   static const int kMaxHitEffects = 10;
@@ -106,7 +100,8 @@ private: // メンバ変数(ゲーム用)
     Environment,
     SceneObject,
     SpawnEvent,
-    Player
+    Player,
+    Effect
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedWaypointIndex_ = -1;

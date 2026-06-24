@@ -61,8 +61,15 @@ public:
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 
+  void SaveActionConfig();
+  void LoadActionConfig();
+
+  bool IsActionConfigDirty() const { return isActionConfigDirty_; }
+  void SetActionConfigDirty(bool dirty) { isActionConfigDirty_ = dirty; }
+
 private:
   ActionConfig actionConfig_;
+  bool isActionConfigDirty_ = false;
 
   int hp_ =
       3; // プロトタイプ版の仮HP（パンツァードラグーンのようなライフ制を見据える）
