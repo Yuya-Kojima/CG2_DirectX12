@@ -597,6 +597,7 @@ void GamePlayScene::Update() {
     ImGui::EndMainMenuBar();
   }
 
+
   //=========================
   // Hierarchy ウィンドウ
   //=========================
@@ -604,6 +605,9 @@ void GamePlayScene::Update() {
   ImGui::Text("Scene Objects");
   ImGui::Separator();
 
+  if (ImGui::Selectable("Player", currentSelectType_ == EditorSelectType::Player)) {
+    currentSelectType_ = EditorSelectType::Player;
+  }
   if (ImGui::Selectable("Environment (PostProcess)",
                         currentSelectType_ == EditorSelectType::Environment)) {
     currentSelectType_ = EditorSelectType::Environment;
@@ -675,7 +679,20 @@ void GamePlayScene::Update() {
   //=========================
   ImGui::Begin("Inspector");
 
-  if (currentSelectType_ == EditorSelectType::Environment) {
+  if (currentSelectType_ == EditorSelectType::Player) {
+    ImGui::Text("Player Action Settings");
+    ImGui::Separator();
+    if (player_) {
+      auto& config = player_->GetActionConfig();
+      ImGui::SliderFloat((const char*)u8"ロックオンの吸いつき範囲", &config.lockOnRadius, 10.0f, 500.0f);
+      ImGui::SliderFloat((const char*)u8"ホーミング弾のスピード", &config.homingSpeed, 0.1f, 5.0f);
+      ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
+      ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
+      ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+    } else {
+      ImGui::Text("Player is not active.");
+    }
+  } else if (currentSelectType_ == EditorSelectType::Environment) {
     ImGui::Text("Environment Settings");
     ImGui::Separator();
     auto pp = SceneManager::GetInstance()->GetCurrentScenePostProcess();

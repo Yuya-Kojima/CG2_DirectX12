@@ -30,7 +30,7 @@ public:
   void Update(const std::vector<Enemy *> &enemies,
               const Matrix4x4 &viewProjectionMatrix,
               const Vector2 &reticlePos,
-              bool isLockOnMode);
+              bool isLockOnMode, float lockOnRadius);
 
   /// <summary>
   /// 2Dカーソルの描画

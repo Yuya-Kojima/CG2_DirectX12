@@ -105,7 +105,8 @@ private: // メンバ変数(ゲーム用)
     RailCamera,
     Environment,
     SceneObject,
-    SpawnEvent
+    SpawnEvent,
+    Player
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedWaypointIndex_ = -1;

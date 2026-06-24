@@ -282,7 +282,8 @@ void Player::Update() {
   // ロックオンの更新処理
   if (lockOn_) {
     bool isLockOnMode = (attackState_ == AttackState::LockOn);
-    lockOn_->Update(enemies_, camera_->GetViewProjectionMatrix(), reticlePosition_, isLockOnMode);
+    lockOn_->Update(enemies_, camera_->GetViewProjectionMatrix(), reticlePosition_, 
+                    isLockOnMode, actionConfig_.lockOnRadius);
   }
 }
 
@@ -305,10 +306,18 @@ void Player::FireHomingShot() {
     
     // 発射時のばらつき（初速ベクトル）を作る
     // 程よい山なりにするための初速
-    float spreadX = ((float)i - (float)targets.size() / 2.0f) * 0.3f; 
+    float spreadX = ((float)i - (float)targets.size() / 2.0f) * 0.3f;
     Vector3 initialVelocity = {spreadX, 0.6f, 0.8f}; // 前方に強めに、上には少しだけ打ち上げる
 
     bullet->Initialize(object3dRenderer_, startPos, targets[i], initialVelocity);
+    
+    // アクションエディタのパラメータを適用
+    bullet->SetHomingParams(
+      actionConfig_.homingSpeed, 
+      actionConfig_.homingFallTime, 
+      actionConfig_.homingStrengthIncrease, 
+      actionConfig_.homingStrengthMax
+    );
 
     // ActorManagerに弾を登録して、自動でUpdate・Drawされるようにする
     ActorManager::GetInstance()->AddActor(std::move(bullet));

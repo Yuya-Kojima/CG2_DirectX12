@@ -19,14 +19,13 @@ void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
 void LockOn::Update(const std::vector<Enemy *> &enemies,
                     const Matrix4x4 &viewProjectionMatrix,
                     const Vector2 &reticlePos,
-                    bool isLockOnMode) {
+                    bool isLockOnMode, float lockOnRadius) {
   
   viewProjectionMatrix_ = viewProjectionMatrix; // 描画用にキャッシュ
 
   // --------------------------------------------------
   //  ロックオン対象を探す処理
   // --------------------------------------------------
-  const float lockOnRadius = 100.0f; // ロックオン可能な照準からの半径
 
   // ロックオンモード（長押し中）でのみ、新たな敵をストックする
   if (isLockOnMode && targets_.size() < kMaxLockOnCount) {
