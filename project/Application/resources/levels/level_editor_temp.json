@@ -2,7 +2,6 @@
     "sceneObjects": [],
     "spawnEvents": [
         {
-            "moveType": 2,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 0.0,
@@ -12,7 +11,6 @@
             "spawnTime": 7.235000133514404
         },
         {
-            "moveType": 3,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 -18.779836654663086,
@@ -22,7 +20,6 @@
             "spawnTime": 1.9382911920547485
         },
         {
-            "moveType": 3,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 23.678741455078125,
@@ -32,7 +29,6 @@
             "spawnTime": 1.9699366092681885
         },
         {
-            "moveType": 1,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 -29.94761848449707,
@@ -42,7 +38,6 @@
             "spawnTime": 3.243670701980591
         },
         {
-            "moveType": 1,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 30.508071899414063,
@@ -52,7 +47,6 @@
             "spawnTime": 3.259000062942505
         },
         {
-            "moveType": 3,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 50.79999923706055,
@@ -62,7 +56,6 @@
             "spawnTime": 2.436708927154541
         },
         {
-            "moveType": 3,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 -46.29999923706055,
@@ -72,7 +65,6 @@
             "spawnTime": 2.453000068664551
         },
         {
-            "moveType": 1,
             "prefabName": "ZakoEnemy",
             "spawnOffset": [
                 0.0,

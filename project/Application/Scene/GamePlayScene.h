@@ -24,9 +24,8 @@ class MeshParticleEmitter;
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
-  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥に50）
-  int moveType = 0; // 0:Straight, 1:Parallel, 2:SineWave
-  bool hasSpawned = false; // 実行時の管理用フラグ
+  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
+  bool hasSpawned = false; // 実行管理用フラグ
 };
 
 enum class GameState {
@@ -101,12 +100,17 @@ private: // メンバ変数(ゲーム用)
     SceneObject,
     SpawnEvent,
     Player,
-    Effect
+    Effect,
+    Prefab
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedWaypointIndex_ = -1;
   int selectedSceneObjectIndex_ = -1;
   int selectedSpawnEventIndex_ = -1;
+  
+  // プレハブ編集用
+  std::string selectedPrefabName_ = "";
+  std::unique_ptr<Enemy> tempPrefabEditEnemy_ = nullptr;
 
 public: // Undo/Redo用アクセッサ
   std::vector<SpawnEvent>& GetSpawnEvents() { return spawnEvents_; }

@@ -18,6 +18,7 @@ enum class MoveType {
   Stationary
 };
 
+
 class Enemy : public BaseActor {
 public:
   Enemy();
@@ -35,11 +36,20 @@ public:
   void SetBaseColor(const Vector4& color) { baseColor_ = color; }
   const Vector4& GetBaseColor() const { return baseColor_; }
 
-  // 移動方向・軌道のセッター
+  // 移動方向・軌道のセッター/ゲッター
   void SetMoveDirection(const Vector3& dir) { moveDirection_ = dir; }
+  const Vector3& GetMoveDirection() const { return moveDirection_; }
   void SetMoveType(MoveType type) { moveType_ = type; }
+  MoveType GetMoveType() const { return moveType_; }
+  
   void SetCamera(const ICamera* camera) { camera_ = camera; }
   void SetSpawnOffset(const Vector3& offset) { spawnOffset_ = offset; }
+
+  // ステータスのゲッター/セッター
+  int GetHP() const { return hp_; }
+  void SetHP(int hp) { hp_ = hp; }
+  float GetSpeed() const { return speed_; }
+  void SetSpeed(float speed) { speed_ = speed; }
 
   // ダメージを受ける処理
   void TakeDamage(int damage);

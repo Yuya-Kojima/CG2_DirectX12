@@ -426,14 +426,10 @@ void GamePlayScene::Update() {
             nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
           });
 
-          // 旧式の進行方向（フォールバック用）
-          newEnemy->SetMoveDirection(
-              {-cameraForward.x, -cameraForward.y, -cameraForward.z});
-
-          // カメラとオフセット、MoveTypeをセット
+          // カメラとオフセット、MoveTypeセット
           newEnemy->SetCamera(railCamera_.get());
           newEnemy->SetSpawnOffset(ev.spawnOffset);
-          newEnemy->SetMoveType(static_cast<MoveType>(ev.moveType));
+          // MoveTypeはプレハブから読み込まれるためここでは上書きしない
 
           // Playモード時のみ実際の敵を生成
           if (isPlayMode_) {
@@ -597,6 +593,28 @@ void GamePlayScene::Update() {
   }
 
   ImGui::Spacing();
+  if (ImGui::TreeNodeEx("Prefabs (Master Data)", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (std::filesystem::exists("resources/prefabs")) {
+      for (const auto& entry : std::filesystem::directory_iterator("resources/prefabs")) {
+        if (entry.path().extension() == ".prefab") {
+          std::string name = entry.path().stem().string();
+          bool isSelected = (currentSelectType_ == EditorSelectType::Prefab && selectedPrefabName_ == name);
+          if (ImGui::Selectable(name.c_str(), isSelected)) {
+            currentSelectType_ = EditorSelectType::Prefab;
+            if (selectedPrefabName_ != name) {
+              selectedPrefabName_ = name;
+              tempPrefabEditEnemy_ = PrefabManager::GetInstance()->InstantiateEnemy(name, Transform());
+            }
+          }
+        }
+      }
+    } else {
+      ImGui::TextDisabled("No prefabs found.");
+    }
+    ImGui::TreePop();
+  }
+
+  ImGui::Spacing();
   ImGui::Text("Scene Objects (Dynamic)");
   ImGui::Separator();
   for (size_t i = 0; i < sceneObjects_.size(); ++i) {
@@ -746,25 +764,70 @@ void GamePlayScene::Update() {
     if (ImGui::IsItemDeactivatedAfterEdit())
       editFinished = true;
 
-    char prefabBuf[64] = {0};
-    snprintf(prefabBuf, sizeof(prefabBuf), "%s", ev.prefabName.c_str());
-    if (ImGui::InputText("Prefab", prefabBuf, sizeof(prefabBuf))) {
-      ev.prefabName = prefabBuf;
+    // プレハブのコンボボックス
+    std::vector<std::string> availablePrefabs;
+    if (std::filesystem::exists("resources/prefabs")) {
+      for (const auto& entry : std::filesystem::directory_iterator("resources/prefabs")) {
+        if (entry.path().extension() == ".prefab") {
+          availablePrefabs.push_back(entry.path().stem().string());
+        }
+      }
     }
-    if (ImGui::IsItemDeactivatedAfterEdit())
-      editFinished = true;
+    
+    if (ImGui::BeginCombo("Prefab", ev.prefabName.c_str())) {
+      for (const auto& pName : availablePrefabs) {
+        bool isSelected = (ev.prefabName == pName);
+        if (ImGui::Selectable(pName.c_str(), isSelected)) {
+          if (ev.prefabName != pName) {
+            ev.prefabName = pName;
+            editFinished = true;
+          }
+        }
+        if (isSelected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
 
-    ImGui::DragFloat3("Offset", &ev.spawnOffset.x, 0.1f);
-    if (ImGui::IsItemDeactivatedAfterEdit())
-      editFinished = true;
-
-    const char *moveTypeNames[] = {
-        "Straight (奥から手前へ直進)", "Parallel (カメラと並走して追従)",
-        "SineWave (波打って接近)", "Stationary (固定砲台・静止)"};
-    if (ImGui::Combo("Move Type", &ev.moveType, moveTypeNames,
-                     IM_ARRAYSIZE(moveTypeNames))) {
+    if (ImGui::DragFloat3("Spawn Offset", &ev.spawnOffset.x, 0.1f)) {
       editFinished = true;
     }
+    if (railCamera_) {
+      Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
+      Vector3 nextPos = railCamera_->CalcPosition(
+          std::min(ev.spawnTime + 0.01f,
+                   static_cast<float>(railCamera_->GetWaypointsRef().size() - 1)));
+      Vector3 forwardDir = {nextPos.x - camPos.x, nextPos.y - camPos.y,
+                            nextPos.z - camPos.z};
+      forwardDir = SafeNormalize(forwardDir);
+
+      Vector3 camTrans = camPos;
+      camTrans.y += 2.5f;
+
+      Vector3 camRot = {0.0f, 0.0f, 0.0f};
+      camRot.y = std::atan2(forwardDir.x, forwardDir.z);
+      float xzLen = std::sqrt(forwardDir.x * forwardDir.x +
+                              forwardDir.z * forwardDir.z);
+      camRot.x = std::atan2(-forwardDir.y, xzLen) + 0.1f;
+
+      Matrix4x4 camWorld = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, camRot, camTrans);
+      Vector3 right = {camWorld.m[0][0], camWorld.m[0][1], camWorld.m[0][2]};
+      Vector3 up = {camWorld.m[1][0], camWorld.m[1][1], camWorld.m[1][2]};
+      Vector3 forward = {camWorld.m[2][0], camWorld.m[2][1], camWorld.m[2][2]};
+      Vector3 camActualPos = {camWorld.m[3][0], camWorld.m[3][1],
+                              camWorld.m[3][2]};
+
+      Vector3 worldPos = camActualPos + 
+                         Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x, right.z * ev.spawnOffset.x} +
+                         Vector3{up.x * ev.spawnOffset.y, up.y * ev.spawnOffset.y, up.z * ev.spawnOffset.y} +
+                         Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z, forward.z * ev.spawnOffset.z};
+
+      ImGui::Spacing();
+      ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x, worldPos.y, worldPos.z);
+    }
+    
+    // MoveType はプレハブ側の設定に移動したため、ここには表示しない
 
     if (editFinished) {
       CommandManager::GetInstance()->ExecuteCommand(
@@ -779,6 +842,49 @@ void GamePlayScene::Update() {
           std::make_unique<CmdDeleteSpawnEvent>(this,
                                                 selectedSpawnEventIndex_));
     }
+  } else if (currentSelectType_ == EditorSelectType::Prefab && tempPrefabEditEnemy_) {
+    ImGui::Text("Prefab Master Settings: %s", selectedPrefabName_.c_str());
+    ImGui::Separator();
+    
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    bool changed = false;
+    
+    int hp = tempPrefabEditEnemy_->GetHP();
+    if (ImGui::InputInt("HP (体力)", &hp)) {
+      if (hp < 1) hp = 1;
+      tempPrefabEditEnemy_->SetHP(hp);
+      changed = true;
+    }
+    
+    float speed = tempPrefabEditEnemy_->GetSpeed();
+    if (ImGui::DragFloat("Speed (移動速度)", &speed, 0.01f, 0.0f, 10.0f)) {
+      tempPrefabEditEnemy_->SetSpeed(speed);
+      changed = true;
+    }
+
+    const char* moveTypes[] = {"Straight (前へ直進)", "Parallel (平行移動)", "SineWave (波形)", "Stationary (静止)"};
+    int currentMoveType = static_cast<int>(tempPrefabEditEnemy_->GetMoveType());
+    if (ImGui::Combo("Move Type (進行パターン)", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
+      tempPrefabEditEnemy_->SetMoveType(static_cast<MoveType>(currentMoveType));
+      changed = true;
+    }
+
+    Vector3 dir = tempPrefabEditEnemy_->GetMoveDirection();
+    if (ImGui::DragFloat3("Move Direction (移動方向)", &dir.x, 0.01f)) {
+      tempPrefabEditEnemy_->SetMoveDirection(dir);
+      changed = true;
+    }
+
+    ImGui::Spacing();
+    
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
+    if (ImGui::Button((const char*)u8"Save Prefab (上書き保存)", ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+      PrefabManager::GetInstance()->SavePrefab(selectedPrefabName_, tempPrefabEditEnemy_.get());
+    }
+    ImGui::PopStyleColor();
   } else {
     ImGui::Text("No object selected.");
   }
@@ -838,10 +944,9 @@ void GamePlayScene::Update() {
     float mouseX = ImGui::GetMousePos().x - p.x;
     float t = (mouseX / trackWidth) * maxT;
     SpawnEvent ev;
-    ev.spawnTime = t;
+    ev.spawnTime = railCamera_ ? railCamera_->GetT() : 0.0f;
     ev.prefabName = "ZakoEnemy";
     ev.spawnOffset = {0.0f, 0.0f, 50.0f};
-    ev.moveType = 0; // MoveType::Straight
 
     int newIndex = static_cast<int>(spawnEvents_.size());
     CommandManager::GetInstance()->ExecuteCommand(
@@ -1293,7 +1398,6 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     evJson["prefabName"] = ev.prefabName;
     evJson["spawnOffset"] = {ev.spawnOffset.x, ev.spawnOffset.y,
                              ev.spawnOffset.z};
-    evJson["moveType"] = ev.moveType;
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1369,14 +1473,11 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       if (evJson.contains("spawnOffset")) {
         ev.spawnOffset = {evJson["spawnOffset"][0], evJson["spawnOffset"][1],
                           evJson["spawnOffset"][2]};
-      } else if (evJson.contains("spawnPosition")) { // 古いセーブデータ互換性
+      } else if (evJson.contains("spawnPosition")) { // 古いセーブデータ互換
         ev.spawnOffset = {0.0f, 0.0f, 50.0f};
       }
-      if (evJson.contains("moveType")) {
-        ev.moveType = evJson["moveType"];
-      } else {
-        ev.moveType = 0; // デフォはStraight
-      }
+      // moveType は読まない（Prefab側で管理）
+      
       ev.hasSpawned = false;
       spawnEvents_.push_back(ev);
     }
