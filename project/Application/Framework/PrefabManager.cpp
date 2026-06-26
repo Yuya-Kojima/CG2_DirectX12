@@ -1,6 +1,12 @@
 #include "PrefabManager.h"
 #include "Actor/Enemy.h"
+#include "Actor/Behavior/BehaviorStraight.h"
 #include "Render/Object3d/Object3d.h"
+#include "Actor/Behavior/BehaviorSineWave.h"
+#include "Actor/Behavior/BehaviorFighter.h"
+#include "Actor/Behavior/BehaviorMeteor.h"
+#include "Actor/Behavior/BehaviorStrafe.h"
+#include "Actor/Behavior/BehaviorTurret.h"
 #include <fstream>
 #include <filesystem>
 #include "../../externals/nlohmann/json.hpp"
@@ -92,7 +98,21 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
             newEnemy->SetMoveDirection(md);
         }
         if (root.contains("moveType")) {
-            newEnemy->SetMoveType(static_cast<MoveType>(root["moveType"]));
+            int typeId = root["moveType"];
+            newEnemy->SetMoveType(static_cast<MoveType>(typeId));
+            
+            // Strategy生成
+            std::unique_ptr<IEnemyBehavior> behavior;
+            switch(typeId) {
+                case 0: behavior = std::make_unique<BehaviorStraight>(); break;
+                case 2: behavior = std::make_unique<BehaviorSineWave>(); break;
+                case 4: behavior = std::make_unique<BehaviorFighter>(); break;
+                case 5: behavior = std::make_unique<BehaviorMeteor>(); break;
+                case 6: behavior = std::make_unique<BehaviorStrafe>(); break;
+                case 7: behavior = std::make_unique<BehaviorTurret>(); break;
+                default: behavior = std::make_unique<BehaviorStraight>(); break;
+            }
+            newEnemy->SetBehavior(std::move(behavior));
         }
         
         // 位置と回転は引数で渡されたものを適用

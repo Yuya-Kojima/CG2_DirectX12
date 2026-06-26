@@ -426,8 +426,9 @@ void GamePlayScene::Update() {
             nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
           });
 
-          // カメラとオフセット、MoveTypeセット
+          // カメラとオフセット、プレイヤー情報をセット
           newEnemy->SetCamera(railCamera_.get());
+          newEnemy->SetPlayer(player_.get());
           newEnemy->SetSpawnOffset(ev.spawnOffset);
           // MoveTypeはプレハブから読み込まれるためここでは上書きしない
 
@@ -865,9 +866,18 @@ void GamePlayScene::Update() {
       changed = true;
     }
 
-    const char* moveTypes[] = {"Straight (前へ直進)", "Parallel (平行移動)", "SineWave (波形)", "Stationary (静止)"};
+    const char* moveTypes[] = {
+      "Straight (直進)", 
+      "Parallel (平行移動)", 
+      "SineWave (波打ち)", 
+      "Stationary (静止)", 
+      "Fighter (戦闘機)", 
+      "Meteor (メテオ突撃)", 
+      "Strafe (画面横断)", 
+      "Turret (固定砲台)"
+    };
     int currentMoveType = static_cast<int>(tempPrefabEditEnemy_->GetMoveType());
-    if (ImGui::Combo("Move Type (進行パターン)", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
+    if (ImGui::Combo("Move Type (行動パターン)", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
       tempPrefabEditEnemy_->SetMoveType(static_cast<MoveType>(currentMoveType));
       changed = true;
     }

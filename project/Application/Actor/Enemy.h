@@ -5,17 +5,23 @@
 #include "Math/Vector4.h"
 #include "Math/Vector3.h"
 
-class Object3d;
+#include "Render/Object3d/Object3d.h"
 class SphereCollider;
 class ICamera;
 class IParticleEmitter;
 class ParticleEmitter;
+class Player;
+#include "Behavior/IEnemyBehavior.h"
 
 enum class MoveType {
   Straight,
   Parallel,
   SineWave,
-  Stationary
+  Stationary,
+  Fighter,
+  Meteor,
+  Strafe,
+  Turret
 };
 
 
@@ -41,9 +47,18 @@ public:
   const Vector3& GetMoveDirection() const { return moveDirection_; }
   void SetMoveType(MoveType type) { moveType_ = type; }
   MoveType GetMoveType() const { return moveType_; }
+  void SetBehavior(std::unique_ptr<IEnemyBehavior> behavior) { behavior_ = std::move(behavior); }
   
   void SetCamera(const ICamera* camera) { camera_ = camera; }
+  const ICamera* GetCamera() const { return camera_; }
   void SetSpawnOffset(const Vector3& offset) { spawnOffset_ = offset; }
+  const Vector3& GetSpawnOffset() const { return spawnOffset_; }
+  float GetAliveTime() const { return aliveTime_; }
+  void SetPlayer(const Player* player) { player_ = player; }
+  const Player* GetPlayer() const { return player_; }
+  
+  // Transformへのアクセス（BaseActorのprotectedメンバ）
+  Transform& GetTransform() { return transform_; }
 
   // ステータスのゲッター/セッター
   int GetHP() const { return hp_; }
@@ -66,7 +81,9 @@ private:
   float speed_ = 0.5f;     // 移動速度
   Vector3 moveDirection_ = {0.0f, 0.0f, -1.0f}; // 進行方向ベクトル（デフォルトはワールドZマイナス方向）
   MoveType moveType_ = MoveType::Straight;
+  std::unique_ptr<IEnemyBehavior> behavior_;
   const ICamera* camera_ = nullptr;
+  const Player* player_ = nullptr;
   Vector3 spawnOffset_ = {0.0f, 0.0f, 0.0f};
   float aliveTime_ = 0.0f;
   

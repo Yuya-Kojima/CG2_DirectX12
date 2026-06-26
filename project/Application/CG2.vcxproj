@@ -156,7 +156,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Actor\Behavior\BehaviorFighter.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorMeteor.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorSineWave.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorStrafe.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorStraight.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorTurret.cpp" />
     <ClCompile Include="Actor\Enemy.cpp" />
+    <ClCompile Include="Actor\EnemyBullet.cpp" />
     <ClCompile Include="Framework\PrefabManager.cpp" />
     <ClCompile Include="Effect\EffectManager.cpp" />
     <ClCompile Include="Actor\HomingBullet.cpp" />
@@ -232,7 +239,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Actor\Behavior\BehaviorFighter.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorMeteor.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorSineWave.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorStrafe.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorStraight.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorTurret.h" />
+    <ClInclude Include="Actor\Behavior\IEnemyBehavior.h" />
     <ClInclude Include="Actor\Enemy.h" />
+    <ClInclude Include="Actor\EnemyBullet.h" />
     <ClInclude Include="Framework\PrefabManager.h" />
     <ClInclude Include="Effect\EffectManager.h" />
     <ClInclude Include="Actor\HomingBullet.h" />
