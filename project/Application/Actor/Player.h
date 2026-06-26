@@ -1,9 +1,9 @@
 #pragma once
 #include "Framework/BaseActor.h"
 #include "Math/Vector2.h"
+#include <cassert>
 #include <memory>
 #include <vector>
-#include <cassert>
 
 class LockOn;
 class SpriteRenderer;
@@ -15,7 +15,7 @@ class Enemy;
 
 class Player : public BaseActor {
 public:
-  Player(const ICamera* camera);
+  Player(const ICamera *camera);
   ~Player() override;
 
   void Initialize() override;
@@ -33,24 +33,46 @@ public:
   void SetSpriteRenderer(SpriteRenderer *renderer) {
     spriteRenderer_ = renderer;
   }
-  void SetObject3dRenderer(class Object3dRenderer* renderer) {
+  void SetObject3dRenderer(class Object3dRenderer *renderer) {
     object3dRenderer_ = renderer;
   }
-  void SetCamera(const ICamera *camera) { 
+  void SetCamera(const ICamera *camera) {
     assert(camera);
-    camera_ = camera; 
+    camera_ = camera;
   }
   void SetInput(class Input *input) { input_ = input; }
-  void SetModel(std::unique_ptr<Object3d> model) { object3d_ = std::move(model); }
+  void SetModel(std::unique_ptr<Object3d> model) {
+    object3d_ = std::move(model);
+  }
 
   // 今回はテストとして直接ターゲットリストを渡す
-  void SetEnemies(const std::vector<Enemy*>& enemies) { enemies_ = enemies; }
+  void SetEnemies(const std::vector<Enemy *> &enemies) { enemies_ = enemies; }
 
   int GetHp() const { return hp_; }
   bool IsDead() const { return hp_ <= 0; }
 
+  // --- アクション・軌道調整用パラメータ ---
+  struct ActionConfig {
+    float lockOnRadius = 100.0f;           // ロックオンの吸いつき範囲
+    float homingSpeed = 1.5f;              // ホーミング弾のスピード
+    int homingFallTime = 165;              // 追尾を開始するまでのフレーム
+    float homingStrengthIncrease = 0.015f; // 追尾のカーブの鋭さ
+    float homingStrengthMax = 0.25f;       // 旋回力(追尾力)
+  };
+  ActionConfig &GetActionConfig() { return actionConfig_; }
+
+  void SaveActionConfig();
+  void LoadActionConfig();
+
+  bool IsActionConfigDirty() const { return isActionConfigDirty_; }
+  void SetActionConfigDirty(bool dirty) { isActionConfigDirty_ = dirty; }
+
 private:
-  int hp_ = 3; // プロトタイプ版の仮HP（パンツァードラグーンのようなライフ制を見据える）
+  ActionConfig actionConfig_;
+  bool isActionConfigDirty_ = false;
+
+  int hp_ =
+      3; // プロトタイプ版の仮HP（パンツァードラグーンのようなライフ制を見据える）
   std::unique_ptr<class SphereCollider> collider_;
   std::unique_ptr<LockOn> lockOn_;
 
@@ -58,29 +80,31 @@ private:
   class Object3dRenderer *object3dRenderer_ = nullptr;
   const ICamera *camera_ = nullptr;
   class Input *input_ = nullptr;
-  
-  std::vector<Enemy*> enemies_;
+
+  std::vector<Enemy *> enemies_;
 
   void FireHomingShot();
   void FireNormalShot(); // 追加
 
   // 照準用
   Vector2 reticlePosition_;
-  
+
   // 多重レティクル用スプライト群
-  std::vector<std::unique_ptr<Sprite>> reticleOuterSprites_; // 外側の枠（線4本）
-  std::vector<std::unique_ptr<Sprite>> reticleInnerSprites_; // 内側の枠（線4本）
+  std::vector<std::unique_ptr<Sprite>>
+      reticleOuterSprites_; // 外側の枠（線4本）
+  std::vector<std::unique_ptr<Sprite>>
+      reticleInnerSprites_;      // 内側の枠（線4本）
   float reticleOuterRot_ = 0.0f; // 外枠の回転角
   float reticleInnerRot_ = 0.0f; // 内枠の回転角
-  
+
   // 自機の3Dモデル
   std::unique_ptr<Object3d> object3d_;
 
   // 攻撃用ステート
   enum class AttackState {
-    Idle,      // 待機
-    Pressing,  // 押下中（短押しか長押しか見極め中）
-    LockOn     // ロックオンモード（長押し確定）
+    Idle,     // 待機
+    Pressing, // 押下中（短押しか長押しか見極め中）
+    LockOn    // ロックオンモード（長押し確定）
   };
   AttackState attackState_ = AttackState::Idle;
   float pressTimer_ = 0.0f;

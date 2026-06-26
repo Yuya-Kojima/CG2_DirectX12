@@ -24,9 +24,8 @@ class MeshParticleEmitter;
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
-  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥に50）
-  int moveType = 0; // 0:Straight, 1:Parallel, 2:SineWave
-  bool hasSpawned = false; // 実行時の管理用フラグ
+  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
+  bool hasSpawned = false; // 実行管理用フラグ
 };
 
 enum class GameState {
@@ -81,12 +80,6 @@ private: // メンバ変数(ゲーム用)
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
-  // 全体エフェクト（ポストプロセス・カメラシェイク用）のリスト管理
-  struct ActiveShockwave {
-    float timer;
-    Vector3 worldPos;
-  };
-  std::vector<ActiveShockwave> activeShockwaves_;
 
   // ヒットエフェクト用パーティクル（敵撃破時など）最大10個まで同時発生可能にする
   static const int kMaxHitEffects = 10;
@@ -105,12 +98,19 @@ private: // メンバ変数(ゲーム用)
     RailCamera,
     Environment,
     SceneObject,
-    SpawnEvent
+    SpawnEvent,
+    Player,
+    Effect,
+    Prefab
   };
   EditorSelectType currentSelectType_ = EditorSelectType::None;
   int selectedWaypointIndex_ = -1;
   int selectedSceneObjectIndex_ = -1;
   int selectedSpawnEventIndex_ = -1;
+  
+  // プレハブ編集用
+  std::string selectedPrefabName_ = "";
+  std::unique_ptr<Enemy> tempPrefabEditEnemy_ = nullptr;
 
 public: // Undo/Redo用アクセッサ
   std::vector<SpawnEvent>& GetSpawnEvents() { return spawnEvents_; }

@@ -50,7 +50,7 @@ void HomingBullet::Update() {
     };
 
     // 発射直後（最初の15フレーム≒0.25秒）は誘導せず、重力でふんわりさせる
-    if (lifeTimer_ > 165) {
+    if (lifeTimer_ > homingFallTime_) {
       velocity_.y -= 0.02f; // 軽い重力
     } else {
       // 頂点に達したあたりから、一気に敵に向かって誘導を開始する
@@ -64,14 +64,14 @@ void HomingBullet::Update() {
       velocity_ = Lerp(velocity_, desiredVelocity, homingStrength_);
       
       // かなり強めに誘導をかけることで、通り過ぎずに突き刺さる
-      homingStrength_ += 0.015f;
-      if (homingStrength_ > 0.25f) {
-        homingStrength_ = 0.25f;
+      homingStrength_ += homingStrengthIncrease_;
+      if (homingStrength_ > homingStrengthMax_) {
+        homingStrength_ = homingStrengthMax_;
       }
     }
   } else {
     // ターゲットがいない場合でも発射直後は重力をかける
-    if (lifeTimer_ > 165) {
+    if (lifeTimer_ > homingFallTime_) {
       velocity_.y -= 0.02f;
     }
   }

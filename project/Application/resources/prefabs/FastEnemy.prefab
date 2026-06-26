@@ -1,0 +1,17 @@
+{
+    "hp": 1,
+    "moveDirection": [
+        0.0,
+        0.0,
+        -1.0
+    ],
+    "moveType": 2,
+    "scale": [
+        2.0,
+        2.0,
+        2.0
+    ],
+    "speed": 2.5,
+    "tag": "Enemy",
+    "modelPath": "resources/models/enemy.obj"
+}
