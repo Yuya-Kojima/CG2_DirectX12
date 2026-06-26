@@ -12,6 +12,8 @@ public:
     static PrefabManager* GetInstance();
 
     void Initialize(Object3dRenderer* renderer);
+    
+    Object3dRenderer* GetObject3dRenderer() const { return object3dRenderer_; }
 
     /// <summary>
     /// 現在のエネミーのパラメータをプレハブとしてJSON保存する
