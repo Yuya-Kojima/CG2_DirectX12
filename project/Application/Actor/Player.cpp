@@ -59,7 +59,7 @@ void Player::Initialize() {
 
   // コライダーの初期化
   collider_ = std::make_unique<SphereCollider>(this);
-  collider_->SetRadius(1.0f); // プレイヤーの当たり判定の大きさ
+  collider_->SetRadius(0.4f); // プレイヤーの当たり判定の大きさ(少し小さめ)
   collider_->SetAttribute(kCollisionAttributePlayer); // 自分は「自機」
   collider_->SetMask(kCollisionAttributeEnemy |
                      kCollisionAttributeEnemyBullet); // 敵や敵の弾と当たる
@@ -70,8 +70,12 @@ void Player::Initialize() {
 }
 
 void Player::Update() {
-  if (!object3d_)
-    return;
+  if (isDead_) return;
+
+  // 無敵タイマーの更新
+  if (invincibleTimer_ > 0) {
+    invincibleTimer_--;
+  }
 
   // プレイヤー自身の更新処理
 
@@ -437,7 +441,12 @@ void Player::FireNormalShot() {
 }
 
 void Player::Draw3D() {
-  // プレイヤー自身の描画処理
+  // 無敵時間中の点滅（2フレームに1回描画をスキップ）
+  if (invincibleTimer_ > 0 && (invincibleTimer_ / 2) % 2 == 0) {
+    return;
+  }
+
+  // プレイヤーの描画処理
   if (object3d_) {
     object3d_->Draw();
   }
@@ -468,18 +477,23 @@ void Player::OnCollision(Collider *other) {
 }
 
 void Player::TakeDamage(int damage) {
+  // 無敵時間中はダメージを受けない
+  if (invincibleTimer_ > 0) {
+    return;
+  }
+
   if (hp_ > 0) {
     hp_ -= damage;
-    if (hp_ < 0) {
+    if (hp_ <= 0) {
       hp_ = 0;
-    }
-
-    if (hp_ == 0) {
       OutputDebugStringA("Player is DEAD!\n");
     } else {
       OutputDebugStringA("Player took damage! Current HP: ");
       OutputDebugStringA(std::to_string(hp_).c_str());
       OutputDebugStringA("\n");
+      
+      // ダメージを受けたら60フレーム（約1秒間）無敵になる
+      invincibleTimer_ = 60;
     }
   }
 }

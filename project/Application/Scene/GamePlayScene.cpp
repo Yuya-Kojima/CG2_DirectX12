@@ -408,7 +408,14 @@ void GamePlayScene::Update() {
 
           // 撃破時の全体エフェクト演出コールバックを登録
           Enemy* enemyPtr = newEnemy.get();
-          newEnemy->SetOnDestroyedCallback([this, enemyPtr]() {
+          newEnemy->SetOnDestroyedCallback([this, enemyPtr](bool isSelfDestruct) {
+            // 自爆の場合は通常の撃破エフェクトを出さずに終了する
+            if (isSelfDestruct) {
+                // 必要であればカメラ揺れだけ起こすなど
+                if (railCamera_) railCamera_->Shake(0.5f, 0.2f);
+                return;
+            }
+
             EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
             if (railCamera_) {
               railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす

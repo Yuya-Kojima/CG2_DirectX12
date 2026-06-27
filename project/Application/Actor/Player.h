@@ -89,6 +89,8 @@ private:
   // 照準用
   Vector2 reticlePosition_;
   Vector2 reticleVelocity_ = {0.0f, 0.0f}; // 照準の移動速度（慣性用）
+  
+  int invincibleTimer_ = 0; // 無敵時間のタイマー
 
   // 多重レティクル用スプライト群
   std::vector<std::unique_ptr<Sprite>>
