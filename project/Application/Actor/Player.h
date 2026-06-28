@@ -58,6 +58,9 @@ public:
     int homingFallTime = 165;              // 追尾を開始するまでのフレーム
     float homingStrengthIncrease = 0.015f; // 追尾のカーブの鋭さ
     float homingStrengthMax = 0.25f;       // 旋回力(追尾力)
+    float reticleAcceleration = 2.5f;      // 照準の加速度
+    float reticleFriction = 0.85f;          // 照準の摩擦力
+    float reticleMaxSpeed = 25.0f;          // 照準の最高移動速度
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 
