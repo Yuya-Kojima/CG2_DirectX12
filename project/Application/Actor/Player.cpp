@@ -28,7 +28,12 @@ Player::~Player() {
 }
 
 void Player::Initialize() {
-  // プレイヤー自身の初期化処理
+  // ステータスのリセット（エディタからのプレイモード再開時のため）
+  hp_ = 3;
+  invincibleTimer_ = 0;
+  isDead_ = false;
+
+  // レティクルの初期位置化処理
   reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
 
   // ロックオン機能の生成と初期化
@@ -37,6 +42,7 @@ void Player::Initialize() {
     lockOn_->Initialize(spriteRenderer_);
 
     // メイン照準カーソル
+    reticleOuterSprites_.clear();
     // 外枠
     for (int i = 0; i < 4; ++i) {
       auto line = std::make_unique<Sprite>();
@@ -46,6 +52,8 @@ void Player::Initialize() {
       line->SetAnchorPoint({0.5f, 0.5f});       // 中心をアンカーに
       reticleOuterSprites_.push_back(std::move(line));
     }
+    
+    reticleInnerSprites_.clear();
     // 内枠
     for (int i = 0; i < 4; ++i) {
       auto line = std::make_unique<Sprite>();
@@ -58,6 +66,9 @@ void Player::Initialize() {
   }
 
   // コライダーの初期化
+  if (collider_) {
+    CollisionManager::GetInstance()->Remove(collider_.get());
+  }
   collider_ = std::make_unique<SphereCollider>(this);
   collider_->SetRadius(0.4f); // プレイヤーの当たり判定の大きさ(少し小さめ)
   collider_->SetAttribute(kCollisionAttributePlayer); // 自分は「自機」

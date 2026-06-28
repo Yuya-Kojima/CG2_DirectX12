@@ -256,6 +256,7 @@ void GamePlayScene::Update() {
     SaveLevel("level_editor_temp.json");
     isPaused_ = false;
     useDebugCamera_ = false;
+
     if (railCamera_) {
       railCamera_->SetAutoMove(true);
       playStartT_ = railCamera_->GetT();
@@ -267,6 +268,20 @@ void GamePlayScene::Update() {
     isPaused_ = false;
     useDebugCamera_ = true;
     LoadLevel("level_editor_temp.json");
+
+    // ゲーム状態のリセット（Stop時に綺麗な状態に戻す）
+    gameState_ = GameState::Play;
+    UIManager::GetInstance()->Load("resources/UI/GamePlayUI.json");
+
+    // 残っている敵や弾をクリア
+    runtimeEnemies_.clear();
+    ActorManager::GetInstance()->Clear();
+
+    // プレイヤーのステータスを初期化
+    if (player_) {
+      player_->Initialize();
+    }
+
     if (railCamera_) {
       railCamera_->SetT(playStartT_);
       bool autoMoveCache = railCamera_->GetAutoMove();
