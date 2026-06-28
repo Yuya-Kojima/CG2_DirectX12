@@ -279,6 +279,7 @@ void GamePlayScene::Update() {
 
     // プレイヤーのステータスを初期化
     if (player_) {
+      player_->SetLoadConfigOnInitialize(false);
       player_->Initialize();
     }
 

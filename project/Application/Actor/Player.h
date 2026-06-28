@@ -70,9 +70,15 @@ public:
   bool IsActionConfigDirty() const { return isActionConfigDirty_; }
   void SetActionConfigDirty(bool dirty) { isActionConfigDirty_ = dirty; }
 
+  // 初期化時に設定ファイルをロードするか制御するフラグのセッター
+  void SetLoadConfigOnInitialize(bool load) {
+    loadConfigOnInitialize_ = load;
+  }
+
 private:
   ActionConfig actionConfig_;
   bool isActionConfigDirty_ = false;
+  bool loadConfigOnInitialize_ = true;
 
   int hp_ =
       3; // プロトタイプ版の仮HP（パンツァードラグーンのようなライフ制を見据える）

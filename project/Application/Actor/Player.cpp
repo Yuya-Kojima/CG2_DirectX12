@@ -77,7 +77,10 @@ void Player::Initialize() {
   CollisionManager::GetInstance()->Register(collider_.get());
 
   // アクション設定の読み込み
-  LoadActionConfig();
+  if (loadConfigOnInitialize_) {
+    LoadActionConfig();
+  }
+  loadConfigOnInitialize_ = true; // 次回のためにリセットしておく
 }
 
 void Player::Update() {
@@ -613,9 +616,10 @@ void Player::LoadActionConfig() {
         actionConfig_.reticleFriction = root["reticleFriction"];
       if (root.contains("reticleMaxSpeed"))
         actionConfig_.reticleMaxSpeed = root["reticleMaxSpeed"];
+      
+      isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {
       // Parse error, keep defaults
     }
   }
-  isActionConfigDirty_ = false;
 }
