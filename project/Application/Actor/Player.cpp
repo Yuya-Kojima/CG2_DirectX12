@@ -77,7 +77,10 @@ void Player::Initialize() {
   CollisionManager::GetInstance()->Register(collider_.get());
 
   // アクション設定の読み込み
-  LoadActionConfig();
+  if (loadConfigOnInitialize_) {
+    LoadActionConfig();
+  }
+  loadConfigOnInitialize_ = true; // 次回のためにリセットしておく
 }
 
 void Player::Update() {
@@ -99,9 +102,9 @@ void Player::Update() {
     }
 #endif
 
-    float acceleration = 2.5f; // 加速度（入力を続けた時のスピードの上がり方）
+    float acceleration = actionConfig_.reticleAcceleration; // 加速度（入力を続けた時のスピードの上がり方）
     float friction =
-        0.85f; // 摩擦（数値を小さくすると急ブレーキ、大きくすると滑る）
+        actionConfig_.reticleFriction; // 摩擦（数値を小さくすると急ブレーキ、大きくすると滑る）
 
     // 1. 入力方向の取得
     Vector2 inputDir = {0.0f, 0.0f};
@@ -119,16 +122,31 @@ void Player::Update() {
     }
 
     // アナログスティック入力の合成 (上が+Yなので画面座標系に合わせて反転)
-    inputDir.x += input_->Pad().GetLeftX();
-    inputDir.y -= input_->Pad().GetLeftY();
+    float stickX = input_->Pad().GetLeftX();
+    float stickY = -input_->Pad().GetLeftY();
+
+    // デッドゾーン処理 (0.1以下の入力を無視)
+    if (std::abs(stickX) < 0.1f) stickX = 0.0f;
+    if (std::abs(stickY) < 0.1f) stickY = 0.0f;
+
+    inputDir.x += stickX;
+    inputDir.y += stickY;
 
     // 2. 速度ベクトルに加速度を加算
     reticleVelocity_.x += inputDir.x * acceleration;
     reticleVelocity_.y += inputDir.y * acceleration;
 
-    // 3. 速度ベクトルに摩擦を掛けて減速（および最高速度制限）
+    // 3. 速度ベクトルに摩擦を掛けて減速
     reticleVelocity_.x *= friction;
     reticleVelocity_.y *= friction;
+
+    // 最高速度の制限 (クランプ)
+    float speed = std::sqrt(reticleVelocity_.x * reticleVelocity_.x +
+                            reticleVelocity_.y * reticleVelocity_.y);
+    if (speed > actionConfig_.reticleMaxSpeed && speed > 0.0f) {
+      reticleVelocity_.x = (reticleVelocity_.x / speed) * actionConfig_.reticleMaxSpeed;
+      reticleVelocity_.y = (reticleVelocity_.y / speed) * actionConfig_.reticleMaxSpeed;
+    }
 
     // 4. 座標の更新
     reticlePosition_.x += reticleVelocity_.x;
@@ -561,6 +579,9 @@ void Player::SaveActionConfig() {
   root["homingFallTime"] = actionConfig_.homingFallTime;
   root["homingStrengthIncrease"] = actionConfig_.homingStrengthIncrease;
   root["homingStrengthMax"] = actionConfig_.homingStrengthMax;
+  root["reticleAcceleration"] = actionConfig_.reticleAcceleration;
+  root["reticleFriction"] = actionConfig_.reticleFriction;
+  root["reticleMaxSpeed"] = actionConfig_.reticleMaxSpeed;
 
   if (!std::filesystem::exists("resources/config")) {
     std::filesystem::create_directories("resources/config");
@@ -589,9 +610,16 @@ void Player::LoadActionConfig() {
         actionConfig_.homingStrengthIncrease = root["homingStrengthIncrease"];
       if (root.contains("homingStrengthMax"))
         actionConfig_.homingStrengthMax = root["homingStrengthMax"];
+      if (root.contains("reticleAcceleration"))
+        actionConfig_.reticleAcceleration = root["reticleAcceleration"];
+      if (root.contains("reticleFriction"))
+        actionConfig_.reticleFriction = root["reticleFriction"];
+      if (root.contains("reticleMaxSpeed"))
+        actionConfig_.reticleMaxSpeed = root["reticleMaxSpeed"];
+      
+      isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {
       // Parse error, keep defaults
     }
   }
-  isActionConfigDirty_ = false;
 }

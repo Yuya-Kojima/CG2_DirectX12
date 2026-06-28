@@ -279,6 +279,7 @@ void GamePlayScene::Update() {
 
     // プレイヤーのステータスを初期化
     if (player_) {
+      player_->SetLoadConfigOnInitialize(false);
       player_->Initialize();
     }
 
@@ -690,6 +691,9 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
       changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
       changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+     changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"照準の摩擦力", &config.reticleFriction, 0.5f, 0.99f);
+      changed |= ImGui::SliderFloat((const char*)u8"照準の最高速度", &config.reticleMaxSpeed, 1.0f, 100.0f);
       
       if (changed) {
         player_->SetActionConfigDirty(true);
