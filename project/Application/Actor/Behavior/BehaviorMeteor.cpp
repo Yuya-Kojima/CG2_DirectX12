@@ -15,6 +15,18 @@ void BehaviorMeteor::Update(Enemy* enemy) {
   auto player = enemy->GetPlayer();
   if (!camera || !player) return;
 
+  Vector3 currentCameraPos = camera->GetTranslate();
+  if (isFirstFrame_) {
+    previousCameraPos_ = currentCameraPos;
+    isFirstFrame_ = false;
+  }
+  Vector3 cameraDelta = {
+      currentCameraPos.x - previousCameraPos_.x,
+      currentCameraPos.y - previousCameraPos_.y,
+      currentCameraPos.z - previousCameraPos_.z
+  };
+  previousCameraPos_ = currentCameraPos;
+
   if (state_ == State::Wait) {
     // 待機中はカメラ相対位置を維持
     Vector3 cameraPos = camera->GetTranslate();
@@ -56,9 +68,10 @@ void BehaviorMeteor::Update(Enemy* enemy) {
       }
     }
   } else if (state_ == State::Charge) {
-    // 突撃状態（ワールド座標で等速直線運動）
-    enemy->GetTransform().translate.x += chargeVelocity_.x;
-    enemy->GetTransform().translate.y += chargeVelocity_.y;
-    enemy->GetTransform().translate.z += chargeVelocity_.z;
+    // 突撃状態（ワールド座標で等速直線運動 ＋ カメラの移動量を加算）
+    // カメラの移動量を足すことで、自機が動かなければ必ず命中するようになる
+    enemy->GetTransform().translate.x += chargeVelocity_.x + cameraDelta.x;
+    enemy->GetTransform().translate.y += chargeVelocity_.y + cameraDelta.y;
+    enemy->GetTransform().translate.z += chargeVelocity_.z + cameraDelta.z;
   }
 }

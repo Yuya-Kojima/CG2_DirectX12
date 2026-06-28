@@ -14,4 +14,7 @@ private:
   State state_ = State::Wait;
   float stateTimer_ = 0.0f;
   Vector3 chargeVelocity_ = {0.0f, 0.0f, 0.0f};
+
+  bool isFirstFrame_ = true;
+  Vector3 previousCameraPos_ = {0.0f, 0.0f, 0.0f};
 };

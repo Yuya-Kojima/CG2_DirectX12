@@ -67,10 +67,10 @@ public:
   void SetSpeed(float speed) { speed_ = speed; }
 
   // ダメージを受ける処理
-  void TakeDamage(int damage);
+  void TakeDamage(int damage, bool isSelfDestruct = false);
 
-  // 撃破時のコールバック設定
-  void SetOnDestroyedCallback(std::function<void()> cb) { onDestroyedCallback_ = cb; }
+  // 死亡時のコールバック設定（boolは自爆かどうか）
+  void SetOnDestroyedCallback(std::function<void(bool)> cb) { onDestroyedCallback_ = cb; }
 
 private:
   std::unique_ptr<Object3d> model_;
@@ -91,5 +91,5 @@ private:
   int hitFlashTimer_ = 0;  // 被弾時の点滅タイマー
   Vector4 baseColor_ = {1.0f, 1.0f, 1.0f, 1.0f}; // 基本色
 
-  std::function<void()> onDestroyedCallback_ = nullptr;
+  std::function<void(bool)> onDestroyedCallback_ = nullptr;
 };

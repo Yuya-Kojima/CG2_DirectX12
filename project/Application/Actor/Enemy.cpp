@@ -8,6 +8,7 @@
 #include "Behavior/IEnemyBehavior.h"
 #include "Render/Particle/ParticleEmitter.h"
 #include "Render/Particle/ParticleManager.h"
+#include "Actor/Player.h" 
 #include <Windows.h> // OutputDebugStringA用
 #include <cmath>
 
@@ -22,7 +23,7 @@ Enemy::~Enemy() {
 void Enemy::Initialize() {
   // 敵のコライダーの初期化
   collider_ = std::make_unique<SphereCollider>(this);
-  collider_->SetRadius(1.5f); // 敵の当たり判定の大きさを少し大きめに設定
+  collider_->SetRadius(0.8f); // 敵の当たり判定の大きさをモデルより一回り小さめに設定
   collider_->SetAttribute(kCollisionAttributeEnemy); // 自分は「敵」
   collider_->SetMask(kCollisionAttributePlayer |
                      kCollisionAttributePlayerBullet); // 自機や自機の弾と当たる
@@ -78,27 +79,26 @@ void Enemy::Draw3D() {
 }
 
 void Enemy::OnCollision(Collider *other) {
-  // ぶつかった時にデバッグ出力
-  OutputDebugStringA("========================\n");
-  OutputDebugStringA("Enemy hit something!\n");
-  OutputDebugStringA("========================\n");
-
-  // ここでは即死させず、TakeDamageは弾の側から呼ぶようにする
+  // プレイヤーと衝突した場合、自身もダメージを受けて自爆する
+  if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
+    OutputDebugStringA("Enemy Self-Destruct into Player!\n");
+    TakeDamage(999, true); // true を渡して自爆であることを知らせる
+  }
 }
 
-void Enemy::TakeDamage(int damage) {
+void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
   if (isDead_) {
     return;
   }
 
   hp_ -= damage;
-  hitFlashTimer_ = 5; // 5フレーム赤く点滅
+  hitFlashTimer_ = 5; // 5フレーム間点滅
 
   if (hp_ <= 0) {
     OutputDebugStringA("Enemy Destroyed!\n");
     
     if (onDestroyedCallback_) {
-      onDestroyedCallback_();
+      onDestroyedCallback_(isSelfDestruct);
     }
     Destroy();
   }
