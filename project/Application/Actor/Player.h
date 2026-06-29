@@ -67,6 +67,9 @@ public:
     float rollLerp = 0.15f;                // ロール補間速度
     float pitchLerp = 0.15f;               // ピッチ補間速度
     float yawLerp = 0.15f;                 // ヨー補間速度
+    float homingSpreadX = 0.3f;            // ホーミング弾の左右拡散幅
+    float homingSpeedY = 0.6f;             // ホーミング弾の上方初速
+    float homingSpeedZ = 0.8f;             // ホーミング弾の前方初速
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 

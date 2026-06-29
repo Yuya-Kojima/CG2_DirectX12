@@ -1,6 +1,9 @@
 {
     "homingFallTime": 165,
     "homingSpeed": 3.0,
+    "homingSpeedY": 0.699999988079071,
+    "homingSpeedZ": 1.0,
+    "homingSpreadX": 0.5040000081062317,
     "homingStrengthIncrease": 0.014999999664723873,
     "homingStrengthMax": 0.25,
     "lockOnRadius": 100.0,

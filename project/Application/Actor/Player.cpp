@@ -394,11 +394,20 @@ void Player::FireHomingShot() {
   for (size_t i = 0; i < targets.size(); ++i) {
     auto bullet = std::make_unique<HomingBullet>();
 
-    // 発射時のばらつき（初速ベクトル）を作る
-    // 程よい山なりにするための初速
-    float spreadX = ((float)i - (float)targets.size() / 2.0f) * 0.3f;
-    Vector3 initialVelocity = {spreadX, 0.6f,
-                               0.8f}; // 前方に強めに、上には少しだけ打ち上げる
+    // プレイヤーから見たターゲット（敵）の相対座標を計算
+    Vector3 targetPos = targets[i]->GetTransform().translate;
+    float relativeX = targetPos.x - startPos.x;
+
+    // 敵が右側にいるなら右へ、左側にいるなら左へ拡散させる
+    float spreadDirection = (relativeX >= 0.0f) ? 1.0f : -1.0f;
+
+    // 弾同士が完全に重なるのを防ぐため、わずかなばらつき（対称オフセット）を加える
+    float scatter = ((float)i - ((float)targets.size() - 1.0f) / 2.0f) * 0.05f;
+
+    float spreadX = (spreadDirection * actionConfig_.homingSpreadX) + scatter;
+
+    Vector3 initialVelocity = {spreadX, actionConfig_.homingSpeedY,
+                               actionConfig_.homingSpeedZ}; // 前方に強めに、上には少しだけ打ち上げる
 
     bullet->Initialize(object3dRenderer_, startPos, targets[i],
                        initialVelocity);
@@ -588,6 +597,9 @@ void Player::SaveActionConfig() {
   root["rollLerp"] = actionConfig_.rollLerp;
   root["pitchLerp"] = actionConfig_.pitchLerp;
   root["yawLerp"] = actionConfig_.yawLerp;
+  root["homingSpreadX"] = actionConfig_.homingSpreadX;
+  root["homingSpeedY"] = actionConfig_.homingSpeedY;
+  root["homingSpeedZ"] = actionConfig_.homingSpeedZ;
 
   if (!std::filesystem::exists("resources/config")) {
     std::filesystem::create_directories("resources/config");
@@ -634,6 +646,12 @@ void Player::LoadActionConfig() {
         actionConfig_.pitchLerp = root["pitchLerp"];
       if (root.contains("yawLerp"))
         actionConfig_.yawLerp = root["yawLerp"];
+      if (root.contains("homingSpreadX"))
+        actionConfig_.homingSpreadX = root["homingSpreadX"];
+      if (root.contains("homingSpeedY"))
+        actionConfig_.homingSpeedY = root["homingSpeedY"];
+      if (root.contains("homingSpeedZ"))
+        actionConfig_.homingSpeedZ = root["homingSpeedZ"];
       
       isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {

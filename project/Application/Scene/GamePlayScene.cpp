@@ -658,6 +658,7 @@ void GamePlayScene::Update() {
   // Inspector ウィンドウ
   //=========================
   ImGui::Begin("Inspector");
+  ImGui::SetWindowFontScale(0.85f);
 
   if (currentSelectType_ == EditorSelectType::Player) {
     ImGui::Text("Player Action Settings");
@@ -691,6 +692,9 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
       changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
       changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の左右拡散幅", &config.homingSpreadX, 0.0f, 2.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の上方初速", &config.homingSpeedY, 0.0f, 5.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の前方初速", &config.homingSpeedZ, 0.0f, 5.0f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の摩擦力", &config.reticleFriction, 0.5f, 0.99f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の最高速度", &config.reticleMaxSpeed, 1.0f, 100.0f);
