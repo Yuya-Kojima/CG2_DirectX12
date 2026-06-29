@@ -70,6 +70,8 @@ public:
     float homingSpreadX = 0.3f;            // ホーミング弾の左右拡散幅
     float homingSpeedY = 0.6f;             // ホーミング弾の上方初速
     float homingSpeedZ = 0.8f;             // ホーミング弾の前方初速
+    float normalShotSpeed = 10.0f;         // 通常弾の弾速
+    float recoilStrength = 0.0f;           // 射撃時の反動の強さ
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 
@@ -107,6 +109,9 @@ private:
   // 照準用
   Vector2 reticlePosition_;
   Vector2 reticleVelocity_ = {0.0f, 0.0f}; // 照準の移動速度（慣性用）
+  
+  float recoilOffset_ = 0.0f; // 射撃時の反動量
+  float recoilVelocity_ = 0.0f; // 射撃時の反動速度
   
   int invincibleTimer_ = 0; // 無敵時間のタイマー
 

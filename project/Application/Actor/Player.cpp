@@ -32,6 +32,8 @@ void Player::Initialize() {
   hp_ = 3;
   invincibleTimer_ = 0;
   isDead_ = false;
+  recoilOffset_ = 0.0f;
+  recoilVelocity_ = 0.0f;
 
   // レティクルの初期位置化処理
   reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
@@ -85,6 +87,13 @@ void Player::Initialize() {
 
 void Player::Update() {
   if (isDead_) return;
+
+  // 射撃反動のバネ物理更新 (減衰振動)
+  float springK = 0.15f;  // バネの強さ
+  float damper = 0.80f;   // ブレーキ
+  recoilVelocity_ += (0.0f - recoilOffset_) * springK;
+  recoilVelocity_ *= damper;
+  recoilOffset_ += recoilVelocity_;
 
   // 無敵タイマーの更新
   if (invincibleTimer_ > 0) {
@@ -420,6 +429,9 @@ void Player::FireHomingShot() {
     // ActorManagerに弾を登録して、自動でUpdate・Drawされるようにする
     ActorManager::GetInstance()->AddActor(std::move(bullet));
   }
+
+  // ホーミング弾発射時の反動を発生させる
+  recoilOffset_ += actionConfig_.recoilStrength * 1.5f;
 }
 
 void Player::FireNormalShot() {
@@ -468,7 +480,7 @@ void Player::FireNormalShot() {
                       targetPos.z - startPos.z};
   Vector3 velocity = Normalize(toTarget);
 
-  float speed = 10.0f; // 少しスピードを落として弾道を見やすくする
+  float speed = actionConfig_.normalShotSpeed; // 弾速を外部化
   velocity.x *= speed;
   velocity.y *= speed;
   velocity.z *= speed;
@@ -476,6 +488,9 @@ void Player::FireNormalShot() {
   auto bullet = std::make_unique<NormalBullet>();
   bullet->Initialize(object3dRenderer_, startPos, velocity, enemies_);
   ActorManager::GetInstance()->AddActor(std::move(bullet));
+
+  // 通常弾発射時の反動を発生させる
+  recoilOffset_ += actionConfig_.recoilStrength;
 }
 
 void Player::Draw3D() {
@@ -538,7 +553,16 @@ void Player::TakeDamage(int damage) {
 
 void Player::UpdateTransform() {
   if (object3d_) {
-    object3d_->SetTranslation(transform_.translate);
+    // カメラの正面方向を取得
+    Matrix4x4 viewMatrix = camera_->GetViewMatrix();
+    Matrix4x4 cameraWorld = Inverse(viewMatrix);
+    Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                             cameraWorld.m[2][2]};
+
+    // 進行方向の真後ろに向けて反動分だけオフセットした座標を計算
+    Vector3 visualPos = transform_.translate - cameraForward * recoilOffset_;
+
+    object3d_->SetTranslation(visualPos);
     object3d_->SetRotation(transform_.rotate);
     object3d_->SetScale(transform_.scale);
     object3d_->Update();
@@ -600,6 +624,8 @@ void Player::SaveActionConfig() {
   root["homingSpreadX"] = actionConfig_.homingSpreadX;
   root["homingSpeedY"] = actionConfig_.homingSpeedY;
   root["homingSpeedZ"] = actionConfig_.homingSpeedZ;
+  root["normalShotSpeed"] = actionConfig_.normalShotSpeed;
+  root["recoilStrength"] = actionConfig_.recoilStrength;
 
   if (!std::filesystem::exists("resources/config")) {
     std::filesystem::create_directories("resources/config");
@@ -652,6 +678,10 @@ void Player::LoadActionConfig() {
         actionConfig_.homingSpeedY = root["homingSpeedY"];
       if (root.contains("homingSpeedZ"))
         actionConfig_.homingSpeedZ = root["homingSpeedZ"];
+      if (root.contains("normalShotSpeed"))
+        actionConfig_.normalShotSpeed = root["normalShotSpeed"];
+      if (root.contains("recoilStrength"))
+        actionConfig_.recoilStrength = root["recoilStrength"];
       
       isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {

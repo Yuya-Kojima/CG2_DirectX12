@@ -704,6 +704,8 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderFloat((const char*)u8"ロールの補間速度（Lerp）", &config.rollLerp, 0.01f, 1.0f);
       changed |= ImGui::SliderFloat((const char*)u8"ピッチの補間速度（Lerp）", &config.pitchLerp, 0.01f, 1.0f);
       changed |= ImGui::SliderFloat((const char*)u8"ヨーの補間速度（Lerp）", &config.yawLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"通常弾のスピード", &config.normalShotSpeed, 1.0f, 50.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"射撃の反動の強さ", &config.recoilStrength, 0.0f, 1.0f);
       
       if (changed) {
         player_->SetActionConfigDirty(true);
