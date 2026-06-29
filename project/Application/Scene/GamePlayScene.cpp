@@ -691,9 +691,15 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
       changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
       changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
-     changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の摩擦力", &config.reticleFriction, 0.5f, 0.99f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の最高速度", &config.reticleMaxSpeed, 1.0f, 100.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ロール（バンク）の強さ", &config.rollStrength, 0.0f, 20.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ピッチ（上下）の追従強度", &config.pitchStrength, 0.0f, 10.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ヨー（首振り）の追従強度", &config.yawStrength, 0.0f, 10.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ロールの補間速度（Lerp）", &config.rollLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ピッチの補間速度（Lerp）", &config.pitchLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ヨーの補間速度（Lerp）", &config.yawLerp, 0.01f, 1.0f);
       
       if (changed) {
         player_->SetActionConfigDirty(true);

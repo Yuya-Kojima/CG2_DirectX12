@@ -3,5 +3,14 @@
     "homingSpeed": 3.0,
     "homingStrengthIncrease": 0.014999999664723873,
     "homingStrengthMax": 0.25,
-    "lockOnRadius": 100.0
+    "lockOnRadius": 100.0,
+    "pitchLerp": 0.11999999731779099,
+    "pitchStrength": 1.5,
+    "reticleAcceleration": 2.5,
+    "reticleFriction": 0.8500000238418579,
+    "reticleMaxSpeed": 25.0,
+    "rollLerp": 0.11999999731779099,
+    "rollStrength": 4.0,
+    "yawLerp": 0.10000000149011612,
+    "yawStrength": 1.2000000476837158
 }
