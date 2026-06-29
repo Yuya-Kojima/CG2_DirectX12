@@ -315,14 +315,14 @@ void Player::Update() {
   // 速度に応じて機体を傾ける
   // ピッチとヨーの基本姿勢を、カメラ正面ではなく照準の方向にする
   // 移動量に応じて機体をダイナミックに傾ける
-  float targetRoll = -localVelX * 4.0f;
-  float targetPitch = aimPitch + localVelY * 2.0f;
-  float targetYaw = aimYaw + localVelX * 1.5f;
+  float targetRoll = -localVelX * actionConfig_.rollStrength;
+  float targetPitch = aimPitch + localVelY * actionConfig_.pitchStrength;
+  float targetYaw = aimYaw + localVelX * actionConfig_.yawStrength;
 
   // Lerpで滑らかに
-  transform_.rotate.z = Lerp(transform_.rotate.z, targetRoll, 0.15f);
-  transform_.rotate.x = Lerp(transform_.rotate.x, targetPitch, 0.15f);
-  transform_.rotate.y = Lerp(transform_.rotate.y, targetYaw, 0.15f);
+  transform_.rotate.z = Lerp(transform_.rotate.z, targetRoll, actionConfig_.rollLerp);
+  transform_.rotate.x = Lerp(transform_.rotate.x, targetPitch, actionConfig_.pitchLerp);
+  transform_.rotate.y = Lerp(transform_.rotate.y, targetYaw, actionConfig_.yawLerp);
 
   UpdateTransform();
 
@@ -582,6 +582,12 @@ void Player::SaveActionConfig() {
   root["reticleAcceleration"] = actionConfig_.reticleAcceleration;
   root["reticleFriction"] = actionConfig_.reticleFriction;
   root["reticleMaxSpeed"] = actionConfig_.reticleMaxSpeed;
+  root["rollStrength"] = actionConfig_.rollStrength;
+  root["pitchStrength"] = actionConfig_.pitchStrength;
+  root["yawStrength"] = actionConfig_.yawStrength;
+  root["rollLerp"] = actionConfig_.rollLerp;
+  root["pitchLerp"] = actionConfig_.pitchLerp;
+  root["yawLerp"] = actionConfig_.yawLerp;
 
   if (!std::filesystem::exists("resources/config")) {
     std::filesystem::create_directories("resources/config");
@@ -616,6 +622,18 @@ void Player::LoadActionConfig() {
         actionConfig_.reticleFriction = root["reticleFriction"];
       if (root.contains("reticleMaxSpeed"))
         actionConfig_.reticleMaxSpeed = root["reticleMaxSpeed"];
+      if (root.contains("rollStrength"))
+        actionConfig_.rollStrength = root["rollStrength"];
+      if (root.contains("pitchStrength"))
+        actionConfig_.pitchStrength = root["pitchStrength"];
+      if (root.contains("yawStrength"))
+        actionConfig_.yawStrength = root["yawStrength"];
+      if (root.contains("rollLerp"))
+        actionConfig_.rollLerp = root["rollLerp"];
+      if (root.contains("pitchLerp"))
+        actionConfig_.pitchLerp = root["pitchLerp"];
+      if (root.contains("yawLerp"))
+        actionConfig_.yawLerp = root["yawLerp"];
       
       isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {
