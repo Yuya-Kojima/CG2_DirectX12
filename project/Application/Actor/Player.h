@@ -49,7 +49,7 @@ public:
   void SetEnemies(const std::vector<Enemy *> &enemies) { enemies_ = enemies; }
 
   int GetHp() const { return hp_; }
-  bool IsDead() const { return hp_ <= 0; }
+  bool IsDead() const { return isDead_; }
 
   // --- アクション・軌道調整用パラメータ ---
   struct ActionConfig {
@@ -112,6 +112,9 @@ private:
   
   float recoilOffset_ = 0.0f; // 射撃時の反動量
   float recoilVelocity_ = 0.0f; // 射撃時の反動速度
+  
+  float flashIntensity_ = 0.0f; // 画面フラッシュ強度
+  Vector3 flashColor_ = {1.0f, 0.0f, 0.0f}; // 画面フラッシュカラー
   
   int invincibleTimer_ = 0; // 無敵時間のタイマー
 

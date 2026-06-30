@@ -217,8 +217,10 @@ void PostProcess::CreatePSO() {
   graphicsPipeLineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
   graphicsPipeLineStateDesc.NumRenderTargets = 2;
-  graphicsPipeLineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // Backbuffer(LDR)
-  graphicsPipeLineStateDesc.RTVFormats[1] = DXGI_FORMAT_R16G16B16A16_FLOAT; // History(HDR)
+  graphicsPipeLineStateDesc.RTVFormats[0] =
+      DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // Backbuffer(LDR)
+  graphicsPipeLineStateDesc.RTVFormats[1] =
+      DXGI_FORMAT_R16G16B16A16_FLOAT; // History(HDR)
   graphicsPipeLineStateDesc.PrimitiveTopologyType =
       D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   graphicsPipeLineStateDesc.SampleDesc.Count = 1;
@@ -249,9 +251,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     float gaussianSigma;
     float depthOutlineWeight;
     float depthOutlineAttenuation;
-    float padding1;
-    float padding2;
-    float padding3;
+    Vector3 flashColor;
     Matrix4x4 projectionInverse;
     float radialBlurCenter[2];
     float radialBlurWidth;
@@ -276,9 +276,9 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     float motionBlurAlpha;
     float dofFocusDistance;
     float dofFocusRange;
-    float padding8;
+    float flashIntensity;
     int32_t activeShockwaveCount;
-    float padding9[3]; // 16バイトアライメント調整用
+    float padding9[3];
     struct ShockwaveData {
       float weight;
       float distortion;
@@ -303,9 +303,9 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->gaussianSigma = gaussianSigma_;
   data->depthOutlineWeight = depthOutlineWeight_;
   data->depthOutlineAttenuation = depthOutlineAttenuation_;
-  data->padding1 = 0.0f;
-  data->padding2 = 0.0f;
-  data->padding3 = 0.0f;
+  data->flashColor.x = flashColor_[0];
+  data->flashColor.y = flashColor_[1];
+  data->flashColor.z = flashColor_[2];
   data->projectionInverse = projectionInverse_;
   data->radialBlurCenter[0] = radialBlurCenter_[0];
   data->radialBlurCenter[1] = radialBlurCenter_[1];
@@ -334,7 +334,7 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->motionBlurAlpha = motionBlurAlpha_;
   data->dofFocusDistance = dofFocusDistance_;
   data->dofFocusRange = dofFocusRange_;
-  data->padding8 = 0.0f;
+  data->flashIntensity = flashIntensity_;
 
   data->activeShockwaveCount = static_cast<int32_t>(shockwaves_.size());
   data->padding9[0] = 0.0f;
@@ -396,7 +396,7 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
     const char *effectTypes[] = {
         "None",          "BoxFilter",   "GaussianFilter", "Luminance Outline",
         "Depth Outline", "Radial Blur", "Dissolve",       "Depth of Field",
-        "Random Noise", "HSV Filter"};
+        "Random Noise",  "HSV Filter"};
     ImGui::Combo("Effect Type", &postEffectType_, effectTypes,
                  IM_ARRAYSIZE(effectTypes));
 
@@ -430,7 +430,8 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
                        "%.3f");
       ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
     } else if (postEffectType_ == 7) { // Depth of Field
-      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f, 1000.0f);
+      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f,
+                       1000.0f);
       ImGui::DragFloat("Focus Range", &dofFocusRange_, 0.5f, 0.0f, 100.0f);
     } else if (postEffectType_ == 8) { // Random Noise
       ImGui::Text("Generating animated GPU random noise.");
@@ -527,12 +528,14 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
     // --- Tone Mapping ---
     ImGui::Separator();
     // --- Tone Mapping ---
-    
+
     // --- Tone Mapping ---
     ImGui::Separator();
     if (ImGui::TreeNode("Tone Mapping & HDR")) {
-      const char *toneMappingItems[] = {"None (Linear/Clamp)", "ACES Filmic", "Reinhard"};
-      ImGui::Combo("Tone Mapping", &toneMappingType_, toneMappingItems, IM_ARRAYSIZE(toneMappingItems));
+      const char *toneMappingItems[] = {"None (Linear/Clamp)", "ACES Filmic",
+                                        "Reinhard"};
+      ImGui::Combo("Tone Mapping", &toneMappingType_, toneMappingItems,
+                   IM_ARRAYSIZE(toneMappingItems));
       ImGui::DragFloat("Exposure", &exposure_, 0.05f, 0.1f, 10.0f);
       ImGui::TreePop();
     }
@@ -540,7 +543,8 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
     // --- Motion Blur ---
     ImGui::Separator();
     ImGui::Text("Motion Blur (Accumulation)");
-    ImGui::DragFloat("Blur Alpha (0=Off)", &motionBlurAlpha_, 0.01f, 0.0f, 0.99f);
+    ImGui::DragFloat("Blur Alpha (0=Off)", &motionBlurAlpha_, 0.01f, 0.0f,
+                     0.99f);
   }
 
   if (createNewWindow) {

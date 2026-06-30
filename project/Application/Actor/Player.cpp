@@ -14,6 +14,8 @@
 #include "Math/Geometry.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
+#include "Renderer/PostProcess.h"
+#include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include <Windows.h>
 #include <algorithm>
@@ -34,6 +36,8 @@ void Player::Initialize() {
   isDead_ = false;
   recoilOffset_ = 0.0f;
   recoilVelocity_ = 0.0f;
+  flashIntensity_ = 0.0f;
+  flashColor_ = {1.0f, 0.0f, 0.0f};
 
   // レティクルの初期位置化処理
   reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
@@ -54,7 +58,7 @@ void Player::Initialize() {
       line->SetAnchorPoint({0.5f, 0.5f});       // 中心をアンカーに
       reticleOuterSprites_.push_back(std::move(line));
     }
-    
+
     reticleInnerSprites_.clear();
     // 内枠
     for (int i = 0; i < 4; ++i) {
@@ -86,11 +90,22 @@ void Player::Initialize() {
 }
 
 void Player::Update() {
-  if (isDead_) return;
+  // 画面フラッシュの減衰とポストプロセスへの設定
+  // (死亡時もフェードアウトを継続させるため)
+  flashIntensity_ *= 0.90f;
+  auto pp = SceneManager::GetInstance()->GetCurrentScenePostProcess();
+  if (pp) {
+    pp->SetFlashColor(flashColor_.x, flashColor_.y, flashColor_.z);
+    pp->SetFlashIntensity(flashIntensity_);
+  }
+
+  if (isDead_) {
+    return;
+  }
 
   // 射撃反動のバネ物理更新 (減衰振動)
-  float springK = 0.15f;  // バネの強さ
-  float damper = 0.80f;   // ブレーキ
+  float springK = 0.15f; // バネの強さ
+  float damper = 0.80f;  // ブレーキ
   recoilVelocity_ += (0.0f - recoilOffset_) * springK;
   recoilVelocity_ *= damper;
   recoilOffset_ += recoilVelocity_;
@@ -111,9 +126,12 @@ void Player::Update() {
     }
 #endif
 
-    float acceleration = actionConfig_.reticleAcceleration; // 加速度（入力を続けた時のスピードの上がり方）
+    float acceleration =
+        actionConfig_
+            .reticleAcceleration; // 加速度（入力を続けた時のスピードの上がり方）
     float friction =
-        actionConfig_.reticleFriction; // 摩擦（数値を小さくすると急ブレーキ、大きくすると滑る）
+        actionConfig_
+            .reticleFriction; // 摩擦（数値を小さくすると急ブレーキ、大きくすると滑る）
 
     // 1. 入力方向の取得
     Vector2 inputDir = {0.0f, 0.0f};
@@ -135,8 +153,10 @@ void Player::Update() {
     float stickY = -input_->Pad().GetLeftY();
 
     // デッドゾーン処理 (0.1以下の入力を無視)
-    if (std::abs(stickX) < 0.1f) stickX = 0.0f;
-    if (std::abs(stickY) < 0.1f) stickY = 0.0f;
+    if (std::abs(stickX) < 0.1f)
+      stickX = 0.0f;
+    if (std::abs(stickY) < 0.1f)
+      stickY = 0.0f;
 
     inputDir.x += stickX;
     inputDir.y += stickY;
@@ -153,8 +173,10 @@ void Player::Update() {
     float speed = std::sqrt(reticleVelocity_.x * reticleVelocity_.x +
                             reticleVelocity_.y * reticleVelocity_.y);
     if (speed > actionConfig_.reticleMaxSpeed && speed > 0.0f) {
-      reticleVelocity_.x = (reticleVelocity_.x / speed) * actionConfig_.reticleMaxSpeed;
-      reticleVelocity_.y = (reticleVelocity_.y / speed) * actionConfig_.reticleMaxSpeed;
+      reticleVelocity_.x =
+          (reticleVelocity_.x / speed) * actionConfig_.reticleMaxSpeed;
+      reticleVelocity_.y =
+          (reticleVelocity_.y / speed) * actionConfig_.reticleMaxSpeed;
     }
 
     // 4. 座標の更新
@@ -329,9 +351,12 @@ void Player::Update() {
   float targetYaw = aimYaw + localVelX * actionConfig_.yawStrength;
 
   // Lerpで滑らかに
-  transform_.rotate.z = Lerp(transform_.rotate.z, targetRoll, actionConfig_.rollLerp);
-  transform_.rotate.x = Lerp(transform_.rotate.x, targetPitch, actionConfig_.pitchLerp);
-  transform_.rotate.y = Lerp(transform_.rotate.y, targetYaw, actionConfig_.yawLerp);
+  transform_.rotate.z =
+      Lerp(transform_.rotate.z, targetRoll, actionConfig_.rollLerp);
+  transform_.rotate.x =
+      Lerp(transform_.rotate.x, targetPitch, actionConfig_.pitchLerp);
+  transform_.rotate.y =
+      Lerp(transform_.rotate.y, targetYaw, actionConfig_.yawLerp);
 
   UpdateTransform();
 
@@ -415,8 +440,9 @@ void Player::FireHomingShot() {
 
     float spreadX = (spreadDirection * actionConfig_.homingSpreadX) + scatter;
 
-    Vector3 initialVelocity = {spreadX, actionConfig_.homingSpeedY,
-                               actionConfig_.homingSpeedZ}; // 前方に強めに、上には少しだけ打ち上げる
+    Vector3 initialVelocity = {
+        spreadX, actionConfig_.homingSpeedY,
+        actionConfig_.homingSpeedZ}; // 前方に強めに、上には少しだけ打ち上げる
 
     bullet->Initialize(object3dRenderer_, startPos, targets[i],
                        initialVelocity);
@@ -537,14 +563,17 @@ void Player::TakeDamage(int damage) {
 
   if (hp_ > 0) {
     hp_ -= damage;
+    flashColor_ = {1.0f, 0.0f, 0.0f}; // 被弾フラッシュ用カラー（赤）
+    flashIntensity_ = 0.6f;           // フラッシュ強度設定
     if (hp_ <= 0) {
       hp_ = 0;
+      isDead_ = true;
       OutputDebugStringA("Player is DEAD!\n");
     } else {
       OutputDebugStringA("Player took damage! Current HP: ");
       OutputDebugStringA(std::to_string(hp_).c_str());
       OutputDebugStringA("\n");
-      
+
       // ダメージを受けたら60フレーム（約1秒間）無敵になる
       invincibleTimer_ = 60;
     }
@@ -682,7 +711,7 @@ void Player::LoadActionConfig() {
         actionConfig_.normalShotSpeed = root["normalShotSpeed"];
       if (root.contains("recoilStrength"))
         actionConfig_.recoilStrength = root["recoilStrength"];
-      
+
       isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {
       // Parse error, keep defaults

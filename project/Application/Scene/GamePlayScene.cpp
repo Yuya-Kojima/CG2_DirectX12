@@ -510,7 +510,7 @@ void GamePlayScene::Update() {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する
     // GameState::Play
     // 以外の時（クリア後など）は操作を受け付けないようにUpdateTransformのみ呼ぶ
-    if (shouldUpdateLogic && gameState_ == GameState::Play) {
+    if (shouldUpdateLogic) {
       player_->Update();
     } else {
       player_->UpdateTransform();

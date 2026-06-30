@@ -2,8 +2,8 @@
 #include "Core/Dx12Core.h"
 #include "Math/Matrix4x4.h"
 #include "Math/Vector3.h"
-#include <wrl.h>
 #include <vector>
+#include <wrl.h>
 
 class SrvManager;
 
@@ -16,7 +16,8 @@ public:
   /// <summary>
   /// ImGuiを使用したデバッグ用の設定UIを描画する
   /// </summary>
-  void DrawDebugUI(const char* windowName = "PostEffect Settings", bool createNewWindow = true);
+  void DrawDebugUI(const char *windowName = "PostEffect Settings",
+                   bool createNewWindow = true);
 
   /// <summary>
   /// グレースケールの有効/無効を切り替える
@@ -59,7 +60,7 @@ public:
   /// </summary>
   /// <param name="type">0: None, 1: BoxFilter, 2: GaussianFilter, etc.</param>
   void SetPostEffectType(int type) { postEffectType_ = type; }
-  
+
   /// <summary>
   /// 現在のポストエフェクトのタイプを取得する
   /// </summary>
@@ -222,6 +223,12 @@ public:
   float GetDofFocusDistance() const { return dofFocusDistance_; }
   void SetDofFocusRange(float range) { dofFocusRange_ = range; }
   float GetDofFocusRange() const { return dofFocusRange_; }
+  void SetFlashColor(float r, float g, float b) {
+    flashColor_[0] = r;
+    flashColor_[1] = g;
+    flashColor_[2] = b;
+  }
+  void SetFlashIntensity(float intensity) { flashIntensity_ = intensity; }
 
   /// <summary>
   /// HSVフィルターの色相(Hue)の加算値を設定する
@@ -231,7 +238,9 @@ public:
   /// <summary>
   /// HSVフィルターの彩度(Saturation)の加算値を設定する
   /// </summary>
-  void SetHsvFilterSaturation(float saturation) { hsvFilterSaturation_ = saturation; }
+  void SetHsvFilterSaturation(float saturation) {
+    hsvFilterSaturation_ = saturation;
+  }
 
   /// <summary>
   /// HSVフィルターの明度(Value)の加算値を設定する
@@ -245,7 +254,9 @@ public:
     float thickness = 0.1f;
     float center[2] = {0.5f, 0.5f};
   };
-  void SetShockwaves(const std::vector<ShockwaveParams>& shockwaves) { shockwaves_ = shockwaves; }
+  void SetShockwaves(const std::vector<ShockwaveParams> &shockwaves) {
+    shockwaves_ = shockwaves;
+  }
 
 private:
   Dx12Core *dx12Core_ = nullptr;
@@ -257,55 +268,56 @@ private:
     int32_t postEffectType;
     int32_t useGrayscale;
     int32_t useVignette;
-    int32_t boxFilterK; 
-    Vector3 monotoneColor;
-    float vignetteScale;
+    int32_t boxFilterK;
+    Vector3 monotoneColor; // グレースケールの色合い
+    float vignetteScale;   // ヴィネットの範囲
     float vignetteExponent;
-    int32_t gaussianFilterK;
-    float gaussianSigma;
-    float depthOutlineWeight;
+    int32_t gaussianFilterK;  // ガウシアンぼかしサイズ（サンプリング半径）
+    float gaussianSigma;      // ぼかし強さ
+    float depthOutlineWeight; // アウトラインの太さ
     float depthOutlineAttenuation;
-    float padding1;
-    float padding2;
-    float padding3;
+    Vector3 flashColor; // 画面フラッシュの色
     Matrix4x4 projectionInverse;
-    float radialBlurCenter[2];
-    float radialBlurWidth;
+    float radialBlurCenter[2]; // ラジアルブラーの中心座標
+    float radialBlurWidth;     // ラジアルブラーの強さ
     int32_t radialBlurSamples;
-    float radialBlurInnerRadius;
-    float radialBlurOuterRadius;
+    float radialBlurInnerRadius; // ラジアルブラーがかからない内側の半径
+    float radialBlurOuterRadius; // ラジアルブラーがかかる外側の半径
     float radialBlurAberration;
     float padding4;
-    float dissolveThreshold;
+    float dissolveThreshold; // ディゾルブ (画面消滅) の進行度
     float dissolveEdgeRange;
     float padding5[2];
-    Vector3 dissolveEdgeColor;
+    Vector3 dissolveEdgeColor; // ディゾルブの境界線の発光色
     float time;
-    float hsvFilterHue;
-    float hsvFilterSaturation;
-    float hsvFilterValue;
+    float hsvFilterHue;        // HSV 色相の加算値
+    float hsvFilterSaturation; // HSV 彩度の加算値
+    float hsvFilterValue;      // HSV 明度の加算値
     float padding6;
-    float bloomIntensity;
+    float bloomIntensity; // ブルームの強さ
     int32_t useBloom;
-    int32_t toneMappingType;
-    float exposure;
-    float motionBlurAlpha;
-    float dofFocusDistance;
+    int32_t
+        toneMappingType; // トーンマッピングの種類 (0:なし, 1:ACES, 2:Reinhard)
+    float exposure;      // 画面の露出
+    float motionBlurAlpha;  // モーションブラーの強さ
+    float dofFocusDistance; // 被写界深度 (DoF) のピントが合う距離
     float dofFocusRange;
-    float padding8;
+    float flashIntensity; // 画面フラッシュの強さ
     int32_t activeShockwaveCount;
-    float padding9[3]; // 16バイトアライメント調整用
+    float padding9[3];
+
+    // ショックウェーブのデータ構造
     struct ShockwaveData {
-      float weight;
-      float distortion;
-      float radius;
-      float thickness;
-      float center[2];
+      float weight;     // 衝撃波のゆがみの強さ
+      float distortion; // 衝撃波のゆがみ幅
+      float radius;     // 衝撃波の現在の半径
+      float thickness;  // 衝撃波の波の太さ
+      float center[2];  // 衝撃波の中心座標
       float padding[2];
     } shockwaves[5];
   };
 
-  PostProcessData* mappedData_ = nullptr;
+  PostProcessData *mappedData_ = nullptr;
   bool useGrayscale_ = false;
   float monotoneColor_[3] = {1.0f, 1.0f, 1.0f};
 
@@ -348,6 +360,8 @@ private:
 
   float dofFocusDistance_ = 10.0f;
   float dofFocusRange_ = 5.0f;
+  float flashColor_[3] = {1.0f, 0.0f, 0.0f}; // 画面フラッシュ用カラー
+  float flashIntensity_ = 0.0f;              // 画面フラッシュ強度
 
   std::vector<ShockwaveParams> shockwaves_;
 
