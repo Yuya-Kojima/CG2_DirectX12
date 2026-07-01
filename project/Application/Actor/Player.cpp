@@ -5,6 +5,7 @@
 #include "Actor/LockOn.h"
 #include "Actor/NormalBullet.h"
 #include "Camera/ICamera.h"
+#include "Camera/RailCamera.h"
 #include "Collision/CollisionConfig.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
@@ -520,8 +521,8 @@ void Player::FireNormalShot() {
 }
 
 void Player::Draw3D() {
-  // 無敵時間中の点滅（2フレームに1回描画をスキップ）
-  if (invincibleTimer_ > 0 && (invincibleTimer_ / 2) % 2 == 0) {
+  // 無敵時間中の点滅
+  if (invincibleTimer_ > 0 && (invincibleTimer_ / 4) % 2 == 0) {
     return;
   }
 
@@ -548,9 +549,9 @@ void Player::Draw2D() {
 
 void Player::OnCollision(Collider *other) {
   // ぶつかった時にデバッグ出力
-  OutputDebugStringA("========================\n");
-  OutputDebugStringA("Player hit by something!\n");
-  OutputDebugStringA("========================\n");
+  Logger::Log("========================\n");
+  Logger::Log("Player hit by something!\n");
+  Logger::Log("========================\n");
 
   TakeDamage(1);
 }
@@ -565,16 +566,22 @@ void Player::TakeDamage(int damage) {
     hp_ -= damage;
     flashColor_ = {1.0f, 0.0f, 0.0f}; // 被弾フラッシュ用カラー（赤）
     flashIntensity_ = 0.6f;           // フラッシュ強度設定
+
+    // 被弾時のカメラシェイク（強さ0.5, 時間0.2秒）
+    auto railCamera =
+        const_cast<RailCamera *>(dynamic_cast<const RailCamera *>(camera_));
+    if (railCamera) {
+      railCamera->Shake(0.5f, 0.2f);
+    }
+
     if (hp_ <= 0) {
       hp_ = 0;
       isDead_ = true;
-      OutputDebugStringA("Player is DEAD!\n");
+      Logger::Log("Player is DEAD!\n");
     } else {
-      OutputDebugStringA("Player took damage! Current HP: ");
-      OutputDebugStringA(std::to_string(hp_).c_str());
-      OutputDebugStringA("\n");
+      Logger::Log("Player took damage! Current HP: " + std::to_string(hp_) + "\n");
 
-      // ダメージを受けたら60フレーム（約1秒間）無敵になる
+      // ダメージを受けたら60フレーム無敵になる
       invincibleTimer_ = 60;
     }
   }

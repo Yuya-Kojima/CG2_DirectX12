@@ -5,6 +5,7 @@
 #include "Render/Renderer/LineRenderer.h"
 #include <cmath>
 #include <Windows.h>
+#include "Debug/Logger.h"
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {}
@@ -111,7 +112,7 @@ void HomingBullet::Update() {
     if (dist < bulletRadius + enemyRadius) {
       isDead_ = true; 
       target_->TakeDamage(3);
-      OutputDebugStringA("Homing Bullet Hit!\n");
+      Logger::Log("Homing Bullet Hit!\n");
       return;
     }
   }

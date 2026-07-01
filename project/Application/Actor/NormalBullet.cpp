@@ -1,6 +1,7 @@
 #include "NormalBullet.h"
 #include "Render/Object3d/Object3d.h"
 #include "Math/MathUtil.h"
+#include "Debug/Logger.h"
 #include <Windows.h>
 #include "Actor/Enemy.h"
 #include "Render/Renderer/LineRenderer.h"
@@ -76,7 +77,7 @@ void NormalBullet::Update() {
     if (dist < bulletRadius + enemyRadius) {
       isDead_ = true; // 弾が消える
       enemy->TakeDamage(1); // 敵に1ダメージ与える
-      OutputDebugStringA("Normal Bullet Hit!\n");
+      Logger::Log("Normal Bullet Hit!\n");
       break;
     }
   }

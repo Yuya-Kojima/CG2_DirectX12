@@ -9,7 +9,7 @@
 #include "Render/Particle/ParticleEmitter.h"
 #include "Render/Particle/ParticleManager.h"
 #include "Actor/Player.h" 
-#include <Windows.h> // OutputDebugStringA用
+#include "Debug/Logger.h"
 #include <cmath>
 
 Enemy::Enemy() = default;
@@ -81,7 +81,7 @@ void Enemy::Draw3D() {
 void Enemy::OnCollision(Collider *other) {
   // プレイヤーと衝突した場合、自身もダメージを受けて自爆する
   if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
-    OutputDebugStringA("Enemy Self-Destruct into Player!\n");
+    Logger::Log("Enemy Self-Destruct into Player!\n");
     TakeDamage(999, true); // true を渡して自爆であることを知らせる
   }
 }
@@ -95,7 +95,7 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
   hitFlashTimer_ = 5; // 5フレーム間点滅
 
   if (hp_ <= 0) {
-    OutputDebugStringA("Enemy Destroyed!\n");
+    Logger::Log("Enemy Destroyed!\n");
     
     if (onDestroyedCallback_) {
       onDestroyedCallback_(isSelfDestruct);
