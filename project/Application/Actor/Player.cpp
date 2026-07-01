@@ -574,6 +574,11 @@ void Player::TakeDamage(int damage) {
       railCamera->Shake(0.5f, 0.2f);
     }
 
+    // ヒットストップを要求
+    if (hitStopCallback_) {
+      hitStopCallback_(5);
+    }
+
     if (hp_ <= 0) {
       hp_ = 0;
       isDead_ = true;

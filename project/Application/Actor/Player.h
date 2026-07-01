@@ -4,6 +4,7 @@
 #include <cassert>
 #include <memory>
 #include <vector>
+#include <functional>
 
 class LockOn;
 class SpriteRenderer;
@@ -43,6 +44,9 @@ public:
   void SetInput(class Input *input) { input_ = input; }
   void SetModel(std::unique_ptr<Object3d> model) {
     object3d_ = std::move(model);
+  }
+  void SetHitStopCallback(std::function<void(int)> callback) {
+    hitStopCallback_ = callback;
   }
 
   // 今回はテストとして直接ターゲットリストを渡す
@@ -117,6 +121,8 @@ private:
   Vector3 flashColor_ = {1.0f, 0.0f, 0.0f}; // 画面フラッシュカラー
   
   int invincibleTimer_ = 0; // 無敵時間のタイマー
+
+  std::function<void(int)> hitStopCallback_ = nullptr; // ヒットストップ要求コールバック
 
   // 多重レティクル用スプライト群
   std::vector<std::unique_ptr<Sprite>>

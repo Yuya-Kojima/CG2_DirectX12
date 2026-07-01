@@ -106,6 +106,10 @@ public:
 #include <numbers>
 #include <string>
 
+    void GamePlayScene::RequestHitStop(int frames) {
+  hitStopTimer_ = (std::max)(hitStopTimer_, frames);
+}
+
 void GamePlayScene::Initialize(EngineBase *engine) {
 
   // 基底クラスの初期化 (PostProcessの初期化など)
@@ -208,6 +212,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   player_->SetSpriteRenderer(engine_->GetSpriteRenderer());
   player_->SetObject3dRenderer(engine_->GetObject3dRenderer());
   player_->SetInput(engine_->GetInputManager());
+  player_->SetHitStopCallback([this](int frames) { RequestHitStop(frames); });
 
   // プレイヤーの初期化（照準やコライダーの生成など）
   player_->Initialize();
@@ -356,7 +361,11 @@ void GamePlayScene::Update() {
     }
   }
 
-  bool shouldUpdateLogic = (isPlayMode_ && !isPaused_) || doStep_;
+  if (hitStopTimer_ > 0) {
+    hitStopTimer_--;
+  }
+
+  bool shouldUpdateWorld = (isPlayMode_ && !isPaused_ && hitStopTimer_ <= 0) || doStep_;
 
   if (doStep_) {
     doStep_ = false;
@@ -365,9 +374,11 @@ void GamePlayScene::Update() {
   // ポストエフェクトとエフェクトマネージャーの更新
   if (postProcess_) {
     Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
-    EffectManager::GetInstance()->Update(viewProj);
-
+    if (shouldUpdateWorld) {
+      EffectManager::GetInstance()->Update(viewProj);
+    }
   }
+
   //=======================
   // カメラの更新
   //=======================
@@ -377,7 +388,7 @@ void GamePlayScene::Update() {
     debugCamera_->Update(*engine_->GetInputManager());
     activeCamera = debugCamera_->GetCamera();
   } else {
-    if (!shouldUpdateLogic) {
+    if (!shouldUpdateWorld) {
       bool autoMoveCache = railCamera_->GetAutoMove();
       railCamera_->SetAutoMove(false);
       railCamera_->Update();
@@ -393,7 +404,7 @@ void GamePlayScene::Update() {
       for (auto &ev : spawnEvents_) {
         if (t < ev.spawnTime) {
           ev.hasSpawned = false; // シークバック時にフラグをリセット
-        } else if (shouldUpdateLogic && !ev.hasSpawned && t >= ev.spawnTime) {
+        } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
           // スポーン (カメラの現在位置からの相対座標で計算)
           Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
           Matrix4x4 cameraWorld = Inverse(viewMatrix);
@@ -470,7 +481,7 @@ void GamePlayScene::Update() {
 
   // 敵の更新 (Playモードで生成された敵のみ)
   for (auto &enemy : runtimeEnemies_) {
-    if (shouldUpdateLogic) {
+    if (shouldUpdateWorld) {
       enemy->Update();
     } else {
       enemy->UpdateTransform();
@@ -510,7 +521,7 @@ void GamePlayScene::Update() {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する
     // GameState::Play
     // 以外の時（クリア後など）は操作を受け付けないようにUpdateTransformのみ呼ぶ
-    if (shouldUpdateLogic) {
+    if (shouldUpdateWorld) {
       player_->Update();
     } else {
       player_->UpdateTransform();
@@ -527,10 +538,12 @@ void GamePlayScene::Update() {
   }
 
   // アクター群の更新
-  ActorManager::GetInstance()->Update();
+  if (shouldUpdateWorld) {
+    ActorManager::GetInstance()->Update();
+  }
 
   // 当たり判定の更新
-  if (shouldUpdateLogic) {
+  if (shouldUpdateWorld) {
     CollisionManager::GetInstance()->Update();
   }
 

@@ -66,6 +66,9 @@ private: // メンバ変数(ゲーム用)
   // ゲーム状態
   GameState gameState_ = GameState::Play;
 
+  // ヒットストップタイマー
+  int hitStopTimer_ = 0;
+
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
@@ -120,6 +123,11 @@ public: // Undo/Redo用アクセッサ
   }
 
 public: // メンバ関数
+  /// <summary>
+  /// ヒットストップの要求（フレーム数指定、複数回呼ばれた場合は長い方を優先）
+  /// </summary>
+  void RequestHitStop(int frames);
+
   /// <summary>
   /// 初期化
   /// </summary>
