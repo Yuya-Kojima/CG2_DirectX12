@@ -20,6 +20,7 @@ class MeshParticleEmitter;
 #include "Camera/RailCamera.h"
 #include "Actor/Player.h"
 #include "Actor/Enemy.h"
+#include "Actor/Boss.h"
 
 struct SpawnEvent {
   float spawnTime = 0.0f;
@@ -73,6 +74,10 @@ private: // メンバ変数(ゲーム用)
   bool hasSpawnedDummy_ = false;
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
+
+  // ボス管理
+  std::unique_ptr<Boss> boss_ = nullptr;
+  bool isBossActive_ = false;
 
   // スポーンイベント
   std::vector<SpawnEvent> spawnEvents_;

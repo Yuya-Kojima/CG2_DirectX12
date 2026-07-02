@@ -175,7 +175,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // デバッグカメラの初期化（開発用の自由カメラ）真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {{0.0f, 4.0f, -10.0f}, {0.0f, 4.0f, 40.0f},
                 {0.0f, 4.0f, 90.0f},  {0.0f, 4.0f, 140.0f},
-                {0.0f, 4.0f, 190.0f}, {0.0f, 4.0f, 240.0f}};
+                {0.0f, 4.0f, 190.0f}, {0.0f, 4.0f, 215.0f},
+                {0.0f, 4.0f, 230.0f}};
   railCamera_ = std::make_unique<RailCamera>();
   railCamera_->Initialize(waypoints_);
   railCamera_->SetSpeed(0.2f); // スピードも少し落として照準を合わせやすくする
@@ -261,6 +262,8 @@ void GamePlayScene::Update() {
     SaveLevel("level_editor_temp.json");
     isPaused_ = false;
     useDebugCamera_ = false;
+    isBossActive_ = false;
+    boss_.reset();
 
     if (railCamera_) {
       railCamera_->SetAutoMove(true);
@@ -281,6 +284,10 @@ void GamePlayScene::Update() {
     // 残っている敵や弾をクリア
     runtimeEnemies_.clear();
     ActorManager::GetInstance()->Clear();
+    
+    // ボスもクリア
+    isBossActive_ = false;
+    boss_.reset();
 
     // プレイヤーのステータスを初期化
     if (player_) {
@@ -394,6 +401,42 @@ void GamePlayScene::Update() {
       railCamera_->Update();
       railCamera_->SetAutoMove(autoMoveCache);
     } else {
+      // タイムライン(t)制御：ボス戦突入演出
+      if (railCamera_) {
+        float t = railCamera_->GetT();
+        if (t >= 4.0f && t < 4.5f) {
+          // 4.0 から 4.5 にかけて、スピードを 0.2 から 0.05 に徐々に減速
+          float progress = (t - 4.0f) / 0.5f;
+          float currentSpeed = 0.2f * (1.0f - progress) + 0.05f * progress;
+          railCamera_->SetSpeed(currentSpeed);
+        } else if (t >= 4.5f) {
+          // t=4.5でカメラ完全停止、ボス戦開始
+          railCamera_->SetAutoMove(false);
+          
+          if (!isBossActive_) {
+             isBossActive_ = true;
+             // ボス生成
+             boss_ = std::make_unique<Boss>();
+             auto bossModel = std::make_unique<Object3d>();
+             bossModel->Initialize(engine_->GetObject3dRenderer());
+             bossModel->SetModel("suzanne.obj"); // 仮モデル
+             boss_->SetModel(std::move(bossModel));
+             boss_->GetTransform().scale = {5.0f, 5.0f, 5.0f}; // 巨大化
+             boss_->GetTransform().translate = {0.0f, 4.0f, 320.0f}; // カメラ(Z=230)より遠方に配置
+             boss_->Initialize();
+             boss_->InitializeUI(engine_->GetSpriteRenderer());
+             boss_->SetCamera(railCamera_.get());
+             boss_->SetPlayer(player_.get());
+             // ボス死亡時コールバック
+             boss_->SetOnDestroyedCallback([this](bool) {
+               gameState_ = GameState::Clear;
+             });
+          }
+        } else {
+           // 通常速度
+           railCamera_->SetSpeed(0.2f);
+        }
+      }
       railCamera_->Update();
     }
     activeCamera = railCamera_.get();
@@ -496,6 +539,9 @@ void GamePlayScene::Update() {
   for (auto &e : runtimeEnemies_) {
     enemyPtrs_.push_back(e.get());
   }
+  if (boss_) {
+    enemyPtrs_.push_back(boss_.get());
+  }
   if (player_) {
     player_->SetEnemies(enemyPtrs_);
   }
@@ -539,6 +585,10 @@ void GamePlayScene::Update() {
 
   // アクター群の更新
   if (shouldUpdateWorld) {
+    if (boss_) {
+      boss_->Update();
+      boss_->UpdateTransform();
+    }
     ActorManager::GetInstance()->Update();
   }
 
@@ -1343,6 +1393,9 @@ void GamePlayScene::Draw3D() {
       enemy->Draw3D();
     }
   }
+  if (boss_) {
+    boss_->Draw3D();
+  }
   for (auto &obj : sceneObjects_) {
     obj->Draw();
   }
@@ -1401,6 +1454,10 @@ void GamePlayScene::Draw2D() {
     if (gameState_ == GameState::Play) {
       player_->Draw2D();
     }
+  }
+
+  if (boss_ && gameState_ == GameState::Play) {
+    boss_->DrawUI();
   }
 
   // スプライト（UI）の描画

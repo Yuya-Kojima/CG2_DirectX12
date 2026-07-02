@@ -6,11 +6,18 @@
 #include "Actor/Enemy.h"
 #include "Render/Renderer/LineRenderer.h"
 #include <cmath>
+#include "Collision/SphereCollider.h"
+
+#include "Collision/CollisionManager.h"
 
 NormalBullet::NormalBullet() {}
-NormalBullet::~NormalBullet() {}
+NormalBullet::~NormalBullet() {
+  if (collider_) {
+    CollisionManager::GetInstance()->Remove(collider_.get());
+  }
+}
 
-void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, const Vector3& velocity, const std::vector<Enemy*>& enemies) {
+void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, const Vector3& velocity) {
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
   
@@ -21,8 +28,15 @@ void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
   object3d_->SetTranslation(startPos);
 
   velocity_ = velocity; // 目標へのベクトル
-  enemies_ = enemies;
   lifeTimer_ = 180; 
+
+  // コライダーの設定
+  collider_ = std::make_unique<SphereCollider>(this);
+  collider_->SetRadius(0.5f);
+  collider_->SetAttribute(kCollisionAttributePlayerBullet);
+  collider_->SetMask(kCollisionAttributeEnemy);
+  collider_->SetVelocity(velocity_);
+  CollisionManager::GetInstance()->Register(collider_.get());
 }
 
 void NormalBullet::Update() {
@@ -39,50 +53,29 @@ void NormalBullet::Update() {
   pos.y += velocity_.y;
   pos.z += velocity_.z;
   object3d_->SetTranslation(pos);
+  // コライダーの中心座標を同期させる
+  transform_.translate = pos;
 
-  // 敵への当たり判定（簡易的に距離で判定）
-  for (Enemy* enemy : enemies_) {
-    if (!enemy) continue;
-    if (enemy->IsDead()) continue; // 既に死んでいる敵は無視
-
-    Vector3 enemyPos = enemy->GetTransform().translate;
-    
-    // トンネリングを防ぐため、1フレーム前からの線分と敵の距離を計算する
-    Vector3 prevPos = {pos.x - velocity_.x, pos.y - velocity_.y, pos.z - velocity_.z};
-    Vector3 lineDir = velocity_;
-    float lineLen = Length(lineDir);
-    if (lineLen > 0.001f) {
-      lineDir.x /= lineLen; lineDir.y /= lineLen; lineDir.z /= lineLen;
-    }
-    
-    Vector3 toEnemy = {enemyPos.x - prevPos.x, enemyPos.y - prevPos.y, enemyPos.z - prevPos.z};
-    float t = Dot(toEnemy, lineDir);
-    // 線分上にクランプ 
-    t = (std::max)(0.0f, (std::min)(lineLen, t)); 
-    
-    Vector3 closestPoint = {prevPos.x + lineDir.x * t, prevPos.y + lineDir.y * t, prevPos.z + lineDir.z * t};
-    Vector3 diff = {enemyPos.x - closestPoint.x, enemyPos.y - closestPoint.y, enemyPos.z - closestPoint.z};
-    
-    float dist = Length(diff);
-
-    // 弾の半径
-    float bulletRadius = 2.5f;
-    
-    // 敵のスケールを考慮した実際の半径を計算
-    Vector3 enemyScale = enemy->GetTransform().scale;
-    float maxScale = (std::max)(enemyScale.x, (std::max)(enemyScale.y, enemyScale.z));
-    float enemyRadius = 1.5f * maxScale;
-    
-    // ヒット判定
-    if (dist < bulletRadius + enemyRadius) {
-      isDead_ = true; // 弾が消える
-      enemy->TakeDamage(1); // 敵に1ダメージ与える
-      Logger::Log("Normal Bullet Hit!\n");
-      break;
-    }
+  // コライダーへの速度反映
+  if (collider_) {
+    collider_->SetVelocity(velocity_);
   }
 
   object3d_->Update();
+}
+
+void NormalBullet::OnCollision(Collider* other) {
+  if (isDead_) return;
+
+  // 相手がEnemyかどうか確認
+  if (other->GetAttribute() & kCollisionAttributeEnemy) {
+    Enemy* enemy = dynamic_cast<Enemy*>(other->GetOwner());
+    if (enemy && !enemy->IsDead()) {
+      enemy->TakeDamage(damage_);
+      isDead_ = true;
+      Logger::Log("Normal Bullet Hit!\n");
+    }
+  }
 }
 
 void NormalBullet::Draw3D() {
@@ -95,7 +88,7 @@ void NormalBullet::Draw3D() {
     int segments = 16;
     float angleStep = 2.0f * 3.14159265f / segments;
     Vector4 color = {0.0f, 0.0f, 1.0f, 1.0f}; 
-    float radius = 2.5f;
+    float radius = 0.5f;
     Vector3 pos = object3d_->GetTranslation();
 
     for (int i = 0; i < segments; ++i) {

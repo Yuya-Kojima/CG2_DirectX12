@@ -32,7 +32,7 @@ Player::~Player() {
 
 void Player::Initialize() {
   // ステータスのリセット（エディタからのプレイモード再開時のため）
-  hp_ = 3;
+  hp_ = 10;
   invincibleTimer_ = 0;
   isDead_ = false;
   recoilOffset_ = 0.0f;
@@ -513,7 +513,7 @@ void Player::FireNormalShot() {
   velocity.z *= speed;
 
   auto bullet = std::make_unique<NormalBullet>();
-  bullet->Initialize(object3dRenderer_, startPos, velocity, enemies_);
+  bullet->Initialize(object3dRenderer_, startPos, velocity);
   ActorManager::GetInstance()->AddActor(std::move(bullet));
 
   // 通常弾発射時の反動を発生させる

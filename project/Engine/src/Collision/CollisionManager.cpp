@@ -64,8 +64,33 @@ void CollisionManager::CheckAllCollisions() {
         SphereCollider *sphereA = static_cast<SphereCollider *>(colliderA);
         SphereCollider *sphereB = static_cast<SphereCollider *>(colliderB);
 
-        isHit = CollisionMath::IsCollision(sphereA->GetWorldSphere(),
-                                           sphereB->GetWorldSphere());
+        const Vector3& velA = sphereA->GetVelocity();
+        const Vector3& velB = sphereB->GetVelocity();
+
+        if (LengthSq(velA) > 0.0f || LengthSq(velB) > 0.0f) {
+            // どちらかが速度を持っている場合、Swept Sphere（線分×球）判定を行う
+            // ここでは簡易的に、速度を持つ側を「線分」とし、持たない側を「球」とする。
+            // 双方が速度を持つ場合は相対速度を計算すべきだが、現状の弾丸は敵に対して圧倒的に速いため簡略化する。
+            SphereCollider* movingSphere = LengthSq(velA) > LengthSq(velB) ? sphereA : sphereB;
+            SphereCollider* targetSphere = movingSphere == sphereA ? sphereB : sphereA;
+
+            Segment seg;
+            const Vector3& vel = movingSphere->GetVelocity();
+            Vector3 currentPos = movingSphere->GetWorldSphere().center;
+            // 1フレーム前の位置から今の位置までの線分
+            seg.origin = Subtract(currentPos, vel);
+            seg.diff = vel;
+
+            Sphere expandedSphere = targetSphere->GetWorldSphere();
+            // 移動する球の半径を加算して太さを考慮する
+            expandedSphere.radius += movingSphere->GetWorldSphere().radius;
+
+            isHit = CollisionMath::IsCollision(seg, expandedSphere);
+        } else {
+            // 静的（離散的）な球×球判定
+            isHit = CollisionMath::IsCollision(sphereA->GetWorldSphere(),
+                                               sphereB->GetWorldSphere());
+        }
       }
       // ※新しくAABB やOBBなどのコライダーが増えたら、ここに分岐を追加する
 

@@ -72,7 +72,11 @@ public:
   void SetRadius(float radius) { radius_ = radius; }
   float GetRadius() const { return radius_; }
 
+  void SetVelocity(const Vector3& velocity) { velocity_ = velocity; }
+  const Vector3& GetVelocity() const { return velocity_; }
+
 private:
   Sphere worldSphere_;
   float radius_ = 1.0f; // デフォルトの半径
+  Vector3 velocity_ = {0.0f, 0.0f, 0.0f}; // 連続衝突判定用
 };
