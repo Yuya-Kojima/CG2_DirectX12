@@ -2,141 +2,101 @@
     "sceneObjects": [],
     "spawnEvents": [
         {
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 0.0, 360.0],
+            "spawnTime": 0.5
+        },
+        {
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-15.0, 0.0, 365.0],
+            "spawnTime": 0.8
+        },
+        {
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [15.0, 0.0, 365.0],
+            "spawnTime": 1.0
+        },
+        {
             "moveType": 2,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                6.300000190734863,
-                132.8000030517578
-            ],
-            "spawnTime": 7.235000133514404
+            "spawnOffset": [-30.0, 5.0, 390.0],
+            "spawnTime": 1.5
         },
         {
-            "moveType": 3,
+            "moveType": 2,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -18.779836654663086,
-                7.815319061279297,
-                97.69999694824219
-            ],
-            "spawnTime": 1.9382911920547485
+            "spawnOffset": [30.0, 5.0, 390.0],
+            "spawnTime": 1.5
         },
         {
-            "moveType": 3,
+            "moveType": 2,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                23.678741455078125,
-                10.096429824829102,
-                102.4000015258789
-            ],
-            "spawnTime": 1.9699366092681885
+            "spawnOffset": [-40.0, 5.0, 410.0],
+            "spawnTime": 2.0
         },
         {
-            "moveType": 1,
+            "moveType": 2,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -29.94761848449707,
-                0.1201639175415039,
-                86.5
-            ],
-            "spawnTime": 3.243670701980591
+            "spawnOffset": [40.0, 5.0, 410.0],
+            "spawnTime": 2.0
         },
         {
-            "moveType": 1,
+            "moveType": 2,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                30.508071899414063,
-                -0.2435779571533203,
-                89.19999694824219
-            ],
-            "spawnTime": 3.259000062942505
+            "spawnOffset": [0.0, 8.0, 400.0],
+            "spawnTime": 2.3
         },
         {
-            "moveType": 3,
+            "moveType": 6,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                50.79999923706055,
-                29.600000381469727,
-                142.89999389648438
-            ],
-            "spawnTime": 2.436708927154541
+            "spawnOffset": [-50.0, 0.0, 380.0],
+            "spawnTime": 2.9
         },
         {
-            "moveType": 3,
+            "moveType": 6,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -46.29999923706055,
-                29.299999237060547,
-                152.39999389648438
-            ],
-            "spawnTime": 2.453000068664551
+            "spawnOffset": [50.0, 0.0, 380.0],
+            "spawnTime": 3.0
         },
         {
-            "moveType": 1,
+            "moveType": 5,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                23.700000762939453,
-                88.30000305175781
-            ],
-            "spawnTime": 3.256999969482422
+            "spawnOffset": [0.0, 0.0, 400.0],
+            "spawnTime": 3.7
+        },
+        {
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-40.0, -5.0, 420.0],
+            "spawnTime": 4.1
+        },
+        {
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [40.0, -5.0, 420.0],
+            "spawnTime": 4.2
+        },
+        {
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 10.0, 450.0],
+            "spawnTime": 4.3
         }
     ],
     "waypoints": [
-        [
-            0.0,
-            4.0,
-            -10.0
-        ],
-        [
-            0.0,
-            4.0,
-            40.0
-        ],
-        [
-            0.0,
-            4.0,
-            90.0
-        ],
-        [
-            0.0,
-            4.0,
-            140.0
-        ],
-        [
-            0.0,
-            4.0,
-            190.0
-        ],
-        [
-            0.0,
-            4.0,
-            240.0
-        ],
-        [
-            0.0,
-            4.0,
-            294.3999938964844
-        ],
-        [
-            3.9000000953674316,
-            4.0,
-            410.29998779296875
-        ],
-        [
-            31.399999618530273,
-            4.0,
-            467.20001220703125
-        ],
-        [
-            63.599998474121094,
-            4.0,
-            517.7000122070313
-        ],
-        [
-            87.0,
-            4.0,
-            600.4000244140625
-        ]
+        [0.0, 4.0, -10.0],
+        [0.0, 4.0, 50.0],
+        [-10.0, 8.0, 120.0],
+        [-20.0, 8.0, 200.0],
+        [0.0, 6.0, 280.0],
+        [20.0, 4.0, 360.0],
+        [30.0, 2.0, 420.0],
+        [20.0, 4.0, 480.0],
+        [0.0, 6.0, 540.0],
+        [0.0, 6.0, 600.0],
+        [0.0, 4.0, 650.0]
     ]
 }

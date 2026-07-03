@@ -13,6 +13,8 @@ void Object3dRenderer::Initialize(Dx12Core *dx12Core) {
   CreatePointLightData();
 
   CreateSpotLightData();
+
+  CreateFogData();
 }
 
 void Object3dRenderer::CreateRootSignature() {
@@ -27,7 +29,7 @@ void Object3dRenderer::CreateRootSignature() {
       D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
   // Object3d用のRootParameterを作成
-  D3D12_ROOT_PARAMETER rootParameterObject3d[9] = {};
+  D3D12_ROOT_PARAMETER rootParameterObject3d[10] = {};
   rootParameterObject3d[0].ParameterType =
       D3D12_ROOT_PARAMETER_TYPE_CBV; // CBVを使う
   rootParameterObject3d[0].ShaderVisibility =
@@ -112,6 +114,13 @@ void Object3dRenderer::CreateRootSignature() {
       descriptorRangeMaskMap;
   rootParameterObject3d[8].DescriptorTable.NumDescriptorRanges =
       _countof(descriptorRangeMaskMap);
+
+  // フォグ用データ (b5)
+  rootParameterObject3d[9].ParameterType =
+      D3D12_ROOT_PARAMETER_TYPE_CBV;
+  rootParameterObject3d[9].ShaderVisibility =
+      D3D12_SHADER_VISIBILITY_PIXEL;
+  rootParameterObject3d[9].Descriptor.ShaderRegister = 5;
 
   D3D12_STATIC_SAMPLER_DESC staticSamplers[1] = {};
   staticSamplers[0].Filter =
@@ -471,4 +480,18 @@ void Object3dRenderer::CreateSkinningComputePSO() {
   skinningComputePipelineState_ = nullptr;
   hr = device->CreateComputePipelineState(&computePipelineStateDesc, IID_PPV_ARGS(&skinningComputePipelineState_));
   assert(SUCCEEDED(hr));
+}
+
+void Object3dRenderer::CreateFogData() {
+  UINT size = (sizeof(FogData) + 255) & ~255;
+  fogResource_ = dx12Core_->CreateBufferResource(size);
+
+  fogData_ = nullptr;
+  fogResource_->Map(0, nullptr, reinterpret_cast<void **>(&fogData_));
+
+  // デフォルト値
+  fogData_->color = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+  fogData_->nearDist = 100.0f;
+  fogData_->farDist = 200.0f;
+  fogData_->enabled = 0.0f;
 }

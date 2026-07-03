@@ -18,6 +18,14 @@ ConstantBuffer<Camera> gCamera : register(b2);
 ConstantBuffer<PointLight> gPointLight : register(b3);
 ConstantBuffer<SpotLight> gSpotLight : register(b4);
 
+struct FogData {
+    float4 color;
+    float nearDist;
+    float farDist;
+    float enabled;
+    float padding;
+};
+ConstantBuffer<FogData> gFog : register(b5);
 PixelShaderOutput main(
 GeometryShaderOutput input) {
 	
@@ -88,6 +96,13 @@ GeometryShaderOutput input) {
 	// Dissolve Edge 発光
 	if (gMaterial.enableDissolve != 0) {
 		output.color.rgb += edge * gMaterial.dissolveEdgeColor.rgb;
+	}
+
+	// Fog
+	if (gFog.enabled != 0.0f) {
+		float dist = length(gCamera.worldPosition - input.worldPosition);
+		float fogFactor = saturate((dist - gFog.nearDist) / (gFog.farDist - gFog.nearDist));
+		output.color.rgb = lerp(output.color.rgb, gFog.color.rgb, fogFactor);
 	}
 
 	output.color.a = gMaterial.color.a * textureColor.a;

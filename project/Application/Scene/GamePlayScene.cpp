@@ -117,10 +117,19 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // シーン初期化時に前シーンの残留アクター（弾や古いプレイヤー）を全消去
   ActorManager::GetInstance()->Clear();
+  CollisionManager::GetInstance()->Clear(); // コライダーの残留（ダングリングポインタ）を防ぐ
   PrefabManager::GetInstance()->Initialize(engine->GetObject3dRenderer());
 
   // 参照をコピー
   engine_ = engine;
+
+  // --- フォグの初期化 ---
+  FogData fog;
+  fog.color = Vector4(0.8f, 0.9f, 1.0f, 1.0f); // 空色っぽいフォグ
+  fog.nearDist = 150.0f; 
+  fog.farDist = 400.0f;
+  fog.enabled = 1.0f;
+  engine_->GetObject3dRenderer()->SetFog(fog);
 
   //===========================
   // テクスチャファイルの読み込み
@@ -286,6 +295,7 @@ void GamePlayScene::Update() {
     // 残っている敵や弾をクリア
     runtimeEnemies_.clear();
     ActorManager::GetInstance()->Clear();
+    CollisionManager::GetInstance()->Clear(); // コライダー残留バグ対策
     
     // ボスもクリア
     isBossActive_ = false;
@@ -434,6 +444,10 @@ void GamePlayScene::Update() {
                 // 大爆発音SE再生
                 SoundManager::GetInstance()->PlaySE("boss_explosion");
                 gameState_ = GameState::Clear;
+                // クリアUI表示
+                if (railCamera_)
+                  railCamera_->SetAutoMove(false);
+                UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
               });
               // ボスDying演出中の連続爆発エフェクトコールバック
               boss_->SetOnExplosionCallback([this](const Vector3& pos) {
