@@ -129,6 +129,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
+  SoundManager::GetInstance()->Load("boss_explosion", "resources/Sounds/explosion.mp3");
+
   EffectManager::GetInstance()->Initialize();
 
   //===========================
@@ -427,10 +429,24 @@ void GamePlayScene::Update() {
              boss_->InitializeUI(engine_->GetSpriteRenderer());
              boss_->SetCamera(railCamera_.get());
              boss_->SetPlayer(player_.get());
-             // ボス死亡時コールバック
-             boss_->SetOnDestroyedCallback([this](bool) {
-               gameState_ = GameState::Clear;
-             });
+              // ボス死亡時コールバック
+              boss_->SetOnDestroyedCallback([this](bool) {
+                // 大爆発音SE再生
+                SoundManager::GetInstance()->PlaySE("boss_explosion");
+                gameState_ = GameState::Clear;
+              });
+              // ボスDying演出中の連続爆発エフェクトコールバック
+              boss_->SetOnExplosionCallback([this](const Vector3& pos) {
+                // 既存の死亡エフェクトをボス周辺で発生させる
+                int idx = nextHitEffectIndex_ % kMaxHitEffects;
+                deathCoreEmitters_[idx]->SetCenter(pos);
+                deathFlareEmitters_[idx]->SetCenter(pos);
+                deathRingEmitters_[idx]->SetCenter(pos);
+                deathCoreEmitters_[idx]->Emit();
+                deathFlareEmitters_[idx]->Emit();
+                deathRingEmitters_[idx]->Emit();
+                ++nextHitEffectIndex_;
+              });
           }
         } else {
            // 通常速度

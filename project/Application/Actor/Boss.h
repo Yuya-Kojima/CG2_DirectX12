@@ -16,6 +16,7 @@ class SpriteRenderer;
 enum class BossPhase {
   Phase1,
   Phase2,
+  Dying,
   Defeated
 };
 
@@ -72,4 +73,12 @@ private:
   std::unique_ptr<Sprite> hpBarBg_;
   std::unique_ptr<Sprite> hpBarFg_;
   bool isUIInitialized_ = false;
+
+  // --- Dying演出 ---
+  float dyingTimer_ = 0.0f;        // 消滅演出の経過時間
+  float dyingDuration_ = 3.0f;    // 演出の総時間(秒)
+  float nextExplosionTime_ = 0.0f; // 次に爆発エフェクトを出す時間
+  std::function<void(const Vector3&)> onExplosionCallback_; // 爆発エフェクトのコールバック
+public:
+  void SetOnExplosionCallback(std::function<void(const Vector3&)> cb) { onExplosionCallback_ = cb; }
 };

@@ -16,7 +16,7 @@ void CollisionManager::Register(Collider *collider) {
 }
 
 void CollisionManager::Remove(Collider *collider) {
-  colliders_.remove(collider);
+  pendingRemoves_.push_back(collider);
 }
 
 void CollisionManager::Clear() { colliders_.clear(); }
@@ -29,6 +29,12 @@ void CollisionManager::Update() {
 
   // 総当り判定
   CheckAllCollisions();
+
+  // ループがすべて終わった後、安全に削除待ちのコライダーをリストから消去する
+  for (Collider *c : pendingRemoves_) {
+    colliders_.remove(c);
+  }
+  pendingRemoves_.clear();
 }
 
 void CollisionManager::DrawDebug() {

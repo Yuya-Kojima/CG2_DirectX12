@@ -30,4 +30,5 @@ private:
 
 private:
     std::list<Collider*> colliders_;
+    std::list<Collider*> pendingRemoves_; // 削除待ちリスト
 };

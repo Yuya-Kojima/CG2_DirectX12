@@ -13,6 +13,7 @@
 #include "Camera/RailCamera.h"
 #include <cmath>
 #include <algorithm>
+#include "Framework/GameManager.h"
 
 Boss::Boss() {}
 
@@ -33,6 +34,8 @@ void Boss::Initialize() {
   shotTimer_ = 0.0f;
   actionTimer_ = 0.0f;
   isCharging_ = false;
+  dyingTimer_ = 0.0f;
+  nextExplosionTime_ = 0.0f;
 
   if (model_) {
     model_->SetColor(baseColor_);
@@ -61,6 +64,35 @@ void Boss::InitializeUI(SpriteRenderer* spriteRenderer) {
 
 void Boss::Update() {
   if (isDead_) return;
+
+  // --- Dyingフェーズ処理 ---
+  if (phase_ == BossPhase::Dying) {
+    dyingTimer_ += 1.0f / 60.0f;
+
+    // 一定間隔で爆発エフェクトのコールバックを発火
+    if (dyingTimer_ >= nextExplosionTime_) {
+      // 爆発位置をランダムにボス周辺に散らす
+      float rx = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
+      float ry = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
+      float rz = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
+      Vector3 explosionPos = {transform_.translate.x + rx,
+                              transform_.translate.y + ry,
+                              transform_.translate.z + rz};
+      if (onExplosionCallback_) {
+        onExplosionCallback_(explosionPos);
+      }
+      // 爆発間隔を徐々に短くして激しくなる演出
+      float progress = dyingTimer_ / dyingDuration_;
+      float interval = 0.5f * (1.0f - progress * 0.8f); // 0.5秒→0.1秒に短縮
+      nextExplosionTime_ = dyingTimer_ + interval;
+    }
+
+    // 演出終了 → 完全消滅
+    if (dyingTimer_ >= dyingDuration_) {
+      ChangePhase(BossPhase::Defeated);
+    }
+    return; // Dyingフェーズ中は攻撃・移動をしない
+  }
 
   // 被弾時のフラッシュ処理
   if (hitFlashTimer_ > 0) {
@@ -264,7 +296,7 @@ void Boss::TakeDamage(int damage, bool isSelfDestruct) {
 
   if (hp_ <= 0) {
     hp_ = 0;
-    ChangePhase(BossPhase::Defeated);
+    ChangePhase(BossPhase::Dying); // 即消滅ではなくDyingフェーズへ
   }
 }
 
@@ -273,8 +305,23 @@ void Boss::ChangePhase(BossPhase nextPhase) {
   if (phase_ == BossPhase::Phase2) {
     Logger::Log("Boss entering Phase 2!\n");
     // パターン変化の初期化など
+  } else if (phase_ == BossPhase::Dying) {
+    Logger::Log("Boss entering Dying phase!\n");
+    // コライダーを無効化（当たり判定を消す）
+    // CollisionManagerが遅延削除に対応したため、ここでRemoveを呼んでも安全です
+    if (collider_) {
+      CollisionManager::GetInstance()->Remove(collider_.get());
+      collider_.reset();
+    }
+    dyingTimer_ = 0.0f;
+    nextExplosionTime_ = 0.0f;
+    // HPバーを非表示にする
+    isUIInitialized_ = false;
   } else if (phase_ == BossPhase::Defeated) {
     Logger::Log("Boss Defeated!\n");
+    // スコア加算
+    GameManager::GetInstance()->AddScore(10000);
+    
     if (onDestroyedCallback_) {
       onDestroyedCallback_(false);
     }
