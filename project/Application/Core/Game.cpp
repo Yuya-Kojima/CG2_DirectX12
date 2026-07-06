@@ -268,13 +268,26 @@ void Game::Update() {
   if (ImGui::Button("Clear")) {
     Logger::ClearConsoleLog();
   }
+  ImGui::SameLine();
+  if (ImGui::Button("Copy All")) {
+    ImGui::SetClipboardText(Logger::GetConsoleLog().c_str());
+  }
   ImGui::Separator();
   ImGui::BeginChild("ScrollingRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
   std::string logs = Logger::GetConsoleLog();
+  
+  // テキスト選択は不可だが高速に表示できるTextUnformattedを使用
   ImGui::TextUnformatted(logs.c_str(), logs.c_str() + logs.size());
-  // 自動スクロール
-  if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+
+  // ログのサイズが変わった（新しいログが追加された）かどうかを判定
+  static size_t s_prevLogSize = 0;
+  bool isUpdated = (logs.size() != s_prevLogSize);
+  s_prevLogSize = logs.size();
+
+  // 更新された直後、またはすでに一番下を見ている場合は一番下へ自動スクロール
+  if (isUpdated || ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
       ImGui::SetScrollHereY(1.0f);
+  }
   ImGui::EndChild();
   ImGui::End();
 

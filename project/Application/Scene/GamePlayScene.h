@@ -20,6 +20,7 @@ class MeshParticleEmitter;
 #include "Camera/RailCamera.h"
 #include "Actor/Player.h"
 #include "Actor/Enemy.h"
+#include "Actor/Boss.h"
 
 struct SpawnEvent {
   float spawnTime = 0.0f;
@@ -66,10 +67,14 @@ private: // メンバ変数(ゲーム用)
   // ゲーム状態
   GameState gameState_ = GameState::Play;
 
+  // ヒットストップタイマー
+  int hitStopTimer_ = 0;
+
   // ダミー敵管理
   bool hasSpawnedDummy_ = false;
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
+
 
   // スポーンイベント
   std::vector<SpawnEvent> spawnEvents_;
@@ -120,6 +125,11 @@ public: // Undo/Redo用アクセッサ
   }
 
 public: // メンバ関数
+  /// <summary>
+  /// ヒットストップの要求（フレーム数指定、複数回呼ばれた場合は長い方を優先）
+  /// </summary>
+  void RequestHitStop(int frames);
+
   /// <summary>
   /// 初期化
   /// </summary>

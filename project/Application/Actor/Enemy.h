@@ -41,6 +41,8 @@ public:
   Object3d* GetModel() const { return model_.get(); }
   void SetBaseColor(const Vector4& color) { baseColor_ = color; }
   const Vector4& GetBaseColor() const { return baseColor_; }
+  
+  SphereCollider* GetCollider() const { return collider_.get(); }
 
   // 移動方向・軌道のセッター/ゲッター
   void SetMoveDirection(const Vector3& dir) { moveDirection_ = dir; }
@@ -67,12 +69,12 @@ public:
   void SetSpeed(float speed) { speed_ = speed; }
 
   // ダメージを受ける処理
-  void TakeDamage(int damage, bool isSelfDestruct = false);
+  virtual void TakeDamage(int damage, bool isSelfDestruct = false);
 
   // 死亡時のコールバック設定（boolは自爆かどうか）
   void SetOnDestroyedCallback(std::function<void(bool)> cb) { onDestroyedCallback_ = cb; }
 
-private:
+protected:
   std::unique_ptr<Object3d> model_;
   std::unique_ptr<SphereCollider> collider_;
 

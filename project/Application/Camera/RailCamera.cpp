@@ -112,7 +112,7 @@ Vector3 RailCamera::CalcPosition(float t) const {
 }
 
 void RailCamera::Shake(float intensity, float duration) {
-  shakeIntensity_ = intensity;
-  shakeDuration_ = duration;
-  shakeTimer_ = duration;
+  shakeIntensity_ = (std::max)(shakeIntensity_, intensity + (shakeIntensity_ * 0.2f));
+  shakeDuration_ = (std::max)(shakeDuration_, duration);
+  shakeTimer_ = (std::max)(shakeTimer_, duration);
 }

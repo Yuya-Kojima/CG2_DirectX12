@@ -142,6 +142,9 @@ void Object3d::Draw() {
   commandList->SetGraphicsRootDescriptorTable(
       8, TextureManager::GetInstance()->GetSrvHandleGPU(maskTexturePath_));
 
+  // Fog
+  commandList->SetGraphicsRootConstantBufferView(
+      9, object3dRenderer_->GetFogResource()->GetGPUVirtualAddress());
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
     model_->Draw(skinCluster_);

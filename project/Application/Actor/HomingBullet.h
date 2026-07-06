@@ -6,6 +6,8 @@
 class Object3d;
 class Object3dRenderer;
 class Enemy;
+class SphereCollider;
+class Collider;
 
 class HomingBullet : public BaseActor {
 public:
@@ -31,22 +33,22 @@ public:
 
   void Update() override;
   void Draw3D() override;
-
-  bool IsDead() const { return isDead_; }
+  
+  void OnCollision(Collider* other) override;
 
 private:
   std::unique_ptr<Object3d> object3d_;
+  std::unique_ptr<SphereCollider> collider_;
   Enemy* target_ = nullptr;
+  int damage_ = 3;
   
   Vector3 velocity_;
   float speed_ = 1.5f;           // 弾の飛ぶ速さ
   float homingStrength_ = 0.02f; // 誘導の強さ（小さいほど大回りする）
   int lifeTimer_ = 180;          // 寿命（約3秒で消滅）
   
-  // アクションエディタ用パラメータ（初期値は元コードと同じ）
+  // アクションエディタ用パラメータ
   int homingFallTime_ = 165;
   float homingStrengthIncrease_ = 0.015f;
   float homingStrengthMax_ = 0.25f;
-
-  bool isDead_ = false;
 };

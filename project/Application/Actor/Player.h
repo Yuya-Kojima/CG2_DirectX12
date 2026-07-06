@@ -4,6 +4,7 @@
 #include <cassert>
 #include <memory>
 #include <vector>
+#include <functional>
 
 class LockOn;
 class SpriteRenderer;
@@ -44,12 +45,15 @@ public:
   void SetModel(std::unique_ptr<Object3d> model) {
     object3d_ = std::move(model);
   }
+  void SetHitStopCallback(std::function<void(int)> callback) {
+    hitStopCallback_ = callback;
+  }
 
   // 今回はテストとして直接ターゲットリストを渡す
   void SetEnemies(const std::vector<Enemy *> &enemies) { enemies_ = enemies; }
 
   int GetHp() const { return hp_; }
-  bool IsDead() const { return hp_ <= 0; }
+  bool IsDead() const { return isDead_; }
 
   // --- アクション・軌道調整用パラメータ ---
   struct ActionConfig {
@@ -67,6 +71,11 @@ public:
     float rollLerp = 0.15f;                // ロール補間速度
     float pitchLerp = 0.15f;               // ピッチ補間速度
     float yawLerp = 0.15f;                 // ヨー補間速度
+    float homingSpreadX = 0.3f;            // ホーミング弾の左右拡散幅
+    float homingSpeedY = 0.6f;             // ホーミング弾の上方初速
+    float homingSpeedZ = 0.8f;             // ホーミング弾の前方初速
+    float normalShotSpeed = 10.0f;         // 通常弾の弾速
+    float recoilStrength = 0.0f;           // 射撃時の反動の強さ
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 
@@ -105,7 +114,15 @@ private:
   Vector2 reticlePosition_;
   Vector2 reticleVelocity_ = {0.0f, 0.0f}; // 照準の移動速度（慣性用）
   
+  float recoilOffset_ = 0.0f; // 射撃時の反動量
+  float recoilVelocity_ = 0.0f; // 射撃時の反動速度
+  
+  float flashIntensity_ = 0.0f; // 画面フラッシュ強度
+  Vector3 flashColor_ = {1.0f, 0.0f, 0.0f}; // 画面フラッシュカラー
+  
   int invincibleTimer_ = 0; // 無敵時間のタイマー
+
+  std::function<void(int)> hitStopCallback_ = nullptr; // ヒットストップ要求コールバック
 
   // 多重レティクル用スプライト群
   std::vector<std::unique_ptr<Sprite>>

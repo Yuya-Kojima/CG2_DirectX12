@@ -1,5 +1,6 @@
 #include "PrefabManager.h"
 #include "Actor/Enemy.h"
+#include "Actor/Boss.h"
 #include "Actor/Behavior/BehaviorStraight.h"
 #include "Render/Object3d/Object3d.h"
 #include "Actor/Behavior/BehaviorSineWave.h"
@@ -61,7 +62,12 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
     std::ifstream file(filepath);
     
     // 生成して初期化
-    auto newEnemy = std::make_unique<Enemy>();
+    std::unique_ptr<Enemy> newEnemy;
+    if (prefabName == "Boss") {
+        newEnemy = std::make_unique<Boss>();
+    } else {
+        newEnemy = std::make_unique<Enemy>();
+    }
     newEnemy->Initialize();
 
     std::string modelPath = "resources/suzanne.obj"; // デフォルト

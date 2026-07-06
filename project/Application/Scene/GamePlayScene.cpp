@@ -106,6 +106,10 @@ public:
 #include <numbers>
 #include <string>
 
+    void GamePlayScene::RequestHitStop(int frames) {
+  hitStopTimer_ = (std::max)(hitStopTimer_, frames);
+}
+
 void GamePlayScene::Initialize(EngineBase *engine) {
 
   // 基底クラスの初期化 (PostProcessの初期化など)
@@ -113,10 +117,19 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // シーン初期化時に前シーンの残留アクター（弾や古いプレイヤー）を全消去
   ActorManager::GetInstance()->Clear();
+  CollisionManager::GetInstance()->Clear(); // コライダーの残留（ダングリングポインタ）を防ぐ
   PrefabManager::GetInstance()->Initialize(engine->GetObject3dRenderer());
 
   // 参照をコピー
   engine_ = engine;
+
+  // --- フォグの初期化 ---
+  FogData fog;
+  fog.color = Vector4(0.8f, 0.9f, 1.0f, 1.0f); // 空色っぽいフォグ
+  fog.nearDist = 150.0f; 
+  fog.farDist = 400.0f;
+  fog.enabled = 1.0f;
+  engine_->GetObject3dRenderer()->SetFog(fog);
 
   //===========================
   // テクスチャファイルの読み込み
@@ -125,6 +138,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
+  SoundManager::GetInstance()->Load("boss_explosion", "resources/Sounds/explosion.mp3");
+
   EffectManager::GetInstance()->Initialize();
 
   //===========================
@@ -171,7 +186,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // デバッグカメラの初期化（開発用の自由カメラ）真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {{0.0f, 4.0f, -10.0f}, {0.0f, 4.0f, 40.0f},
                 {0.0f, 4.0f, 90.0f},  {0.0f, 4.0f, 140.0f},
-                {0.0f, 4.0f, 190.0f}, {0.0f, 4.0f, 240.0f}};
+                {0.0f, 4.0f, 190.0f}, {0.0f, 4.0f, 215.0f},
+                {0.0f, 4.0f, 230.0f}};
   railCamera_ = std::make_unique<RailCamera>();
   railCamera_->Initialize(waypoints_);
   railCamera_->SetSpeed(0.2f); // スピードも少し落として照準を合わせやすくする
@@ -208,6 +224,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   player_->SetSpriteRenderer(engine_->GetSpriteRenderer());
   player_->SetObject3dRenderer(engine_->GetObject3dRenderer());
   player_->SetInput(engine_->GetInputManager());
+  player_->SetHitStopCallback([this](int frames) { RequestHitStop(frames); });
 
   // プレイヤーの初期化（照準やコライダーの生成など）
   player_->Initialize();
@@ -259,6 +276,7 @@ void GamePlayScene::Update() {
 
     if (railCamera_) {
       railCamera_->SetAutoMove(true);
+      railCamera_->SetSpeed(0.2f); // 速度リセット
       playStartT_ = railCamera_->GetT();
     }
     for (auto &ev : spawnEvents_) {
@@ -276,6 +294,7 @@ void GamePlayScene::Update() {
     // 残っている敵や弾をクリア
     runtimeEnemies_.clear();
     ActorManager::GetInstance()->Clear();
+    CollisionManager::GetInstance()->Clear(); // コライダー残留バグ対策
 
     // プレイヤーのステータスを初期化
     if (player_) {
@@ -356,7 +375,11 @@ void GamePlayScene::Update() {
     }
   }
 
-  bool shouldUpdateLogic = (isPlayMode_ && !isPaused_) || doStep_;
+  if (hitStopTimer_ > 0) {
+    hitStopTimer_--;
+  }
+
+  bool shouldUpdateWorld = (isPlayMode_ && !isPaused_ && hitStopTimer_ <= 0) || doStep_;
 
   if (doStep_) {
     doStep_ = false;
@@ -365,9 +388,11 @@ void GamePlayScene::Update() {
   // ポストエフェクトとエフェクトマネージャーの更新
   if (postProcess_) {
     Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
-    EffectManager::GetInstance()->Update(viewProj);
-
+    if (shouldUpdateWorld) {
+      EffectManager::GetInstance()->Update(viewProj);
+    }
   }
+
   //=======================
   // カメラの更新
   //=======================
@@ -377,7 +402,7 @@ void GamePlayScene::Update() {
     debugCamera_->Update(*engine_->GetInputManager());
     activeCamera = debugCamera_->GetCamera();
   } else {
-    if (!shouldUpdateLogic) {
+    if (!shouldUpdateWorld) {
       bool autoMoveCache = railCamera_->GetAutoMove();
       railCamera_->SetAutoMove(false);
       railCamera_->Update();
@@ -393,7 +418,7 @@ void GamePlayScene::Update() {
       for (auto &ev : spawnEvents_) {
         if (t < ev.spawnTime) {
           ev.hasSpawned = false; // シークバック時にフラグをリセット
-        } else if (shouldUpdateLogic && !ev.hasSpawned && t >= ev.spawnTime) {
+        } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
           // スポーン (カメラの現在位置からの相対座標で計算)
           Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
           Matrix4x4 cameraWorld = Inverse(viewMatrix);
@@ -422,19 +447,44 @@ void GamePlayScene::Update() {
               ev.prefabName,
               Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
-          // 撃破時の全体エフェクト演出コールバックを登録
           Enemy* enemyPtr = newEnemy.get();
-          newEnemy->SetOnDestroyedCallback([this, enemyPtr](bool isSelfDestruct) {
+
+          if (ev.prefabName == "Boss") {
+              if (auto boss = dynamic_cast<Boss*>(enemyPtr)) {
+                  boss->InitializeUI(engine_->GetSpriteRenderer());
+                  boss->SetCamera(railCamera_.get());
+                  boss->SetPlayer(player_.get());
+                  boss->GetTransform().scale = {5.0f, 5.0f, 5.0f}; // 巨大化
+                  
+                  boss->SetOnExplosionCallback([this](const Vector3& pos) {
+                      int idx = nextHitEffectIndex_ % kMaxHitEffects;
+                      deathCoreEmitters_[idx]->SetCenter(pos);
+                      deathFlareEmitters_[idx]->SetCenter(pos);
+                      deathRingEmitters_[idx]->SetCenter(pos);
+                      deathCoreEmitters_[idx]->Emit();
+                      deathFlareEmitters_[idx]->Emit();
+                      deathRingEmitters_[idx]->Emit();
+                      nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+                  });
+
+                  // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
+                  if (railCamera_) {
+                      railCamera_->SetSpeed(0.05f);
+                  }
+              }
+          }
+
+          // 撃破時の全体エフェクト演出コールバックを登録
+          newEnemy->SetOnDestroyedCallback([this, enemyPtr, isBoss = (ev.prefabName == "Boss")](bool isSelfDestruct) {
             // 自爆の場合は通常の撃破エフェクトを出さずに終了する
             if (isSelfDestruct) {
-                // 必要であればカメラ揺れだけ起こすなど
                 if (railCamera_) railCamera_->Shake(0.5f, 0.2f);
                 return;
             }
 
             EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
             if (railCamera_) {
-              railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
+              railCamera_->Shake(1.0f, 0.3f);
             }
             
             // パーティクル発生
@@ -447,6 +497,14 @@ void GamePlayScene::Update() {
             deathRingEmitters_[i]->Emit();
             
             nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+
+            // ボス撃破時はクリア画面へ
+            if (isBoss) {
+                SoundManager::GetInstance()->PlaySE("boss_explosion");
+                gameState_ = GameState::Clear;
+                if (railCamera_) railCamera_->SetAutoMove(false);
+                UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+            }
           });
 
           // カメラとオフセット、プレイヤー情報をセット
@@ -470,7 +528,7 @@ void GamePlayScene::Update() {
 
   // 敵の更新 (Playモードで生成された敵のみ)
   for (auto &enemy : runtimeEnemies_) {
-    if (shouldUpdateLogic) {
+    if (shouldUpdateWorld) {
       enemy->Update();
     } else {
       enemy->UpdateTransform();
@@ -510,7 +568,7 @@ void GamePlayScene::Update() {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する
     // GameState::Play
     // 以外の時（クリア後など）は操作を受け付けないようにUpdateTransformのみ呼ぶ
-    if (shouldUpdateLogic && gameState_ == GameState::Play) {
+    if (shouldUpdateWorld) {
       player_->Update();
     } else {
       player_->UpdateTransform();
@@ -527,10 +585,12 @@ void GamePlayScene::Update() {
   }
 
   // アクター群の更新
-  ActorManager::GetInstance()->Update();
+  if (shouldUpdateWorld) {
+    ActorManager::GetInstance()->Update();
+  }
 
   // 当たり判定の更新
-  if (shouldUpdateLogic) {
+  if (shouldUpdateWorld) {
     CollisionManager::GetInstance()->Update();
   }
 
@@ -658,6 +718,7 @@ void GamePlayScene::Update() {
   // Inspector ウィンドウ
   //=========================
   ImGui::Begin("Inspector");
+  ImGui::SetWindowFontScale(0.85f);
 
   if (currentSelectType_ == EditorSelectType::Player) {
     ImGui::Text("Player Action Settings");
@@ -691,6 +752,9 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
       changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
       changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の左右拡散幅", &config.homingSpreadX, 0.0f, 2.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の上方初速", &config.homingSpeedY, 0.0f, 5.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の前方初速", &config.homingSpeedZ, 0.0f, 5.0f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の摩擦力", &config.reticleFriction, 0.5f, 0.99f);
       changed |= ImGui::SliderFloat((const char*)u8"照準の最高速度", &config.reticleMaxSpeed, 1.0f, 100.0f);
@@ -700,6 +764,8 @@ void GamePlayScene::Update() {
       changed |= ImGui::SliderFloat((const char*)u8"ロールの補間速度（Lerp）", &config.rollLerp, 0.01f, 1.0f);
       changed |= ImGui::SliderFloat((const char*)u8"ピッチの補間速度（Lerp）", &config.pitchLerp, 0.01f, 1.0f);
       changed |= ImGui::SliderFloat((const char*)u8"ヨーの補間速度（Lerp）", &config.yawLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"通常弾のスピード", &config.normalShotSpeed, 1.0f, 50.0f);
+      changed |= ImGui::SliderFloat((const char*)u8"射撃の反動の強さ", &config.recoilStrength, 0.0f, 1.0f);
       
       if (changed) {
         player_->SetActionConfigDirty(true);
@@ -1381,6 +1447,15 @@ void GamePlayScene::Draw2D() {
     // リザルト画面中はレティクルを消す
     if (gameState_ == GameState::Play) {
       player_->Draw2D();
+    }
+  }
+
+  // 敵の2D描画（ボスのUIなど）
+  if (gameState_ == GameState::Play) {
+    for (auto &enemy : runtimeEnemies_) {
+      if (!enemy->IsDead()) {
+        enemy->Draw2D();
+      }
     }
   }
 

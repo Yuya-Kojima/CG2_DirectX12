@@ -3,11 +3,19 @@
 #include "Math/MathUtil.h"
 #include "Actor/Enemy.h"
 #include "Render/Renderer/LineRenderer.h"
+#include "Collision/SphereCollider.h"
 #include <cmath>
 #include <Windows.h>
+#include "Debug/Logger.h"
+
+#include "Collision/CollisionManager.h"
 
 HomingBullet::HomingBullet() {}
-HomingBullet::~HomingBullet() {}
+HomingBullet::~HomingBullet() {
+  if (collider_) {
+    CollisionManager::GetInstance()->Remove(collider_.get());
+  }
+}
 
 void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, Enemy* target, const Vector3& initialVelocity) {
   object3d_ = std::make_unique<Object3d>();
@@ -18,9 +26,18 @@ void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
   object3d_->SetScale({0.2f, 0.2f, 0.5f}); // レーザーっぽく縦長にする
   object3d_->SetColor({0.0f, 1.0f, 1.0f, 1.0f}); // シアン（水色）に光らせる
   object3d_->SetTranslation(startPos);
-
+  
+  velocity_ = initialVelocity;
   target_ = target;
-  velocity_ = initialVelocity; // 発射時は指定したベクトルへ打ち上がる
+  lifeTimer_ = 180; 
+
+  // コライダーの設定
+  collider_ = std::make_unique<SphereCollider>(this);
+  collider_->SetRadius(0.5f);
+  collider_->SetAttribute(kCollisionAttributePlayerBullet);
+  collider_->SetMask(kCollisionAttributeEnemy);
+  collider_->SetVelocity(velocity_);
+  CollisionManager::GetInstance()->Register(collider_.get());
 }
 
 void HomingBullet::Update() {
@@ -82,43 +99,31 @@ void HomingBullet::Update() {
   pos.y += velocity_.y;
   pos.z += velocity_.z;
   object3d_->SetTranslation(pos);
+  // コライダーの中心座標を同期させる
+  transform_.translate = pos;
 
-  // 敵への当たり判定
-  if (target_) {
-    Vector3 enemyPos = target_->GetTransform().translate;
-    
-    Vector3 prevPos = {pos.x - velocity_.x, pos.y - velocity_.y, pos.z - velocity_.z};
-    Vector3 lineDir = velocity_;
-    float lineLen = Length(lineDir);
-    if (lineLen > 0.001f) {
-      lineDir.x /= lineLen; lineDir.y /= lineLen; lineDir.z /= lineLen;
-    }
-    
-    Vector3 toEnemy = {enemyPos.x - prevPos.x, enemyPos.y - prevPos.y, enemyPos.z - prevPos.z};
-    float t = Dot(toEnemy, lineDir);
-    t = (std::max)(0.0f, (std::min)(lineLen, t)); 
-    
-    Vector3 closestPoint = {prevPos.x + lineDir.x * t, prevPos.y + lineDir.y * t, prevPos.z + lineDir.z * t};
-    Vector3 diff = {enemyPos.x - closestPoint.x, enemyPos.y - closestPoint.y, enemyPos.z - closestPoint.z};
-    
-    float dist = Length(diff);
-    float bulletRadius = 3.0f;
-    
-    Vector3 enemyScale = target_->GetTransform().scale;
-    float maxScale = (std::max)(enemyScale.x, (std::max)(enemyScale.y, enemyScale.z));
-    float enemyRadius = 1.5f * maxScale;
-
-    if (dist < bulletRadius + enemyRadius) {
-      isDead_ = true; 
-      target_->TakeDamage(3);
-      OutputDebugStringA("Homing Bullet Hit!\n");
-      return;
-    }
+  // コライダーへの速度反映
+  if (collider_) {
+    collider_->SetVelocity(velocity_);
   }
 
   // TODO: 弾の向き（回転）を進行方向（velocity_）に向ける処理を追加するとさらに綺麗になる
 
   object3d_->Update();
+}
+
+void HomingBullet::OnCollision(Collider* other) {
+  if (isDead_) return;
+
+  // 相手がEnemyかどうか確認
+  if (other->GetAttribute() & kCollisionAttributeEnemy) {
+    Enemy* enemy = dynamic_cast<Enemy*>(other->GetOwner());
+    if (enemy && !enemy->IsDead()) {
+      enemy->TakeDamage(damage_);
+      isDead_ = true;
+      Logger::Log("Homing Bullet Hit!\n");
+    }
+  }
 }
 
 void HomingBullet::Draw3D() {
@@ -131,7 +136,7 @@ void HomingBullet::Draw3D() {
     int segments = 16;
     float angleStep = 2.0f * 3.14159265f / segments;
     Vector4 color = {0.0f, 1.0f, 1.0f, 1.0f}; 
-    float radius = 3.0f;
+    float radius = 0.5f;
     Vector3 pos = object3d_->GetTranslation();
 
     for (int i = 0; i < segments; ++i) {

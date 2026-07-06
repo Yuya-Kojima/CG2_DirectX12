@@ -12,7 +12,7 @@ cbuffer PostProcessData : register(b0) {
 	int32_t postEffectType;
 	int32_t useGrayscale;
 	int32_t useVignette;
-	int32_t boxFilterK; 
+	int32_t boxFilterK;
 	float32_t3 monotoneColor;
 	float32_t vignetteScale;
 	float32_t vignetteExponent;
@@ -20,9 +20,7 @@ cbuffer PostProcessData : register(b0) {
 	float32_t gaussianSigma;
 	float32_t depthOutlineWeight;
 	float32_t depthOutlineAttenuation;
-	float32_t padding1;
-	float32_t padding2;
-	float32_t padding3;
+	float32_t3 flashColor;
 	float32_t4x4 projectionInverse;
 	float32_t2 radialBlurCenter;
 	float32_t radialBlurWidth;
@@ -47,7 +45,7 @@ cbuffer PostProcessData : register(b0) {
 	float32_t motionBlurAlpha;
 	float32_t dofFocusDistance;
 	float32_t dofFocusRange;
-	float32_t padding8;
+	float32_t flashIntensity;
 	int32_t activeShockwaveCount;
 	float32_t3 padding9;
 	struct ShockwaveData {
@@ -62,17 +60,25 @@ cbuffer PostProcessData : register(b0) {
 
 static const float32_t PI = 3.14159265f;
 
+// ガウシアンぼかしの重み計算
+// 指定された距離に応じた「ぼかしの強さ（重み）」を計算する関数
+// ガウシアンフィルターや被写界深度（DoF）で使用
 float32_t gauss(float32_t x, float32_t y, float32_t sigma) {
 	float32_t exponent = -(x * x + y * y) * rcp(2.0f * sigma * sigma);
 	float32_t denominator = 2.0f * PI * sigma * sigma;
 	return exp(exponent) * rcp(denominator);
 }
 
+//ノイズ用ランダム値生成
+//砂嵐で使用
 float32_t rand2dTo1d(float32_t2 value) {
     // 疑似乱数生成の標準的なアルゴリズム
 	return frac(sin(dot(value, float32_t2(12.9898f, 78.233f))) * 43758.5453f);
 }
 
+//明るさ（輝度）変換
+//RGBの色を抜いて、白黒の明るさに変換する
+//アウトラインで使用
 float32_t Luminance(float32_t3 v) {
 	return dot(v, float32_t3(0.2125f, 0.7154f, 0.0721f));
 }
@@ -89,6 +95,9 @@ static const float32_t kPrewittVerticalKernel[3][3] = {
 	{ 1.0f / 6.0f, 1.0f / 6.0f, 1.0f / 6.0f },
 };
 
+//数値の範囲内ループ処理
+//数値が最大値を超えたら最小値に戻る
+//HSVフィルターで使用
 float32_t WrapValue(float32_t value, float32_t minRange, float32_t maxRange) {
 	float32_t range = maxRange - minRange;
 	float32_t modValue = fmod(value - minRange, range);
@@ -98,6 +107,7 @@ float32_t WrapValue(float32_t value, float32_t minRange, float32_t maxRange) {
 	return minRange + modValue;
 }
 
+//RGBからHSVに変換
 float32_t3 RGBToHSV(float32_t3 rgb) {
 	float32_t r = rgb.r;
 	float32_t g = rgb.g;
@@ -131,6 +141,7 @@ float32_t3 RGBToHSV(float32_t3 rgb) {
 	return float32_t3(h, s, v);
 }
 
+//HSVからRGB	
 float32_t3 HSVToRGB(float32_t3 hsv) {
 	float32_t h = hsv.x;
 	float32_t s = hsv.y;
@@ -183,9 +194,8 @@ float32_t3 HSVToRGB(float32_t3 hsv) {
 	return float32_t3(r, g, b);
 }
 
-// ==========================================
-// トーンマッピング用の関数
-// ==========================================
+//トーンマッピング
+//画面のまぶしすぎる白飛びを抑え、映画のフィルムのような立体感のある色合いにする
 float32_t3 ToneMap_ACES(float32_t3 x) {
 	float a = 2.51f;
 	float b = 0.03f;
@@ -195,6 +205,8 @@ float32_t3 ToneMap_ACES(float32_t3 x) {
 	return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
 }
 
+//Rinehardトーンマッピング
+//画面のまぶしすぎる白飛びを抑え、マイルドな明るさに抑える
 float32_t3 ToneMap_Reinhard(float32_t3 x) {
 	return x / (1.0f + x);
 }
@@ -458,11 +470,11 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		uint32_t width, height;
 		gTexture.GetDimensions(width, height);
-		float32_t aspect = (float32_t)width / (float32_t)height;
+		float32_t aspect = (float32_t) width / (float32_t) height;
 		
 		for (int i = 0; i < activeShockwaveCount; ++i) {
 			float32_t2 dir = input.texcoord - shockwaves[i].center;
-			dir.x *= aspect; 
+			dir.x *= aspect;
 			float32_t dist = length(dir);
 			
 			if (dist > 0.0001f) {
@@ -541,6 +553,9 @@ PixelShaderOutput main(VertexShaderOutput input) {
 	}
 
 	output.color = float32_t4(finalHDRColor, 1.0f);
+
+	// 画面フラッシュ（汎用カラー）の適用
+	output.color.rgb = lerp(output.color.rgb, flashColor, flashIntensity);
 
 	return output;
 }

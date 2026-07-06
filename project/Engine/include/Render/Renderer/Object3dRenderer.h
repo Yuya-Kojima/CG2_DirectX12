@@ -1,6 +1,7 @@
 #pragma once
 #include "Core/Dx12Core.h"
 #include "Math/MathUtil.h"
+#include "Renderer/Fog.h"
 
 class ICamera;
 
@@ -149,4 +150,24 @@ private:
   /// SpotLightを生成
   /// </summary>
   void CreateSpotLightData();
+
+public:
+  // --- フォグ関連 ---
+  ID3D12Resource *GetFogResource() const { return fogResource_.Get(); }
+  FogData *GetFogData() { return fogData_; }
+
+  /// <summary>
+  /// フォグのパラメータを一括設定
+  /// </summary>
+  void SetFog(const FogData& fog) {
+    if (fogData_) {
+      *fogData_ = fog;
+    }
+  }
+
+private:
+  Microsoft::WRL::ComPtr<ID3D12Resource> fogResource_ = nullptr;
+  FogData *fogData_ = nullptr;
+
+  void CreateFogData();
 };

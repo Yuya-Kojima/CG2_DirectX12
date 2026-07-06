@@ -39,4 +39,10 @@ public:
 
     void SetPlayStartLevelName(const std::string& name) { playStartLevelName_ = name; }
     const std::string& GetPlayStartLevelName() const { return playStartLevelName_; }
+
+    // --- スコア関連 ---
+    int currentScore_ = 0;
+    void AddScore(int score) { currentScore_ += score; }
+    void ResetScore() { currentScore_ = 0; }
+    int GetScore() const { return currentScore_; }
 };
