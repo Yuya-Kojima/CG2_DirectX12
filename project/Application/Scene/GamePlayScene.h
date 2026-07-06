@@ -82,6 +82,11 @@ private: // メンバ変数(ゲーム用)
   // 動的配置オブジェクト (ドラッグ＆ドロップで追加された背景・モデル等)
   std::vector<std::unique_ptr<Object3d>> sceneObjects_;
 
+  // ドラッグ中のプレビュー用オブジェクト
+  std::unique_ptr<Object3d> previewObject_ = nullptr;
+  std::string previewModelPath_ = "";
+  bool isPreviewHovering_ = false;
+
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
@@ -164,7 +169,12 @@ public: // メンバ関数
   /// エディタ用UIとGizmoの描画
   /// </summary>
   void DrawEditorUI() override;
-  void OnFileDropped(const std::string& filePath) override;
+  void OnFileDropped(const std::string &filePath, const Vector2& ndcPos) override;
+  void OnDragHovering(const std::string &filePath, const Vector2& ndcPos) override;
+  void OnDragHoverEnd() override;
+
+  // Waypoint
+  void AppendWaypoint(const Vector3 &pos);
 
 private:
   void SpawnSceneObject(const std::string& modelPath, const Vector3& position);

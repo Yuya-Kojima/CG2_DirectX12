@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <string>
+#include "Math/Vector2.h"
 
 class EngineBase;
 class SceneManager;
@@ -20,7 +21,9 @@ public:
 	virtual void Draw2D() = 0;
 	virtual void Draw3D() = 0;
 	virtual void DrawEditorUI() {}
-	virtual void OnFileDropped(const std::string& filePath) {}
+	virtual void OnFileDropped(const std::string& filePath, const Vector2& ndcPos) {}
+	virtual void OnDragHovering(const std::string& filePath, const Vector2& ndcPos) {}
+	virtual void OnDragHoverEnd() {}
 
 private:
 	SceneManager* sceneManager_ = nullptr;

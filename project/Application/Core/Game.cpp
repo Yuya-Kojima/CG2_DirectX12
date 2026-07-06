@@ -1,6 +1,7 @@
 #include "Core/Game.h"
 #include "Debug/Logger.h"
 #include <filesystem>
+#include "Math/Vector2.h"
 #include "Collision/CollisionManager.h"
 #include "Core/ResourceObject.h"
 #include "Core/SrvManager.h"
@@ -130,6 +131,54 @@ static void DrawProjectDirectoryTree(const std::filesystem::path& dirPath) {
       ImGui::PopStyleColor();
 
       if (ext == ".obj" || ext == ".gltf") {
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+          ImGui::SetDragDropPayload("DND_MODEL_PATH", relativePath.c_str(), relativePath.size() + 1);
+          ImGui::Text("Deploy %s", filename.c_str());
+          ImGui::EndDragDropSource();
+        }
+      }
+    }
+  }
+}
+
+static void DrawPaletteDirectoryTree(const std::filesystem::path& dirPath) {
+  for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
+    if (entry.is_directory()) {
+      ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.4f, 1.0f)); // Folder color
+      bool isOpen = ImGui::TreeNodeEx(entry.path().filename().string().c_str(), ImGuiTreeNodeFlags_OpenOnArrow);
+      ImGui::PopStyleColor();
+      if (isOpen) {
+        DrawPaletteDirectoryTree(entry.path());
+        ImGui::TreePop();
+      }
+    } else if (entry.is_regular_file()) {
+      std::string filename = entry.path().filename().string();
+      std::string ext = entry.path().extension().string();
+      std::string relativePath = entry.path().string();
+      std::replace(relativePath.begin(), relativePath.end(), '\\', '/');
+
+      // Paletteにはモデル(.obj, .gltf)とPrefab(.json)のみ表示
+      if (ext != ".obj" && ext != ".gltf" && ext != ".json") {
+          continue;
+      }
+
+      ImVec4 color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+      std::string icon = "  ";
+      
+      if (ext == ".obj" || ext == ".gltf") {
+        color = ImVec4(0.4f, 1.0f, 0.4f, 1.0f); // Green
+        icon = "[M] ";
+      } else if (ext == ".json") {
+        color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f); // Gray
+        icon = "[P] "; // Prefab
+      }
+
+      std::string displayStr = icon + filename;
+      ImGui::PushStyleColor(ImGuiCol_Text, color);
+      ImGui::Selectable(displayStr.c_str(), false, ImGuiSelectableFlags_AllowDoubleClick);
+      ImGui::PopStyleColor();
+
+      if (ext == ".obj" || ext == ".gltf" || ext == ".json") {
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
           ImGui::SetDragDropPayload("DND_MODEL_PATH", relativePath.c_str(), relativePath.size() + 1);
           ImGui::Text("Deploy %s", filename.c_str());
@@ -307,6 +356,21 @@ void Game::Update() {
   ImGui::End();
 
   // =====================================
+  // Palette (Level Editor Models)
+  // =====================================
+  ImGui::Begin("Palette");
+  if (std::filesystem::exists("resources")) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.9f, 0.4f, 1.0f));
+    bool isOpen = ImGui::TreeNodeEx("resources", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow);
+    ImGui::PopStyleColor();
+    if (isOpen) {
+      DrawPaletteDirectoryTree("resources");
+      ImGui::TreePop();
+    }
+  }
+  ImGui::End();
+
+  // =====================================
   // World Settings
   // =====================================
   DrawWorldSettingsUI();
@@ -331,14 +395,38 @@ void Game::Update() {
     UIManager::GetInstance()->DrawEditorGizmo(screenPos, ImVec2(renderWidth, renderHeight));
   }
 
+  bool isHoveringGameView = false;
   if (ImGui::BeginDragDropTarget()) {
-    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MODEL_PATH")) {
+    if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MODEL_PATH", ImGuiDragDropFlags_AcceptBeforeDelivery)) {
+      isHoveringGameView = true;
       std::string path(static_cast<const char*>(payload->Data));
       if (auto scene = SceneManager::GetInstance()->GetCurrentScene()) {
-        scene->OnFileDropped(path);
+        ImVec2 mousePos = ImGui::GetMousePos();
+        float relativeX = mousePos.x - screenPos.x;
+        float relativeY = mousePos.y - screenPos.y;
+        
+        Vector2 ndcPos{0.0f, 0.0f};
+        // 画面内へのドロップかチェック
+        if (relativeX >= 0.0f && relativeX <= renderWidth && relativeY >= 0.0f && relativeY <= renderHeight) {
+            ndcPos.x = (relativeX / renderWidth) * 2.0f - 1.0f;
+            ndcPos.y = 1.0f - (relativeY / renderHeight) * 2.0f; // Y軸は上向き正
+        }
+        
+        if (payload->IsDelivery()) {
+            scene->OnFileDropped(path, ndcPos);
+        } else {
+            scene->OnDragHovering(path, ndcPos);
+        }
       }
     }
     ImGui::EndDragDropTarget();
+  }
+
+  // ドラッグ中ではない、またはGame View外に出た場合はプレビューを消す
+  if (!isHoveringGameView) {
+      if (auto scene = SceneManager::GetInstance()->GetCurrentScene()) {
+          scene->OnDragHoverEnd();
+      }
   }
 
   // GameView上に重ねてエディタ用UIを描画
