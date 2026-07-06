@@ -1,19 +1,19 @@
 #include "Actor/Boss.h"
+#include "Actor/EnemyBullet.h"
+#include "Actor/Player.h"
 #include "Camera/ICamera.h"
+#include "Camera/RailCamera.h"
+#include "Collision/CollisionConfig.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
-#include "Collision/CollisionConfig.h"
+#include "Debug/Logger.h"
+#include "Framework/ActorManager.h"
+#include "Framework/GameManager.h"
+#include "Framework/PrefabManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
-#include "Actor/Player.h" 
-#include "Debug/Logger.h"
-#include "Actor/EnemyBullet.h"
-#include "Framework/ActorManager.h"
-#include "Framework/PrefabManager.h"
-#include "Camera/RailCamera.h"
-#include <cmath>
 #include <algorithm>
-#include "Framework/GameManager.h"
+#include <cmath>
 
 Boss::Boss() {}
 
@@ -22,7 +22,7 @@ Boss::~Boss() {}
 void Boss::Initialize() {
   Enemy::Initialize();
   if (collider_) {
-    collider_->SetRadius(1.0f); // モデルのサイズに合わせる
+    collider_->SetRadius(1.5f); // ちょっと大きめの当たり判定
   }
   SetHP(100);
   maxHp_ = 100;
@@ -44,8 +44,9 @@ void Boss::Initialize() {
   }
 }
 
-void Boss::InitializeUI(SpriteRenderer* spriteRenderer) {
-  if (!spriteRenderer) return;
+void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
+  if (!spriteRenderer)
+    return;
 
   hpBarBg_ = std::make_unique<Sprite>();
   hpBarBg_->Initialize(spriteRenderer, "resources/white1x1.png");
@@ -65,7 +66,10 @@ void Boss::InitializeUI(SpriteRenderer* spriteRenderer) {
 }
 
 void Boss::Update() {
-  if (isDead_) return;
+
+  if (isDead_) {
+    return;
+  }
 
   // --- Dyingフェーズ処理 ---
   if (phase_ == BossPhase::Dying) {
@@ -93,7 +97,7 @@ void Boss::Update() {
     if (dyingTimer_ >= dyingDuration_) {
       ChangePhase(BossPhase::Defeated);
     }
-    return; // Dyingフェーズ中は攻撃・移動をしない
+    return;
   }
 
   // 被弾時のフラッシュ処理
@@ -112,11 +116,12 @@ void Boss::Update() {
 
   if (phase_ == BossPhase::Phase1) {
     // フェーズ1の動き: ゆっくりホバリング
-    if (!camera_) return;
-    Vector3 center = camera_->GetTranslate()
-                   + camera_->GetRight() * spawnOffset_.x
-                   + camera_->GetUp() * spawnOffset_.y
-                   + camera_->GetForward() * spawnOffset_.z;
+    if (!camera_)
+      return;
+    Vector3 center = camera_->GetTranslate() +
+                     camera_->GetRight() * spawnOffset_.x +
+                     camera_->GetUp() * spawnOffset_.y +
+                     camera_->GetForward() * spawnOffset_.z;
 
     transform_.translate.x = center.x + std::sin(aliveTime_ * 0.5f) * 8.0f;
     transform_.translate.y = center.y + std::cos(aliveTime_ * 0.8f) * 1.5f;
@@ -128,7 +133,8 @@ void Boss::Update() {
       Vector3 dirToPlayer = {playerPos.x - transform_.translate.x,
                              playerPos.y - transform_.translate.y,
                              playerPos.z - transform_.translate.z};
-      transform_.rotate.y = std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
+      transform_.rotate.y =
+          std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
     }
 
     // 4秒ごとに3点バースト弾
@@ -138,28 +144,31 @@ void Boss::Update() {
       if (player_) {
         Vector3 playerPos = player_->GetTransform().translate;
         Vector3 myPos = transform_.translate;
-        Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y, playerPos.z - myPos.z};
-        float dist = std::sqrt(dir.x*dir.x + dir.y*dir.y + dir.z*dir.z);
+        Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
+                       playerPos.z - myPos.z};
+        float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
         if (dist > 0.001f) {
-          dir.x /= dist; dir.y /= dist; dir.z /= dist;
+          dir.x /= dist;
+          dir.y /= dist;
+          dir.z /= dist;
           float speed = 8.0f;
-          
+
           Vector3 velCenter = {dir.x * speed, dir.y * speed, dir.z * speed};
           float angle = 15.0f * (3.14159265f / 180.0f);
           Vector3 velLeft = {
-            (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * speed,
-            dir.y * speed,
-            (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * speed
-          };
+              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * speed,
+              dir.y * speed,
+              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * speed};
           Vector3 velRight = {
-            (dir.x * std::cos(-angle) + dir.z * std::sin(-angle)) * speed,
-            dir.y * speed,
-            (-dir.x * std::sin(-angle) + dir.z * std::cos(-angle)) * speed
-          };
+              (dir.x * std::cos(-angle) + dir.z * std::sin(-angle)) * speed,
+              dir.y * speed,
+              (-dir.x * std::sin(-angle) + dir.z * std::cos(-angle)) * speed};
 
-          auto spawnBullet = [&](const Vector3& vel) {
+          auto spawnBullet = [&](const Vector3 &vel) {
             auto bullet = std::make_unique<EnemyBullet>();
-            bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel, const_cast<Player*>(player_));
+            bullet->Initialize(
+                PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
+                const_cast<Player *>(player_));
             ActorManager::GetInstance()->AddActor(std::move(bullet));
           };
           spawnBullet(velCenter);
@@ -167,19 +176,21 @@ void Boss::Update() {
           spawnBullet(velRight);
 
           if (camera_) {
-             auto railCam = static_cast<RailCamera*>(const_cast<ICamera*>(camera_));
-             railCam->Shake(0.3f, 0.1f);
+            auto railCam =
+                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+            railCam->Shake(0.3f, 0.1f);
           }
         }
       }
     }
   } else if (phase_ == BossPhase::Phase2) {
     // フェーズ2の動き: 激しいホバリング
-    if (!camera_) return;
-    Vector3 center = camera_->GetTranslate()
-                   + camera_->GetRight() * spawnOffset_.x
-                   + camera_->GetUp() * spawnOffset_.y
-                   + camera_->GetForward() * spawnOffset_.z;
+    if (!camera_)
+      return;
+    Vector3 center = camera_->GetTranslate() +
+                     camera_->GetRight() * spawnOffset_.x +
+                     camera_->GetUp() * spawnOffset_.y +
+                     camera_->GetForward() * spawnOffset_.z;
 
     transform_.translate.x = center.x + std::sin(aliveTime_ * 1.5f) * 12.0f;
     transform_.translate.y = center.y + std::cos(aliveTime_ * 1.0f) * 2.0f;
@@ -191,7 +202,8 @@ void Boss::Update() {
       Vector3 dirToPlayer = {playerPos.x - transform_.translate.x,
                              playerPos.y - transform_.translate.y,
                              playerPos.z - transform_.translate.z};
-      transform_.rotate.y = std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
+      transform_.rotate.y =
+          std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
     }
 
     // 5秒ごとに全方位8方向弾
@@ -204,7 +216,8 @@ void Boss::Update() {
         float rad = (i * 45.0f) * (3.14159265f / 180.0f);
         Vector3 vel = {std::sin(rad) * speed, 0.0f, std::cos(rad) * speed};
         auto bullet = std::make_unique<EnemyBullet>();
-        bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel, const_cast<Player*>(player_));
+        bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(),
+                           myPos, vel, const_cast<Player *>(player_));
         ActorManager::GetInstance()->AddActor(std::move(bullet));
       }
     }
@@ -221,15 +234,17 @@ void Boss::Update() {
         chargeTargetOffsetZ_ = chargeOffsetZ_ - 40.0f; // 前に40ユニット迫る
 
         if (camera_) {
-           auto railCam = static_cast<RailCamera*>(const_cast<ICamera*>(camera_));
-           railCam->Shake(0.8f, 0.3f);
+          auto railCam =
+              static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+          railCam->Shake(0.8f, 0.3f);
         }
       }
     } else {
       chargeTime_ += 1.0f / 60.0f;
       float t = std::min(chargeTime_ / chargeDuration_, 1.0f);
       float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
-      chargeOffsetZ_ = chargeStartOffsetZ_ + (chargeTargetOffsetZ_ - chargeStartOffsetZ_) * easeT;
+      chargeOffsetZ_ = chargeStartOffsetZ_ +
+                       (chargeTargetOffsetZ_ - chargeStartOffsetZ_) * easeT;
 
       if (t >= 1.0f) {
         if (actionTimer_ == 0.0f) {
@@ -249,8 +264,6 @@ void Boss::Update() {
   UpdateTransform();
 }
 
-
-
 void Boss::Draw3D() {
   if (model_) {
     model_->Draw();
@@ -258,12 +271,14 @@ void Boss::Draw3D() {
 }
 
 void Boss::Draw2D() {
-  if (!isUIInitialized_ || isDead_) return;
+  if (!isUIInitialized_ || isDead_)
+    return;
 
   // HPの割合でスケール(Size)を更新
   float hpRatio = static_cast<float>(hp_) / maxHp_;
-  if (hpRatio < 0.0f) hpRatio = 0.0f;
-  
+  if (hpRatio < 0.0f)
+    hpRatio = 0.0f;
+
   hpBarFg_->SetSize({800.0f * hpRatio, 20.0f});
 
   // 色もフェーズによって変える（例: Phase2でオレンジ色に）
@@ -277,7 +292,7 @@ void Boss::Draw2D() {
   defaultUv.scale = {1.0f, 1.0f, 1.0f};
   defaultUv.rotate = {0.0f, 0.0f, 0.0f};
   defaultUv.translate = {0.0f, 0.0f, 0.0f};
-  
+
   hpBarBg_->Update(defaultUv);
   hpBarFg_->Update(defaultUv);
 
@@ -290,7 +305,8 @@ void Boss::OnCollision(Collider *other) {
 }
 
 void Boss::TakeDamage(int damage, bool isSelfDestruct) {
-  if (isDead_) return;
+  if (isDead_)
+    return;
 
   hp_ -= damage;
   hitFlashTimer_ = 5;
@@ -314,7 +330,6 @@ void Boss::ChangePhase(BossPhase nextPhase) {
   } else if (phase_ == BossPhase::Dying) {
     Logger::Log("Boss entering Dying phase!\n");
     // コライダーを無効化（当たり判定を消す）
-    // CollisionManagerが遅延削除に対応したため、ここでRemoveを呼んでも安全です
     if (collider_) {
       CollisionManager::GetInstance()->Remove(collider_.get());
       collider_.reset();
@@ -327,7 +342,7 @@ void Boss::ChangePhase(BossPhase nextPhase) {
     Logger::Log("Boss Defeated!\n");
     // スコア加算
     GameManager::GetInstance()->AddScore(10000);
-    
+
     if (onDestroyedCallback_) {
       onDestroyedCallback_(false);
     }

@@ -1394,6 +1394,11 @@ void GamePlayScene::Draw3D() {
     obj->Draw();
   }
 
+  // プレビューオブジェクトの描画
+  if (isPreviewHovering_ && previewObject_) {
+    previewObject_->Draw();
+  }
+
   // 環境マッピングオブジェクトの描画
   if (metallicObject_) {
     metallicObject_->Draw();
@@ -1638,16 +1643,83 @@ void GamePlayScene::SpawnSceneObject(const std::string &modelPath,
   sceneObjects_.push_back(std::move(obj));
 }
 
-void GamePlayScene::OnFileDropped(const std::string &filePath) {
-  // Game View のカメラの前方に配置するなど工夫できますが、今回は原点付近に配置
+// TransformCoordヘルパー関数を定義
+static Vector3 TransformCoord(const Vector3& v, const Matrix4x4& m) {
+    float w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
+    Vector3 result{
+        (v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0]) / w,
+        (v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1]) / w,
+        (v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2]) / w
+    };
+    return result;
+}
+
+static Vector3 CalculateDropPosition(ICamera* currentCamera, const Vector2& ndcPos) {
   Vector3 spawnPos = {0.0f, 0.0f, 0.0f};
-  if (camera_) {
-    spawnPos =
-        camera_->GetTranslate() + Vector3{0.0f, 0.0f, 10.0f}; // カメラの少し前
+  if (!currentCamera) return spawnPos;
+
+  Matrix4x4 vpMatrix = currentCamera->GetViewProjectionMatrix();
+  Matrix4x4 invVP = Inverse(vpMatrix);
+
+  Vector3 ndcNear = {ndcPos.x, ndcPos.y, 0.0f};
+  Vector3 ndcFar = {ndcPos.x, ndcPos.y, 1.0f};
+
+  Vector3 worldNear = TransformCoord(ndcNear, invVP);
+  Vector3 worldFar = TransformCoord(ndcFar, invVP);
+
+  Vector3 rayDir = Normalize(worldFar - worldNear);
+  Vector3 rayOrigin = worldNear;
+
+  // エディタカメラの注視点（Pivot）の代用として、
+  // 常にカメラの前方（一定距離）の空間に配置する。
+  float defaultDepth = 50.0f;
+  
+  // レイの方向に一定距離進んだ位置をスポーン座標とする
+  spawnPos = rayOrigin + rayDir * defaultDepth;
+
+  return spawnPos;
+}
+
+void GamePlayScene::OnFileDropped(const std::string &filePath, const Vector2& ndcPos) {
+  ICamera* currentCamera = GetActiveCamera();
+  if (currentCamera == nullptr) {
+      currentCamera = railCamera_.get();
   }
+
+  Vector3 spawnPos = CalculateDropPosition(currentCamera, ndcPos);
   SpawnSceneObject(filePath, spawnPos);
 
-  // 生成後、すぐ選択状態にする
   currentSelectType_ = EditorSelectType::SceneObject;
   selectedSceneObjectIndex_ = static_cast<int>(sceneObjects_.size() - 1);
+  
+  OnDragHoverEnd(); // ドロップ完了時にプレビューを消す
+}
+
+void GamePlayScene::OnDragHovering(const std::string &filePath, const Vector2& ndcPos) {
+  ICamera* currentCamera = GetActiveCamera();
+  if (currentCamera == nullptr) {
+      currentCamera = railCamera_.get();
+  }
+
+  Vector3 spawnPos = CalculateDropPosition(currentCamera, ndcPos);
+
+  if (previewModelPath_ != filePath || !previewObject_) {
+      previewObject_ = std::make_unique<Object3d>();
+      previewObject_->Initialize(engine_->GetObject3dRenderer());
+      previewObject_->SetModel(filePath);
+      previewModelPath_ = filePath;
+  }
+
+  previewObject_->SetTranslation(spawnPos);
+  previewObject_->Update(); // ワールド行列の更新（これがないと原点に描画されてしまう）
+  
+  isPreviewHovering_ = true;
+}
+
+void GamePlayScene::OnDragHoverEnd() {
+  if (previewObject_) {
+      previewObject_.reset();
+      previewModelPath_ = "";
+  }
+  isPreviewHovering_ = false;
 }
