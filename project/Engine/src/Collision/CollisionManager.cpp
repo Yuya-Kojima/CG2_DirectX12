@@ -39,7 +39,7 @@ void CollisionManager::Update() {
 
 void CollisionManager::DrawDebug() {
   for (Collider *collider : colliders_) {
-    collider->DrawDebug();
+     collider->DrawDebug();
   }
 }
 

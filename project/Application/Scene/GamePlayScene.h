@@ -75,9 +75,6 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
 
-  // ボス管理
-  std::unique_ptr<Boss> boss_ = nullptr;
-  bool isBossActive_ = false;
 
   // スポーンイベント
   std::vector<SpawnEvent> spawnEvents_;

@@ -84,6 +84,12 @@
             "prefabName": "ZakoEnemy",
             "spawnOffset": [0.0, 10.0, 450.0],
             "spawnTime": 4.3
+        },
+        {
+            "moveType": 0,
+            "prefabName": "Boss",
+            "spawnOffset": [0.0, 4.0, 150.0],
+            "spawnTime": 5.0
         }
     ],
     "waypoints": [

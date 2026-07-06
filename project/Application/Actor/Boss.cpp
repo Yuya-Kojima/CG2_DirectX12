@@ -26,7 +26,9 @@ void Boss::Initialize() {
   }
   SetHP(100);
   maxHp_ = 100;
-  basePosition_ = transform_.translate;
+  chargeOffsetZ_ = 0.0f;
+  chargeStartOffsetZ_ = 0.0f;
+  chargeTargetOffsetZ_ = 0.0f;
   phase_ = BossPhase::Phase1;
   isDead_ = false;
 
@@ -110,9 +112,15 @@ void Boss::Update() {
 
   if (phase_ == BossPhase::Phase1) {
     // フェーズ1の動き: ゆっくりホバリング
-    transform_.translate.x = basePosition_.x + std::sin(aliveTime_ * 0.5f) * 8.0f;
-    transform_.translate.y = basePosition_.y + std::cos(aliveTime_ * 0.8f) * 1.5f;
-    transform_.translate.z = basePosition_.z;
+    if (!camera_) return;
+    Vector3 center = camera_->GetTranslate()
+                   + camera_->GetRight() * spawnOffset_.x
+                   + camera_->GetUp() * spawnOffset_.y
+                   + camera_->GetForward() * spawnOffset_.z;
+
+    transform_.translate.x = center.x + std::sin(aliveTime_ * 0.5f) * 8.0f;
+    transform_.translate.y = center.y + std::cos(aliveTime_ * 0.8f) * 1.5f;
+    transform_.translate.z = center.z;
 
     // プレイヤーの方向を向く
     if (player_) {
@@ -167,9 +175,15 @@ void Boss::Update() {
     }
   } else if (phase_ == BossPhase::Phase2) {
     // フェーズ2の動き: 激しいホバリング
-    transform_.translate.x = basePosition_.x + std::sin(aliveTime_ * 1.5f) * 12.0f;
-    transform_.translate.y = basePosition_.y + std::cos(aliveTime_ * 1.0f) * 2.0f;
-    transform_.translate.z = basePosition_.z;
+    if (!camera_) return;
+    Vector3 center = camera_->GetTranslate()
+                   + camera_->GetRight() * spawnOffset_.x
+                   + camera_->GetUp() * spawnOffset_.y
+                   + camera_->GetForward() * spawnOffset_.z;
+
+    transform_.translate.x = center.x + std::sin(aliveTime_ * 1.5f) * 12.0f;
+    transform_.translate.y = center.y + std::cos(aliveTime_ * 1.0f) * 2.0f;
+    transform_.translate.z = center.z + chargeOffsetZ_;
 
     // プレイヤーの方向を向く
     if (player_) {
@@ -203,9 +217,8 @@ void Boss::Update() {
         actionTimer_ = 0.0f;
         chargeTime_ = 0.0f;
         chargeDuration_ = 1.0f;
-        chargeStartPos_ = basePosition_;
-        chargeTargetPos_ = basePosition_;
-        chargeTargetPos_.z -= 40.0f; // 前に40ユニット迫る
+        chargeStartOffsetZ_ = chargeOffsetZ_;
+        chargeTargetOffsetZ_ = chargeOffsetZ_ - 40.0f; // 前に40ユニット迫る
 
         if (camera_) {
            auto railCam = static_cast<RailCamera*>(const_cast<ICamera*>(camera_));
@@ -216,15 +229,14 @@ void Boss::Update() {
       chargeTime_ += 1.0f / 60.0f;
       float t = std::min(chargeTime_ / chargeDuration_, 1.0f);
       float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
-      basePosition_.z = chargeStartPos_.z + (chargeTargetPos_.z - chargeStartPos_.z) * easeT;
+      chargeOffsetZ_ = chargeStartOffsetZ_ + (chargeTargetOffsetZ_ - chargeStartOffsetZ_) * easeT;
 
       if (t >= 1.0f) {
         if (actionTimer_ == 0.0f) {
           actionTimer_ = 1.0f;
           chargeTime_ = 0.0f;
-          chargeStartPos_ = basePosition_;
-          chargeTargetPos_ = basePosition_;
-          chargeTargetPos_.z += 40.0f; // 元に戻る
+          chargeStartOffsetZ_ = chargeOffsetZ_;
+          chargeTargetOffsetZ_ = 0.0f; // 元に戻る
         } else {
           isCharging_ = false;
           actionTimer_ = 0.0f;
@@ -232,18 +244,12 @@ void Boss::Update() {
       }
     }
   }
+
+  // 最後にトランスフォーム（モデル・コライダー位置）を更新する
+  UpdateTransform();
 }
 
-void Boss::UpdateTransform() {
-  BaseActor::UpdateTransform();
-  
-  if (model_) {
-    model_->SetTranslation(transform_.translate);
-    model_->SetRotation(transform_.rotate);
-    model_->SetScale(transform_.scale);
-    model_->Update();
-  }
-}
+
 
 void Boss::Draw3D() {
   if (model_) {
@@ -251,7 +257,7 @@ void Boss::Draw3D() {
   }
 }
 
-void Boss::DrawUI() {
+void Boss::Draw2D() {
   if (!isUIInitialized_ || isDead_) return;
 
   // HPの割合でスケール(Size)を更新

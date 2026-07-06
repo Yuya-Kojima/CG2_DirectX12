@@ -273,11 +273,10 @@ void GamePlayScene::Update() {
     SaveLevel("level_editor_temp.json");
     isPaused_ = false;
     useDebugCamera_ = false;
-    isBossActive_ = false;
-    boss_.reset();
 
     if (railCamera_) {
       railCamera_->SetAutoMove(true);
+      railCamera_->SetSpeed(0.2f); // 速度リセット
       playStartT_ = railCamera_->GetT();
     }
     for (auto &ev : spawnEvents_) {
@@ -296,10 +295,6 @@ void GamePlayScene::Update() {
     runtimeEnemies_.clear();
     ActorManager::GetInstance()->Clear();
     CollisionManager::GetInstance()->Clear(); // コライダー残留バグ対策
-    
-    // ボスもクリア
-    isBossActive_ = false;
-    boss_.reset();
 
     // プレイヤーのステータスを初期化
     if (player_) {
@@ -413,60 +408,6 @@ void GamePlayScene::Update() {
       railCamera_->Update();
       railCamera_->SetAutoMove(autoMoveCache);
     } else {
-      // タイムライン(t)制御：ボス戦突入演出
-      if (railCamera_) {
-        float t = railCamera_->GetT();
-        if (t >= 4.0f && t < 4.5f) {
-          // 4.0 から 4.5 にかけて、スピードを 0.2 から 0.05 に徐々に減速
-          float progress = (t - 4.0f) / 0.5f;
-          float currentSpeed = 0.2f * (1.0f - progress) + 0.05f * progress;
-          railCamera_->SetSpeed(currentSpeed);
-        } else if (t >= 4.5f) {
-          // t=4.5でカメラ完全停止、ボス戦開始
-          railCamera_->SetAutoMove(false);
-          
-          if (!isBossActive_) {
-             isBossActive_ = true;
-             // ボス生成
-             boss_ = std::make_unique<Boss>();
-             auto bossModel = std::make_unique<Object3d>();
-             bossModel->Initialize(engine_->GetObject3dRenderer());
-             bossModel->SetModel("suzanne.obj"); // 仮モデル
-             boss_->SetModel(std::move(bossModel));
-             boss_->GetTransform().scale = {5.0f, 5.0f, 5.0f}; // 巨大化
-             boss_->GetTransform().translate = {0.0f, 4.0f, 320.0f}; // カメラ(Z=230)より遠方に配置
-             boss_->Initialize();
-             boss_->InitializeUI(engine_->GetSpriteRenderer());
-             boss_->SetCamera(railCamera_.get());
-             boss_->SetPlayer(player_.get());
-              // ボス死亡時コールバック
-              boss_->SetOnDestroyedCallback([this](bool) {
-                // 大爆発音SE再生
-                SoundManager::GetInstance()->PlaySE("boss_explosion");
-                gameState_ = GameState::Clear;
-                // クリアUI表示
-                if (railCamera_)
-                  railCamera_->SetAutoMove(false);
-                UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
-              });
-              // ボスDying演出中の連続爆発エフェクトコールバック
-              boss_->SetOnExplosionCallback([this](const Vector3& pos) {
-                // 既存の死亡エフェクトをボス周辺で発生させる
-                int idx = nextHitEffectIndex_ % kMaxHitEffects;
-                deathCoreEmitters_[idx]->SetCenter(pos);
-                deathFlareEmitters_[idx]->SetCenter(pos);
-                deathRingEmitters_[idx]->SetCenter(pos);
-                deathCoreEmitters_[idx]->Emit();
-                deathFlareEmitters_[idx]->Emit();
-                deathRingEmitters_[idx]->Emit();
-                ++nextHitEffectIndex_;
-              });
-          }
-        } else {
-           // 通常速度
-           railCamera_->SetSpeed(0.2f);
-        }
-      }
       railCamera_->Update();
     }
     activeCamera = railCamera_.get();
@@ -506,19 +447,44 @@ void GamePlayScene::Update() {
               ev.prefabName,
               Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
-          // 撃破時の全体エフェクト演出コールバックを登録
           Enemy* enemyPtr = newEnemy.get();
-          newEnemy->SetOnDestroyedCallback([this, enemyPtr](bool isSelfDestruct) {
+
+          if (ev.prefabName == "Boss") {
+              if (auto boss = dynamic_cast<Boss*>(enemyPtr)) {
+                  boss->InitializeUI(engine_->GetSpriteRenderer());
+                  boss->SetCamera(railCamera_.get());
+                  boss->SetPlayer(player_.get());
+                  boss->GetTransform().scale = {5.0f, 5.0f, 5.0f}; // 巨大化
+                  
+                  boss->SetOnExplosionCallback([this](const Vector3& pos) {
+                      int idx = nextHitEffectIndex_ % kMaxHitEffects;
+                      deathCoreEmitters_[idx]->SetCenter(pos);
+                      deathFlareEmitters_[idx]->SetCenter(pos);
+                      deathRingEmitters_[idx]->SetCenter(pos);
+                      deathCoreEmitters_[idx]->Emit();
+                      deathFlareEmitters_[idx]->Emit();
+                      deathRingEmitters_[idx]->Emit();
+                      nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+                  });
+
+                  // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
+                  if (railCamera_) {
+                      railCamera_->SetSpeed(0.05f);
+                  }
+              }
+          }
+
+          // 撃破時の全体エフェクト演出コールバックを登録
+          newEnemy->SetOnDestroyedCallback([this, enemyPtr, isBoss = (ev.prefabName == "Boss")](bool isSelfDestruct) {
             // 自爆の場合は通常の撃破エフェクトを出さずに終了する
             if (isSelfDestruct) {
-                // 必要であればカメラ揺れだけ起こすなど
                 if (railCamera_) railCamera_->Shake(0.5f, 0.2f);
                 return;
             }
 
             EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
             if (railCamera_) {
-              railCamera_->Shake(1.0f, 0.3f); // カメラを強く揺らす
+              railCamera_->Shake(1.0f, 0.3f);
             }
             
             // パーティクル発生
@@ -531,6 +497,14 @@ void GamePlayScene::Update() {
             deathRingEmitters_[i]->Emit();
             
             nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+
+            // ボス撃破時はクリア画面へ
+            if (isBoss) {
+                SoundManager::GetInstance()->PlaySE("boss_explosion");
+                gameState_ = GameState::Clear;
+                if (railCamera_) railCamera_->SetAutoMove(false);
+                UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+            }
           });
 
           // カメラとオフセット、プレイヤー情報をセット
@@ -568,9 +542,6 @@ void GamePlayScene::Update() {
   enemyPtrs_.clear();
   for (auto &e : runtimeEnemies_) {
     enemyPtrs_.push_back(e.get());
-  }
-  if (boss_) {
-    enemyPtrs_.push_back(boss_.get());
   }
   if (player_) {
     player_->SetEnemies(enemyPtrs_);
@@ -615,10 +586,6 @@ void GamePlayScene::Update() {
 
   // アクター群の更新
   if (shouldUpdateWorld) {
-    if (boss_) {
-      boss_->Update();
-      boss_->UpdateTransform();
-    }
     ActorManager::GetInstance()->Update();
   }
 
@@ -1423,9 +1390,6 @@ void GamePlayScene::Draw3D() {
       enemy->Draw3D();
     }
   }
-  if (boss_) {
-    boss_->Draw3D();
-  }
   for (auto &obj : sceneObjects_) {
     obj->Draw();
   }
@@ -1486,8 +1450,13 @@ void GamePlayScene::Draw2D() {
     }
   }
 
-  if (boss_ && gameState_ == GameState::Play) {
-    boss_->DrawUI();
+  // 敵の2D描画（ボスのUIなど）
+  if (gameState_ == GameState::Play) {
+    for (auto &enemy : runtimeEnemies_) {
+      if (!enemy->IsDead()) {
+        enemy->Draw2D();
+      }
+    }
   }
 
   // スプライト（UI）の描画

@@ -28,9 +28,8 @@ public:
   void Initialize() override;
   void InitializeUI(SpriteRenderer* spriteRenderer);
   void Update() override;
-  void UpdateTransform() override;
   void Draw3D() override;
-  void DrawUI();
+  void Draw2D() override;
   void OnCollision(class Collider *other) override;
 
   // 表示用の3Dモデルを外から渡してセットする
@@ -62,12 +61,12 @@ private:
   float actionTimer_ = 0.0f;
   float shotTimer_ = 0.0f;
   
-  Vector3 basePosition_ = {0.0f, 0.0f, 0.0f};
+  float chargeOffsetZ_ = 0.0f;
   bool isCharging_ = false;
   float chargeDuration_ = 0.0f;
   float chargeTime_ = 0.0f;
-  Vector3 chargeStartPos_ = {0.0f, 0.0f, 0.0f};
-  Vector3 chargeTargetPos_ = {0.0f, 0.0f, 0.0f};
+  float chargeStartOffsetZ_ = 0.0f;
+  float chargeTargetOffsetZ_ = 0.0f;
 
   // --- UI ---
   std::unique_ptr<Sprite> hpBarBg_;

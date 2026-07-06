@@ -126,6 +126,15 @@
                 450.0
             ],
             "spawnTime": 4.300000190734863
+        },
+        {
+            "prefabName": "Boss",
+            "spawnOffset": [
+                0.0,
+                4.0,
+                150.0
+            ],
+            "spawnTime": 5.0
         }
     ],
     "waypoints": [
