@@ -12,6 +12,7 @@
 #include "Framework/PrefabManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
+#include "Render/Texture/TextureManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -22,7 +23,7 @@ Boss::~Boss() {}
 void Boss::Initialize() {
   Enemy::Initialize();
   if (collider_) {
-    collider_->SetRadius(1.5f); // ちょっと大きめの当たり判定
+    collider_->SetRadius(3.0f); // 巨大化に合わせて大きめの当たり判定に変更
   }
   SetHP(100);
   maxHp_ = 100;
@@ -37,11 +38,8 @@ void Boss::Initialize() {
   actionTimer_ = 0.0f;
   isCharging_ = false;
   dyingTimer_ = 0.0f;
-  nextExplosionTime_ = 0.0f;
 
-  if (model_) {
-    model_->SetColor(baseColor_);
-  }
+  dissolveEnabled_ = false;
 }
 
 void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
@@ -75,22 +73,22 @@ void Boss::Update() {
   if (phase_ == BossPhase::Dying) {
     dyingTimer_ += 1.0f / 60.0f;
 
-    // 一定間隔で爆発エフェクトのコールバックを発火
-    if (dyingTimer_ >= nextExplosionTime_) {
-      // 爆発位置をランダムにボス周辺に散らす
-      float rx = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
-      float ry = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
-      float rz = (static_cast<float>(rand() % 200) - 100.0f) / 100.0f * 4.0f;
-      Vector3 explosionPos = {transform_.translate.x + rx,
-                              transform_.translate.y + ry,
-                              transform_.translate.z + rz};
-      if (onExplosionCallback_) {
-        onExplosionCallback_(explosionPos);
+    // ディゾルブ進行
+    if (model_) {
+      if (!dissolveEnabled_ && dyingTimer_ > 0.0f) {
+        model_->SetEnableDissolve(true);
+        dissolveEnabled_ = true;
       }
-      // 爆発間隔を徐々に短くして激しくなる演出
       float progress = dyingTimer_ / dyingDuration_;
-      float interval = 0.5f * (1.0f - progress * 0.8f); // 0.5秒→0.1秒に短縮
-      nextExplosionTime_ = dyingTimer_ + interval;
+      progress = std::min(progress, 1.0f);
+      model_->SetDissolveThreshold(progress);
+    }
+
+    // 塵パーティクルの位置更新
+    // ノイズテクスチャの最大値に合わせて、完全に消え去る少し前(0.6)にパーティクルの放出を止める
+    float progressForDust = dyingTimer_ / dyingDuration_;
+    if (onDyingUpdateCallback_ && progressForDust < 0.6f) {
+      onDyingUpdateCallback_(transform_.translate);
     }
 
     // 演出終了 → 完全消滅
@@ -335,11 +333,11 @@ void Boss::ChangePhase(BossPhase nextPhase) {
       collider_.reset();
     }
     dyingTimer_ = 0.0f;
-    nextExplosionTime_ = 0.0f;
     // HPバーを非表示にする
     isUIInitialized_ = false;
   } else if (phase_ == BossPhase::Defeated) {
     Logger::Log("Boss Defeated!\n");
+    onDyingUpdateCallback_ = nullptr; // 塵の放出を止める
     // スコア加算
     GameManager::GetInstance()->AddScore(10000);
 

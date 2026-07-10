@@ -8,6 +8,7 @@
 
 #include "Render/Object3d/Object3d.h"
 #include "Render/Sprite/Sprite.h"
+#include "Render/Texture/TextureManager.h"
 class SphereCollider;
 class ICamera;
 class Player;
@@ -32,8 +33,19 @@ public:
   void Draw2D() override;
   void OnCollision(class Collider *other) override;
 
-  // 表示用の3Dモデルを外から渡してセットする
-  void SetModel(std::unique_ptr<Object3d> model) { model_ = std::move(model); }
+  // 表示用の3Dモデルを外から渡してセットする（overrideで確実にこちらが呼ばれる）
+  void SetModel(std::unique_ptr<Object3d> model) override {
+    model_ = std::move(model);
+    // モデルが渡された後にディゾルブ用の設定を行う
+    if (model_) {
+      TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
+      model_->SetMaskTexturePath("resources/noise0.png");
+      model_->SetEnableDissolve(false);
+      model_->SetDissolveThreshold(0.0f);
+      model_->SetDissolveEdgeRange(0.1f); // DebugSceneのSuzanneと同じ値
+      model_->SetDissolveEdgeColor({0.0f, 5.0f, 5.0f, 1.0f}); // 強いネオンシアン
+    }
+  }
   Object3d* GetModel() const { return model_.get(); }
   void SetBaseColor(const Vector4& color) { baseColor_ = color; }
   const Vector4& GetBaseColor() const { return baseColor_; }
@@ -73,11 +85,12 @@ private:
   std::unique_ptr<Sprite> hpBarFg_;
   bool isUIInitialized_ = false;
 
-  // --- Dying演出 ---
+  // --- ディゾルブ制御 ---
+  bool dissolveEnabled_ = false;
+
   float dyingTimer_ = 0.0f;        // 消滅演出の経過時間
   float dyingDuration_ = 3.0f;    // 演出の総時間(秒)
-  float nextExplosionTime_ = 0.0f; // 次に爆発エフェクトを出す時間
-  std::function<void(const Vector3&)> onExplosionCallback_; // 爆発エフェクトのコールバック
+  std::function<void(const Vector3&)> onDyingUpdateCallback_; // Dyingフェーズの毎フレームコールバック
 public:
-  void SetOnExplosionCallback(std::function<void(const Vector3&)> cb) { onExplosionCallback_ = cb; }
+  void SetOnDyingUpdateCallback(std::function<void(const Vector3&)> cb) { onDyingUpdateCallback_ = cb; }
 };

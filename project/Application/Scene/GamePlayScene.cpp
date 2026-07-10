@@ -142,6 +142,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   EffectManager::GetInstance()->Initialize();
 
+  hasBossStartedDying_ = false;
+
   //===========================
   // スプライト関係の初期化
   //===========================
@@ -182,6 +184,27 @@ void GamePlayScene::Initialize(EngineBase *engine) {
     deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
     deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
   }
+
+  // ===== ボス専用パーティクル初期化 =====
+  bossExplosionParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  bossExplosionParticleGroup_->Initialize("resources/circle.png");
+  bossExplosionEmitter_ = std::make_unique<ParticleEmitter>(
+      bossExplosionParticleGroup_.get(), Vector3{0, 0, 0}, Vector3{4.0f, 4.0f, 4.0f},
+      100, 0.0f, Vector3{0.0f, 0.0f, 0.0f}, Vector3{40.0f, 40.0f, 40.0f}, 0.6f, 1.2f);
+  bossExplosionEmitter_->SetBaseScale({8.0f, 8.0f, 8.0f});
+  bossExplosionEmitter_->SetScaleRandom({3.0f, 3.0f, 3.0f});
+  bossExplosionEmitter_->SetScaleVelocity({-5.0f, -5.0f, -5.0f});
+  bossExplosionEmitter_->SetColor({0.5f, 2.0f, 2.5f, 1.0f});
+
+  bossDustParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  bossDustParticleGroup_->Initialize("resources/circle.png");
+  bossDustEmitter_ = std::make_unique<ParticleEmitter>(
+      bossDustParticleGroup_.get(), Vector3{0, 0, 0}, Vector3{8.0f, 8.0f, 8.0f},
+      6, 0.05f, Vector3{0.0f, 0.6f, 0.0f}, Vector3{6.0f, 6.0f, 6.0f}, 1.0f, 2.5f);
+  bossDustEmitter_->SetBaseScale({0.8f, 0.8f, 0.8f});
+  bossDustEmitter_->SetScaleRandom({0.4f, 0.4f, 0.4f});
+  bossDustEmitter_->SetScaleVelocity({-0.1f, -0.1f, -0.1f});
+  bossDustEmitter_->SetColor({0.2f, 1.5f, 2.0f, 0.8f});
 
   // デバッグカメラの初期化（開発用の自由カメラ）真っ直ぐ奥へ進むだけの自然なレールに変更）
   waypoints_ = {{0.0f, 4.0f, -10.0f}, {0.0f, 4.0f, 40.0f},
@@ -240,7 +263,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   metallicObject_->Initialize(engine_->GetObject3dRenderer());
   metallicObject_->SetModel("monsterBall.obj");
   metallicObject_->SetEnvironmentCoefficient(1.0f);     // 100%反射
-  metallicObject_->SetTranslation({0.0f, 5.0f, 50.0f}); // レール上の奥に配置
+  metallicObject_->SetTranslation({-30.0f, 5.0f, 50.0f}); // レール上の奥に配置
   metallicObject_->SetScale({3.0f, 3.0f, 3.0f});        // 少し大きめに
   metallicObject_->Update();
 
@@ -296,6 +319,9 @@ void GamePlayScene::Update() {
     ActorManager::GetInstance()->Clear();
     CollisionManager::GetInstance()->Clear(); // コライダー残留バグ対策
 
+    // ボス関連フラグのリセット（これがないと2回目のPlayでEmitが呼ばれない）
+    hasBossStartedDying_ = false;
+
     // プレイヤーのステータスを初期化
     if (player_) {
       player_->SetLoadConfigOnInitialize(false);
@@ -317,6 +343,7 @@ void GamePlayScene::Update() {
     }
   }
   previousGlobalPlayMode_ = isPlayMode_;
+
 
 #ifdef USE_IMGUI
   // Undo/Redo ショートカット (Ctrl + Z / Ctrl + Y)
@@ -454,17 +481,18 @@ void GamePlayScene::Update() {
                   boss->InitializeUI(engine_->GetSpriteRenderer());
                   boss->SetCamera(railCamera_.get());
                   boss->SetPlayer(player_.get());
-                  boss->GetTransform().scale = {5.0f, 5.0f, 5.0f}; // 巨大化
-                  
-                  boss->SetOnExplosionCallback([this](const Vector3& pos) {
-                      int idx = nextHitEffectIndex_ % kMaxHitEffects;
-                      deathCoreEmitters_[idx]->SetCenter(pos);
-                      deathFlareEmitters_[idx]->SetCenter(pos);
-                      deathRingEmitters_[idx]->SetCenter(pos);
-                      deathCoreEmitters_[idx]->Emit();
-                      deathFlareEmitters_[idx]->Emit();
-                      deathRingEmitters_[idx]->Emit();
-                      nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+                  boss->GetTransform().scale = {10.0f, 10.0f, 10.0f}; // さらに巨大化
+
+                  boss->SetOnDyingUpdateCallback([this](const Vector3& pos) {
+                      if (!hasBossStartedDying_) {
+                          hasBossStartedDying_ = true;
+                          bossExplosionEmitter_->SetCenter(pos);
+                          bossExplosionEmitter_->Emit();
+                          SoundManager::GetInstance()->PlaySE("boss_explosion");
+                          if (railCamera_) railCamera_->Shake(1.5f, 0.4f);
+                      }
+                      bossDustEmitter_->SetCenter(pos);
+                      bossDustEmitter_->Update(); 
                   });
 
                   // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
@@ -482,25 +510,26 @@ void GamePlayScene::Update() {
                 return;
             }
 
-            EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
-            if (railCamera_) {
-              railCamera_->Shake(1.0f, 0.3f);
+            if (!isBoss) {
+                EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
+                if (railCamera_) {
+                  railCamera_->Shake(1.0f, 0.3f);
+                }
+                
+                // Particle
+                int i = nextHitEffectIndex_;
+                deathCoreEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+                deathCoreEmitters_[i]->Emit();
+                deathFlareEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+                deathFlareEmitters_[i]->Emit();
+                deathRingEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
+                deathRingEmitters_[i]->Emit();
+                
+                nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
             }
-            
-            // パーティクル発生
-            int i = nextHitEffectIndex_;
-            deathCoreEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-            deathCoreEmitters_[i]->Emit();
-            deathFlareEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-            deathFlareEmitters_[i]->Emit();
-            deathRingEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-            deathRingEmitters_[i]->Emit();
-            
-            nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
 
             // ボス撃破時はクリア画面へ
             if (isBoss) {
-                SoundManager::GetInstance()->PlaySE("boss_explosion");
                 gameState_ = GameState::Clear;
                 if (railCamera_) railCamera_->SetAutoMove(false);
                 UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
@@ -539,13 +568,23 @@ void GamePlayScene::Update() {
   }
 
   // LockOn用にPlayerに敵リストを渡す（毎回最新の状態を渡す）
+  // 死亡済みの敵は除外してダングリングポインタを渡さないようにする
   enemyPtrs_.clear();
   for (auto &e : runtimeEnemies_) {
-    enemyPtrs_.push_back(e.get());
+    if (!e->IsDead()) {
+      enemyPtrs_.push_back(e.get());
+    }
   }
   if (player_) {
     player_->SetEnemies(enemyPtrs_);
   }
+
+  // 死亡済みの敵を削除（デストラクタ内でコライダーも自動登録解除される）
+  runtimeEnemies_.erase(
+    std::remove_if(runtimeEnemies_.begin(), runtimeEnemies_.end(),
+      [](const std::unique_ptr<Enemy>& e) { return e->IsDead(); }),
+    runtimeEnemies_.end()
+  );
 
   // アクティブカメラを描画で使用する
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);
@@ -1178,6 +1217,19 @@ void GamePlayScene::DrawEditorUI() {
     }
     ImGui::SameLine();
     ImGui::Text(" | ");
+
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+    if (ImGui::Button(" [ KILL BOSS ] ")) {
+      for (auto& enemy : runtimeEnemies_) {
+        if (Boss* boss = dynamic_cast<Boss*>(enemy.get())) {
+          boss->TakeDamage(99999);
+        }
+      }
+    }
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::Text(" | ");
   }
   ImGui::SameLine();
   ImGui::Text("Gizmo:");
@@ -1435,6 +1487,8 @@ void GamePlayScene::Draw3D() {
       hitFlareParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
       hitRingParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
     }
+    bossExplosionParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    bossDustParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
   }
   ParticleManager::GetInstance()->Emit();
 
@@ -1443,6 +1497,9 @@ void GamePlayScene::Draw3D() {
     hitFlareParticleGroups_[i]->Draw();
     hitRingParticleGroups_[i]->Draw();
   }
+
+  bossExplosionParticleGroup_->Draw();
+  bossDustParticleGroup_->Draw();
 
   engine_->End3D();
 }
