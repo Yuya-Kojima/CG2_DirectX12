@@ -22,6 +22,14 @@ void CollisionManager::Remove(Collider *collider) {
 void CollisionManager::Clear() { colliders_.clear(); }
 
 void CollisionManager::Update() {
+  // 【重要】イテレーション前に削除待ちのコライダーを先に除去する
+  // Enemy::Update() で collider_.reset() が呼ばれてメモリが解放された後、
+  // このループに入る前にリストから取り除くことでダングリングポインタアクセスを防ぐ
+  for (Collider *c : pendingRemoves_) {
+    colliders_.remove(c);
+  }
+  pendingRemoves_.clear();
+
   // 全コライダーの座標を更新
   for (Collider *collider : colliders_) {
     collider->Update();
@@ -29,12 +37,6 @@ void CollisionManager::Update() {
 
   // 総当り判定
   CheckAllCollisions();
-
-  // ループがすべて終わった後、安全に削除待ちのコライダーをリストから消去する
-  for (Collider *c : pendingRemoves_) {
-    colliders_.remove(c);
-  }
-  pendingRemoves_.clear();
 }
 
 void CollisionManager::DrawDebug() {

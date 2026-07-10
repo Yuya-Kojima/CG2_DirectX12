@@ -102,6 +102,17 @@ private: // メンバ変数(ゲーム用)
   std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathRingEmitters_;
   int nextHitEffectIndex_ = 0;
 
+  // ボス専用エミッター
+  std::unique_ptr<BillboardParticleEmitter> bossExplosionParticleGroup_;
+  std::unique_ptr<BillboardParticleEmitter> bossDustParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossExplosionEmitter_;
+  std::unique_ptr<ParticleEmitter> bossDustEmitter_;
+
+  bool hasBossStartedDying_ = false;
+
+  // ポストエフェクト
+  bool isGrayscale_ = false;
+
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {
     None,

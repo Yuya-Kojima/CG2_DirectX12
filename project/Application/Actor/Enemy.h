@@ -37,7 +37,7 @@ public:
   void OnCollision(class Collider *other) override;
 
   // 表示用の3Dモデルを外から渡してセットする
-  void SetModel(std::unique_ptr<Object3d> model) { model_ = std::move(model); }
+  virtual void SetModel(std::unique_ptr<Object3d> model) { model_ = std::move(model); }
   Object3d* GetModel() const { return model_.get(); }
   void SetBaseColor(const Vector4& color) { baseColor_ = color; }
   const Vector4& GetBaseColor() const { return baseColor_; }
