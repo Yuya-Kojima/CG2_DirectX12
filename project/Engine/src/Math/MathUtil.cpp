@@ -299,6 +299,20 @@ Matrix4x4 MakeAffineMatrix(const Vector3 &scale, const Quaternion &rotate,
   return worldMatrix;
 }
 
+Matrix4x4 MakeLookAtMatrix(const Vector3& pos, const Vector3& target, const Vector3& up) {
+  Vector3 f = SafeNormalize({ target.x - pos.x, target.y - pos.y, target.z - pos.z }); // forward
+  Vector3 r = SafeNormalize(Cross(up, f)); // right
+  Vector3 u = Cross(f, r);                 // up（再計算）
+
+  Matrix4x4 m = MakeIdentity4x4();
+
+  m.m[0][0] = r.x; m.m[0][1] = u.x; m.m[0][2] = f.x; m.m[0][3] = 0.0f;
+  m.m[1][0] = r.y; m.m[1][1] = u.y; m.m[1][2] = f.y; m.m[1][3] = 0.0f;
+  m.m[2][0] = r.z; m.m[2][1] = u.z; m.m[2][2] = f.z; m.m[2][3] = 0.0f;
+  m.m[3][0] = -Dot(r, pos); m.m[3][1] = -Dot(u, pos); m.m[3][2] = -Dot(f, pos); m.m[3][3] = 1.0f;
+  return m;
+}
+
 Matrix4x4 MakePerspectiveFovMatrix(float fovY, float aspectRatio,
                                    float nearClip, float farClip) {
   Matrix4x4 matrix;

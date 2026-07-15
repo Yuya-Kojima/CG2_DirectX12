@@ -265,31 +265,74 @@ void Player::Update() {
   // カメラからの距離
   float distance = 10.0f;
 
-  // 自機の移動範囲
-  float playerMaxMoveX = 6.5f;
-  float playerMaxMoveY = 3.5f;
-
-  // 自機の基本位置をレティクル中心より下に設定する
-  float playerBaseOffsetY = -2.0f;
+  // デッドゾーンとマッピング（照準が中心付近の時は自機は移動しない）
+  float deadzone = actionConfig_.playerDeadzone;
+  float moveRatioX = 0.0f;
+  if (std::abs(ndcX) > deadzone) {
+      moveRatioX = (std::abs(ndcX) - deadzone) / (1.0f - deadzone) * (ndcX > 0.0f ? 1.0f : -1.0f);
+  }
+  float moveRatioY = 0.0f;
+  if (std::abs(ndcY) > deadzone) {
+      moveRatioY = (std::abs(ndcY) - deadzone) / (1.0f - deadzone) * (ndcY > 0.0f ? 1.0f : -1.0f);
+  }
 
   // 上下方向の移動量を非対称に計算（上が広く、下が狭い）
   float moveY = 0.0f;
-  if (ndcY >= 0.0f) {
-    moveY = ndcY * playerMaxMoveY; // 上方向には大きく動ける
+  if (moveRatioY >= 0.0f) {
+    moveY = moveRatioY * actionConfig_.playerMaxMoveY; 
   } else {
-    moveY = ndcY * 1.5f; // 下方向には画面から消えないように制限
+    moveY = moveRatioY * (actionConfig_.playerMaxMoveY * 0.5f); // 下方向には画面から消えないように制限
   }
 
   Vector3 targetPos =
       cameraPos +
       Vector3{cameraForward.x * distance, cameraForward.y * distance,
               cameraForward.z * distance} +
-      Vector3{cameraRight.x * (ndcX * playerMaxMoveX),
-              cameraRight.y * (ndcX * playerMaxMoveX),
-              cameraRight.z * (ndcX * playerMaxMoveX)} +
-      Vector3{cameraUp.x * (moveY + playerBaseOffsetY),
-              cameraUp.y * (moveY + playerBaseOffsetY),
-              cameraUp.z * (moveY + playerBaseOffsetY)};
+      Vector3{cameraRight.x * (moveRatioX * actionConfig_.playerMaxMoveX),
+              cameraRight.y * (moveRatioX * actionConfig_.playerMaxMoveX),
+              cameraRight.z * (moveRatioX * actionConfig_.playerMaxMoveX)} +
+      Vector3{cameraUp.x * (moveY + actionConfig_.playerBaseOffsetY),
+              cameraUp.y * (moveY + actionConfig_.playerBaseOffsetY),
+              cameraUp.z * (moveY + actionConfig_.playerBaseOffsetY)};
+
+  // 速度計算のため前回の座標を保存
+  Vector3 prevPos = transform_.translate;
+
+  // --- 奥行き（Z）の遅れを防ぐため、カメラローカル空間でXYのみLerpする ---
+  // 現在の自機のワールド座標をカメラから見たローカル座標に変換
+  Vector3 currentDiff = {transform_.translate.x - cameraPos.x,
+                         transform_.translate.y - cameraPos.y,
+                         transform_.translate.z - cameraPos.z};
+  float currentLocalX = Dot(currentDiff, cameraRight);
+  float currentLocalY = Dot(currentDiff, cameraUp);
+
+  // 目標のローカル座標
+  float targetLocalX = moveRatioX * actionConfig_.playerMaxMoveX;
+  float targetLocalY = moveY + actionConfig_.playerBaseOffsetY;
+
+  // ローカルX, YのみをLerp（Zは常にdistanceで固定）
+  float nextLocalX = Lerp(currentLocalX, targetLocalX, actionConfig_.playerFollowSpeed);
+  float nextLocalY = Lerp(currentLocalY, targetLocalY, actionConfig_.playerFollowSpeed);
+  float nextLocalZ = distance;
+
+  // ワールド座標に戻す
+  Vector3 nextPos = 
+      cameraPos + 
+      Vector3{cameraRight.x * nextLocalX, cameraRight.y * nextLocalX, cameraRight.z * nextLocalX} +
+      Vector3{cameraUp.x * nextLocalY, cameraUp.y * nextLocalY, cameraUp.z * nextLocalY} +
+      Vector3{cameraForward.x * nextLocalZ, cameraForward.y * nextLocalZ, cameraForward.z * nextLocalZ};
+
+  // カメラのワープ時はLerpせずに瞬時にスナップする
+  Vector3 warpDiff = {targetPos.x - transform_.translate.x,
+                      targetPos.y - transform_.translate.y,
+                      targetPos.z - transform_.translate.z};
+  float distSq = warpDiff.x * warpDiff.x + warpDiff.y * warpDiff.y + warpDiff.z * warpDiff.z;
+  
+  if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
+    transform_.translate = targetPos;
+  } else {
+    transform_.translate = nextPos;
+  }
 
   //  弾の実際の目標地点を計算し、自機をそちらに向かせる
   float bulletTargetDist = 1000.0f;
@@ -306,20 +349,6 @@ void Player::Update() {
                             Vector3{cameraUp.x * (ndcY * bulletMaxMoveY),
                                     cameraUp.y * (ndcY * bulletMaxMoveY),
                                     cameraUp.z * (ndcY * bulletMaxMoveY)};
-
-  // 自機を目標座標へ遅延追従
-  Vector3 prevPos = transform_.translate;
-
-  // カメラのワープ時はLerpせずに瞬時にスナップする
-  Vector3 diff = {targetPos.x - transform_.translate.x,
-                  targetPos.y - transform_.translate.y,
-                  targetPos.z - transform_.translate.z};
-  float distSq = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
-  if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
-    transform_.translate = targetPos;
-  } else {
-    transform_.translate = Lerp(transform_.translate, targetPos, 0.25f);
-  }
 
   // 姿勢制御
   Vector3 velocity = {transform_.translate.x - prevPos.x,
@@ -627,20 +656,26 @@ void Player::ForceSnapToCamera() {
                            cameraWorld.m[2][2]};
 
   float distance = 10.0f;
-  float playerMaxMoveX = 5.0f;
-  float playerMaxMoveY = 2.5f;
-  float playerBaseOffsetY = -2.0f;
+  float moveRatioX = 0.0f;
+  if (std::abs(ndcX) > actionConfig_.playerDeadzone) {
+      moveRatioX = (std::abs(ndcX) - actionConfig_.playerDeadzone) / (1.0f - actionConfig_.playerDeadzone) * (ndcX > 0.0f ? 1.0f : -1.0f);
+  }
+  float moveRatioY = 0.0f;
+  if (std::abs(ndcY) > actionConfig_.playerDeadzone) {
+      moveRatioY = (std::abs(ndcY) - actionConfig_.playerDeadzone) / (1.0f - actionConfig_.playerDeadzone) * (ndcY > 0.0f ? 1.0f : -1.0f);
+  }
+  float moveY = moveRatioY >= 0.0f ? moveRatioY * actionConfig_.playerMaxMoveY : moveRatioY * (actionConfig_.playerMaxMoveY * 0.5f);
 
   Vector3 targetPos =
       cameraPos +
       Vector3{cameraForward.x * distance, cameraForward.y * distance,
               cameraForward.z * distance} +
-      Vector3{cameraRight.x * (ndcX * playerMaxMoveX),
-              cameraRight.y * (ndcX * playerMaxMoveX),
-              cameraRight.z * (ndcX * playerMaxMoveX)} +
-      Vector3{cameraUp.x * (ndcY * playerMaxMoveY + playerBaseOffsetY),
-              cameraUp.y * (ndcY * playerMaxMoveY + playerBaseOffsetY),
-              cameraUp.z * (ndcY * playerMaxMoveY + playerBaseOffsetY)};
+      Vector3{cameraRight.x * (moveRatioX * actionConfig_.playerMaxMoveX),
+              cameraRight.y * (moveRatioX * actionConfig_.playerMaxMoveX),
+              cameraRight.z * (moveRatioX * actionConfig_.playerMaxMoveX)} +
+      Vector3{cameraUp.x * (moveY + actionConfig_.playerBaseOffsetY),
+              cameraUp.y * (moveY + actionConfig_.playerBaseOffsetY),
+              cameraUp.z * (moveY + actionConfig_.playerBaseOffsetY)};
 
   transform_.translate = targetPos;
   UpdateTransform();
@@ -656,6 +691,11 @@ void Player::SaveActionConfig() {
   root["reticleAcceleration"] = actionConfig_.reticleAcceleration;
   root["reticleFriction"] = actionConfig_.reticleFriction;
   root["reticleMaxSpeed"] = actionConfig_.reticleMaxSpeed;
+  root["playerFollowSpeed"] = actionConfig_.playerFollowSpeed;
+  root["playerDeadzone"] = actionConfig_.playerDeadzone;
+  root["playerMaxMoveX"] = actionConfig_.playerMaxMoveX;
+  root["playerMaxMoveY"] = actionConfig_.playerMaxMoveY;
+  root["playerBaseOffsetY"] = actionConfig_.playerBaseOffsetY;
   root["rollStrength"] = actionConfig_.rollStrength;
   root["pitchStrength"] = actionConfig_.pitchStrength;
   root["yawStrength"] = actionConfig_.yawStrength;
@@ -701,6 +741,16 @@ void Player::LoadActionConfig() {
         actionConfig_.reticleFriction = root["reticleFriction"];
       if (root.contains("reticleMaxSpeed"))
         actionConfig_.reticleMaxSpeed = root["reticleMaxSpeed"];
+      if (root.contains("playerFollowSpeed"))
+        actionConfig_.playerFollowSpeed = root["playerFollowSpeed"];
+      if (root.contains("playerDeadzone"))
+        actionConfig_.playerDeadzone = root["playerDeadzone"];
+      if (root.contains("playerMaxMoveX"))
+        actionConfig_.playerMaxMoveX = root["playerMaxMoveX"];
+      if (root.contains("playerMaxMoveY"))
+        actionConfig_.playerMaxMoveY = root["playerMaxMoveY"];
+      if (root.contains("playerBaseOffsetY"))
+        actionConfig_.playerBaseOffsetY = root["playerBaseOffsetY"];
       if (root.contains("rollStrength"))
         actionConfig_.rollStrength = root["rollStrength"];
       if (root.contains("pitchStrength"))

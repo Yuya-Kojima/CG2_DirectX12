@@ -1,6 +1,7 @@
 #include "BehaviorSineWave.h"
 #include "Actor/Enemy.h"
 #include "Camera/ICamera.h"
+#include "Camera/RailCamera.h"
 #include <cmath>
 
 #include "Math/MathUtil.h"
@@ -14,6 +15,13 @@ void BehaviorSineWave::Update(Enemy* enemy) {
         Vector3 cameraRight = camera->GetRight();
         Vector3 cameraUp = camera->GetUp();
         Vector3 cameraForward = camera->GetForward();
+        
+        if (auto railCam = dynamic_cast<const RailCamera*>(camera)) {
+            cameraPos = railCam->GetRailPosition();
+            cameraRight = railCam->GetRailRight();
+            cameraUp = railCam->GetRailUp();
+            cameraForward = railCam->GetRailForward();
+        }
 
         float aliveTime = enemy->GetAliveTime();
         float speed = enemy->GetSpeed();

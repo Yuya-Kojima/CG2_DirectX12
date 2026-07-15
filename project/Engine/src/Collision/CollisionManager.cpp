@@ -16,22 +16,15 @@ void CollisionManager::Register(Collider *collider) {
 }
 
 void CollisionManager::Remove(Collider *collider) {
-  pendingRemoves_.push_back(collider);
+  colliders_.remove(collider);
 }
 
 void CollisionManager::Clear() { colliders_.clear(); }
 
 void CollisionManager::Update() {
-  // 【重要】イテレーション前に削除待ちのコライダーを先に除去する
-  // Enemy::Update() で collider_.reset() が呼ばれてメモリが解放された後、
-  // このループに入る前にリストから取り除くことでダングリングポインタアクセスを防ぐ
-  for (Collider *c : pendingRemoves_) {
-    colliders_.remove(c);
-  }
-  pendingRemoves_.clear();
-
   // 全コライダーの座標を更新
   for (Collider *collider : colliders_) {
+    if (!collider->IsEnable()) continue;
     collider->Update();
   }
 
@@ -41,7 +34,8 @@ void CollisionManager::Update() {
 
 void CollisionManager::DrawDebug() {
   for (Collider *collider : colliders_) {
-     collider->DrawDebug();
+    if (!collider->IsEnable()) continue;
+    collider->DrawDebug();
   }
 }
 
@@ -49,11 +43,13 @@ void CollisionManager::CheckAllCollisions() {
   auto itA = colliders_.begin();
   for (; itA != colliders_.end(); ++itA) {
     Collider *colliderA = *itA;
+    if (!colliderA->IsEnable()) continue;
 
     auto itB = itA;
     ++itB;
     for (; itB != colliders_.end(); ++itB) {
       Collider *colliderB = *itB;
+      if (!colliderB->IsEnable()) continue;
 
       // 属性とマスクを使ったフィルタリング
       // Aの属性がBのマスクに含まれていない、またはBの属性がAのマスクに含まれていない場合は計算スキップ
@@ -117,6 +113,8 @@ bool CollisionManager::Raycast(const Ray& ray, uint32_t mask, Collider** outColl
   Collider* closestCollider = nullptr;
 
   for (Collider* collider : colliders_) {
+    if (!collider->IsEnable()) continue;
+
     // マスクでフィルタリング
     if (!(collider->GetAttribute() & mask)) {
       continue;

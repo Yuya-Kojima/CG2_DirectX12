@@ -31,10 +31,14 @@ public:
   void SetMask(uint32_t mask) { collisionMask_ = mask; }
   uint32_t GetMask() const { return collisionMask_; }
 
+  void SetEnable(bool flag) { isEnable_ = flag; }
+  bool IsEnable() const { return isEnable_; }
+
   BaseActor *GetOwner() const { return owner_; }
 
 private:
   BaseActor *owner_ = nullptr;
   uint32_t collisionAttribute_ = kCollisionAttributeAll; // 自分の属性
   uint32_t collisionMask_ = kCollisionAttributeAll;      // 当たる相手の属性
+  bool isEnable_ = true;                                 // 有効フラグ
 };
