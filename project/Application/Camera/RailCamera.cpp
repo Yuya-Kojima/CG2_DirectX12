@@ -71,9 +71,8 @@ void RailCamera::Update() {
   // --- バンク・首振りの計算（プレイヤー連動） ---
   Vector3 tangentNow = CalcTangent(t_);
   Vector3 worldUp = {0.0f, 1.0f, 0.0f};
-  Vector3 right = SafeNormalize(Cross(tangentNow, worldUp));
-  Vector3 upApprox =
-      SafeNormalize(Cross(right, tangentNow)); // レールの近似上方向
+  Vector3 right = SafeNormalize(Cross(worldUp, tangentNow));
+  Vector3 upApprox = SafeNormalize(Cross(tangentNow, right)); // レールの近似上方向
 
   // レールの基準ベクトルと座標を保存しておく（敵などがカメラの首振りやシェイクに影響されずに移動するため）
   railPos_ = currentPos;
