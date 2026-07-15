@@ -1,5 +1,6 @@
 #include "Actor/Enemy.h"
 #include "Camera/ICamera.h"
+#include "Camera/RailCamera.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
 #include "Math/MathUtil.h"
@@ -37,6 +38,21 @@ void Enemy::Update() {
       collider_->SetEnable(false); // コライダーを無効化（メモリは破棄しない）
     }
     return;
+  }
+
+  // --- カメラ基準値の毎フレーム更新 ---
+  if (camera_) {
+    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+      basePos_ = railCam->GetRailPosition();
+      baseForward_ = railCam->GetRailForward();
+      baseRight_ = railCam->GetRailRight();
+      baseUp_ = railCam->GetRailUp();
+    } else {
+      basePos_ = camera_->GetTranslate();
+      baseForward_ = camera_->GetForward();
+      baseRight_ = camera_->GetRight();
+      baseUp_ = camera_->GetUp();
+    }
   }
 
   aliveTime_ += 1.0f / 60.0f; // 簡易的に60FPS固定で時間計算

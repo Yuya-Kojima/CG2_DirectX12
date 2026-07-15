@@ -2,7 +2,6 @@
 #include "Actor/Enemy.h"
 #include "Actor/Player.h"
 #include "Camera/ICamera.h"
-#include "Camera/RailCamera.h"
 #include "Actor/EnemyBullet.h"
 #include "Framework/ActorManager.h"
 #include "Framework/PrefabManager.h"
@@ -22,16 +21,10 @@ void BehaviorTurret::Update(Enemy* enemy) {
   if (!camera || !player) return;
 
   // 1. 位置の更新（カメラ相対で固定位置に留まる）
-  Vector3 cameraPos = camera->GetTranslate();
-  Vector3 cameraRight = camera->GetRight();
-  Vector3 cameraUp = camera->GetUp();
-  Vector3 cameraForward = camera->GetForward();
-        if (auto railCam = dynamic_cast<const RailCamera*>(camera)) {
-            cameraPos = railCam->GetRailPosition();
-            cameraRight = railCam->GetRailRight();
-            cameraUp = railCam->GetRailUp();
-            cameraForward = railCam->GetRailForward();
-        }
+  const Vector3& cameraPos = enemy->GetBasePosition();
+  const Vector3& cameraRight = enemy->GetBaseRight();
+  const Vector3& cameraUp = enemy->GetBaseUp();
+  const Vector3& cameraForward = enemy->GetBaseForward();
   const Vector3& spawnOffset = enemy->GetSpawnOffset();
 
   enemy->GetTransform().translate =

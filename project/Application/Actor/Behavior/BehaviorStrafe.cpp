@@ -2,7 +2,6 @@
 #include "Actor/Enemy.h"
 #include "Actor/Player.h"
 #include "Camera/ICamera.h"
-#include "Camera/RailCamera.h"
 #include "Actor/EnemyBullet.h"
 #include "Framework/ActorManager.h"
 #include "Framework/PrefabManager.h"
@@ -20,16 +19,10 @@ void BehaviorStrafe::Update(Enemy* enemy) {
   auto player = enemy->GetPlayer();
   if (!camera || !player) return;
 
-  Vector3 cameraPos = camera->GetTranslate();
-  Vector3 cameraRight = camera->GetRight();
-  Vector3 cameraUp = camera->GetUp();
-  Vector3 cameraForward = camera->GetForward();
-        if (auto railCam = dynamic_cast<const RailCamera*>(camera)) {
-            cameraPos = railCam->GetRailPosition();
-            cameraRight = railCam->GetRailRight();
-            cameraUp = railCam->GetRailUp();
-            cameraForward = railCam->GetRailForward();
-        }
+  const Vector3& cameraPos = enemy->GetBasePosition();
+  const Vector3& cameraRight = enemy->GetBaseRight();
+  const Vector3& cameraUp = enemy->GetBaseUp();
+  const Vector3& cameraForward = enemy->GetBaseForward();
   
   float aliveTime = enemy->GetAliveTime();
   float speed = enemy->GetSpeed(); 

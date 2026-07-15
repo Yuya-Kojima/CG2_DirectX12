@@ -1,8 +1,6 @@
 #include "BehaviorFighter.h"
 #include "Actor/Enemy.h"
 #include "Actor/Player.h"
-#include "Camera/ICamera.h"
-#include "Camera/RailCamera.h"
 #include "Math/MathUtil.h"
 #include <cmath>
 
@@ -14,37 +12,28 @@ void BehaviorFighter::Update(Enemy *enemy) {
 
   stateTimer_ += 1.0f / 60.0f;
 
+  const Vector3& basePos = enemy->GetBasePosition();
+  const Vector3& baseRight = enemy->GetBaseRight();
+  const Vector3& baseUp = enemy->GetBaseUp();
+  const Vector3& baseForward = enemy->GetBaseForward();
+
   switch (state_) {
   case State::Enter:
-    UpdateEnter(enemy);
+    UpdateEnter(enemy, basePos, baseRight, baseUp, baseForward);
     break;
   case State::Combat:
-    UpdateCombat(enemy);
+    UpdateCombat(enemy, basePos, baseRight, baseUp, baseForward);
     break;
   case State::Evade:
-    UpdateEvade(enemy);
+    UpdateEvade(enemy, basePos, baseRight, baseUp, baseForward);
     break;
   case State::Retreat:
-    UpdateRetreat(enemy);
+    UpdateRetreat(enemy, basePos, baseRight, baseUp, baseForward);
     break;
   }
 }
 
-void BehaviorFighter::UpdateEnter(Enemy *enemy) {
-
-  // カメラ情報取得
-  auto camera = enemy->GetCamera();
-  if (!camera) {
-    return;
-  }
-
-  Vector3 cameraPos = camera->GetTranslate();
-  Vector3 cameraRight = camera->GetRight();
-  Vector3 cameraUp = camera->GetUp();
-  Vector3 cameraForward = camera->GetForward();
-  if (auto railCam = dynamic_cast<const RailCamera *>(camera)) {
-    cameraForward = railCam->GetRailForward();
-  }
+void BehaviorFighter::UpdateEnter(Enemy *enemy, const Vector3& cameraPos, const Vector3& cameraRight, const Vector3& cameraUp, const Vector3& cameraForward) {
   const Vector3 &spawnOffset = enemy->GetSpawnOffset();
 
   // 登場位置（プレイヤーの少し前方に固定）
@@ -63,21 +52,11 @@ void BehaviorFighter::UpdateEnter(Enemy *enemy) {
   }
 }
 
-void BehaviorFighter::UpdateCombat(Enemy *enemy) {
-
-  // カメラの取得
-  auto camera = enemy->GetCamera();
+void BehaviorFighter::UpdateCombat(Enemy *enemy, const Vector3& cameraPos, const Vector3& cameraRight, const Vector3& cameraUp, const Vector3& cameraForward) {
   auto player = enemy->GetPlayer();
-  if (!camera || !player)
+  if (!player)
     return;
 
-  Vector3 cameraPos = camera->GetTranslate();
-  Vector3 cameraRight = camera->GetRight();
-  Vector3 cameraUp = camera->GetUp();
-  Vector3 cameraForward = camera->GetForward();
-  if (auto railCam = dynamic_cast<const RailCamera *>(camera)) {
-    cameraForward = railCam->GetRailForward();
-  }
   const Vector3 &spawnOffset = enemy->GetSpawnOffset();
 
   // ふわふわ漂う
@@ -112,7 +91,7 @@ void BehaviorFighter::UpdateCombat(Enemy *enemy) {
   }
 }
 
-void BehaviorFighter::UpdateEvade(Enemy *enemy) {
+void BehaviorFighter::UpdateEvade(Enemy *enemy, const Vector3& cameraPos, const Vector3& cameraRight, const Vector3& cameraUp, const Vector3& cameraForward) {
   // 決定した回避方向へ急加速
   enemy->GetTransform().translate.x += evadeDir_.x * 2.0f;
   enemy->GetTransform().translate.y += evadeDir_.y * 2.0f;
@@ -124,15 +103,7 @@ void BehaviorFighter::UpdateEvade(Enemy *enemy) {
   }
 }
 
-void BehaviorFighter::UpdateRetreat(Enemy *enemy) {
-  auto camera = enemy->GetCamera();
-  if (!camera)
-    return;
-
-  Vector3 cameraForward = camera->GetForward();
-  if (auto railCam = dynamic_cast<const RailCamera *>(camera)) {
-    cameraForward = railCam->GetRailForward();
-  }
+void BehaviorFighter::UpdateRetreat(Enemy *enemy, const Vector3& cameraPos, const Vector3& cameraRight, const Vector3& cameraUp, const Vector3& cameraForward) {
   // 画面奥（前方）へ飛び去る
   enemy->GetTransform().translate.x += cameraForward.x * 3.0f;
   enemy->GetTransform().translate.y += cameraForward.y * 3.0f;

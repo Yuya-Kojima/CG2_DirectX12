@@ -23,7 +23,7 @@ Boss::~Boss() {}
 void Boss::Initialize() {
   Enemy::Initialize();
   if (collider_) {
-    collider_->SetRadius(3.0f); // 巨大化に合わせて大きめの当たり判定に変更
+    collider_->SetRadius(1.5f); // 巨大化に合わせて大きめの当たり判定に変更
   }
   SetHP(100);
   maxHp_ = 100;

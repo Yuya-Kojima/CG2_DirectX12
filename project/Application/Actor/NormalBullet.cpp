@@ -32,7 +32,7 @@ void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
 
   // コライダーの設定
   collider_ = std::make_unique<SphereCollider>(this);
-  collider_->SetRadius(0.5f);
+  collider_->SetRadius(2.0f);
   collider_->SetAttribute(kCollisionAttributePlayerBullet);
   collider_->SetMask(kCollisionAttributeEnemy);
   collider_->SetVelocity(velocity_);
