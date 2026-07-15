@@ -2,6 +2,7 @@
 #include "../../externals/nlohmann/json.hpp"
 #include "Scene/SceneManager.h"
 #include "Render/Renderer/PostProcess.h"
+#include "Camera/ICamera.h"
 #include "Camera/RailCamera.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -17,9 +18,46 @@ EffectManager* EffectManager::GetInstance() {
 
 void EffectManager::Initialize() {
   LoadShockwaveConfig();
+
+  for (int i = 0; i < kMaxHitEffects; ++i) {
+    hitCoreParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitCoreParticleGroups_[i]->Initialize("resources/circle.png");
+    hitFlareParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitFlareParticleGroups_[i]->Initialize("resources/circle.png");
+    hitRingParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitRingParticleGroups_[i]->Initialize("resources/circle.png");
+    hitRingParticleGroups_[i]->SetIsRingMode(true);
+
+    // 1. コア
+    deathCoreEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
+    deathCoreEmitters_[i]->SetBaseScale({20.0f, 20.0f, 20.0f});
+    deathCoreEmitters_[i]->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
+    deathCoreEmitters_[i]->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
+
+    // 2. フレア
+    deathFlareEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitFlareParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
+        Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f, 0.6f);
+    deathFlareEmitters_[i]->SetBaseScale({0.8f, 0.8f, 0.8f});
+    deathFlareEmitters_[i]->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
+    deathFlareEmitters_[i]->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
+
+    // 3. リング衝撃波
+    deathRingEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitRingParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
+    deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f});
+    deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
+    deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
+  }
 }
 
-void EffectManager::Update(const Matrix4x4& viewProj) {
+void EffectManager::Update(const ICamera* camera) {
+  if (!camera) return;
+  Matrix4x4 viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+
   auto postProcess = SceneManager::GetInstance()->GetCurrentScenePostProcess();
   if (!postProcess) return;
 
@@ -66,12 +104,52 @@ void EffectManager::Update(const Matrix4x4& viewProj) {
     }
     postProcess->SetShockwaves(shockwaveParams);
   } else {
-    // リセット処理
-    if (postProcess->GetPostEffectType() == 10) {
+    // リセット
+    if (postProcess && postProcess->GetPostEffectType() == 10) {
       postProcess->SetPostEffectType(0);
       postProcess->SetShockwaves({});
     }
   }
+
+  // パーティクルの更新
+  for (int i = 0; i < kMaxHitEffects; ++i) {
+      deathCoreEmitters_[i]->Update();
+      deathFlareEmitters_[i]->Update();
+      deathRingEmitters_[i]->Update();
+      hitCoreParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+      hitFlareParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+      hitRingParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+  }
+}
+
+void EffectManager::Draw() {
+  for (int i = 0; i < kMaxHitEffects; ++i) {
+      hitCoreParticleGroups_[i]->Draw();
+      hitFlareParticleGroups_[i]->Draw();
+      hitRingParticleGroups_[i]->Draw();
+  }
+}
+
+void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor) {
+  PlayShockwave(worldPos);
+
+  int i = nextHitEffectIndex_;
+  
+  // 色を動的に変更してEmit
+  deathCoreEmitters_[i]->SetCenter(worldPos);
+  deathCoreEmitters_[i]->Emit(baseColor);
+  
+  // フレアは元の色にEnemyの色を少し混ぜるか、明るめにする
+  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f, baseColor.z * 2.0f, 1.0f};
+  deathFlareEmitters_[i]->SetCenter(worldPos);
+  deathFlareEmitters_[i]->Emit(flareColor);
+  
+  // リングも同色系統にする
+  Vector4 ringColor = {baseColor.x * 1.5f, baseColor.y * 1.5f, baseColor.z * 1.5f, 1.0f};
+  deathRingEmitters_[i]->SetCenter(worldPos);
+  deathRingEmitters_[i]->Emit(ringColor);
+
+  nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
 }
 
 void EffectManager::PlayShockwave(const Vector3& worldPos) {

@@ -152,39 +152,6 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // 3Dオブジェクト関係の初期化
   //===========================
-  for (int i = 0; i < kMaxHitEffects; ++i) {
-    hitCoreParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
-    hitCoreParticleGroups_[i]->Initialize("resources/circle.png");
-    hitFlareParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
-    hitFlareParticleGroups_[i]->Initialize("resources/circle.png");
-    hitRingParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
-    hitRingParticleGroups_[i]->Initialize("resources/circle.png");
-    hitRingParticleGroups_[i]->SetIsRingMode(true);
-
-    // 1. コア
-    deathCoreEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
-    deathCoreEmitters_[i]->SetBaseScale({20.0f, 20.0f, 20.0f});
-    deathCoreEmitters_[i]->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
-    deathCoreEmitters_[i]->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
-
-    // 2. フレア
-    deathFlareEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitFlareParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
-        Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f, 0.6f);
-    deathFlareEmitters_[i]->SetBaseScale({0.8f, 0.8f, 0.8f});
-    deathFlareEmitters_[i]->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
-    deathFlareEmitters_[i]->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
-
-    // 3. リング衝撃波
-    deathRingEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitRingParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
-    deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f});
-    deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
-    deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
-  }
 
   // ===== ボス専用パーティクル初期化 =====
   bossExplosionParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
@@ -470,14 +437,6 @@ void GamePlayScene::Update() {
     doStep_ = false;
   }
 
-  // ポストエフェクトとエフェクトマネージャーの更新
-  if (postProcess_) {
-    Matrix4x4 viewProj = Multiply(railCamera_->GetViewMatrix(), railCamera_->GetProjectionMatrix());
-    if (shouldUpdateWorld) {
-      EffectManager::GetInstance()->Update(viewProj);
-    }
-  }
-
   //=======================
   // カメラの更新
   //=======================
@@ -501,6 +460,12 @@ void GamePlayScene::Update() {
       railCamera_->Update();
     }
     activeCamera = railCamera_.get();
+  }
+
+  // ポストエフェクトとエフェクトマネージャーの更新
+  if (postProcess_) {
+    EffectManager::GetInstance()->Update(activeCamera);
+  }
 
     // スポナーロジック
     if (railCamera_) {
@@ -565,39 +530,14 @@ void GamePlayScene::Update() {
               }
           }
 
-          // 撃破時の全体エフェクト演出コールバックを登録
-          newEnemy->SetOnDestroyedCallback([this, enemyPtr, isBoss = (ev.prefabName == "Boss")](bool isSelfDestruct) {
-            // 自爆の場合は通常の撃破エフェクトを出さずに終了する
-            if (isSelfDestruct) {
-                if (railCamera_) railCamera_->Shake(0.5f, 0.2f);
-                return;
-            }
-
-            if (!isBoss) {
-                EffectManager::GetInstance()->PlayShockwave(enemyPtr->GetTransform().translate);
-                if (railCamera_) {
-                  railCamera_->Shake(1.0f, 0.3f);
-                }
-                
-                // Particle
-                int i = nextHitEffectIndex_;
-                deathCoreEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-                deathCoreEmitters_[i]->Emit();
-                deathFlareEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-                deathFlareEmitters_[i]->Emit();
-                deathRingEmitters_[i]->SetCenter(enemyPtr->GetTransform().translate);
-                deathRingEmitters_[i]->Emit();
-                
-                nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
-            }
-
-            // ボス撃破時はクリア画面へ
-            if (isBoss) {
+          // ボス撃破時はクリア画面へ移行するコールバックを登録
+          if (ev.prefabName == "Boss") {
+            newEnemy->SetOnDestroyedCallback([this](bool isSelfDestruct) {
                 gameState_ = GameState::Clear;
                 if (railCamera_) railCamera_->SetAutoMove(false);
                 UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
-            }
-          });
+            });
+          }
 
           // カメラとオフセット、プレイヤー情報をセット
           newEnemy->SetCamera(railCamera_.get());
@@ -613,7 +553,6 @@ void GamePlayScene::Update() {
         }
       }
     }
-  }
 
   // 基底クラスにも現在のアクティブカメラを教える（Gizmo描画などで使うため）
   SetActiveCamera(const_cast<ICamera *>(activeCamera));
@@ -1547,21 +1486,12 @@ void GamePlayScene::Draw3D() {
   // パーティクルの更新と発生（ルートシグネチャが変わるため、3Dモデル描画後に）
   ParticleManager::GetInstance()->Update();
   if (activeCamera) {
-    for (int i = 0; i < kMaxHitEffects; ++i) {
-      hitCoreParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-      hitFlareParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-      hitRingParticleGroups_[i]->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-    }
     bossExplosionParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
     bossDustParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
   }
   ParticleManager::GetInstance()->Emit();
 
-  for (int i = 0; i < kMaxHitEffects; ++i) {
-    hitCoreParticleGroups_[i]->Draw();
-    hitFlareParticleGroups_[i]->Draw();
-    hitRingParticleGroups_[i]->Draw();
-  }
+  EffectManager::GetInstance()->Draw();
 
   bossExplosionParticleGroup_->Draw();
   bossDustParticleGroup_->Draw();
