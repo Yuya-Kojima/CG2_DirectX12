@@ -53,6 +53,12 @@ public:
   
   void SetCamera(const ICamera* camera) { camera_ = camera; }
   const ICamera* GetCamera() const { return camera_; }
+
+  // ベースとなるカメラベクトル（RailCamera等の揺れを無視した純粋な空間軸）
+  const Vector3& GetBasePosition() const { return basePos_; }
+  const Vector3& GetBaseForward() const { return baseForward_; }
+  const Vector3& GetBaseRight() const { return baseRight_; }
+  const Vector3& GetBaseUp() const { return baseUp_; }
   void SetSpawnOffset(const Vector3& offset) { spawnOffset_ = offset; }
   const Vector3& GetSpawnOffset() const { return spawnOffset_; }
   float GetAliveTime() const { return aliveTime_; }
@@ -88,6 +94,12 @@ protected:
   const Player* player_ = nullptr;
   Vector3 spawnOffset_ = {0.0f, 0.0f, 0.0f};
   float aliveTime_ = 0.0f;
+
+  // 毎フレーム更新される基準座標群
+  Vector3 basePos_ = {0.0f, 0.0f, 0.0f};
+  Vector3 baseForward_ = {0.0f, 0.0f, 1.0f};
+  Vector3 baseRight_ = {1.0f, 0.0f, 0.0f};
+  Vector3 baseUp_ = {0.0f, 1.0f, 0.0f};
   
   // --- 演出用パラメータ ---
   int hitFlashTimer_ = 0;  // 被弾時の点滅タイマー

@@ -20,8 +20,8 @@ private:
     float stateTimer_ = 0.0f;
     Vector3 evadeDir_ = {0.0f, 0.0f, 0.0f};
 
-    void UpdateEnter(Enemy* enemy);
-    void UpdateCombat(Enemy* enemy);
-    void UpdateEvade(Enemy* enemy);
-    void UpdateRetreat(Enemy* enemy);
+    void UpdateEnter(Enemy* enemy, const Vector3& basePos, const Vector3& baseRight, const Vector3& baseUp, const Vector3& baseForward);
+    void UpdateCombat(Enemy* enemy, const Vector3& basePos, const Vector3& baseRight, const Vector3& baseUp, const Vector3& baseForward);
+    void UpdateEvade(Enemy* enemy, const Vector3& basePos, const Vector3& baseRight, const Vector3& baseUp, const Vector3& baseForward);
+    void UpdateRetreat(Enemy* enemy, const Vector3& basePos, const Vector3& baseRight, const Vector3& baseUp, const Vector3& baseForward);
 };

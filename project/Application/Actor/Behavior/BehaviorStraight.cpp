@@ -1,8 +1,5 @@
 #include "BehaviorStraight.h"
 #include "Actor/Enemy.h"
-#include "Camera/ICamera.h"
-#include "Camera/RailCamera.h"
-
 #include "Math/MathUtil.h"
 
 void BehaviorStraight::Update(Enemy* enemy) {
@@ -10,19 +7,11 @@ void BehaviorStraight::Update(Enemy* enemy) {
 
     auto camera = enemy->GetCamera();
     if (camera) {
-        // レールカメラ基準の移動
-        Vector3 cameraPos = camera->GetTranslate(); 
-        Vector3 cameraRight = camera->GetRight();
-        Vector3 cameraUp = camera->GetUp();
-        Vector3 cameraForward = camera->GetForward();
-
-        // 敵は「カメラの首振り」ではなく「レール自体の位置・向き」を基準に配置する
-        if (auto railCam = dynamic_cast<const RailCamera*>(camera)) {
-            cameraPos = railCam->GetRailPosition();
-            cameraRight = railCam->GetRailRight();
-            cameraUp = railCam->GetRailUp();
-            cameraForward = railCam->GetRailForward();
-        }
+        // Enemy本体が保持している基準ベクトルを取得
+        const Vector3& cameraPos = enemy->GetBasePosition();
+        const Vector3& cameraRight = enemy->GetBaseRight();
+        const Vector3& cameraUp = enemy->GetBaseUp();
+        const Vector3& cameraForward = enemy->GetBaseForward();
 
         float aliveTime = enemy->GetAliveTime();
         float speed = enemy->GetSpeed();
