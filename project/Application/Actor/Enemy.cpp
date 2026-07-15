@@ -1,6 +1,7 @@
 #include "Actor/Enemy.h"
 #include "Camera/ICamera.h"
 #include "Camera/RailCamera.h"
+#include "Effect/EffectManager.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
 #include "Math/MathUtil.h"
@@ -107,11 +108,21 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
   }
 
   hp_ -= damage;
-  hitFlashTimer_ = 5; // 5フレーム間点滅
+  hitFlashTimer_ = 5; // 5フレーム点滅
 
   if (hp_ <= 0) {
     Logger::Log("Enemy Destroyed!\n");
     
+    // コールバック（ボス等の特別処理）が設定されていない、かつ自爆でない場合は自律的に爆発する
+    if (!onDestroyedCallback_ && !isSelfDestruct) {
+      EffectManager::GetInstance()->PlayEnemyDeathEffect(transform_.translate, baseColor_);
+      if (camera_) {
+        if (auto railCamera = dynamic_cast<const RailCamera*>(camera_)) {
+            const_cast<RailCamera*>(railCamera)->Shake(1.0f, 0.3f);
+        }
+      }
+    }
+
     if (onDestroyedCallback_) {
       onDestroyedCallback_(isSelfDestruct);
     }

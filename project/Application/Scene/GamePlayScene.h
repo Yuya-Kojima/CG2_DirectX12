@@ -91,17 +91,6 @@ private: // メンバ変数(ゲーム用)
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
 
-  // ヒットエフェクト用パーティクル（敵撃破時など）最大10個まで同時発生可能にする
-  static const int kMaxHitEffects = 10;
-  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitCoreParticleGroups_;
-  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitFlareParticleGroups_;
-  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitRingParticleGroups_;
-  
-  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathCoreEmitters_;
-  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathFlareEmitters_;
-  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathRingEmitters_;
-  int nextHitEffectIndex_ = 0;
-
   // ボス専用エミッター
   std::unique_ptr<BillboardParticleEmitter> bossExplosionParticleGroup_;
   std::unique_ptr<BillboardParticleEmitter> bossDustParticleGroup_;
