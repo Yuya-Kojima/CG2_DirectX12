@@ -116,10 +116,20 @@ void Boss::Update() {
     // フェーズ1の動き: ゆっくりホバリング
     if (!camera_)
       return;
-    Vector3 center = camera_->GetTranslate() +
-                     camera_->GetRight() * spawnOffset_.x +
-                     camera_->GetUp() * spawnOffset_.y +
-                     camera_->GetForward() * spawnOffset_.z;
+    Vector3 cPos = camera_->GetTranslate();
+    Vector3 cRight = camera_->GetRight();
+    Vector3 cUp = camera_->GetUp();
+    Vector3 cForward = camera_->GetForward();
+    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+        cPos = railCam->GetRailPosition();
+        cRight = railCam->GetRailRight();
+        cUp = railCam->GetRailUp();
+        cForward = railCam->GetRailForward();
+    }
+    Vector3 center = cPos +
+                     cRight * spawnOffset_.x +
+                     cUp * spawnOffset_.y +
+                     cForward * spawnOffset_.z;
 
     transform_.translate.x = center.x + std::sin(aliveTime_ * 0.5f) * 8.0f;
     transform_.translate.y = center.y + std::cos(aliveTime_ * 0.8f) * 1.5f;
@@ -185,10 +195,20 @@ void Boss::Update() {
     // フェーズ2の動き: 激しいホバリング
     if (!camera_)
       return;
-    Vector3 center = camera_->GetTranslate() +
-                     camera_->GetRight() * spawnOffset_.x +
-                     camera_->GetUp() * spawnOffset_.y +
-                     camera_->GetForward() * spawnOffset_.z;
+    Vector3 cPos = camera_->GetTranslate();
+    Vector3 cRight = camera_->GetRight();
+    Vector3 cUp = camera_->GetUp();
+    Vector3 cForward = camera_->GetForward();
+    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+        cPos = railCam->GetRailPosition();
+        cRight = railCam->GetRailRight();
+        cUp = railCam->GetRailUp();
+        cForward = railCam->GetRailForward();
+    }
+    Vector3 center = cPos +
+                     cRight * spawnOffset_.x +
+                     cUp * spawnOffset_.y +
+                     cForward * spawnOffset_.z;
 
     transform_.translate.x = center.x + std::sin(aliveTime_ * 1.5f) * 12.0f;
     transform_.translate.y = center.y + std::cos(aliveTime_ * 1.0f) * 2.0f;
@@ -327,10 +347,9 @@ void Boss::ChangePhase(BossPhase nextPhase) {
     // パターン変化の初期化など
   } else if (phase_ == BossPhase::Dying) {
     Logger::Log("Boss entering Dying phase!\n");
-    // コライダーを無効化（当たり判定を消す）
+    // コライダーを無効化（メモリは破棄しない）
     if (collider_) {
-      CollisionManager::GetInstance()->Remove(collider_.get());
-      collider_.reset();
+      collider_->SetEnable(false);
     }
     dyingTimer_ = 0.0f;
     // HPバーを非表示にする

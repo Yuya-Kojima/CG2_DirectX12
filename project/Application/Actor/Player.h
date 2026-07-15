@@ -65,9 +65,14 @@ public:
     float reticleAcceleration = 2.5f;      // 照準の加速度
     float reticleFriction = 0.85f;          // 照準の摩擦力
     float reticleMaxSpeed = 25.0f;          // 照準の最高移動速度
-    float rollStrength = 4.0f;             // ロールの強さ
-    float pitchStrength = 2.0f;            // ピッチの追加強度
-    float yawStrength = 1.5f;              // ヨーの追加強度
+    float playerFollowSpeed = 0.12f;       // 自機の目標座標への追従スピード（0.05は遅すぎたので0.12に）
+    float playerDeadzone = 0.05f;          // 照準が動いても自機が移動しない遊び範囲（5%に縮小）
+    float playerMaxMoveX = 3.5f;           // 自機の左右の最大移動範囲（画面端にいかないよう大幅に縮小）
+    float playerMaxMoveY = 2.0f;           // 自機の上下の最大移動範囲（画面端にいかないよう大幅に縮小）
+    float playerBaseOffsetY = -2.0f;       // 自機の基本Yオフセット
+    float rollStrength = 7.0f;             // ロールの強さ（可動域縮小による速度低下を補うため強化）
+    float pitchStrength = 3.5f;            // ピッチの追加強度（強化）
+    float yawStrength = 2.5f;              // ヨーの追加強度（強化）
     float rollLerp = 0.15f;                // ロール補間速度
     float pitchLerp = 0.15f;               // ピッチ補間速度
     float yawLerp = 0.15f;                 // ヨー補間速度

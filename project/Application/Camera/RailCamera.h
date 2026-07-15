@@ -58,6 +58,17 @@ public:
   /// </summary>
   Vector3 CalcPosition(float t) const;
 
+      /// <summary>
+  /// 進行度tにおける接線ベクトルを計算する
+  /// </summary>
+  Vector3 CalcTangent(float t) const;
+
+  // レールの基準座標・ベクトル（カメラのシェイクや首振りの影響を受けない、レールそのものの位置・向き）
+  const Vector3& GetRailPosition() const { return railPos_; }
+  const Vector3& GetRailForward() const { return railForward_; }
+  const Vector3& GetRailRight() const { return railRight_; }
+  const Vector3& GetRailUp() const { return railUp_; }
+
 private:
   Transform transform_;
   Matrix4x4 worldMatrix_;
@@ -82,4 +93,18 @@ private:
   float shakeDuration_ = 0.0f;
   float shakeTimer_ = 0.0f;
 
+  // バンク（ロール）用
+  float bankStrength_ = 1.5f; // 少し弱めに設定
+  float currentBankAmount_ = 0.0f; // スムージング用の現在値
+
+  // プレイヤー連動用
+  Vector3 playerWorldPos_ = {0.0f, 0.0f, 0.0f};
+
+  Vector3 railPos_ = {0.0f, 0.0f, 0.0f};
+  Vector3 railForward_ = {0.0f, 0.0f, 1.0f};
+  Vector3 railRight_ = {1.0f, 0.0f, 0.0f};
+  Vector3 railUp_ = {0.0f, 1.0f, 0.0f};
+
+public:
+  void SetPlayerWorldPosition(const Vector3& pos) { playerWorldPos_ = pos; }
 };

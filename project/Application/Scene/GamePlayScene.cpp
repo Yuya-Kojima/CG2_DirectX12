@@ -425,6 +425,11 @@ void GamePlayScene::Update() {
   //=======================
   const ICamera *activeCamera = nullptr;
 
+  // RailCameraにプレイヤーの現在位置（前フレーム座標）を渡す
+  if (player_ && railCamera_) {
+      railCamera_->SetPlayerWorldPosition(player_->GetTransform().translate);
+  }
+
   if (useDebugCamera_) {
     debugCamera_->Update(*engine_->GetInputManager());
     activeCamera = debugCamera_->GetCamera();
@@ -580,11 +585,13 @@ void GamePlayScene::Update() {
   }
 
   // 死亡済みの敵を削除（デストラクタ内でコライダーも自動登録解除される）
-  runtimeEnemies_.erase(
-    std::remove_if(runtimeEnemies_.begin(), runtimeEnemies_.end(),
-      [](const std::unique_ptr<Enemy>& e) { return e->IsDead(); }),
-    runtimeEnemies_.end()
-  );
+  if (shouldUpdateWorld) {
+    runtimeEnemies_.erase(
+      std::remove_if(runtimeEnemies_.begin(), runtimeEnemies_.end(),
+        [](const std::unique_ptr<Enemy>& e) { return e->IsDead(); }),
+      runtimeEnemies_.end()
+    );
+  }
 
   // アクティブカメラを描画で使用する
   engine_->GetObject3dRenderer()->SetDefaultCamera(activeCamera);

@@ -2,6 +2,7 @@
 #include "Actor/Enemy.h"
 #include "Actor/Player.h"
 #include "Camera/ICamera.h"
+#include "Camera/RailCamera.h"
 #include <cmath>
 
 BehaviorMeteor::BehaviorMeteor() : stateTimer_(0.0f) {}
@@ -33,6 +34,12 @@ void BehaviorMeteor::Update(Enemy* enemy) {
     Vector3 cameraRight = camera->GetRight();
     Vector3 cameraUp = camera->GetUp();
     Vector3 cameraForward = camera->GetForward();
+        if (auto railCam = dynamic_cast<const RailCamera*>(camera)) {
+            currentCameraPos = railCam->GetRailPosition();
+            cameraRight = railCam->GetRailRight();
+            cameraUp = railCam->GetRailUp();
+            cameraForward = railCam->GetRailForward();
+        }
     const Vector3& spawnOffset = enemy->GetSpawnOffset();
 
     enemy->GetTransform().translate =

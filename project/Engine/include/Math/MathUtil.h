@@ -143,6 +143,11 @@ Matrix4x4 MakeAffineMatrix(Vector3 scale, Vector3 rotate, Vector3 translate);
 Matrix4x4 MakeAffineMatrix(const Vector3& scale, const Quaternion& rotate, const Vector3& translate);
 
 /// <summary>
+/// ビュー行列（LookAt）作成
+/// </summary>
+Matrix4x4 MakeLookAtMatrix(const Vector3& pos, const Vector3& target, const Vector3& up);
+
+/// <summary>
 /// 透視投影行列作成
 /// </summary>
 /// <param name="fovY">画角</param>
