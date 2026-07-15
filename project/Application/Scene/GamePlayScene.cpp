@@ -24,6 +24,7 @@
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
 #include "Math/MathUtil.h"
+#include "Actor/Behavior/BehaviorSpline.h"
 
 #include "../Editor/CommandManager.h"
 #include "Collision/CollisionManager.h"
@@ -281,6 +282,63 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   LoadLevel();
   // 古いハードコード生成が走らないようにtrueにしておく
   hasSpawnedDummy_ = true;
+
+  // --- スプライン軌道検証テスト ---
+  auto spawnTestEnemy = [&](const std::vector<Vector3>& path, const Vector4& color, float speed) {
+      auto testEnemy = PrefabManager::GetInstance()->InstantiateEnemy("ZakoEnemy", Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, {0, 0, 0}});
+      testEnemy->SetCamera(railCamera_.get());
+      testEnemy->SetPlayer(player_.get());
+      testEnemy->SetBaseColor(color);
+      testEnemy->SetSpeed(speed);
+      testEnemy->SetBehavior(std::make_unique<BehaviorSpline>(path));
+      runtimeEnemies_.push_back(std::move(testEnemy));
+  };
+
+  // 1. 前方からのすれ違いパス (Cross-by, 赤色)
+  spawnTestEnemy({
+      { 30.0f,  5.0f, 200.0f}, // プラスなので右から出現
+      { 10.0f,  5.0f, 150.0f}, 
+      {  0.0f,  0.0f,  80.0f}, // 正面近くまで迫る
+      {-60.0f,-20.0f,  20.0f}, // マイナスなので左下へ大きく逸れる
+      {-80.0f,-20.0f, -50.0f},
+      {-80.0f,-20.0f, -50.0f}
+  }, {1.0f, 0.2f, 0.2f, 1.0f}, 0.8f);
+
+  // 2. 後方からの追い越しパス (Overtake, 青色)
+  spawnTestEnemy({
+      {-20.0f, 10.0f, -100.0f}, // マイナスなので左の背後から出現
+      {-20.0f, 10.0f,  -50.0f},
+      {-10.0f,  5.0f,    0.0f}, // 左側を追い抜く
+      { 10.0f,  0.0f,  100.0f}, // 右へ移動
+      { 20.0f,  0.0f,  200.0f},
+      { 20.0f,  0.0f,  200.0f}
+  }, {0.2f, 0.2f, 1.0f, 1.0f}, 1.0f);
+
+  // 3. S字蛇行パス (Weaving, 緑色)
+  spawnTestEnemy({
+      {  0.0f,  0.0f, 300.0f},
+      {  0.0f,  0.0f, 250.0f}, // 正面から
+      {-40.0f,  0.0f, 150.0f}, // マイナスなので大きく左へ
+      { 40.0f,  0.0f,  80.0f}, // プラスなので右へ
+      {-20.0f,  0.0f,   0.0f}, // 再び左へ
+      {  0.0f,  0.0f, -50.0f},
+      {  0.0f,  0.0f, -50.0f}
+  }, {0.2f, 1.0f, 0.2f, 1.0f}, 0.5f);
+
+  // 4. 正面で浮遊してから右へ逸れるパス (Hover then Deviate, 黄色)
+  // 同じ座標を連続させることで、急停止や浮遊（少しバウンドする）を表現できます
+  spawnTestEnemy({
+      {  0.0f,  5.0f, 300.0f}, // ダミー（Catmull-Romの計算用）
+      {  0.0f,  5.0f, 300.0f}, // 遠くから出現
+      {  0.0f,  5.0f,  80.0f}, // カメラ正面まで急接近
+      {  0.0f,  5.0f,  80.0f}, // 浮遊（勢い余って少し前に出て戻るバウンド挙動）
+      {  0.0f,  5.0f,  80.0f}, // 浮遊（完全停止）
+      {  0.0f,  5.0f,  80.0f}, // 浮遊
+      { 80.0f,  0.0f,  50.0f}, // 右へ逸れる
+      {150.0f,  0.0f,   0.0f}, // 画面外へ
+      {150.0f,  0.0f,   0.0f}  // ダミー
+  }, {1.0f, 1.0f, 0.2f, 1.0f}, 1.0f);
+  // ------------------------------------------
 
   // UIの読み込み
   UIManager::GetInstance()->Load("resources/UI/GamePlayUI.json");
