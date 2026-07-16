@@ -3,8 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
-BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints)
-    : waypoints_(waypoints) {
+BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints, bool isWorldSpace)
+    : waypoints_(waypoints), isWorldSpace_(isWorldSpace) {
 }
 
 void BehaviorSpline::Update(Enemy* enemy) {
@@ -40,26 +40,6 @@ void BehaviorSpline::Update(Enemy* enemy) {
     // Spline座標の計算 (MathUtil.hのCatmullRomを使用)
     Vector3 localPos = CatmullRom(p0, p1, p2, p3, t);
 
-    // カメラ相対座標系へ変換
-    const Vector3& cameraPos = enemy->GetBasePosition();
-    const Vector3& cameraRight = enemy->GetBaseRight();
-    const Vector3& cameraUp = enemy->GetBaseUp();
-    const Vector3& cameraForward = enemy->GetBaseForward();
-    const Vector3& spawnOffset = enemy->GetSpawnOffset();
-
-    // スポーンオフセットも加味する（軌道全体をオフセットぶんずらす）
-    Vector3 finalLocal = {
-        localPos.x + spawnOffset.x,
-        localPos.y + spawnOffset.y,
-        localPos.z + spawnOffset.z
-    };
-
-    enemy->GetTransform().translate = 
-        cameraPos +
-        Vector3{cameraRight.x * finalLocal.x, cameraRight.y * finalLocal.x, cameraRight.z * finalLocal.x} +
-        Vector3{cameraUp.x * finalLocal.y, cameraUp.y * finalLocal.y, cameraUp.z * finalLocal.y} +
-        Vector3{cameraForward.x * finalLocal.z, cameraForward.y * finalLocal.z, cameraForward.z * finalLocal.z};
-    
     // 向きの計算 (少し先の未来の座標を見てそこを向く)
     float tNext = t + 0.05f;
     Vector3 nextLocalPos;
@@ -70,17 +50,44 @@ void BehaviorSpline::Update(Enemy* enemy) {
         nextLocalPos = CatmullRom(p0, p1, p2, p3, tNext);
     }
     
-    Vector3 nextFinalLocal = {
-        nextLocalPos.x + spawnOffset.x,
-        nextLocalPos.y + spawnOffset.y,
-        nextLocalPos.z + spawnOffset.z
-    };
+    Vector3 nextWorldPos;
 
-    Vector3 nextWorldPos = 
-        cameraPos +
-        Vector3{cameraRight.x * nextFinalLocal.x, cameraRight.y * nextFinalLocal.x, cameraRight.z * nextFinalLocal.x} +
-        Vector3{cameraUp.x * nextFinalLocal.y, cameraUp.y * nextFinalLocal.y, cameraUp.z * nextFinalLocal.y} +
-        Vector3{cameraForward.x * nextFinalLocal.z, cameraForward.y * nextFinalLocal.z, cameraForward.z * nextFinalLocal.z};
+    if (isWorldSpace_) {
+        enemy->GetTransform().translate = localPos;
+        nextWorldPos = nextLocalPos;
+    } else {
+        // カメラ相対座標系へ変換
+        const Vector3& cameraPos = enemy->GetBasePosition();
+        const Vector3& cameraRight = enemy->GetBaseRight();
+        const Vector3& cameraUp = enemy->GetBaseUp();
+        const Vector3& cameraForward = enemy->GetBaseForward();
+        const Vector3& spawnOffset = enemy->GetSpawnOffset();
+
+        // スポーンオフセットも加味する（軌道全体をオフセットぶんずらす）
+        Vector3 finalLocal = {
+            localPos.x + spawnOffset.x,
+            localPos.y + spawnOffset.y,
+            localPos.z + spawnOffset.z
+        };
+
+        enemy->GetTransform().translate = 
+            cameraPos +
+            Vector3{cameraRight.x * finalLocal.x, cameraRight.y * finalLocal.x, cameraRight.z * finalLocal.x} +
+            Vector3{cameraUp.x * finalLocal.y, cameraUp.y * finalLocal.y, cameraUp.z * finalLocal.y} +
+            Vector3{cameraForward.x * finalLocal.z, cameraForward.y * finalLocal.z, cameraForward.z * finalLocal.z};
+        
+        Vector3 nextFinalLocal = {
+            nextLocalPos.x + spawnOffset.x,
+            nextLocalPos.y + spawnOffset.y,
+            nextLocalPos.z + spawnOffset.z
+        };
+
+        nextWorldPos = 
+            cameraPos +
+            Vector3{cameraRight.x * nextFinalLocal.x, cameraRight.y * nextFinalLocal.x, cameraRight.z * nextFinalLocal.x} +
+            Vector3{cameraUp.x * nextFinalLocal.y, cameraUp.y * nextFinalLocal.y, cameraUp.z * nextFinalLocal.y} +
+            Vector3{cameraForward.x * nextFinalLocal.z, cameraForward.y * nextFinalLocal.z, cameraForward.z * nextFinalLocal.z};
+    }
 
     Vector3 dir = {
         nextWorldPos.x - enemy->GetTransform().translate.x,

@@ -4,6 +4,8 @@
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
 #include <vector>
+#include <unordered_map>
+#include <string>
 
 class Sprite;
 class Object3d;
@@ -75,6 +77,8 @@ private: // メンバ変数(ゲーム用)
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
 
+  // ロード済みスプラインデータ (Blender JSON等から)
+  std::unordered_map<std::string, std::vector<Vector3>> loadedSplines_;
 
   // スポーンイベント
   std::vector<SpawnEvent> spawnEvents_;
