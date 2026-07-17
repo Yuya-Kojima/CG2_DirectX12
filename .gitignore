@@ -398,3 +398,7 @@ project/externals/assimp/bin/
 # ---- Engine Source Code Exceptions ----
 !project/Engine/include/Debug/
 !project/Engine/src/Debug/
+
+# ---- Blender source files ----
+*.blend
+*.blend1

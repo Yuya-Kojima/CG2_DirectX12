@@ -3,20 +3,21 @@
 #include <cmath>
 #include <algorithm>
 
-BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints, bool isWorldSpace)
-    : waypoints_(waypoints), isWorldSpace_(isWorldSpace) {
+BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints, float duration, bool isWorldSpace)
+    : waypoints_(waypoints), duration_(duration), isWorldSpace_(isWorldSpace) {
 }
 
 void BehaviorSpline::Update(Enemy* enemy) {
     if (!enemy || waypoints_.size() < 4) return;
 
     float aliveTime = enemy->GetAliveTime();
-    float speed = enemy->GetSpeed(); // e.g., 0.5f means 0.5 segments per second
 
     int maxSegments = static_cast<int>(waypoints_.size()) - 3;
     if (maxSegments < 1) return;
 
-    float totalT = aliveTime * speed;
+    if (duration_ <= 0.0f) duration_ = 1.0f; // ゼロ割防止
+    float totalT = (aliveTime / duration_) * static_cast<float>(maxSegments);
+
     
     // 終端でストップするか、消滅させるか
     if (totalT >= maxSegments) {
