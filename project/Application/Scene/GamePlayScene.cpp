@@ -25,6 +25,7 @@
 #include "Texture/TextureManager.h"
 #include "Math/MathUtil.h"
 #include "Actor/Behavior/BehaviorSpline.h"
+#include "Render/Renderer/LineRenderer.h"
 
 #include "../Editor/CommandManager.h"
 #include "Collision/CollisionManager.h"
@@ -247,65 +248,10 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // レベルデータのロード
   LoadLevel();
-  // 古いハードコード生成が走らないようにtrueにしておく
-  hasSpawnedDummy_ = true;
 
-  // --- スプライン軌道検証テスト ---
-  auto spawnTestEnemy = [&](const std::vector<Vector3>& path, const Vector4& color, float speed) {
-      auto testEnemy = PrefabManager::GetInstance()->InstantiateEnemy("ZakoEnemy", Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, {0, 0, 0}});
-      testEnemy->SetCamera(railCamera_.get());
-      testEnemy->SetPlayer(player_.get());
-      testEnemy->SetBaseColor(color);
-      testEnemy->SetSpeed(speed);
-      testEnemy->SetBehavior(std::make_unique<BehaviorSpline>(path));
-      runtimeEnemies_.push_back(std::move(testEnemy));
-  };
+  // スプラインデータのロード
+  LoadSplines();
 
-  // 1. 前方からのすれ違いパス (Cross-by, 赤色)
-  spawnTestEnemy({
-      { 30.0f,  5.0f, 200.0f}, // プラスなので右から出現
-      { 10.0f,  5.0f, 150.0f}, 
-      {  0.0f,  0.0f,  80.0f}, // 正面近くまで迫る
-      {-60.0f,-20.0f,  20.0f}, // マイナスなので左下へ大きく逸れる
-      {-80.0f,-20.0f, -50.0f},
-      {-80.0f,-20.0f, -50.0f}
-  }, {1.0f, 0.2f, 0.2f, 1.0f}, 0.8f);
-
-  // 2. 後方からの追い越しパス (Overtake, 青色)
-  spawnTestEnemy({
-      {-20.0f, 10.0f, -100.0f}, // マイナスなので左の背後から出現
-      {-20.0f, 10.0f,  -50.0f},
-      {-10.0f,  5.0f,    0.0f}, // 左側を追い抜く
-      { 10.0f,  0.0f,  100.0f}, // 右へ移動
-      { 20.0f,  0.0f,  200.0f},
-      { 20.0f,  0.0f,  200.0f}
-  }, {0.2f, 0.2f, 1.0f, 1.0f}, 1.0f);
-
-  // 3. S字蛇行パス (Weaving, 緑色)
-  spawnTestEnemy({
-      {  0.0f,  0.0f, 300.0f},
-      {  0.0f,  0.0f, 250.0f}, // 正面から
-      {-40.0f,  0.0f, 150.0f}, // マイナスなので大きく左へ
-      { 40.0f,  0.0f,  80.0f}, // プラスなので右へ
-      {-20.0f,  0.0f,   0.0f}, // 再び左へ
-      {  0.0f,  0.0f, -50.0f},
-      {  0.0f,  0.0f, -50.0f}
-  }, {0.2f, 1.0f, 0.2f, 1.0f}, 0.5f);
-
-  // 4. 正面で浮遊してから右へ逸れるパス (Hover then Deviate, 黄色)
-  // 同じ座標を連続させることで、急停止や浮遊（少しバウンドする）を表現できます
-  spawnTestEnemy({
-      {  0.0f,  5.0f, 300.0f}, // ダミー（Catmull-Romの計算用）
-      {  0.0f,  5.0f, 300.0f}, // 遠くから出現
-      {  0.0f,  5.0f,  80.0f}, // カメラ正面まで急接近
-      {  0.0f,  5.0f,  80.0f}, // 浮遊（勢い余って少し前に出て戻るバウンド挙動）
-      {  0.0f,  5.0f,  80.0f}, // 浮遊（完全停止）
-      {  0.0f,  5.0f,  80.0f}, // 浮遊
-      { 80.0f,  0.0f,  50.0f}, // 右へ逸れる
-      {150.0f,  0.0f,   0.0f}, // 画面外へ
-      {150.0f,  0.0f,   0.0f}  // ダミー
-  }, {1.0f, 1.0f, 0.2f, 1.0f}, 1.0f);
-  // ------------------------------------------
 
   // UIの読み込み
   UIManager::GetInstance()->Load("resources/UI/GamePlayUI.json");
@@ -318,6 +264,7 @@ void GamePlayScene::Update() {
   bool isPlayMode_ = GameManager::GetInstance()->IsGlobalPlayMode();
 
   if (isPlayMode_ && !previousGlobalPlayMode_) {
+    LoadSplines();
     SaveLevel("level_editor_temp.json");
     isPaused_ = false;
     useDebugCamera_ = false;
@@ -503,6 +450,11 @@ void GamePlayScene::Update() {
               Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
           Enemy* enemyPtr = newEnemy.get();
+
+          if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
+              enemyPtr->SetBehavior(std::make_unique<BehaviorSpline>(
+                  loadedSplines_[ev.splineName], ev.splineDuration, ev.isWorldSpaceSpline));
+          }
 
           if (ev.prefabName == "Boss") {
               if (auto boss = dynamic_cast<Boss*>(enemyPtr)) {
@@ -935,6 +887,52 @@ void GamePlayScene::Update() {
     if (ImGui::DragFloat3("Spawn Offset", &ev.spawnOffset.x, 0.1f)) {
       editFinished = true;
     }
+
+    // レール選択コンボボックス
+    if (ImGui::BeginCombo("Rail Spline", ev.splineName.empty() ? "None (Straight)" : ev.splineName.c_str())) {
+      // 「なし」を選択できるようにする
+      bool isNoneSelected = ev.splineName.empty();
+      if (ImGui::Selectable("None (Straight)", isNoneSelected)) {
+        if (!ev.splineName.empty()) {
+          ev.splineName = "";
+          editFinished = true;
+        }
+      }
+      if (isNoneSelected) {
+        ImGui::SetItemDefaultFocus();
+      }
+
+      // ロード済みのスプラインを一覧表示
+      for (const auto& pair : loadedSplines_) {
+        const std::string& sName = pair.first;
+        bool isSelected = (ev.splineName == sName);
+        if (ImGui::Selectable(sName.c_str(), isSelected)) {
+          if (ev.splineName != sName) {
+            ev.splineName = sName;
+            editFinished = true;
+          }
+        }
+        if (isSelected) {
+          ImGui::SetItemDefaultFocus();
+        }
+      }
+      ImGui::EndCombo();
+    }
+
+    // レールが選択されている場合のみ、時間と座標系の設定を表示
+    if (!ev.splineName.empty()) {
+      if (ImGui::SliderFloat("Rail Duration (sec)", &ev.splineDuration, 0.5f, 30.0f, "%.1f")) {
+        // ドラッグ中は都度保存はしないが、離した時にセーブされるようにする
+      }
+      if (ImGui::IsItemDeactivatedAfterEdit()) {
+        editFinished = true;
+      }
+
+      if (ImGui::Checkbox("World Space Spline", &ev.isWorldSpaceSpline)) {
+        editFinished = true;
+      }
+    }
+
     if (railCamera_) {
       Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
       Vector3 nextPos = railCamera_->CalcPosition(
@@ -1194,6 +1192,16 @@ void GamePlayScene::DrawEditorUI() {
   // の直後に呼ばれる前提なので、直前のItemRectがGame Viewの画像サイズになる)
   ImVec2 vMin = ImGui::GetItemRectMin();
   ImVec2 vMax = ImGui::GetItemRectMax();
+
+  // 選択解除 (Game Viewの画像上で、ギズモ以外を左クリックしたとき)
+  if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    if (!ImGuizmo::IsOver() && currentSelectType_ != EditorSelectType::None) {
+      currentSelectType_ = EditorSelectType::None;
+      selectedSpawnEventIndex_ = -1;
+      selectedSceneObjectIndex_ = -1;
+      selectedWaypointIndex_ = -1;
+    }
+  }
 
   // Gizmo用UIを Main Toolbar に追記
   ImGui::Begin("Main Toolbar");
@@ -1480,6 +1488,53 @@ void GamePlayScene::Draw3D() {
   // デバッグ描画
   CollisionManager::GetInstance()->DrawDebug();
 
+  // 選択中の敵レールのデバッグ描画
+  if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
+    const auto& ev = spawnEvents_[selectedSpawnEventIndex_];
+    if (!ev.splineName.empty()) {
+      auto it = loadedSplines_.find(ev.splineName);
+      if (it != loadedSplines_.end()) {
+        const auto& points = it->second;
+        if (points.size() >= 2) {
+          Vector4 orange = {1.0f, 0.5f, 0.0f, 1.0f};
+          Vector3 cameraPos = {0, 0, 0};
+          Vector3 cameraRight = {1, 0, 0};
+          Vector3 cameraUp = {0, 1, 0};
+          Vector3 cameraForward = {0, 0, 1};
+
+          if (!ev.isWorldSpaceSpline && railCamera_) {
+            cameraPos = railCamera_->GetRailPosition();
+            cameraRight = railCamera_->GetRailRight();
+            cameraUp = railCamera_->GetRailUp();
+            cameraForward = railCamera_->GetRailForward();
+          }
+
+          for (size_t i = 0; i + 1 < points.size(); ++i) {
+            Vector3 p0 = points[i];
+            Vector3 p1 = points[i + 1];
+
+            if (!ev.isWorldSpaceSpline) {
+              Vector3 local0 = { p0.x + ev.spawnOffset.x, p0.y + ev.spawnOffset.y, p0.z + ev.spawnOffset.z };
+              Vector3 local1 = { p1.x + ev.spawnOffset.x, p1.y + ev.spawnOffset.y, p1.z + ev.spawnOffset.z };
+
+              p0 = cameraPos +
+                   Vector3{cameraRight.x * local0.x, cameraRight.y * local0.x, cameraRight.z * local0.x} +
+                   Vector3{cameraUp.x * local0.y, cameraUp.y * local0.y, cameraUp.z * local0.y} +
+                   Vector3{cameraForward.x * local0.z, cameraForward.y * local0.z, cameraForward.z * local0.z};
+
+              p1 = cameraPos +
+                   Vector3{cameraRight.x * local1.x, cameraRight.y * local1.x, cameraRight.z * local1.x} +
+                   Vector3{cameraUp.x * local1.y, cameraUp.y * local1.y, cameraUp.z * local1.y} +
+                   Vector3{cameraForward.x * local1.z, cameraForward.y * local1.z, cameraForward.z * local1.z};
+            }
+            
+            LineRenderer::GetInstance()->DrawLine(p0, p1, orange);
+          }
+        }
+      }
+    }
+  }
+
   engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
 #endif
 
@@ -1572,6 +1627,9 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     evJson["prefabName"] = ev.prefabName;
     evJson["spawnOffset"] = {ev.spawnOffset.x, ev.spawnOffset.y,
                              ev.spawnOffset.z};
+    evJson["splineName"] = ev.splineName;
+    evJson["splineDuration"] = ev.splineDuration;
+    evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1591,23 +1649,28 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
   }
   root["sceneObjects"] = sceneObjectsArray;
 
-  // Waypoint の保存
+  // 保存先フォルダ（resources/levels）が存在しない場合は作成する
+  std::filesystem::create_directories("resources/levels");
+
+  // 救の配置データを level_editor.json に保存
+  std::string filePath = "resources/levels/" + filename;
+  std::ofstream file(filePath);
+  if (file.is_open()) {
+    file << std::setw(4) << root << std::endl;
+  }
+
+  // カメラレール（waypoints）を camera_rail.json に別途保存
+  nlohmann::json waypointsRoot;
   nlohmann::json waypointsArray = nlohmann::json::array();
   if (railCamera_) {
     for (const auto &wp : railCamera_->GetWaypoints()) {
       waypointsArray.push_back({wp.x, wp.y, wp.z});
     }
   }
-  root["waypoints"] = waypointsArray;
-
-  // 保存先フォルダ（resources/levels）が存在しない場合は作成する
-  std::filesystem::create_directories("resources/levels");
-
-  // Save to the specified file path
-  std::string filePath = "resources/levels/" + filename;
-  std::ofstream file(filePath);
-  if (file.is_open()) {
-    file << std::setw(4) << root << std::endl;
+  waypointsRoot["waypoints"] = waypointsArray;
+  std::ofstream railFile("resources/levels/camera_rail.json");
+  if (railFile.is_open()) {
+    railFile << std::setw(4) << waypointsRoot << std::endl;
   }
 }
 
@@ -1651,6 +1714,15 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
         ev.spawnOffset = {0.0f, 0.0f, 50.0f};
       }
       // moveType は読まない（Prefab側で管理）
+      if (evJson.contains("splineName")) {
+          ev.splineName = evJson["splineName"];
+      }
+      if (evJson.contains("splineDuration")) {
+          ev.splineDuration = evJson["splineDuration"];
+      }
+      if (evJson.contains("isWorldSpaceSpline")) {
+          ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
+      }
       
       ev.hasSpawned = false;
       spawnEvents_.push_back(ev);
@@ -1674,14 +1746,23 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
     }
   }
 
-  // Waypoint の読み込み
-  if (root.contains("waypoints")) {
-    std::vector<Vector3> loadedWaypoints;
-    for (auto &wJson : root["waypoints"]) {
-      loadedWaypoints.push_back({wJson[0], wJson[1], wJson[2]});
-    }
-    if (railCamera_ && !loadedWaypoints.empty()) {
-      railCamera_->Initialize(loadedWaypoints);
+  // Waypoint の読み込み（camera_rail.json から別途読む）
+  std::ifstream railFile("resources/levels/camera_rail.json");
+  if (railFile.is_open()) {
+    nlohmann::json railRoot;
+    try {
+      railFile >> railRoot;
+      if (railRoot.contains("waypoints")) {
+        std::vector<Vector3> loadedWaypoints;
+        for (auto &wJson : railRoot["waypoints"]) {
+          loadedWaypoints.push_back({wJson[0], wJson[1], wJson[2]});
+        }
+        if (railCamera_ && !loadedWaypoints.empty()) {
+          railCamera_->Initialize(loadedWaypoints);
+        }
+      }
+    } catch (const nlohmann::json::parse_error &e) {
+      Logger::Log(std::string("[GamePlayScene] camera_rail.json parse error: ") + e.what());
     }
   }
 }
@@ -1774,4 +1855,34 @@ void GamePlayScene::OnDragHoverEnd() {
       previewModelPath_ = "";
   }
   isPreviewHovering_ = false;
+}
+void GamePlayScene::LoadSplines() {
+  loadedSplines_.clear();
+  std::ifstream splineFile("resources/levels/splines.json");
+  if (splineFile.is_open()) {
+      nlohmann::json root;
+      try {
+          splineFile >> root;
+          if (root.contains("rails") && root["rails"].is_array()) {
+              for (const auto& rail : root["rails"]) {
+                  std::string name = rail["name"];
+                  std::vector<Vector3> pts;
+                  for (const auto& p : rail["points"]) {
+                      // floatへの変換を安全に行うため get<double>() などで受けてキャスト
+                      pts.push_back({
+                          static_cast<float>(p[0].get<double>()),
+                          static_cast<float>(p[1].get<double>()),
+                          static_cast<float>(p[2].get<double>())
+                      });
+                  }
+                  loadedSplines_[name] = pts;
+              }
+              Logger::Log("Successfully loaded " + std::to_string(loadedSplines_.size()) + " splines from splines.json\n");
+          }
+      } catch (const std::exception& e) {
+          Logger::Log(std::string("Failed to parse splines.json: ") + e.what() + "\n");
+      }
+  } else {
+      Logger::Log("Failed to open resources/levels/splines.json\n");
+  }
 }

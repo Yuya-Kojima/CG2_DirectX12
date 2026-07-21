@@ -4,6 +4,8 @@
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
 #include <vector>
+#include <unordered_map>
+#include <string>
 
 class Sprite;
 class Object3d;
@@ -26,6 +28,9 @@ struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
   Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
+  std::string splineName = "";               // 使用するレール名（空なら直線移動）
+  float splineDuration = 5.0f;               // レールを走り切る秒数
+  bool isWorldSpaceSpline = false;           // ワールド空間か、カメラローカル空間か
   bool hasSpawned = false; // 実行管理用フラグ
 };
 
@@ -71,10 +76,12 @@ private: // メンバ変数(ゲーム用)
   int hitStopTimer_ = 0;
 
   // ダミー敵管理
-  bool hasSpawnedDummy_ = false;
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
   std::vector<Enemy*> enemyPtrs_;
 
+  // ロード済みスプラインデータ (Blender JSON等から)
+  std::unordered_map<std::string, std::vector<Vector3>> loadedSplines_;
+  void LoadSplines(); // splines.jsonを読み込んでloadedSplines_に格納
 
   // スポーンイベント
   std::vector<SpawnEvent> spawnEvents_;
