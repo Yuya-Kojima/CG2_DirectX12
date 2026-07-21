@@ -49,8 +49,8 @@ public:
     hitStopCallback_ = callback;
   }
 
-  // 今回はテストとして直接ターゲットリストを渡す
-  void SetEnemies(const std::vector<Enemy *> &enemies) { enemies_ = enemies; }
+  // ロックオン可能な対象リストを外部から受け取る
+  void SetLockOnTargets(const std::vector<BaseActor *> &targets) { lockOnTargets_ = targets; }
 
   int GetHp() const { return hp_; }
   bool IsDead() const { return isDead_; }
@@ -109,8 +109,7 @@ private:
   class Object3dRenderer *object3dRenderer_ = nullptr;
   const ICamera *camera_ = nullptr;
   class Input *input_ = nullptr;
-
-  std::vector<Enemy *> enemies_;
+  std::vector<BaseActor *> lockOnTargets_;
 
   void FireHomingShot();
   void FireNormalShot(); // 追加

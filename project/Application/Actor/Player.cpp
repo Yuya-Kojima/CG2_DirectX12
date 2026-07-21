@@ -434,7 +434,7 @@ void Player::Update() {
   // ロックオンの更新処理
   if (lockOn_) {
     bool isLockOnMode = (attackState_ == AttackState::LockOn);
-    lockOn_->Update(enemies_, camera_->GetViewProjectionMatrix(),
+    lockOn_->Update(lockOnTargets_, camera_->GetViewProjectionMatrix(),
                     reticlePosition_, isLockOnMode, actionConfig_.lockOnRadius);
   }
 }

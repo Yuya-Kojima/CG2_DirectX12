@@ -17,7 +17,7 @@ HomingBullet::~HomingBullet() {
   }
 }
 
-void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, Enemy* target, const Vector3& initialVelocity) {
+void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos, BaseActor* target, const Vector3& initialVelocity) {
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
   
@@ -35,7 +35,7 @@ void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
   collider_ = std::make_unique<SphereCollider>(this);
   collider_->SetRadius(0.5f);
   collider_->SetAttribute(kCollisionAttributePlayerBullet);
-  collider_->SetMask(kCollisionAttributeEnemy);
+  collider_->SetMask(kCollisionAttributeEnemy | kCollisionAttributeEnemyBullet);
   collider_->SetVelocity(velocity_);
   CollisionManager::GetInstance()->Register(collider_.get());
 }
@@ -115,14 +115,17 @@ void HomingBullet::Update() {
 void HomingBullet::OnCollision(Collider* other) {
   if (isDead_) return;
 
-  // 相手がEnemyかどうか確認
   if (other->GetAttribute() & kCollisionAttributeEnemy) {
     Enemy* enemy = dynamic_cast<Enemy*>(other->GetOwner());
     if (enemy && !enemy->IsDead()) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
-      Logger::Log("Homing Bullet Hit!\n");
+      Logger::Log("Homing Bullet Hit Enemy!\n");
     }
+  }
+  else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
+    isDead_ = true;
+    Logger::Log("Homing Bullet Intercepted EnemyBullet!\n");
   }
 }
 

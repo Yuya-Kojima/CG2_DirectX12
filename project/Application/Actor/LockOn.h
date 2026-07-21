@@ -7,7 +7,8 @@
 #include <vector>
 #include <array>
 
-class Enemy;
+#include "Framework/BaseActor.h"
+
 class SpriteRenderer;
 
 /// <summary>
@@ -27,7 +28,7 @@ public:
   /// <param name="viewProjectionMatrix">現在のカメラのViewProjection行列</param>
   /// <param name="reticlePos">プレイヤーのメイン照準の2D座標</param>
   /// <param name="isLockOnMode">プレイヤーがロックオンボタンを長押ししているか</param>
-  void Update(const std::vector<Enemy *> &enemies,
+  void Update(const std::vector<BaseActor *> &targets,
               const Matrix4x4 &viewProjectionMatrix,
               const Vector2 &reticlePos,
               bool isLockOnMode, float lockOnRadius);
@@ -42,11 +43,11 @@ public:
   /// </summary>
   void Clear() { targets_.clear(); }
 
-  const std::vector<Enemy*>& GetTargets() const { return targets_; }
+  const std::vector<BaseActor*>& GetTargets() const { return targets_; }
 
 private:
   static const size_t kMaxLockOnCount = 8; // 最大ロックオン数
-  std::vector<Enemy *> targets_; // ロックオン中の敵リスト
+  std::vector<BaseActor *> targets_; // ロックオン中の敵リスト
   
   // 照準（マーカー）用スプライトを最大ロックオン数分用意
   std::array<std::unique_ptr<Sprite>, kMaxLockOnCount> reticles_;
