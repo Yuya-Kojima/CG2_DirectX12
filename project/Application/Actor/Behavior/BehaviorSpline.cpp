@@ -12,7 +12,7 @@ void BehaviorSpline::Update(Enemy* enemy) {
 
     float aliveTime = enemy->GetAliveTime();
 
-    int maxSegments = static_cast<int>(waypoints_.size()) - 3;
+    int maxSegments = static_cast<int>(waypoints_.size()) - 1;
     if (maxSegments < 1) return;
 
     if (duration_ <= 0.0f) duration_ = 1.0f; // ゼロ割防止
@@ -33,10 +33,14 @@ void BehaviorSpline::Update(Enemy* enemy) {
 
     float t = totalT - segmentIndex;
 
-    const Vector3& p0 = waypoints_[segmentIndex];
-    const Vector3& p1 = waypoints_[segmentIndex + 1];
-    const Vector3& p2 = waypoints_[segmentIndex + 2];
-    const Vector3& p3 = waypoints_[segmentIndex + 3];
+    auto getWaypoint = [&](int index) -> const Vector3& {
+        return waypoints_[(std::max)(0, (std::min)(index, static_cast<int>(waypoints_.size() - 1)))];
+    };
+
+    const Vector3& p0 = getWaypoint(segmentIndex - 1);
+    const Vector3& p1 = getWaypoint(segmentIndex);
+    const Vector3& p2 = getWaypoint(segmentIndex + 1);
+    const Vector3& p3 = getWaypoint(segmentIndex + 2);
 
     // Spline座標の計算 (MathUtil.hのCatmullRomを使用)
     Vector3 localPos = CatmullRom(p0, p1, p2, p3, t);
@@ -45,7 +49,11 @@ void BehaviorSpline::Update(Enemy* enemy) {
     float tNext = t + 0.05f;
     Vector3 nextLocalPos;
     if (tNext >= 1.0f && segmentIndex + 1 < maxSegments) {
-        nextLocalPos = CatmullRom(waypoints_[segmentIndex+1], waypoints_[segmentIndex+2], waypoints_[segmentIndex+3], waypoints_[segmentIndex+4], tNext - 1.0f);
+        const Vector3& np0 = getWaypoint(segmentIndex);
+        const Vector3& np1 = getWaypoint(segmentIndex + 1);
+        const Vector3& np2 = getWaypoint(segmentIndex + 2);
+        const Vector3& np3 = getWaypoint(segmentIndex + 3);
+        nextLocalPos = CatmullRom(np0, np1, np2, np3, tNext - 1.0f);
     } else {
         tNext = std::min(1.0f, tNext);
         nextLocalPos = CatmullRom(p0, p1, p2, p3, tNext);

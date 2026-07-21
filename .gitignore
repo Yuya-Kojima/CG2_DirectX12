@@ -402,3 +402,4 @@ project/externals/assimp/bin/
 # ---- Blender source files ----
 *.blend
 *.blend1
+/project/Application/resources/levels/level_editor_temp.json

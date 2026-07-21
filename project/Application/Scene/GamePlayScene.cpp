@@ -25,6 +25,7 @@
 #include "Texture/TextureManager.h"
 #include "Math/MathUtil.h"
 #include "Actor/Behavior/BehaviorSpline.h"
+#include "Render/Renderer/LineRenderer.h"
 
 #include "../Editor/CommandManager.h"
 #include "Collision/CollisionManager.h"
@@ -1192,6 +1193,16 @@ void GamePlayScene::DrawEditorUI() {
   ImVec2 vMin = ImGui::GetItemRectMin();
   ImVec2 vMax = ImGui::GetItemRectMax();
 
+  // 選択解除 (Game Viewの画像上で、ギズモ以外を左クリックしたとき)
+  if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+    if (!ImGuizmo::IsOver() && currentSelectType_ != EditorSelectType::None) {
+      currentSelectType_ = EditorSelectType::None;
+      selectedSpawnEventIndex_ = -1;
+      selectedSceneObjectIndex_ = -1;
+      selectedWaypointIndex_ = -1;
+    }
+  }
+
   // Gizmo用UIを Main Toolbar に追記
   ImGui::Begin("Main Toolbar");
 
@@ -1476,6 +1487,53 @@ void GamePlayScene::Draw3D() {
 
   // デバッグ描画
   CollisionManager::GetInstance()->DrawDebug();
+
+  // 選択中の敵レールのデバッグ描画
+  if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
+    const auto& ev = spawnEvents_[selectedSpawnEventIndex_];
+    if (!ev.splineName.empty()) {
+      auto it = loadedSplines_.find(ev.splineName);
+      if (it != loadedSplines_.end()) {
+        const auto& points = it->second;
+        if (points.size() >= 2) {
+          Vector4 orange = {1.0f, 0.5f, 0.0f, 1.0f};
+          Vector3 cameraPos = {0, 0, 0};
+          Vector3 cameraRight = {1, 0, 0};
+          Vector3 cameraUp = {0, 1, 0};
+          Vector3 cameraForward = {0, 0, 1};
+
+          if (!ev.isWorldSpaceSpline && railCamera_) {
+            cameraPos = railCamera_->GetRailPosition();
+            cameraRight = railCamera_->GetRailRight();
+            cameraUp = railCamera_->GetRailUp();
+            cameraForward = railCamera_->GetRailForward();
+          }
+
+          for (size_t i = 0; i + 1 < points.size(); ++i) {
+            Vector3 p0 = points[i];
+            Vector3 p1 = points[i + 1];
+
+            if (!ev.isWorldSpaceSpline) {
+              Vector3 local0 = { p0.x + ev.spawnOffset.x, p0.y + ev.spawnOffset.y, p0.z + ev.spawnOffset.z };
+              Vector3 local1 = { p1.x + ev.spawnOffset.x, p1.y + ev.spawnOffset.y, p1.z + ev.spawnOffset.z };
+
+              p0 = cameraPos +
+                   Vector3{cameraRight.x * local0.x, cameraRight.y * local0.x, cameraRight.z * local0.x} +
+                   Vector3{cameraUp.x * local0.y, cameraUp.y * local0.y, cameraUp.z * local0.y} +
+                   Vector3{cameraForward.x * local0.z, cameraForward.y * local0.z, cameraForward.z * local0.z};
+
+              p1 = cameraPos +
+                   Vector3{cameraRight.x * local1.x, cameraRight.y * local1.x, cameraRight.z * local1.x} +
+                   Vector3{cameraUp.x * local1.y, cameraUp.y * local1.y, cameraUp.z * local1.y} +
+                   Vector3{cameraForward.x * local1.z, cameraForward.y * local1.z, cameraForward.z * local1.z};
+            }
+            
+            LineRenderer::GetInstance()->DrawLine(p0, p1, orange);
+          }
+        }
+      }
+    }
+  }
 
   engine_->GetLineRenderer()->Render(activeCamera->GetViewProjectionMatrix());
 #endif
