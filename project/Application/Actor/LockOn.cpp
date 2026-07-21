@@ -1,6 +1,6 @@
 #include "LockOn.h"
 #include "Math/MathUtil.h"
-#include "Actor/Enemy.h"
+#include "Framework/BaseActor.h"
 #include "Render/Object3d/Object3d.h"
 
 void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
@@ -16,7 +16,7 @@ void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
   targets_.clear();
 }
 
-void LockOn::Update(const std::vector<Enemy *> &enemies,
+void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
                     const Matrix4x4 &viewProjectionMatrix,
                     const Vector2 &reticlePos,
                     bool isLockOnMode, float lockOnRadius) {
@@ -29,18 +29,18 @@ void LockOn::Update(const std::vector<Enemy *> &enemies,
 
   // ロックオンモード（長押し中）でのみ、新たな敵をストックする
   if (isLockOnMode && targets_.size() < kMaxLockOnCount) {
-    for (Enemy* enemy : enemies) {
-      if (!enemy) continue;
+    for (BaseActor* target : inputTargets) {
+      if (!target) continue;
 
       // 撃破されて消滅している敵はロックオン対象から外す
-      if (enemy->IsDead()) continue;
+      if (target->IsDead()) continue;
 
       // すでにロックオン済みの敵は無視
-      if (std::find(targets_.begin(), targets_.end(), enemy) != targets_.end()) {
+      if (std::find(targets_.begin(), targets_.end(), target) != targets_.end()) {
         continue;
       }
 
-      Vector3 worldPos = enemy->GetTransform().translate;
+      Vector3 worldPos = target->GetTransform().translate;
       Vector2 screenPos = WorldToScreen(worldPos, viewProjectionMatrix, 1280.0f, 720.0f);
 
       // 照準と敵の画面上の距離を計算
@@ -49,7 +49,7 @@ void LockOn::Update(const std::vector<Enemy *> &enemies,
       float dist = std::sqrt(dx * dx + dy * dy);
 
       if (dist <= lockOnRadius) {
-        targets_.push_back(enemy); // ロックオンストックに追加
+        targets_.push_back(target); // ロックオンストックに追加
         break; // 1フレームに1体ずつロックオンする
       }
     }
@@ -58,7 +58,7 @@ void LockOn::Update(const std::vector<Enemy *> &enemies,
 
 void LockOn::Draw() {
   for (size_t i = 0; i < targets_.size(); ++i) {
-    Enemy* target = targets_[i];
+    BaseActor* target = targets_[i];
     if (!target) continue;
     
     Vector3 targetPos = target->GetTransform().translate;

@@ -5,7 +5,6 @@
 
 class Object3d;
 class Object3dRenderer;
-class Enemy;
 class SphereCollider;
 class Collider;
 
@@ -21,7 +20,7 @@ public:
   /// <param name="startPos">発射開始座標（自機の位置）</param>
   /// <param name="target">追従する対象</param>
   /// <param name="initialVelocity">発射直後の初速ベクトル（散らばり用）</param>
-  void Initialize(Object3dRenderer* renderer, const Vector3& startPos, Enemy* target, const Vector3& initialVelocity);
+  void Initialize(Object3dRenderer* renderer, const Vector3& startPos, BaseActor* target, const Vector3& initialVelocity);
   
   // アクションエディタから受け取ったパラメータをセットする
   void SetHomingParams(float speed, int fallTime, float strengthIncrease, float strengthMax) {
@@ -39,7 +38,7 @@ public:
 private:
   std::unique_ptr<Object3d> object3d_;
   std::unique_ptr<SphereCollider> collider_;
-  Enemy* target_ = nullptr;
+  BaseActor* target_ = nullptr;
   int damage_ = 3;
   
   Vector3 velocity_;

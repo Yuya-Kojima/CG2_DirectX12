@@ -145,9 +145,9 @@ void Boss::Update() {
           std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
     }
 
-    // 4秒ごとに3点バースト弾
+    // 3秒ごとに攻撃パターンを切り替えて撃つ（同時に異なる弾を撃つ理不尽を無くす）
     shotTimer_ += 1.0f / 60.0f;
-    if (shotTimer_ >= 4.0f) {
+    if (shotTimer_ >= 3.0f) {
       shotTimer_ = 0.0f;
       if (player_) {
         Vector3 playerPos = player_->GetTransform().translate;
@@ -159,29 +159,41 @@ void Boss::Update() {
           dir.x /= dist;
           dir.y /= dist;
           dir.z /= dist;
-          float speed = 8.0f;
-
-          Vector3 velCenter = {dir.x * speed, dir.y * speed, dir.z * speed};
-          float angle = 15.0f * (3.14159265f / 180.0f);
-          Vector3 velLeft = {
-              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * speed,
-              dir.y * speed,
-              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * speed};
-          Vector3 velRight = {
-              (dir.x * std::cos(-angle) + dir.z * std::sin(-angle)) * speed,
-              dir.y * speed,
-              (-dir.x * std::sin(-angle) + dir.z * std::cos(-angle)) * speed};
-
-          auto spawnBullet = [&](const Vector3 &vel) {
+          
+          auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
             auto bullet = std::make_unique<EnemyBullet>();
             bullet->Initialize(
                 PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
-                const_cast<Player *>(player_));
+                const_cast<Player *>(player_), type);
             ActorManager::GetInstance()->AddActor(std::move(bullet));
           };
-          spawnBullet(velCenter);
-          spawnBullet(velLeft);
-          spawnBullet(velRight);
+
+          // actionTimer_ をフラグ代わりにして、通常弾とミサイルを交互に撃つ
+          if (actionTimer_ == 0.0f) {
+            actionTimer_ = 1.0f;
+            // ターンA：通常弾のみを扇状にばら撒く（連打で迎撃するターン）
+            float normalSpeed = 0.5f;
+            for (int i = 0; i < 5; ++i) {
+              float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
+              Vector3 vel = {
+                  (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * normalSpeed,
+                  dir.y * normalSpeed,
+                  (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * normalSpeed};
+              spawnBullet(vel, EnemyBulletType::NormalDestructible);
+            }
+          } else {
+            actionTimer_ = 0.0f;
+            // ターンB：ロックオンミサイルのみを発射する（長押しで一掃するターン）
+            float missileSpeed = 3.0f; // 初速を爆発的に上げる
+            for (int i = 0; i < 3; ++i) {
+              float angle = (-60.0f + i * 60.0f) * (3.14159265f / 180.0f); // 角度を大きく広げて横に散らす
+              Vector3 missileVel = {
+                  (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
+                  dir.y * missileSpeed - 1.5f, // 下にも強く散らす
+                  (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
+              spawnBullet(missileVel, EnemyBulletType::LockOnDestructible);
+            }
+          }
 
           if (camera_) {
             auto railCam =
@@ -224,19 +236,46 @@ void Boss::Update() {
           std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
     }
 
-    // 5秒ごとに全方位8方向弾
+    // 4秒ごとに激しいロックオンミサイル一斉射出
     shotTimer_ += 1.0f / 60.0f;
-    if (shotTimer_ >= 5.0f) {
+    if (shotTimer_ >= 4.0f) {
       shotTimer_ = 0.0f;
-      Vector3 myPos = transform_.translate;
-      float speed = 10.0f;
-      for (int i = 0; i < 8; ++i) {
-        float rad = (i * 45.0f) * (3.14159265f / 180.0f);
-        Vector3 vel = {std::sin(rad) * speed, 0.0f, std::cos(rad) * speed};
-        auto bullet = std::make_unique<EnemyBullet>();
-        bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(),
-                           myPos, vel, const_cast<Player *>(player_));
-        ActorManager::GetInstance()->AddActor(std::move(bullet));
+      if (player_) {
+        Vector3 playerPos = player_->GetTransform().translate;
+        Vector3 myPos = transform_.translate;
+        Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
+                       playerPos.z - myPos.z};
+        float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        if (dist > 0.001f) {
+          dir.x /= dist;
+          dir.y /= dist;
+          dir.z /= dist;
+          
+          auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
+            auto bullet = std::make_unique<EnemyBullet>();
+            bullet->Initialize(
+                PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
+                const_cast<Player *>(player_), type);
+            ActorManager::GetInstance()->AddActor(std::move(bullet));
+          };
+
+          // 放射状にロックオン用ミサイルを5発ばら撒く（プレイヤーをマルチロックオンで一掃する快感用）
+          float missileSpeed = 4.0f; // 初速を爆発的に上げる
+          for (int i = 0; i < 5; ++i) {
+            float angle = (-80.0f + i * 40.0f) * (3.14159265f / 180.0f); // 真横まで広く散らす
+            Vector3 vel = {
+                (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
+                dir.y * missileSpeed - 2.0f, // 下にも強く散らす
+                (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
+            spawnBullet(vel, EnemyBulletType::LockOnDestructible);
+          }
+          
+          if (camera_) {
+            auto railCam =
+                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+            railCam->Shake(0.5f, 0.15f);
+          }
+        }
       }
     }
 

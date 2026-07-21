@@ -521,16 +521,21 @@ void GamePlayScene::Update() {
     obj->Update();
   }
 
-  // LockOn用にPlayerに敵リストを渡す（毎回最新の状態を渡す）
+  // LockOn用にPlayerに対象リストを渡す（毎回最新の状態を渡す）
   // 死亡済みの敵は除外してダングリングポインタを渡さないようにする
-  enemyPtrs_.clear();
+  std::vector<BaseActor*> lockOnTargets;
   for (auto &e : runtimeEnemies_) {
     if (!e->IsDead()) {
-      enemyPtrs_.push_back(e.get());
+      lockOnTargets.push_back(e.get());
     }
   }
+  
+  // 敵の弾（ロックオン対象としてタグ付けされたもの）もリストに加える
+  std::vector<BaseActor*> bulletTargets = ActorManager::GetInstance()->FindActorsWithTag("LockOnTarget");
+  lockOnTargets.insert(lockOnTargets.end(), bulletTargets.begin(), bulletTargets.end());
+
   if (player_) {
-    player_->SetEnemies(enemyPtrs_);
+    player_->SetLockOnTargets(lockOnTargets);
   }
 
   // 死亡済みの敵を削除（デストラクタ内でコライダーも自動登録解除される）
