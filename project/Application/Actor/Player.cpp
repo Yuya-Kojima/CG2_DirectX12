@@ -111,7 +111,7 @@ void Player::Update() {
   recoilVelocity_ *= damper;
   recoilOffset_ += recoilVelocity_;
 
-  // 無敵タイマーの更新
+  // 無敵タイマーの更新と当たり判定の切り替え
   if (invincibleTimer_ > 0) {
     invincibleTimer_--;
   }
@@ -408,12 +408,13 @@ void Player::Update() {
     }
 
     if (attackState_ == AttackState::Pressing) {
-      if (isPress) {
-        pressTimer_ += deltaTime;
-        if (pressTimer_ >= 0.15f) { // 0.15秒以上押したらロックオンモードへ
-          attackState_ = AttackState::LockOn;
+        if (isPress) {
+          pressTimer_ += deltaTime;
+          // 長押しでロックオンモードへ移行
+          if (pressTimer_ >= 0.15f) {
+            attackState_ = AttackState::LockOn;
+          }
         }
-      }
     }
 
     if (isRelease) {
@@ -437,6 +438,17 @@ void Player::Update() {
     lockOn_->Update(lockOnTargets_, camera_->GetViewProjectionMatrix(),
                     reticlePosition_, isLockOnMode, actionConfig_.lockOnRadius);
   }
+
+  // 連続衝突判定用に速度を計算してコライダーに渡す
+  if (collider_) {
+    Vector3 velocity = {
+        transform_.translate.x - previousPos_.x,
+        transform_.translate.y - previousPos_.y,
+        transform_.translate.z - previousPos_.z
+    };
+    collider_->SetVelocity(velocity);
+  }
+  previousPos_ = transform_.translate;
 }
 
 bool Player::IsLockOnMode() const {
@@ -577,12 +589,10 @@ void Player::Draw2D() {
 }
 
 void Player::OnCollision(Collider *other) {
-  // ぶつかった時にデバッグ出力
+  // ぶつかった時にコンソール出力
   Logger::Log("========================\n");
   Logger::Log("Player hit by something!\n");
   Logger::Log("========================\n");
-
-  TakeDamage(1);
 }
 
 void Player::TakeDamage(int damage) {

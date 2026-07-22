@@ -92,23 +92,38 @@ void EnemyBullet::Update() {
         toPlayer.x /= dist; toPlayer.y /= dist; toPlayer.z /= dist;
       }
 
-      if (aliveFrames_ < 80) {
-        // 最初の80フレーム（約1.3秒）は緩やかな空気抵抗で遠くまで広がる
-        velocity_.x *= 0.92f;
-        velocity_.y *= 0.92f;
-        velocity_.z *= 0.92f;
-      } else {
-        // 以降はプレイヤーに向かって徐々に誘導を開始する
-        homingStrength_ += 0.002f;
-        if (homingStrength_ > 0.05f) homingStrength_ = 0.05f;
-        
-        float missileSpeed = 0.35f; // 通常弾(0.5f)よりさらに遅く、ゆっくり迫る
-        Vector3 desiredVelocity = {toPlayer.x * missileSpeed, toPlayer.y * missileSpeed, toPlayer.z * missileSpeed};
-        
-        velocity_.x = Lerp(velocity_.x, desiredVelocity.x, homingStrength_);
-        velocity_.y = Lerp(velocity_.y, desiredVelocity.y, homingStrength_);
-        velocity_.z = Lerp(velocity_.z, desiredVelocity.z, homingStrength_);
-      }
+        if (aliveFrames_ < 80) {
+          // 最初の80フレームは直進する
+          velocity_.x *= 0.92f;
+          velocity_.y *= 0.92f;
+          velocity_.z *= 0.92f;
+        } else {
+          // 現在の進行方向と、プレイヤーへの方向の内積を計算
+          Vector3 vNorm = velocity_;
+          float vLen = std::sqrt(vNorm.x*vNorm.x + vNorm.y*vNorm.y + vNorm.z*vNorm.z);
+          if (vLen > 0.001f) {
+            vNorm.x /= vLen; vNorm.y /= vLen; vNorm.z /= vLen;
+          }
+          float dot = vNorm.x * toPlayer.x + vNorm.y * toPlayer.y + vNorm.z * toPlayer.z;
+
+          // プレイヤーに十分近づいた（距離40未満）かつすれ違ったなら誘導終了
+          if (dist < 40.0f && dot < 0.0f) {
+            homingStrength_ = -1.0f; // 負の数を入れて誘導終了フラグとする
+          }
+
+          // homingStrength_ が 0 以上なら誘導を続ける（-1ならそのまま直進）
+          if (homingStrength_ >= 0.0f) {
+            homingStrength_ += 0.002f;
+            if (homingStrength_ > 0.05f) homingStrength_ = 0.05f;
+            
+            float missileSpeed = 0.35f; // 通常弾(0.5f)よりさらに遅く、ゆっくり迫る
+            Vector3 desiredVelocity = {toPlayer.x * missileSpeed, toPlayer.y * missileSpeed, toPlayer.z * missileSpeed};
+            
+            velocity_.x = Lerp(velocity_.x, desiredVelocity.x, homingStrength_);
+            velocity_.y = Lerp(velocity_.y, desiredVelocity.y, homingStrength_);
+            velocity_.z = Lerp(velocity_.z, desiredVelocity.z, homingStrength_);
+          }
+        }
     }
   }
 
@@ -125,40 +140,22 @@ void EnemyBullet::Update() {
     collider_->SetVelocity(velocity_);
   }
 
-  // プレイヤーへの手動当たり判定
-  if (player_ && !player_->IsDead()) {
-    Vector3 playerPos = player_->GetTransform().translate;
-    Vector3 prevPos = {pos.x - velocity_.x, pos.y - velocity_.y, pos.z - velocity_.z};
-    Vector3 lineDir = velocity_;
-    float lineLen = Length(lineDir);
-    if (lineLen > 0.001f) {
-      lineDir.x /= lineLen; lineDir.y /= lineLen; lineDir.z /= lineLen;
-    }
-    
-    Vector3 toPlayer = {playerPos.x - prevPos.x, playerPos.y - prevPos.y, playerPos.z - prevPos.z};
-    float t = Dot(toPlayer, lineDir);
-    t = (std::max)(0.0f, (std::min)(lineLen, t)); 
-    
-    Vector3 closestPoint = {prevPos.x + lineDir.x * t, prevPos.y + lineDir.y * t, prevPos.z + lineDir.z * t};
-    Vector3 diff = {playerPos.x - closestPoint.x, playerPos.y - closestPoint.y, playerPos.z - closestPoint.z};
-    
-    float dist = Length(diff);
-    float bulletRadius = 1.5f * object3d_->GetScale().x;
-    Vector3 playerScale = player_->GetTransform().scale;
-    float maxScale = (std::max)(playerScale.x, (std::max)(playerScale.y, playerScale.z));
-    float playerRadius = 1.5f * maxScale;
-    
-    if (dist < bulletRadius + playerRadius) {
-      isDead_ = true; 
-      player_->TakeDamage(1);
-    }
-  }
-
   object3d_->Update();
 }
 
 void EnemyBullet::OnCollision(Collider* other) {
   if (isDead_) return;
+
+  // 相手がプレイヤーの場合
+  if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
+    Player* p = dynamic_cast<Player*>(other->GetOwner());
+    if (p->GetInvincibleTimer() > 0) {
+      return; // 無敵中はすり抜ける（消えない）
+    }
+    isDead_ = true;
+    p->TakeDamage(1);
+    return;
+  }
 
   // 破壊不可弾は何が当たっても壊れない
   if (type_ == EnemyBulletType::Indestructible) return;
