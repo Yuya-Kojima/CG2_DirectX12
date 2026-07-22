@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Framework/BaseActor.h"
 #include <memory>
 #include <functional>
@@ -83,8 +83,10 @@ public:
 protected:
   std::unique_ptr<Object3d> model_;
   std::unique_ptr<SphereCollider> collider_;
+  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
 
-  // --- 敵のステータス ---
+  // 死亡フラグ
+  bool isDead_ = false;             // 体力
   int hp_ = 3;             // 体力
   float speed_ = 0.5f;     // 移動速度
   Vector3 moveDirection_ = {0.0f, 0.0f, -1.0f}; // 進行方向ベクトル（デフォルトはワールドZマイナス方向）

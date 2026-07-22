@@ -358,7 +358,13 @@ void Boss::Draw2D() {
 }
 
 void Boss::OnCollision(Collider *other) {
-  // Bossの場合は自爆しないので呼ばない
+  if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
+    Player* p = dynamic_cast<Player*>(other->GetOwner());
+    if (p->GetInvincibleTimer() > 0) {
+      return; // 無敵中は食らわない
+    }
+    p->TakeDamage(1); // プレイヤーにダメージを与える
+  }
 }
 
 void Boss::TakeDamage(int damage, bool isSelfDestruct) {
