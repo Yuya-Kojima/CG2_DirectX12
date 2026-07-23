@@ -54,6 +54,7 @@ public:
 
   int GetHp() const { return hp_; }
   bool IsDead() const { return isDead_; }
+  int GetInvincibleTimer() const { return invincibleTimer_; }
 
   // --- アクション・軌道調整用パラメータ ---
   struct ActionConfig {
@@ -138,6 +139,8 @@ private:
 
   // 自機の3Dモデル
   std::unique_ptr<Object3d> object3d_;
+  
+  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
 
   // 攻撃用ステート
   enum class AttackState {

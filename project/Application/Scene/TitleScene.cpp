@@ -15,6 +15,7 @@
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
+#include "Renderer/PostProcess.h"
 
 // ImGuiを使用するためのインクルード
 #ifdef USE_IMGUI
@@ -40,6 +41,20 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
   // スプライト関係の初期化
   //===========================
+  logoSprite_ = std::make_unique<Sprite>();
+  logoSprite_->Initialize(engine_->GetSpriteRenderer(), "resources/sample_logo.png");
+  logoSprite_->SetPosition({640.0f, 360.0f});
+  logoSprite_->SetAnchorPoint({0.5f, 0.5f});
+  Vector2 originalSize = logoSprite_->GetSize();
+  logoSprite_->SetSize({originalSize.x * 0.6f, originalSize.y * 0.6f});
+  logoSprite_->SetColor({1.0f, 1.0f, 1.0f, 0.0f});
+
+  blackSprite_ = std::make_unique<Sprite>();
+  blackSprite_->Initialize(engine_->GetSpriteRenderer(), "resources/white1x1.png");
+  blackSprite_->SetSize({1280.0f, 720.0f});
+  blackSprite_->SetPosition({640.0f, 360.0f});
+  blackSprite_->SetAnchorPoint({0.5f, 0.5f});
+  blackSprite_->SetColor({0.0f, 0.0f, 0.0f, 0.0f});
 
   //===========================
   // 3Dオブジェクト関係の初期化
@@ -101,6 +116,58 @@ void TitleScene::Update() {
                      : nullptr;
   UIManager::GetInstance()->Update(input);
 
+  // --- Splash Screen Logic (Two-stage fade) ---
+  splashTimer_ += 1.0f / 60.0f; // 毎フレーム加算
+  
+  float logoAlpha = 0.0f;
+  if (splashTimer_ >= 0.5f && splashTimer_ < 1.5f) {
+    logoAlpha = (splashTimer_ - 0.5f) / 1.0f; // ロゴフェードイン
+  } else if (splashTimer_ >= 1.5f && splashTimer_ < 2.5f) {
+    logoAlpha = 1.0f; // 完全表示
+  } else if (splashTimer_ >= 2.5f && splashTimer_ < 3.5f) {
+    logoAlpha = 1.0f - (splashTimer_ - 2.5f) / 1.0f; // ロゴフェードアウト
+  }
+
+  float blackAlpha = 1.0f;
+  if (splashTimer_ >= 3.5f && splashTimer_ < 4.5f) {
+    blackAlpha = 1.0f - (splashTimer_ - 3.5f) / 1.0f; // ロゴが消えた後、黒背景フェードアウト
+  } else if (splashTimer_ >= 4.5f) {
+    blackAlpha = 0.0f;
+  }
+
+  if (blackSprite_) {
+    blackSprite_->SetColor({0.0f, 0.0f, 0.0f, blackAlpha});
+    Transform blackTransform;
+    blackTransform.translate = {0,0,0};
+    blackTransform.rotate = {0,0,0};
+    blackTransform.scale = {1,1,1};
+    blackSprite_->Update(blackTransform);
+  }
+
+  if (logoSprite_) {
+    logoSprite_->SetColor({1.0f, 1.0f, 1.0f, logoAlpha});
+    Transform spriteTransform;
+    spriteTransform.translate = {0,0,0};
+    spriteTransform.rotate = {0,0,0};
+    spriteTransform.scale = {1.0f, 1.0f, 1.0f}; // UV scale is normal
+    logoSprite_->Update(spriteTransform);
+  }
+
+  // --- Post Process AI Effect ---
+  // ロゴ表示中（2.0秒）に一番エフェクトが強くなるようにする
+  float effectStrength = 0.0f;
+  if (splashTimer_ < 4.0f) {
+    effectStrength = sinf((splashTimer_ / 4.0f) * 3.14159f);
+    if (effectStrength < 0.0f) effectStrength = 0.0f;
+  }
+  
+  GetPostProcess()->SetPostEffectType(11); // Custom AI Effect ID changed to 11
+  GetPostProcess()->SetAiIntensity(0.311f * effectStrength);
+  GetPostProcess()->SetAiSpeed(0.806f);
+  GetPostProcess()->SetAiAberration(0.006f * effectStrength);
+  GetPostProcess()->SetAiColor(0.0f, 0.0f, 0.0f);
+  GetPostProcess()->SetTime(splashTimer_);
+
   //=======================
   // 3Dオブジェクトの更新
   //=======================
@@ -128,9 +195,22 @@ void TitleScene::Draw3D() {
   engine_->Begin3D();
 
   // ここから下で3DオブジェクトのDrawを呼ぶ
+
+  // スプライトをメインキャンバスに描画してポストエフェクトをかける
+  engine_->Begin2D();
+  if (blackSprite_) {
+    blackSprite_->Draw();
+  }
+  if (logoSprite_) {
+    logoSprite_->Draw();
+  }
+  engine_->End2D();
 }
 
 void TitleScene::Draw2D() {
-  // ここから下で2DオブジェクトのDrawを呼ぶ
-  UIManager::GetInstance()->Draw();
+  // スプラッシュ画面（ロゴフェード）が完了するまではUI（タイトル文字等）を描画しない
+  if (splashTimer_ >= 4.5f) {
+    // ここから下で2DオブジェクトのDrawを呼ぶ
+    UIManager::GetInstance()->Draw();
+  }
 }

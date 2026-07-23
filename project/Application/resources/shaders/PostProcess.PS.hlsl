@@ -47,7 +47,11 @@ cbuffer PostProcessData : register(b0) {
 	float32_t dofFocusRange;
 	float32_t flashIntensity;
 	int32_t activeShockwaveCount;
-	float32_t3 padding9;
+	float32_t aiIntensity;
+	float32_t aiSpeed;
+	float32_t aiAberration;
+	float32_t3 aiColor;
+	float32_t paddingAI;
 	struct ShockwaveData {
 		float32_t weight;
 		float32_t distortion;
@@ -211,6 +215,28 @@ float32_t3 ToneMap_Reinhard(float32_t3 x) {
 	return x / (1.0f + x);
 }
 // ==========================================
+
+// --- AI Animation Helpers ---
+float hash2(float2 p) { return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453); }
+float2 hash22(float2 p) { p = float2(dot(p,float2(127.1,311.7)), dot(p,float2(269.5,183.3))); return frac(sin(p)*43758.5453); }
+
+float2 applyDigitalGlitch(float2 uv, float time, float2 gridSize, float probability, float2 amount) {
+    float2 block = floor(uv * gridSize);
+    float rand = hash2(block + floor(time * 15.0));
+    if (rand < probability) {
+        float2 offset = hash22(block) * 2.0 - 1.0;
+        return uv + offset * amount;
+    }
+    return uv;
+}
+
+float4 sampleWithAberration(Texture2D tex, SamplerState samp, float2 uv, float2 dir, float amount) {
+    float4 colR = tex.Sample(samp, uv + dir * amount);
+    float4 colG = tex.Sample(samp, uv);
+    float4 colB = tex.Sample(samp, uv - dir * amount);
+    return float4(colR.r, colG.g, colB.b, max(colR.a, max(colG.a, colB.a)));
+}
+// ----------------------------
 
 struct PixelShaderOutput {
 	float32_t4 color : SV_TARGET0;
@@ -493,6 +519,15 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		output.color.rgb = gTexture.Sample(gSampler, uv).rgb;
 		output.color.a = 1.0f;
+	} else if (postEffectType == 11) { // Custom AI Effect (Digital Glitch)
+        float2 uv = input.texcoord;
+        float glitchTime = time * aiSpeed;
+        
+        float2 distortedUV = applyDigitalGlitch(uv, glitchTime, float2(16.0, 8.0), aiIntensity * 0.2, float2(aiIntensity * 0.1, 0.0));
+        float4 col = sampleWithAberration(gTexture, gSampler, distortedUV, float2(1.0, 0.0), aiAberration);
+        col.rgb = lerp(col.rgb, aiColor * col.a, aiIntensity * 0.6);
+        
+        output.color = col;
 	} else {
 		output.color = gTexture.Sample(gSampler, input.texcoord);
 	}

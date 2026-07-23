@@ -242,10 +242,17 @@ public:
     hsvFilterSaturation_ = saturation;
   }
 
-  /// <summary>
-  /// HSVフィルターの明度(Value)の加算値を設定する
-  /// </summary>
   void SetHsvFilterValue(float value) { hsvFilterValue_ = value; }
+
+  // --- AI Generated Effect Parameters ---
+  void SetAiIntensity(float intensity) { aiIntensity_ = intensity; }
+  void SetAiSpeed(float speed) { aiSpeed_ = speed; }
+  void SetAiAberration(float aberration) { aiAberration_ = aberration; }
+  void SetAiColor(float r, float g, float b) {
+    aiColor_[0] = r;
+    aiColor_[1] = g;
+    aiColor_[2] = b;
+  }
 
   struct ShockwaveParams {
     float weight = 1.0f;
@@ -304,7 +311,11 @@ private:
     float dofFocusRange;
     float flashIntensity; // 画面フラッシュの強さ
     int32_t activeShockwaveCount;
-    float padding9[3];
+    float aiIntensity;
+    float aiSpeed;
+    float aiAberration;
+    Vector3 aiColor;
+    float paddingAI;
 
     // ショックウェーブのデータ構造
     struct ShockwaveData {
@@ -362,6 +373,11 @@ private:
   float dofFocusRange_ = 5.0f;
   float flashColor_[3] = {1.0f, 0.0f, 0.0f}; // 画面フラッシュ用カラー
   float flashIntensity_ = 0.0f;              // 画面フラッシュ強度
+
+  float aiIntensity_ = 0.311f;
+  float aiSpeed_ = 0.806f;
+  float aiAberration_ = 0.006f;
+  float aiColor_[3] = {0.0f, 0.0f, 0.0f};
 
   std::vector<ShockwaveParams> shockwaves_;
 

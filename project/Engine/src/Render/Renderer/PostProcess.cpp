@@ -278,7 +278,11 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
     float dofFocusRange;
     float flashIntensity;
     int32_t activeShockwaveCount;
-    float padding9[3];
+    float aiIntensity;
+    float aiSpeed;
+    float aiAberration;
+    Vector3 aiColor;
+    float paddingAI;
     struct ShockwaveData {
       float weight;
       float distortion;
@@ -337,9 +341,13 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   data->flashIntensity = flashIntensity_;
 
   data->activeShockwaveCount = static_cast<int32_t>(shockwaves_.size());
-  data->padding9[0] = 0.0f;
-  data->padding9[1] = 0.0f;
-  data->padding9[2] = 0.0f;
+  data->aiIntensity = aiIntensity_;
+  data->aiSpeed = aiSpeed_;
+  data->aiAberration = aiAberration_;
+  data->aiColor.x = aiColor_[0];
+  data->aiColor.y = aiColor_[1];
+  data->aiColor.z = aiColor_[2];
+  data->paddingAI = 0.0f;
   for (size_t i = 0; i < 5; ++i) {
     if (i < shockwaves_.size()) {
       data->shockwaves[i].weight = shockwaves_[i].weight;
@@ -396,7 +404,12 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
     const char *effectTypes[] = {
         "None",          "BoxFilter",   "GaussianFilter", "Luminance Outline",
         "Depth Outline", "Radial Blur", "Dissolve",       "Depth of Field",
-        "Random Noise",  "HSV Filter"};
+        "Random Noise",  "HSV Filter",  "Custom AI Effect"};
+
+    // If Custom AI Effect is selected, postEffectType_ needs to map to 99, 
+    // but combo box uses index. Since "Custom AI Effect" is index 10, 
+    // we should map it to 99 before sending to shader, or just use index 10 in shader.
+    // Let's use index 10 for the shader to keep things simple!
     ImGui::Combo("Effect Type", &postEffectType_, effectTypes,
                  IM_ARRAYSIZE(effectTypes));
 
@@ -439,6 +452,11 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
       ImGui::DragFloat("Hue", &hsvFilterHue_, 0.01f, -1.0f, 1.0f);
       ImGui::DragFloat("Saturation", &hsvFilterSaturation_, 0.01f, -1.0f, 1.0f);
       ImGui::DragFloat("Value", &hsvFilterValue_, 0.01f, -1.0f, 1.0f);
+    } else if (postEffectType_ == 10) { // Custom AI Effect
+      ImGui::DragFloat("AI Intensity", &aiIntensity_, 0.01f, 0.0f, 5.0f);
+      ImGui::DragFloat("AI Speed", &aiSpeed_, 0.01f, 0.0f, 10.0f);
+      ImGui::DragFloat("AI Aberration", &aiAberration_, 0.001f, 0.0f, 0.1f);
+      ImGui::ColorEdit3("AI Color", aiColor_);
     }
 
     // --- Monotone ---

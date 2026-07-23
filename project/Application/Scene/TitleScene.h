@@ -57,6 +57,11 @@ private: // メンバ変数(システム用)
   // デバッグカメラ使用
   bool useDebugCamera_ = false;
 
+  std::unique_ptr<Sprite> logoSprite_ = nullptr;
+  std::unique_ptr<Sprite> blackSprite_ = nullptr;
+  float splashTimer_ = 0.0f;
+  float splashDuration_ = 4.0f; // 4秒間でフェードイン・フェードアウト
+
 private:
   /*ポインタ参照
   ------------------*/
