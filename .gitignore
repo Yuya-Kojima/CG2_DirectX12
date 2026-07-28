@@ -403,3 +403,4 @@ project/externals/assimp/bin/
 *.blend
 *.blend1
 /project/Application/resources/levels/level_editor_temp.json
+/project/photos
