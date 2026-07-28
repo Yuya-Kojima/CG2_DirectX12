@@ -54,6 +54,7 @@ public:
 
   int GetHp() const { return hp_; }
   bool IsDead() const { return isDead_; }
+  int GetInvincibleTimer() const { return invincibleTimer_; }
 
   // --- アクション・軌道調整用パラメータ ---
   struct ActionConfig {
@@ -113,6 +114,8 @@ private:
 
   void FireHomingShot();
   void FireNormalShot(); // 追加
+
+  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f}; // 1フレーム前の座標
 
   // 照準用
   Vector2 reticlePosition_;
