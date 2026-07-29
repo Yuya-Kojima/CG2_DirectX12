@@ -37,7 +37,7 @@ void Game::Initialize() {
 
   SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
   // 初期シーンの設定
-  SceneManager::GetInstance()->ChangeScene("TITLE");
+  SceneManager::GetInstance()->ChangeScene("GAMEPLAY");
 
   //===========================
   // ローカル変数宣言

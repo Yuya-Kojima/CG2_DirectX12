@@ -108,6 +108,10 @@ private: // メンバ変数(ゲーム用)
 
   // ポストエフェクト
   bool isGrayscale_ = false;
+  float dissolveTimer_ = 0.0f;
+  float effectTime_ = 0.0f;
+  float damageEffectTimer_ = 0.0f;
+  bool testDamageEffect_ = false;
 
   // エディタ用：選択中のオブジェクトタイプ
   enum class EditorSelectType {

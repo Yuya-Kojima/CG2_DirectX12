@@ -18,6 +18,7 @@
 #include "Render/Particle/MeshParticleEmitter.h"
 #include "Model/ModelManager.h"
 #include "Particle/ParticleManager.h"
+#include <algorithm>
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
@@ -132,6 +133,12 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   fog.farDist = 400.0f;
   fog.enabled = 1.0f;
   engine_->GetObject3dRenderer()->SetFog(fog);
+
+  // --- ポストエフェクトの初期設定 ---
+  if (postProcess_) {
+    postProcess_->SetDepthOutlineWeight(2.0f);
+    postProcess_->SetDepthOutlineAttenuation(0.01f);
+  }
 
   //===========================
   // テクスチャファイルの読み込み
@@ -576,10 +583,72 @@ void GamePlayScene::Update() {
 
     // ロックオン中は画面をグレースケールにする
     if (postProcess_) {
+      effectTime_ += 1.0f / 60.0f; // 毎フレーム加算
+      postProcess_->SetTime(effectTime_); // 時間をセット
+
       if (player_->IsLockOnMode()) {
         postProcess_->SetUseGrayscale(true);
       } else {
         postProcess_->SetUseGrayscale(false);
+      }
+
+      // デバッグ用被弾テスト
+      if (testDamageEffect_) {
+        damageEffectTimer_ = 120.0f; // プレイヤーの更新に依存せず直接タイマーをセット
+        testDamageEffect_ = false;
+      }
+
+      // 被弾エフェクト (Vignetting, RadialBlur, Shockwave, Flashなど)
+      int invincibleTimer = player_->GetInvincibleTimer();
+      // ゲーム内で実際に被弾した場合、プレイヤーの無敵タイマーをエフェクトタイマーに取り込む
+      if (invincibleTimer > damageEffectTimer_) {
+          damageEffectTimer_ = static_cast<float>(invincibleTimer);
+      }
+
+      if (damageEffectTimer_ > 0.0f) {
+        float intensity = damageEffectTimer_ / 120.0f; // 最大120フレームと仮定
+        postProcess_->SetUseVignette(true);
+        postProcess_->SetVignetteScale(16.0f - intensity * 10.0f);
+        
+        postProcess_->SetRadialBlurWidth(0.05f * intensity);
+        postProcess_->SetRadialBlurAberration(0.2f * intensity);
+        
+        // 画面フラッシュ(赤)
+        postProcess_->SetFlashColor(1.0f, 0.0f, 0.0f);
+        postProcess_->SetFlashIntensity(intensity * 0.5f);
+        
+        // ショックウェーブ
+        std::vector<PostProcess::ShockwaveParams> waves;
+        PostProcess::ShockwaveParams wave;
+        wave.weight = intensity * 2.0f;
+        wave.radius = 1.0f - intensity; // 広がっていくように
+        waves.push_back(wave);
+        postProcess_->SetShockwaves(waves);
+
+        damageEffectTimer_ -= 1.0f; // 非プレイ中でも毎フレーム減算してエフェクトを進める
+      } else {
+        postProcess_->SetUseVignette(false);
+        postProcess_->SetRadialBlurWidth(0.0f);
+        postProcess_->SetRadialBlurAberration(0.0f);
+        postProcess_->SetFlashIntensity(0.0f);
+        postProcess_->SetShockwaves({});
+        damageEffectTimer_ = 0.0f;
+      }
+
+      // ゲームオーバー/クリア時の演出 (Dissolve, Gaussian)
+      if (gameState_ == GameState::GameOver || gameState_ == GameState::Clear) {
+        postProcess_->SetPostEffectType(2); // Gaussian Filter
+        postProcess_->SetGaussianSigma(50.0f);
+        postProcess_->SetGaussianFilterK(5); // サンプリング範囲を大幅に広げる
+        
+        dissolveTimer_ += 1.0f / 60.0f; // 毎フレーム加算
+        float dissolveProgress = std::clamp(dissolveTimer_ * 0.5f, 0.0f, 1.0f); // 2秒で完全に消える
+        postProcess_->SetDissolveThreshold(dissolveProgress);
+      } else {
+        postProcess_->SetPostEffectType(4); // Depth Outline (常時トゥーン調)
+        postProcess_->SetGaussianFilterK(1); // デフォルトに戻す
+        postProcess_->SetDissolveThreshold(0.0f);
+        dissolveTimer_ = 0.0f;
       }
     }
   }
@@ -612,6 +681,21 @@ void GamePlayScene::Update() {
     ImGui::EndMainMenuBar();
   }
 
+  //=========================
+  // CG5 Assessment デバッグウィンドウ
+  //=========================
+  ImGui::Begin("CG5 Assessment");
+  ImGui::Text("Post Effect Tests");
+  ImGui::Separator();
+  if (ImGui::Button("Take Damage (Test Effect)", ImVec2(250, 30))) {
+      testDamageEffect_ = true;
+  }
+  if (ImGui::Button("Instant Death (Test GameOver)", ImVec2(250, 30))) {
+      if (player_) {
+          player_->TakeDamage(999); // 即死
+      }
+  }
+  ImGui::End();
 
   //=========================
   // Hierarchy ウィンドウ
