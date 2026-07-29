@@ -2,6 +2,7 @@
 #include "Core/SrvManager.h"
 #include "Debug/Logger.h"
 #include "Math/MathUtil.h"
+#include "Texture/TextureManager.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
@@ -31,6 +32,10 @@ void PostProcess::Initialize(Dx12Core *dx12Core) {
 
   CreateRootSignature();
   CreatePSO();
+
+  // デフォルトのマスク画像（ノイズ）を読み込み、セットする
+  TextureManager::GetInstance()->LoadTexture("resources/noise0.png");
+  maskSrvIndex_ = TextureManager::GetInstance()->GetSrvIndex("resources/noise0.png");
 }
 
 void PostProcess::CreateRootSignature() {
@@ -240,7 +245,11 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
 
   // 定数バッファへのデータ転送
   struct PostProcessData {
-    int32_t postEffectType; // 0: None, 1: BoxFilter, 2: GaussianFilter
+    int32_t postEffectType; // 互換用
+    int32_t useDepthOutline;
+    int32_t useRadialBlur;
+    int32_t useDissolve;
+    int32_t useGaussianFilter;
     int32_t useGrayscale;
     int32_t useVignette;
     int32_t boxFilterK;
@@ -291,6 +300,10 @@ void PostProcess::Draw(uint32_t renderSrvIndex, uint32_t depthSrvIndex,
   PostProcessData *data = nullptr;
   constBuffer_->Map(0, nullptr, reinterpret_cast<void **>(&data));
   data->postEffectType = postEffectType_;
+  data->useDepthOutline = useDepthOutline_ ? 1 : 0;
+  data->useRadialBlur = useRadialBlur_ ? 1 : 0;
+  data->useDissolve = useDissolve_ ? 1 : 0;
+  data->useGaussianFilter = useGaussianFilter_ ? 1 : 0;
   data->useGrayscale = useGrayscale_ ? 1 : 0;
   data->useVignette = useVignette_ ? 1 : 0;
   data->boxFilterK = boxFilterK_;
@@ -392,49 +405,52 @@ void PostProcess::DrawDebugUI(const char *windowName, bool createNewWindow) {
 
     // --- Base Effect ---
     ImGui::Separator();
-    ImGui::Text("Base Effect");
-    const char *effectTypes[] = {
-        "None",          "BoxFilter",   "GaussianFilter", "Luminance Outline",
-        "Depth Outline", "Radial Blur", "Dissolve",       "Depth of Field",
-        "Random Noise",  "HSV Filter"};
-    ImGui::Combo("Effect Type", &postEffectType_, effectTypes,
-                 IM_ARRAYSIZE(effectTypes));
+    ImGui::Text("Uber Shader Effects (Multi-Selectable)");
 
-    if (postEffectType_ == 1) { // BoxFilter
-      ImGui::DragInt("BoxFilter K (Radius)", &boxFilterK_, 0.1f, 1, 10);
-    } else if (postEffectType_ == 2) { // GaussianFilter
+    ImGui::Checkbox("Use Depth Outline", &useDepthOutline_);
+    if (useDepthOutline_) {
+      ImGui::DragFloat("Outline Weight", &depthOutlineWeight_, 0.1f, 1.0f, 100.0f);
+      ImGui::DragFloat("Distance Attenuation", &depthOutlineAttenuation_, 0.001f, 0.0f, 1.0f, "%.3f");
+    }
+
+    ImGui::Checkbox("Use Gaussian Filter", &useGaussianFilter_);
+    if (useGaussianFilter_) {
       ImGui::DragInt("Gaussian K", &gaussianFilterK_, 0.1f, 1, 10);
       ImGui::DragFloat("Gaussian Sigma", &gaussianSigma_, 0.1f, 0.1f, 20.0f);
-    } else if (postEffectType_ == 4) { // Depth Outline
-      ImGui::DragFloat("Outline Weight", &depthOutlineWeight_, 0.1f, 1.0f,
-                       100.0f);
-      ImGui::DragFloat("Distance Attenuation", &depthOutlineAttenuation_,
-                       0.001f, 0.0f, 1.0f, "%.3f");
-    } else if (postEffectType_ == 5) { // Radial Blur
+    }
+
+    ImGui::Checkbox("Use Radial Blur", &useRadialBlur_);
+    if (useRadialBlur_) {
       ImGui::DragFloat2("Center X/Y", radialBlurCenter_, 0.01f, 0.0f, 1.0f);
-      ImGui::DragFloat("Blur Width", &radialBlurWidth_, 0.001f, 0.0f, 0.1f,
-                       "%.3f");
+      ImGui::DragFloat("Blur Width", &radialBlurWidth_, 0.001f, 0.0f, 0.1f, "%.3f");
       ImGui::DragInt("Num Samples", &radialBlurSamples_, 1.0f, 1, 50);
-      ImGui::DragFloat("Inner Radius (Sharp)", &radialBlurInnerRadius_, 0.01f,
-                       0.0f, 1.0f);
-      ImGui::DragFloat("Outer Radius", &radialBlurOuterRadius_, 0.01f, 0.0f,
-                       1.0f);
-      ImGui::DragFloat("Aberration (RGB Shift)", &radialBlurAberration_, 0.01f,
-                       -0.5f, 0.5f);
+      ImGui::DragFloat("Inner Radius (Sharp)", &radialBlurInnerRadius_, 0.01f, 0.0f, 1.0f);
+      ImGui::DragFloat("Outer Radius", &radialBlurOuterRadius_, 0.01f, 0.0f, 1.0f);
+      ImGui::DragFloat("Aberration (RGB Shift)", &radialBlurAberration_, 0.01f, -0.5f, 0.5f);
       if (radialBlurInnerRadius_ > radialBlurOuterRadius_) {
         radialBlurInnerRadius_ = radialBlurOuterRadius_;
       }
-    } else if (postEffectType_ == 6) { // Dissolve
+    }
+
+    ImGui::Checkbox("Use Dissolve", &useDissolve_);
+    if (useDissolve_) {
       ImGui::DragFloat("Threshold", &dissolveThreshold_, 0.01f, 0.0f, 1.0f);
-      ImGui::DragFloat("Edge Range", &dissolveEdgeRange_, 0.001f, 0.0f, 0.2f,
-                       "%.3f");
+      ImGui::DragFloat("Edge Range", &dissolveEdgeRange_, 0.001f, 0.0f, 0.2f, "%.3f");
       ImGui::ColorEdit3("Edge Color", dissolveEdgeColor_);
+    }
+
+    ImGui::Separator();
+    const char *effectTypes[] = {
+        "None",          "BoxFilter",   "GaussianFilter(Legacy)", "Luminance Outline",
+        "Depth Outline(Legacy)", "Radial Blur(Legacy)", "Dissolve(Legacy)",       "Depth of Field",
+        "Random Noise",  "HSV Filter"};
+    ImGui::Combo("Legacy Exclusive Type", &postEffectType_, effectTypes, IM_ARRAYSIZE(effectTypes));
+
+    if (postEffectType_ == 1) { // BoxFilter
+      ImGui::DragInt("BoxFilter K (Radius)", &boxFilterK_, 0.1f, 1, 10);
     } else if (postEffectType_ == 7) { // Depth of Field
-      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f,
-                       1000.0f);
+      ImGui::DragFloat("Focus Distance", &dofFocusDistance_, 0.5f, 0.0f, 1000.0f);
       ImGui::DragFloat("Focus Range", &dofFocusRange_, 0.5f, 0.0f, 100.0f);
-    } else if (postEffectType_ == 8) { // Random Noise
-      ImGui::Text("Generating animated GPU random noise.");
     } else if (postEffectType_ == 9) { // HSV Filter
       ImGui::DragFloat("Hue", &hsvFilterHue_, 0.01f, -1.0f, 1.0f);
       ImGui::DragFloat("Saturation", &hsvFilterSaturation_, 0.01f, -1.0f, 1.0f);

@@ -10,6 +10,10 @@ SamplerState gSamplerPoint : register(s1);
 
 cbuffer PostProcessData : register(b0) {
 	int32_t postEffectType;
+	int32_t useDepthOutline;
+	int32_t useRadialBlur;
+	int32_t useDissolve;
+	int32_t useGaussianFilter;
 	int32_t useGrayscale;
 	int32_t useVignette;
 	int32_t boxFilterK;
@@ -219,6 +223,7 @@ struct PixelShaderOutput {
 
 PixelShaderOutput main(VertexShaderOutput input) {
 	PixelShaderOutput output;
+	output.color = gTexture.Sample(gSampler, input.texcoord);
     
 	if (postEffectType == 1) { // BoxFilter
 		uint32_t width, height;
@@ -244,7 +249,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 				output.color.rgb += fetchColor * weight;
 			}
 		}
-	} else if (postEffectType == 2) { // GaussianFilter
+	}
+	if (useGaussianFilter != 0) { // GaussianFilter
 		uint32_t width, height;
 		gTexture.GetDimensions(width, height);
 		float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
@@ -270,7 +276,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		}
         
 		output.color.rgb *= rcp(totalWeight);
-	} else if (postEffectType == 3) { // Luminance Outline
+	}
+	if (postEffectType == 3) { // Luminance Outline
 		uint32_t width, height;
 		gTexture.GetDimensions(width, height);
 		float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
@@ -296,7 +303,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
 		output.color.rgb = (1.0f - weight) * originalColor;
 		output.color.a = 1.0f;
-	} else if (postEffectType == 4) { // Depth Outline
+	}
+	if (useDepthOutline != 0) { // Depth Outline
 		uint32_t width, height;
 		gTexture.GetDimensions(width, height);
 		float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
@@ -329,10 +337,9 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		weight = weight / (1.0f + abs(centerViewZ) * depthOutlineAttenuation);
 		weight = saturate(weight);
         
-		float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
-		output.color.rgb = (1.0f - weight) * originalColor;
-		output.color.a = 1.0f;
-	} else if (postEffectType == 5) { // Radial Blur
+		output.color.rgb = (1.0f - weight) * output.color.rgb;
+	}
+	if (useRadialBlur != 0) { // Radial Blur
         // 中心から現在のUVへの方向と距離を計算
 		float32_t2 direction = input.texcoord - radialBlurCenter;
 		float32_t dist = length(direction);
@@ -341,40 +348,31 @@ PixelShaderOutput main(VertexShaderOutput input) {
         // innerRadius 以下はブラー0、outerRadius 以上はブラー100%
 		float32_t mask = smoothstep(radialBlurInnerRadius, radialBlurOuterRadius, dist);
         
-        // 元画像（ブラーなし）の色
-		float32_t3 originalColor = gTexture.Sample(gSampler, input.texcoord).rgb;
-        
-        // maskが0なら処理をスキップしてそのまま色を返す（軽量化）
-		if (mask <= 0.0f) {
-			output.color.rgb = originalColor;
-			output.color.a = 1.0f;
-			return output;
-		}
-
-		float32_t3 outputColor = float32_t3(0.0f, 0.0f, 0.0f);
-        
-		for (int32_t sampleIndex = 0; sampleIndex < radialBlurSamples; ++sampleIndex) {
-            // 色収差のオフセット計算
-            // sampleIndexが進むにつれてRGBのサンプリング位置を少しズラす
-			float32_t scale = radialBlurWidth * float32_t(sampleIndex);
+        // maskが0より大きい場合のみ処理を行う
+		if (mask > 0.0f) {
+			float32_t3 outputColor = float32_t3(0.0f, 0.0f, 0.0f);
             
-            // 赤は外側、青は内側へ少しズラす
-			float32_t2 texcoordR = input.texcoord + direction * (scale * (1.0f + radialBlurAberration));
-			float32_t2 texcoordG = input.texcoord + direction * scale;
-			float32_t2 texcoordB = input.texcoord + direction * (scale * (1.0f - radialBlurAberration));
+			for (int32_t sampleIndex = 0; sampleIndex < radialBlurSamples; ++sampleIndex) {
+                // 色収差のオフセット計算
+				float32_t scale = radialBlurWidth * float32_t(sampleIndex);
+                
+				float32_t2 texcoordR = input.texcoord + direction * (scale * (1.0f + radialBlurAberration));
+				float32_t2 texcoordG = input.texcoord + direction * scale;
+				float32_t2 texcoordB = input.texcoord + direction * (scale * (1.0f - radialBlurAberration));
+                
+				outputColor.r += gTexture.Sample(gSampler, texcoordR).r;
+				outputColor.g += gTexture.Sample(gSampler, texcoordG).g;
+				outputColor.b += gTexture.Sample(gSampler, texcoordB).b;
+			}
             
-			outputColor.r += gTexture.Sample(gSampler, texcoordR).r;
-			outputColor.g += gTexture.Sample(gSampler, texcoordG).g;
-			outputColor.b += gTexture.Sample(gSampler, texcoordB).b;
+            // 平均化する
+			outputColor.rgb *= rcp(float32_t(radialBlurSamples));
+            
+            // 現在の色とブラー画像をマスク値でブレンドする
+			output.color.rgb = lerp(output.color.rgb, outputColor, mask);
 		}
-        
-        // 平均化する
-		outputColor.rgb *= rcp(float32_t(radialBlurSamples));
-        
-        // 元画像とブラー画像をマスク値でブレンドする
-		output.color.rgb = lerp(originalColor, outputColor, mask);
-		output.color.a = 1.0f;
-	} else if (postEffectType == 6) { // Dissolve
+	}
+	if (useDissolve != 0) { // Dissolve
 		float32_t mask = gMaskTexture.Sample(gSampler, input.texcoord).r;
         
 		if (mask <= dissolveThreshold) {
@@ -383,10 +381,9 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
 		float32_t edge = 1.0f - smoothstep(dissolveThreshold, dissolveThreshold + dissolveEdgeRange, mask);
         
-		float32_t4 originalColor = gTexture.Sample(gSampler, input.texcoord);
-		output.color.rgb = originalColor.rgb + edge * dissolveEdgeColor;
-		output.color.a = originalColor.a;
-	} else if (postEffectType == 7) { // Depth of Field (DoF)
+		output.color.rgb = output.color.rgb + edge * dissolveEdgeColor;
+	}
+	if (postEffectType == 7) { // Depth of Field (DoF)
 		uint32_t width, height;
 		gTexture.GetDimensions(width, height);
 		float32_t2 uvStepSize = float32_t2(rcp(width), rcp(height));
@@ -436,7 +433,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
 			output.color.rgb = lerp(gTexture.Sample(gSampler, input.texcoord).rgb, blurColor, coc);
 		}
 		output.color.a = 1.0f;
-	} else if (postEffectType == 8) { // Random Noise
+	}
+	if (postEffectType == 8) { // Random Noise
         // 経過時間を掛けてSeed値にすることで、毎フレーム異なる乱数を生成する
 		float32_t random = rand2dTo1d(input.texcoord * time);
         
@@ -446,7 +444,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
         // 生成した乱数の値を入力画像に乗算して出力（レトロなノイズ感）
 		output.color.rgb = originalColor * random;
 		output.color.a = 1.0f;
-	} else if (postEffectType == 9) { // HSV Filter
+	}
+	if (postEffectType == 9) { // HSV Filter
 		float32_t4 textureColor = gTexture.Sample(gSampler, input.texcoord);
 		float32_t3 hsv = RGBToHSV(textureColor.rgb);
         
@@ -464,7 +463,8 @@ PixelShaderOutput main(VertexShaderOutput input) {
         
 		output.color.rgb = rgb;
 		output.color.a = textureColor.a;
-	} else if (postEffectType == 10) { // Shockwave (空間の屈折歪み)
+	}
+	if (postEffectType == 10) { // Shockwave (空間の屈折歪み)
 		float32_t2 uv = input.texcoord;
 		float32_t2 totalDistortion = float32_t2(0.0f, 0.0f);
 		
@@ -493,8 +493,6 @@ PixelShaderOutput main(VertexShaderOutput input) {
 		
 		output.color.rgb = gTexture.Sample(gSampler, uv).rgb;
 		output.color.a = 1.0f;
-	} else {
-		output.color = gTexture.Sample(gSampler, input.texcoord);
 	}
 
 	if (useGrayscale != 0) {

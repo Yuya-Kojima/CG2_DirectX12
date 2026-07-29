@@ -56,7 +56,7 @@ public:
   void SetVignetteExponent(float exponent) { vignetteExponent_ = exponent; }
 
   /// <summary>
-  /// ポストエフェクトの種類を切り替える
+  /// ポストエフェクトの種類を切り替える (互換性のため残す)
   /// </summary>
   /// <param name="type">0: None, 1: BoxFilter, 2: GaussianFilter, etc.</param>
   void SetPostEffectType(int type) { postEffectType_ = type; }
@@ -65,6 +65,11 @@ public:
   /// 現在のポストエフェクトのタイプを取得する
   /// </summary>
   int GetPostEffectType() const { return postEffectType_; }
+
+  void SetUseDepthOutline(bool use) { useDepthOutline_ = use; }
+  void SetUseRadialBlur(bool use) { useRadialBlur_ = use; }
+  void SetUseDissolve(bool use) { useDissolve_ = use; }
+  void SetUseGaussianFilter(bool use) { useGaussianFilter_ = use; }
 
   /// <summary>
   /// ボックスフィルターのカーネルサイズを設定する
@@ -261,11 +266,19 @@ public:
 private:
   Dx12Core *dx12Core_ = nullptr;
   int postEffectType_ = 0;
+  bool useDepthOutline_ = false;
+  bool useRadialBlur_ = false;
+  bool useDissolve_ = false;
+  bool useGaussianFilter_ = false;
   int boxFilterK_ = 1;
   int gaussianFilterK_ = 1;
   float gaussianSigma_ = 4.0f;
   struct PostProcessData {
     int32_t postEffectType;
+    int32_t useDepthOutline;
+    int32_t useRadialBlur;
+    int32_t useDissolve;
+    int32_t useGaussianFilter;
     int32_t useGrayscale;
     int32_t useVignette;
     int32_t boxFilterK;
