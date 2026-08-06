@@ -1,31 +1,31 @@
 #include "GamePlayScene.h"
+#include "../../externals/nlohmann/json.hpp"
+#include "../Effect/EffectManager.h"
+#include "Actor/Behavior/BehaviorSpline.h"
+#include "Audio/SoundManager.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
 #include "Debug/ImGuiManager.h"
 #include "Debug/Logger.h"
 #include "Framework/UIManager.h"
 #include "Input/InputKeyState.h"
+#include "Math/MathUtil.h"
 #include "Model/Model.h"
-#include "Audio/SoundManager.h"
-#include <fstream>
-#include <filesystem>
-#include "../../externals/nlohmann/json.hpp"
-#include "../Effect/EffectManager.h"
+#include "Model/ModelManager.h"
 #include "Object3d/Object3d.h"
 #include "Particle/Particle.h"
 #include "Particle/ParticleEmitter.h"
+#include "Particle/ParticleManager.h"
 #include "Render/Particle/BillboardParticleEmitter.h"
 #include "Render/Particle/MeshParticleEmitter.h"
-#include "Model/ModelManager.h"
-#include "Particle/ParticleManager.h"
+#include "Render/Renderer/LineRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
 #include "Sprite/Sprite.h"
 #include "Texture/TextureManager.h"
-#include "Math/MathUtil.h"
-#include "Actor/Behavior/BehaviorSpline.h"
-#include "Render/Renderer/LineRenderer.h"
+#include <filesystem>
+#include <fstream>
 
 #include "../Editor/CommandManager.h"
 #include "Collision/CollisionManager.h"
@@ -108,7 +108,7 @@ public:
 #include <numbers>
 #include <string>
 
-    void GamePlayScene::RequestHitStop(int frames) {
+void GamePlayScene::RequestHitStop(int frames) {
   hitStopTimer_ = (std::max)(hitStopTimer_, frames);
 }
 
@@ -119,7 +119,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
 
   // シーン初期化時に前シーンの残留アクター（弾や古いプレイヤー）を全消去
   ActorManager::GetInstance()->Clear();
-  CollisionManager::GetInstance()->Clear(); // コライダーの残留（ダングリングポインタ）を防ぐ
+  CollisionManager::GetInstance()
+      ->Clear(); // コライダーの残留（ダングリングポインタ）を防ぐ
   PrefabManager::GetInstance()->Initialize(engine->GetObject3dRenderer());
 
   // 参照をコピー
@@ -128,7 +129,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // --- フォグの初期化 ---
   FogData fog;
   fog.color = Vector4(0.8f, 0.9f, 1.0f, 1.0f); // 空色っぽいフォグ
-  fog.nearDist = 150.0f; 
+  fog.nearDist = 150.0f;
   fog.farDist = 400.0f;
   fog.enabled = 1.0f;
   engine_->GetObject3dRenderer()->SetFog(fog);
@@ -140,7 +141,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
-  SoundManager::GetInstance()->Load("boss_explosion", "resources/Sounds/explosion.mp3");
+  SoundManager::GetInstance()->Load("boss_explosion",
+                                    "resources/Sounds/explosion.mp3");
 
   EffectManager::GetInstance()->Initialize();
 
@@ -158,8 +160,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   bossExplosionParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
   bossExplosionParticleGroup_->Initialize("resources/circle.png");
   bossExplosionEmitter_ = std::make_unique<ParticleEmitter>(
-      bossExplosionParticleGroup_.get(), Vector3{0, 0, 0}, Vector3{4.0f, 4.0f, 4.0f},
-      100, 0.0f, Vector3{0.0f, 0.0f, 0.0f}, Vector3{40.0f, 40.0f, 40.0f}, 0.6f, 1.2f);
+      bossExplosionParticleGroup_.get(), Vector3{0, 0, 0},
+      Vector3{4.0f, 4.0f, 4.0f}, 100, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+      Vector3{40.0f, 40.0f, 40.0f}, 0.6f, 1.2f);
   bossExplosionEmitter_->SetBaseScale({8.0f, 8.0f, 8.0f});
   bossExplosionEmitter_->SetScaleRandom({3.0f, 3.0f, 3.0f});
   bossExplosionEmitter_->SetScaleVelocity({-5.0f, -5.0f, -5.0f});
@@ -169,7 +172,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   bossDustParticleGroup_->Initialize("resources/circle.png");
   bossDustEmitter_ = std::make_unique<ParticleEmitter>(
       bossDustParticleGroup_.get(), Vector3{0, 0, 0}, Vector3{8.0f, 8.0f, 8.0f},
-      6, 0.05f, Vector3{0.0f, 0.6f, 0.0f}, Vector3{6.0f, 6.0f, 6.0f}, 1.0f, 2.5f);
+      6, 0.05f, Vector3{0.0f, 0.6f, 0.0f}, Vector3{6.0f, 6.0f, 6.0f}, 1.0f,
+      2.5f);
   bossDustEmitter_->SetBaseScale({0.8f, 0.8f, 0.8f});
   bossDustEmitter_->SetScaleRandom({0.4f, 0.4f, 0.4f});
   bossDustEmitter_->SetScaleVelocity({-0.1f, -0.1f, -0.1f});
@@ -205,7 +209,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   skybox_->Initialize(engine_->GetSkyboxRenderer());
   skybox_->SetTexture("resources/Skybox/Skybox.dds");
   skybox_->SetScale({100.0f, 100.0f, 100.0f});
-  skybox_->SetColor({0.6f,0.6f,0.6f,1.0f});
+  skybox_->SetColor({0.6f, 0.6f, 0.6f, 1.0f});
 
   //===========================
   // プレイヤーの初期化
@@ -231,9 +235,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   metallicObject_ = std::make_unique<Object3d>();
   metallicObject_->Initialize(engine_->GetObject3dRenderer());
   metallicObject_->SetModel("monsterBall.obj");
-  metallicObject_->SetEnvironmentCoefficient(1.0f);     // 100%反射
+  metallicObject_->SetEnvironmentCoefficient(1.0f);       // 100%反射
   metallicObject_->SetTranslation({-30.0f, 5.0f, 50.0f}); // レール上の奥に配置
-  metallicObject_->SetScale({3.0f, 3.0f, 3.0f});        // 少し大きめに
+  metallicObject_->SetScale({3.0f, 3.0f, 3.0f});          // 少し大きめに
   metallicObject_->Update();
 
   cameraTransform_ = {
@@ -252,9 +256,11 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // スプラインデータのロード
   LoadSplines();
 
-
   // UIの読み込み
   UIManager::GetInstance()->Load("resources/UI/GamePlayUI.json");
+  if (auto hpNode = UIManager::GetInstance()->GetNodeByName("HPBarImage")) {
+    hpBarBaseWidth_ = hpNode->scale.x;
+  }
 }
 
 void GamePlayScene::Finalize() {}
@@ -282,7 +288,7 @@ void GamePlayScene::Update() {
     useDebugCamera_ = true;
     LoadLevel("level_editor_temp.json");
 
-    // ゲーム状態のリセット（Stop時に綺麗な状態に戻す）
+    // ゲーム状態のリセット
     gameState_ = GameState::Play;
     UIManager::GetInstance()->Load("resources/UI/GamePlayUI.json");
 
@@ -316,7 +322,6 @@ void GamePlayScene::Update() {
   }
   previousGlobalPlayMode_ = isPlayMode_;
 
-
 #ifdef USE_IMGUI
   // Undo/Redo ショートカット (Ctrl + Z / Ctrl + Y)
   // Playモード中は編集操作のUndo/Redoを禁止する
@@ -339,6 +344,26 @@ void GamePlayScene::Update() {
                      ? engine_->GetInputManager()
                      : nullptr;
   UIManager::GetInstance()->Update(input);
+
+  // HPバーUI
+  if (player_) {
+    float playerMaxHp = player_->GetMaxHp();
+    float playerCurrentHp = player_->GetHp();
+
+    // Hp割合計算
+    float hpRatio = (std::max)(playerCurrentHp / playerMaxHp, 0.0f);
+
+    if (auto hpNode = UIManager::GetInstance()->GetNodeByName("HPBarImage")) {
+      hpNode->scale.x = hpBarBaseWidth_ * hpRatio;
+
+      // HPが3割以下になったら赤色にする
+      if (hpRatio <= 0.3f) {
+        hpNode->color = {1.0f, 0.0f, 0.0f, 1.0f}; // 赤色
+      } else {
+        hpNode->color = {0.0f, 1.0f, 0.0f, 1.0f}; // 緑色
+      }
+    }
+  }
 
   // デバッグカメラ切り替え
   if (engine_->GetInputManager()->IsTriggerKey(DIK_P)) {
@@ -378,7 +403,8 @@ void GamePlayScene::Update() {
     hitStopTimer_--;
   }
 
-  bool shouldUpdateWorld = (isPlayMode_ && !isPaused_ && hitStopTimer_ <= 0) || doStep_;
+  bool shouldUpdateWorld =
+      (isPlayMode_ && !isPaused_ && hitStopTimer_ <= 0) || doStep_;
 
   if (doStep_) {
     doStep_ = false;
@@ -391,7 +417,7 @@ void GamePlayScene::Update() {
 
   // RailCameraにプレイヤーの現在位置（前フレーム座標）を渡す
   if (player_ && railCamera_) {
-      railCamera_->SetPlayerWorldPosition(player_->GetTransform().translate);
+    railCamera_->SetPlayerWorldPosition(player_->GetTransform().translate);
   }
 
   if (useDebugCamera_) {
@@ -414,97 +440,122 @@ void GamePlayScene::Update() {
     EffectManager::GetInstance()->Update(activeCamera);
   }
 
-    // スポナーロジック
-    if (railCamera_) {
-      float t = railCamera_->GetT();
-      for (auto &ev : spawnEvents_) {
-        if (t < ev.spawnTime) {
-          ev.hasSpawned = false; // シークバック時にフラグをリセット
-        } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
-          // スポーン (カメラの現在位置からの相対座標で計算)
-          Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
-          Matrix4x4 cameraWorld = Inverse(viewMatrix);
-          Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
-                               cameraWorld.m[3][2]};
-          Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
-                                 cameraWorld.m[0][2]};
-          Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
-                              cameraWorld.m[1][2]};
-          Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
-                                   cameraWorld.m[2][2]};
+  // スポナーロジック
+  if (railCamera_) {
+    float t = railCamera_->GetT();
+    for (auto &ev : spawnEvents_) {
+      if (t < ev.spawnTime) {
+        ev.hasSpawned = false; // シークバック時にフラグをリセット
+      } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
+        // スポーン (カメラの現在位置からの相対座標で計算)
+        Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
+        Matrix4x4 cameraWorld = Inverse(viewMatrix);
+        Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
+                             cameraWorld.m[3][2]};
+        Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
+                               cameraWorld.m[0][2]};
+        Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
+                            cameraWorld.m[1][2]};
+        Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                                 cameraWorld.m[2][2]};
 
-          Vector3 spawnWorldPos = cameraPos +
-                                  Vector3{cameraRight.x * ev.spawnOffset.x,
-                                          cameraRight.y * ev.spawnOffset.x,
-                                          cameraRight.z * ev.spawnOffset.x} +
-                                  Vector3{cameraUp.x * ev.spawnOffset.y,
-                                          cameraUp.y * ev.spawnOffset.y,
-                                          cameraUp.z * ev.spawnOffset.y} +
-                                  Vector3{cameraForward.x * ev.spawnOffset.z,
-                                          cameraForward.y * ev.spawnOffset.z,
-                                          cameraForward.z * ev.spawnOffset.z};
+        Vector3 spawnWorldPos = cameraPos +
+                                Vector3{cameraRight.x * ev.spawnOffset.x,
+                                        cameraRight.y * ev.spawnOffset.x,
+                                        cameraRight.z * ev.spawnOffset.x} +
+                                Vector3{cameraUp.x * ev.spawnOffset.y,
+                                        cameraUp.y * ev.spawnOffset.y,
+                                        cameraUp.z * ev.spawnOffset.y} +
+                                Vector3{cameraForward.x * ev.spawnOffset.z,
+                                        cameraForward.y * ev.spawnOffset.z,
+                                        cameraForward.z * ev.spawnOffset.z};
 
-          // 敵の生成
-          auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(
-              ev.prefabName,
-              Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
+        // 敵の生成
+        auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(
+            ev.prefabName,
+            Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
-          Enemy* enemyPtr = newEnemy.get();
+        Enemy *enemyPtr = newEnemy.get();
 
-          if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
-              enemyPtr->SetBehavior(std::make_unique<BehaviorSpline>(
-                  loadedSplines_[ev.splineName], ev.splineDuration, ev.isWorldSpaceSpline));
-          }
-
-          if (ev.prefabName == "Boss") {
-              if (auto boss = dynamic_cast<Boss*>(enemyPtr)) {
-                  boss->InitializeUI(engine_->GetSpriteRenderer());
-                  boss->SetCamera(railCamera_.get());
-                  boss->SetPlayer(player_.get());
-                  boss->GetTransform().scale = {10.0f, 10.0f, 10.0f}; // さらに巨大化
-
-                  boss->SetOnDyingUpdateCallback([this](const Vector3& pos) {
-                      if (!hasBossStartedDying_) {
-                          hasBossStartedDying_ = true;
-                          bossExplosionEmitter_->SetCenter(pos);
-                          bossExplosionEmitter_->Emit();
-                          SoundManager::GetInstance()->PlaySE("boss_explosion");
-                          if (railCamera_) railCamera_->Shake(1.5f, 0.4f);
-                      }
-                      bossDustEmitter_->SetCenter(pos);
-                      bossDustEmitter_->Update(); 
-                  });
-
-                  // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
-                  if (railCamera_) {
-                      railCamera_->SetSpeed(0.05f);
-                  }
-              }
-          }
-
-          // ボス撃破時はクリア画面へ移行するコールバックを登録
-          if (ev.prefabName == "Boss") {
-            newEnemy->SetOnDestroyedCallback([this](bool isSelfDestruct) {
-                gameState_ = GameState::Clear;
-                if (railCamera_) railCamera_->SetAutoMove(false);
-                UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
-            });
-          }
-
-          // カメラとオフセット、プレイヤー情報をセット
-          newEnemy->SetCamera(railCamera_.get());
-          newEnemy->SetPlayer(player_.get());
-          newEnemy->SetSpawnOffset(ev.spawnOffset);
-          // MoveTypeはプレハブから読み込まれるためここでは上書きしない
-
-          // Playモード時のみ実際の敵を生成
-          if (isPlayMode_) {
-            runtimeEnemies_.push_back(std::move(newEnemy));
-          }
-          ev.hasSpawned = true;
+        if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
+          enemyPtr->SetBehavior(std::make_unique<BehaviorSpline>(
+              loadedSplines_[ev.splineName], ev.splineDuration,
+              ev.isWorldSpaceSpline));
         }
+
+        if (ev.prefabName == "Boss") {
+          if (auto boss = dynamic_cast<Boss *>(enemyPtr)) {
+            boss->InitializeUI(engine_->GetSpriteRenderer());
+            boss->SetCamera(railCamera_.get());
+            boss->SetPlayer(player_.get());
+            boss->GetTransform().scale = {10.0f, 10.0f, 10.0f}; // さらに巨大化
+
+            boss->SetOnDyingUpdateCallback([this](const Vector3 &pos) {
+              if (!hasBossStartedDying_) {
+                hasBossStartedDying_ = true;
+                bossExplosionEmitter_->SetCenter(pos);
+                bossExplosionEmitter_->Emit();
+                SoundManager::GetInstance()->PlaySE("boss_explosion");
+                if (railCamera_)
+                  railCamera_->Shake(1.5f, 0.4f);
+              }
+              bossDustEmitter_->SetCenter(pos);
+              bossDustEmitter_->Update();
+            });
+
+            // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
+            if (railCamera_) {
+              railCamera_->SetSpeed(0.05f);
+            }
+          }
+        }
+
+        // ボス撃破時はクリア画面へ移行するコールバックを登録
+        if (ev.prefabName == "Boss") {
+          newEnemy->SetOnDestroyedCallback([this](bool isSelfDestruct) {
+            gameState_ = GameState::Clear;
+            if (railCamera_)
+              railCamera_->SetAutoMove(false);
+            UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+
+            if (auto scoreNode =
+                    UIManager::GetInstance()->GetNodeByName("ScoreText")) {
+              if (player_) {
+                char scoreBuf[64];
+                snprintf(scoreBuf, sizeof(scoreBuf), "SCORE: %06d",
+                         player_->GetScore());
+                scoreNode->textString = scoreBuf;
+              }
+            }
+          });
+        }
+
+        // カメラとオフセット、プレイヤー情報をセット
+        newEnemy->SetCamera(railCamera_.get());
+        newEnemy->SetPlayer(player_.get());
+        newEnemy->SetSpawnOffset(ev.spawnOffset);
+
+        auto prevCallback = newEnemy->GetOnDestroyedCallback();
+        newEnemy->SetOnDestroyedCallback(
+            [this, prevCallback](bool isSelfDestruct) {
+              if (!isSelfDestruct) {
+                if (player_) {
+                  player_->AddScore(100);
+                }
+              }
+              if (prevCallback) {
+                prevCallback(isSelfDestruct);
+              }
+            });
+
+        // Playモード時のみ実際の敵を生成
+        if (isPlayMode_) {
+          runtimeEnemies_.push_back(std::move(newEnemy));
+        }
+        ev.hasSpawned = true;
       }
     }
+  }
 
   // 基底クラスにも現在のアクティブカメラを教える（Gizmo描画などで使うため）
   SetActiveCamera(const_cast<ICamera *>(activeCamera));
@@ -523,16 +574,18 @@ void GamePlayScene::Update() {
 
   // LockOn用にPlayerに対象リストを渡す（毎回最新の状態を渡す）
   // 死亡済みの敵は除外してダングリングポインタを渡さないようにする
-  std::vector<BaseActor*> lockOnTargets;
+  std::vector<BaseActor *> lockOnTargets;
   for (auto &e : runtimeEnemies_) {
     if (!e->IsDead()) {
       lockOnTargets.push_back(e.get());
     }
   }
-  
+
   // 敵の弾（ロックオン対象としてタグ付けされたもの）もリストに加える
-  std::vector<BaseActor*> bulletTargets = ActorManager::GetInstance()->FindActorsWithTag("LockOnTarget");
-  lockOnTargets.insert(lockOnTargets.end(), bulletTargets.begin(), bulletTargets.end());
+  std::vector<BaseActor *> bulletTargets =
+      ActorManager::GetInstance()->FindActorsWithTag("LockOnTarget");
+  lockOnTargets.insert(lockOnTargets.end(), bulletTargets.begin(),
+                       bulletTargets.end());
 
   if (player_) {
     player_->SetLockOnTargets(lockOnTargets);
@@ -540,11 +593,12 @@ void GamePlayScene::Update() {
 
   // 死亡済みの敵を削除（デストラクタ内でコライダーも自動登録解除される）
   if (shouldUpdateWorld) {
-    runtimeEnemies_.erase(
-      std::remove_if(runtimeEnemies_.begin(), runtimeEnemies_.end(),
-        [](const std::unique_ptr<Enemy>& e) { return e->IsDead(); }),
-      runtimeEnemies_.end()
-    );
+    runtimeEnemies_.erase(std::remove_if(runtimeEnemies_.begin(),
+                                         runtimeEnemies_.end(),
+                                         [](const std::unique_ptr<Enemy> &e) {
+                                           return e->IsDead();
+                                         }),
+                          runtimeEnemies_.end());
   }
 
   // アクティブカメラを描画で使用する
@@ -563,11 +617,12 @@ void GamePlayScene::Update() {
     metallicObject_->Update();
   }
 
+  //===========================================
   // プレイヤーの更新
+  //===========================================
+
   if (player_) {
     // プレイヤーの照準や挙動の計算には常にレールカメラを使用する
-    // GameState::Play
-    // 以外の時（クリア後など）は操作を受け付けないようにUpdateTransformのみ呼ぶ
     if (shouldUpdateWorld) {
       player_->Update();
     } else {
@@ -612,7 +667,6 @@ void GamePlayScene::Update() {
     ImGui::EndMainMenuBar();
   }
 
-
   //=========================
   // Hierarchy ウィンドウ
   //=========================
@@ -620,13 +674,16 @@ void GamePlayScene::Update() {
   ImGui::Text("Scene Objects");
   ImGui::Separator();
 
-  if (ImGui::Selectable("Player", currentSelectType_ == EditorSelectType::Player)) {
+  if (ImGui::Selectable("Player",
+                        currentSelectType_ == EditorSelectType::Player)) {
     currentSelectType_ = EditorSelectType::Player;
   }
-  if (ImGui::Selectable("Environment", currentSelectType_ == EditorSelectType::Environment)) {
+  if (ImGui::Selectable("Environment",
+                        currentSelectType_ == EditorSelectType::Environment)) {
     currentSelectType_ = EditorSelectType::Environment;
   }
-  if (ImGui::Selectable("Effect (Shockwave)", currentSelectType_ == EditorSelectType::Effect)) {
+  if (ImGui::Selectable("Effect (Shockwave)",
+                        currentSelectType_ == EditorSelectType::Effect)) {
     currentSelectType_ = EditorSelectType::Effect;
   }
   ImGui::Separator();
@@ -677,17 +734,22 @@ void GamePlayScene::Update() {
   }
 
   ImGui::Spacing();
-  if (ImGui::TreeNodeEx("Prefabs (Master Data)", ImGuiTreeNodeFlags_DefaultOpen)) {
+  if (ImGui::TreeNodeEx("Prefabs (Master Data)",
+                        ImGuiTreeNodeFlags_DefaultOpen)) {
     if (std::filesystem::exists("resources/prefabs")) {
-      for (const auto& entry : std::filesystem::directory_iterator("resources/prefabs")) {
+      for (const auto &entry :
+           std::filesystem::directory_iterator("resources/prefabs")) {
         if (entry.path().extension() == ".prefab") {
           std::string name = entry.path().stem().string();
-          bool isSelected = (currentSelectType_ == EditorSelectType::Prefab && selectedPrefabName_ == name);
+          bool isSelected = (currentSelectType_ == EditorSelectType::Prefab &&
+                             selectedPrefabName_ == name);
           if (ImGui::Selectable(name.c_str(), isSelected)) {
             currentSelectType_ = EditorSelectType::Prefab;
             if (selectedPrefabName_ != name) {
               selectedPrefabName_ = name;
-              tempPrefabEditEnemy_ = PrefabManager::GetInstance()->InstantiateEnemy(name, Transform());
+              tempPrefabEditEnemy_ =
+                  PrefabManager::GetInstance()->InstantiateEnemy(name,
+                                                                 Transform());
             }
           }
         }
@@ -725,48 +787,76 @@ void GamePlayScene::Update() {
     ImGui::Separator();
     if (player_) {
       bool isDirty = player_->IsActionConfigDirty();
-      
+
       if (isDirty) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 1.0f)); // 警告色（オレンジ）
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(
+            ImGuiCol_Button,
+            ImVec4(0.8f, 0.6f, 0.0f, 1.0f)); // 警告色（オレンジ）
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                              ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                              ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
       }
-      
-      std::string buttonText = isDirty ? (const char*)u8"[* 未保存] Save Config" : (const char*)u8"Save Config";
-      if (ImGui::Button(buttonText.c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+
+      std::string buttonText = isDirty
+                                   ? (const char *)u8"[* 未保存] Save Config"
+                                   : (const char *)u8"Save Config";
+      if (ImGui::Button(buttonText.c_str(),
+                        ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
         player_->SaveActionConfig();
         isDirty = false;
       }
-      
+
       if (isDirty) {
         ImGui::PopStyleColor(3);
       }
-      
+
       ImGui::Spacing();
-      
-      auto& config = player_->GetActionConfig();
+
+      auto &config = player_->GetActionConfig();
       bool changed = false;
-      
-      changed |= ImGui::SliderFloat((const char*)u8"ロックオンの吸いつき範囲", &config.lockOnRadius, 10.0f, 500.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾のスピード", &config.homingSpeed, 0.1f, 5.0f);
-      changed |= ImGui::SliderInt((const char*)u8"追尾を開始するまでのフレーム", &config.homingFallTime, 0, 300);
-      changed |= ImGui::SliderFloat((const char*)u8"追尾のカーブの鋭さ", &config.homingStrengthIncrease, 0.001f, 0.1f);
-      changed |= ImGui::SliderFloat((const char*)u8"旋回力（追尾力）", &config.homingStrengthMax, 0.01f, 1.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の左右拡散幅", &config.homingSpreadX, 0.0f, 2.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の上方初速", &config.homingSpeedY, 0.0f, 5.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ホーミング弾の前方初速", &config.homingSpeedZ, 0.0f, 5.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"照準の加速度", &config.reticleAcceleration, 0.1f, 10.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"照準の摩擦力", &config.reticleFriction, 0.5f, 0.99f);
-      changed |= ImGui::SliderFloat((const char*)u8"照準の最高速度", &config.reticleMaxSpeed, 1.0f, 100.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ロール（バンク）の強さ", &config.rollStrength, 0.0f, 20.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ピッチ（上下）の追従強度", &config.pitchStrength, 0.0f, 10.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ヨー（首振り）の追従強度", &config.yawStrength, 0.0f, 10.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ロールの補間速度（Lerp）", &config.rollLerp, 0.01f, 1.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ピッチの補間速度（Lerp）", &config.pitchLerp, 0.01f, 1.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"ヨーの補間速度（Lerp）", &config.yawLerp, 0.01f, 1.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"通常弾のスピード", &config.normalShotSpeed, 1.0f, 50.0f);
-      changed |= ImGui::SliderFloat((const char*)u8"射撃の反動の強さ", &config.recoilStrength, 0.0f, 1.0f);
-      
+
+      changed |= ImGui::SliderFloat((const char *)u8"ロックオンの吸いつき範囲",
+                                    &config.lockOnRadius, 10.0f, 500.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ホーミング弾のスピード",
+                                    &config.homingSpeed, 0.1f, 5.0f);
+      changed |=
+          ImGui::SliderInt((const char *)u8"追尾を開始するまでのフレーム",
+                           &config.homingFallTime, 0, 300);
+      changed |=
+          ImGui::SliderFloat((const char *)u8"追尾のカーブの鋭さ",
+                             &config.homingStrengthIncrease, 0.001f, 0.1f);
+      changed |= ImGui::SliderFloat((const char *)u8"旋回力（追尾力）",
+                                    &config.homingStrengthMax, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ホーミング弾の左右拡散幅",
+                                    &config.homingSpreadX, 0.0f, 2.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ホーミング弾の上方初速",
+                                    &config.homingSpeedY, 0.0f, 5.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ホーミング弾の前方初速",
+                                    &config.homingSpeedZ, 0.0f, 5.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"照準の加速度",
+                                    &config.reticleAcceleration, 0.1f, 10.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"照準の摩擦力",
+                                    &config.reticleFriction, 0.5f, 0.99f);
+      changed |= ImGui::SliderFloat((const char *)u8"照準の最高速度",
+                                    &config.reticleMaxSpeed, 1.0f, 100.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ロール（バンク）の強さ",
+                                    &config.rollStrength, 0.0f, 20.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ピッチ（上下）の追従強度",
+                                    &config.pitchStrength, 0.0f, 10.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ヨー（首振り）の追従強度",
+                                    &config.yawStrength, 0.0f, 10.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ロールの補間速度（Lerp）",
+                                    &config.rollLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ピッチの補間速度（Lerp）",
+                                    &config.pitchLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"ヨーの補間速度（Lerp）",
+                                    &config.yawLerp, 0.01f, 1.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"通常弾のスピード",
+                                    &config.normalShotSpeed, 1.0f, 50.0f);
+      changed |= ImGui::SliderFloat((const char *)u8"射撃の反動の強さ",
+                                    &config.recoilStrength, 0.0f, 1.0f);
+
       if (changed) {
         player_->SetActionConfigDirty(true);
       }
@@ -866,15 +956,16 @@ void GamePlayScene::Update() {
     // プレハブのコンボボックス
     std::vector<std::string> availablePrefabs;
     if (std::filesystem::exists("resources/prefabs")) {
-      for (const auto& entry : std::filesystem::directory_iterator("resources/prefabs")) {
+      for (const auto &entry :
+           std::filesystem::directory_iterator("resources/prefabs")) {
         if (entry.path().extension() == ".prefab") {
           availablePrefabs.push_back(entry.path().stem().string());
         }
       }
     }
-    
+
     if (ImGui::BeginCombo("Prefab", ev.prefabName.c_str())) {
-      for (const auto& pName : availablePrefabs) {
+      for (const auto &pName : availablePrefabs) {
         bool isSelected = (ev.prefabName == pName);
         if (ImGui::Selectable(pName.c_str(), isSelected)) {
           if (ev.prefabName != pName) {
@@ -894,7 +985,9 @@ void GamePlayScene::Update() {
     }
 
     // レール選択コンボボックス
-    if (ImGui::BeginCombo("Rail Spline", ev.splineName.empty() ? "None (Straight)" : ev.splineName.c_str())) {
+    if (ImGui::BeginCombo("Rail Spline", ev.splineName.empty()
+                                             ? "None (Straight)"
+                                             : ev.splineName.c_str())) {
       // 「なし」を選択できるようにする
       bool isNoneSelected = ev.splineName.empty();
       if (ImGui::Selectable("None (Straight)", isNoneSelected)) {
@@ -908,8 +1001,8 @@ void GamePlayScene::Update() {
       }
 
       // ロード済みのスプラインを一覧表示
-      for (const auto& pair : loadedSplines_) {
-        const std::string& sName = pair.first;
+      for (const auto &pair : loadedSplines_) {
+        const std::string &sName = pair.first;
         bool isSelected = (ev.splineName == sName);
         if (ImGui::Selectable(sName.c_str(), isSelected)) {
           if (ev.splineName != sName) {
@@ -926,7 +1019,8 @@ void GamePlayScene::Update() {
 
     // レールが選択されている場合のみ、時間と座標系の設定を表示
     if (!ev.splineName.empty()) {
-      if (ImGui::SliderFloat("Rail Duration (sec)", &ev.splineDuration, 0.5f, 30.0f, "%.1f")) {
+      if (ImGui::SliderFloat("Rail Duration (sec)", &ev.splineDuration, 0.5f,
+                             30.0f, "%.1f")) {
         // ドラッグ中は都度保存はしないが、離した時にセーブされるようにする
       }
       if (ImGui::IsItemDeactivatedAfterEdit()) {
@@ -940,9 +1034,9 @@ void GamePlayScene::Update() {
 
     if (railCamera_) {
       Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
-      Vector3 nextPos = railCamera_->CalcPosition(
-          std::min(ev.spawnTime + 0.01f,
-                   static_cast<float>(railCamera_->GetWaypointsRef().size() - 1)));
+      Vector3 nextPos = railCamera_->CalcPosition(std::min(
+          ev.spawnTime + 0.01f,
+          static_cast<float>(railCamera_->GetWaypointsRef().size() - 1)));
       Vector3 forwardDir = {nextPos.x - camPos.x, nextPos.y - camPos.y,
                             nextPos.z - camPos.z};
       forwardDir = SafeNormalize(forwardDir);
@@ -952,26 +1046,32 @@ void GamePlayScene::Update() {
 
       Vector3 camRot = {0.0f, 0.0f, 0.0f};
       camRot.y = std::atan2(forwardDir.x, forwardDir.z);
-      float xzLen = std::sqrt(forwardDir.x * forwardDir.x +
-                              forwardDir.z * forwardDir.z);
+      float xzLen =
+          std::sqrt(forwardDir.x * forwardDir.x + forwardDir.z * forwardDir.z);
       camRot.x = std::atan2(-forwardDir.y, xzLen) + 0.1f;
 
-      Matrix4x4 camWorld = MakeAffineMatrix({1.0f, 1.0f, 1.0f}, camRot, camTrans);
+      Matrix4x4 camWorld =
+          MakeAffineMatrix({1.0f, 1.0f, 1.0f}, camRot, camTrans);
       Vector3 right = {camWorld.m[0][0], camWorld.m[0][1], camWorld.m[0][2]};
       Vector3 up = {camWorld.m[1][0], camWorld.m[1][1], camWorld.m[1][2]};
       Vector3 forward = {camWorld.m[2][0], camWorld.m[2][1], camWorld.m[2][2]};
       Vector3 camActualPos = {camWorld.m[3][0], camWorld.m[3][1],
                               camWorld.m[3][2]};
 
-      Vector3 worldPos = camActualPos + 
-                         Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x, right.z * ev.spawnOffset.x} +
-                         Vector3{up.x * ev.spawnOffset.y, up.y * ev.spawnOffset.y, up.z * ev.spawnOffset.y} +
-                         Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z, forward.z * ev.spawnOffset.z};
+      Vector3 worldPos =
+          camActualPos +
+          Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x,
+                  right.z * ev.spawnOffset.x} +
+          Vector3{up.x * ev.spawnOffset.y, up.y * ev.spawnOffset.y,
+                  up.z * ev.spawnOffset.y} +
+          Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z,
+                  forward.z * ev.spawnOffset.z};
 
       ImGui::Spacing();
-      ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x, worldPos.y, worldPos.z);
+      ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x,
+                          worldPos.y, worldPos.z);
     }
-    
+
     // MoveType はプレハブ側の設定に移動したため、ここには表示しない
 
     if (editFinished) {
@@ -987,41 +1087,38 @@ void GamePlayScene::Update() {
           std::make_unique<CmdDeleteSpawnEvent>(this,
                                                 selectedSpawnEventIndex_));
     }
-  } else if (currentSelectType_ == EditorSelectType::Prefab && tempPrefabEditEnemy_) {
+  } else if (currentSelectType_ == EditorSelectType::Prefab &&
+             tempPrefabEditEnemy_) {
     ImGui::Text("Prefab Master Settings: %s", selectedPrefabName_.c_str());
     ImGui::Separator();
-    
+
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.5f, 0.5f, 1.0f));
     ImGui::PopStyleColor();
     ImGui::Spacing();
 
     bool changed = false;
-    
+
     int hp = tempPrefabEditEnemy_->GetHP();
     if (ImGui::InputInt("HP (体力)", &hp)) {
-      if (hp < 1) hp = 1;
+      if (hp < 1)
+        hp = 1;
       tempPrefabEditEnemy_->SetHP(hp);
       changed = true;
     }
-    
+
     float speed = tempPrefabEditEnemy_->GetSpeed();
     if (ImGui::DragFloat("Speed (移動速度)", &speed, 0.01f, 0.0f, 10.0f)) {
       tempPrefabEditEnemy_->SetSpeed(speed);
       changed = true;
     }
 
-    const char* moveTypes[] = {
-      "Straight (直進)", 
-      "Parallel (平行移動)", 
-      "SineWave (波打ち)", 
-      "Stationary (静止)", 
-      "Fighter (戦闘機)", 
-      "Meteor (メテオ突撃)", 
-      "Strafe (画面横断)", 
-      "Turret (固定砲台)"
-    };
+    const char *moveTypes[] = {"Straight (直進)",   "Parallel (平行移動)",
+                               "SineWave (波打ち)", "Stationary (静止)",
+                               "Fighter (戦闘機)",  "Meteor (メテオ突撃)",
+                               "Strafe (画面横断)", "Turret (固定砲台)"};
     int currentMoveType = static_cast<int>(tempPrefabEditEnemy_->GetMoveType());
-    if (ImGui::Combo("Move Type (行動パターン)", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
+    if (ImGui::Combo("Move Type (行動パターン)", &currentMoveType, moveTypes,
+                     IM_ARRAYSIZE(moveTypes))) {
       tempPrefabEditEnemy_->SetMoveType(static_cast<MoveType>(currentMoveType));
       changed = true;
     }
@@ -1033,10 +1130,12 @@ void GamePlayScene::Update() {
     }
 
     ImGui::Spacing();
-    
+
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
-    if (ImGui::Button((const char*)u8"Save Prefab (上書き保存)", ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
-      PrefabManager::GetInstance()->SavePrefab(selectedPrefabName_, tempPrefabEditEnemy_.get());
+    if (ImGui::Button((const char *)u8"Save Prefab (上書き保存)",
+                      ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+      PrefabManager::GetInstance()->SavePrefab(selectedPrefabName_,
+                                               tempPrefabEditEnemy_.get());
     }
     ImGui::PopStyleColor();
   } else {
@@ -1238,8 +1337,8 @@ void GamePlayScene::DrawEditorUI() {
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
     if (ImGui::Button(" [ KILL BOSS ] ")) {
-      for (auto& enemy : runtimeEnemies_) {
-        if (Boss* boss = dynamic_cast<Boss*>(enemy.get())) {
+      for (auto &enemy : runtimeEnemies_) {
+        if (Boss *boss = dynamic_cast<Boss *>(enemy.get())) {
           boss->TakeDamage(99999);
         }
       }
@@ -1494,12 +1593,14 @@ void GamePlayScene::Draw3D() {
   CollisionManager::GetInstance()->DrawDebug();
 
   // 選択中の敵レールのデバッグ描画
-  if (currentSelectType_ == EditorSelectType::SpawnEvent && selectedSpawnEventIndex_ >= 0 && selectedSpawnEventIndex_ < spawnEvents_.size()) {
-    const auto& ev = spawnEvents_[selectedSpawnEventIndex_];
+  if (currentSelectType_ == EditorSelectType::SpawnEvent &&
+      selectedSpawnEventIndex_ >= 0 &&
+      selectedSpawnEventIndex_ < spawnEvents_.size()) {
+    const auto &ev = spawnEvents_[selectedSpawnEventIndex_];
     if (!ev.splineName.empty()) {
       auto it = loadedSplines_.find(ev.splineName);
       if (it != loadedSplines_.end()) {
-        const auto& points = it->second;
+        const auto &points = it->second;
         if (points.size() >= 2) {
           Vector4 orange = {1.0f, 0.5f, 0.0f, 1.0f};
           Vector3 cameraPos = {0, 0, 0};
@@ -1519,20 +1620,32 @@ void GamePlayScene::Draw3D() {
             Vector3 p1 = points[i + 1];
 
             if (!ev.isWorldSpaceSpline) {
-              Vector3 local0 = { p0.x + ev.spawnOffset.x, p0.y + ev.spawnOffset.y, p0.z + ev.spawnOffset.z };
-              Vector3 local1 = { p1.x + ev.spawnOffset.x, p1.y + ev.spawnOffset.y, p1.z + ev.spawnOffset.z };
+              Vector3 local0 = {p0.x + ev.spawnOffset.x,
+                                p0.y + ev.spawnOffset.y,
+                                p0.z + ev.spawnOffset.z};
+              Vector3 local1 = {p1.x + ev.spawnOffset.x,
+                                p1.y + ev.spawnOffset.y,
+                                p1.z + ev.spawnOffset.z};
 
               p0 = cameraPos +
-                   Vector3{cameraRight.x * local0.x, cameraRight.y * local0.x, cameraRight.z * local0.x} +
-                   Vector3{cameraUp.x * local0.y, cameraUp.y * local0.y, cameraUp.z * local0.y} +
-                   Vector3{cameraForward.x * local0.z, cameraForward.y * local0.z, cameraForward.z * local0.z};
+                   Vector3{cameraRight.x * local0.x, cameraRight.y * local0.x,
+                           cameraRight.z * local0.x} +
+                   Vector3{cameraUp.x * local0.y, cameraUp.y * local0.y,
+                           cameraUp.z * local0.y} +
+                   Vector3{cameraForward.x * local0.z,
+                           cameraForward.y * local0.z,
+                           cameraForward.z * local0.z};
 
               p1 = cameraPos +
-                   Vector3{cameraRight.x * local1.x, cameraRight.y * local1.x, cameraRight.z * local1.x} +
-                   Vector3{cameraUp.x * local1.y, cameraUp.y * local1.y, cameraUp.z * local1.y} +
-                   Vector3{cameraForward.x * local1.z, cameraForward.y * local1.z, cameraForward.z * local1.z};
+                   Vector3{cameraRight.x * local1.x, cameraRight.y * local1.x,
+                           cameraRight.z * local1.x} +
+                   Vector3{cameraUp.x * local1.y, cameraUp.y * local1.y,
+                           cameraUp.z * local1.y} +
+                   Vector3{cameraForward.x * local1.z,
+                           cameraForward.y * local1.z,
+                           cameraForward.z * local1.z};
             }
-            
+
             LineRenderer::GetInstance()->DrawLine(p0, p1, orange);
           }
         }
@@ -1546,8 +1659,10 @@ void GamePlayScene::Draw3D() {
   // パーティクルの更新と発生（ルートシグネチャが変わるため、3Dモデル描画後に）
   ParticleManager::GetInstance()->Update();
   if (activeCamera) {
-    bossExplosionParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
-    bossDustParticleGroup_->Update(activeCamera->GetViewMatrix(), activeCamera->GetProjectionMatrix());
+    bossExplosionParticleGroup_->Update(activeCamera->GetViewMatrix(),
+                                        activeCamera->GetProjectionMatrix());
+    bossDustParticleGroup_->Update(activeCamera->GetViewMatrix(),
+                                   activeCamera->GetProjectionMatrix());
   }
   ParticleManager::GetInstance()->Emit();
 
@@ -1581,17 +1696,6 @@ void GamePlayScene::Draw2D() {
 
 #ifdef USE_IMGUI
   if (gameState_ == GameState::Clear) {
-    ImGui::SetNextWindowPos(ImVec2(1280.0f / 2.0f, 720.0f / 2.0f),
-                            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Result UI", nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground |
-                     ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::SetWindowFontScale(4.0f);
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "STAGE CLEAR!");
-    ImGui::SetWindowFontScale(1.5f);
-    ImGui::Text("Press ENTER to return to Stage Select");
-    ImGui::End();
 
     // EnterでStageSelectSceneへ帰還
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
@@ -1599,18 +1703,6 @@ void GamePlayScene::Draw2D() {
       SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
     }
   } else if (gameState_ == GameState::GameOver) {
-    ImGui::SetNextWindowPos(ImVec2(1280.0f / 2.0f, 720.0f / 2.0f),
-                            ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::Begin("Game Over UI", nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBackground |
-                     ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_AlwaysAutoResize);
-    ImGui::SetWindowFontScale(4.0f);
-    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "GAME OVER");
-    ImGui::SetWindowFontScale(1.5f);
-    ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f),
-                       "Press ENTER to return to Stage Select");
-    ImGui::End();
 
     // EnterでStageSelectSceneへ帰還
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
@@ -1623,7 +1715,6 @@ void GamePlayScene::Draw2D() {
 
 void GamePlayScene::SaveLevel(const std::string &filename) {
   nlohmann::json root;
-  // (静的Enemyは廃止されたため、保存しない)
 
   nlohmann::json spawnEventsArray = nlohmann::json::array();
   for (auto &ev : spawnEvents_) {
@@ -1720,15 +1811,15 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       }
       // moveType は読まない（Prefab側で管理）
       if (evJson.contains("splineName")) {
-          ev.splineName = evJson["splineName"];
+        ev.splineName = evJson["splineName"];
       }
       if (evJson.contains("splineDuration")) {
-          ev.splineDuration = evJson["splineDuration"];
+        ev.splineDuration = evJson["splineDuration"];
       }
       if (evJson.contains("isWorldSpaceSpline")) {
-          ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
+        ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
       }
-      
+
       ev.hasSpawned = false;
       spawnEvents_.push_back(ev);
     }
@@ -1767,7 +1858,9 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
         }
       }
     } catch (const nlohmann::json::parse_error &e) {
-      Logger::Log(std::string("[GamePlayScene] camera_rail.json parse error: ") + e.what());
+      Logger::Log(
+          std::string("[GamePlayScene] camera_rail.json parse error: ") +
+          e.what());
     }
   }
 }
@@ -1782,19 +1875,20 @@ void GamePlayScene::SpawnSceneObject(const std::string &modelPath,
 }
 
 // TransformCoordヘルパー関数を定義
-static Vector3 TransformCoord(const Vector3& v, const Matrix4x4& m) {
-    float w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
-    Vector3 result{
-        (v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0]) / w,
-        (v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1]) / w,
-        (v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2]) / w
-    };
-    return result;
+static Vector3 TransformCoord(const Vector3 &v, const Matrix4x4 &m) {
+  float w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
+  Vector3 result{
+      (v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0]) / w,
+      (v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1]) / w,
+      (v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2]) / w};
+  return result;
 }
 
-static Vector3 CalculateDropPosition(ICamera* currentCamera, const Vector2& ndcPos) {
+static Vector3 CalculateDropPosition(ICamera *currentCamera,
+                                     const Vector2 &ndcPos) {
   Vector3 spawnPos = {0.0f, 0.0f, 0.0f};
-  if (!currentCamera) return spawnPos;
+  if (!currentCamera)
+    return spawnPos;
 
   Matrix4x4 vpMatrix = currentCamera->GetViewProjectionMatrix();
   Matrix4x4 invVP = Inverse(vpMatrix);
@@ -1811,17 +1905,18 @@ static Vector3 CalculateDropPosition(ICamera* currentCamera, const Vector2& ndcP
   // エディタカメラの注視点（Pivot）の代用として、
   // 常にカメラの前方（一定距離）の空間に配置する。
   float defaultDepth = 50.0f;
-  
+
   // レイの方向に一定距離進んだ位置をスポーン座標とする
   spawnPos = rayOrigin + rayDir * defaultDepth;
 
   return spawnPos;
 }
 
-void GamePlayScene::OnFileDropped(const std::string &filePath, const Vector2& ndcPos) {
-  ICamera* currentCamera = GetActiveCamera();
+void GamePlayScene::OnFileDropped(const std::string &filePath,
+                                  const Vector2 &ndcPos) {
+  ICamera *currentCamera = GetActiveCamera();
   if (currentCamera == nullptr) {
-      currentCamera = railCamera_.get();
+    currentCamera = railCamera_.get();
   }
 
   Vector3 spawnPos = CalculateDropPosition(currentCamera, ndcPos);
@@ -1829,35 +1924,37 @@ void GamePlayScene::OnFileDropped(const std::string &filePath, const Vector2& nd
 
   currentSelectType_ = EditorSelectType::SceneObject;
   selectedSceneObjectIndex_ = static_cast<int>(sceneObjects_.size() - 1);
-  
+
   OnDragHoverEnd(); // ドロップ完了時にプレビューを消す
 }
 
-void GamePlayScene::OnDragHovering(const std::string &filePath, const Vector2& ndcPos) {
-  ICamera* currentCamera = GetActiveCamera();
+void GamePlayScene::OnDragHovering(const std::string &filePath,
+                                   const Vector2 &ndcPos) {
+  ICamera *currentCamera = GetActiveCamera();
   if (currentCamera == nullptr) {
-      currentCamera = railCamera_.get();
+    currentCamera = railCamera_.get();
   }
 
   Vector3 spawnPos = CalculateDropPosition(currentCamera, ndcPos);
 
   if (previewModelPath_ != filePath || !previewObject_) {
-      previewObject_ = std::make_unique<Object3d>();
-      previewObject_->Initialize(engine_->GetObject3dRenderer());
-      previewObject_->SetModel(filePath);
-      previewModelPath_ = filePath;
+    previewObject_ = std::make_unique<Object3d>();
+    previewObject_->Initialize(engine_->GetObject3dRenderer());
+    previewObject_->SetModel(filePath);
+    previewModelPath_ = filePath;
   }
 
   previewObject_->SetTranslation(spawnPos);
-  previewObject_->Update(); // ワールド行列の更新（これがないと原点に描画されてしまう）
-  
+  previewObject_
+      ->Update(); // ワールド行列の更新（これがないと原点に描画されてしまう）
+
   isPreviewHovering_ = true;
 }
 
 void GamePlayScene::OnDragHoverEnd() {
   if (previewObject_) {
-      previewObject_.reset();
-      previewModelPath_ = "";
+    previewObject_.reset();
+    previewModelPath_ = "";
   }
   isPreviewHovering_ = false;
 }
@@ -1865,29 +1962,30 @@ void GamePlayScene::LoadSplines() {
   loadedSplines_.clear();
   std::ifstream splineFile("resources/levels/splines.json");
   if (splineFile.is_open()) {
-      nlohmann::json root;
-      try {
-          splineFile >> root;
-          if (root.contains("rails") && root["rails"].is_array()) {
-              for (const auto& rail : root["rails"]) {
-                  std::string name = rail["name"];
-                  std::vector<Vector3> pts;
-                  for (const auto& p : rail["points"]) {
-                      // floatへの変換を安全に行うため get<double>() などで受けてキャスト
-                      pts.push_back({
-                          static_cast<float>(p[0].get<double>()),
-                          static_cast<float>(p[1].get<double>()),
-                          static_cast<float>(p[2].get<double>())
-                      });
-                  }
-                  loadedSplines_[name] = pts;
-              }
-              Logger::Log("Successfully loaded " + std::to_string(loadedSplines_.size()) + " splines from splines.json\n");
+    nlohmann::json root;
+    try {
+      splineFile >> root;
+      if (root.contains("rails") && root["rails"].is_array()) {
+        for (const auto &rail : root["rails"]) {
+          std::string name = rail["name"];
+          std::vector<Vector3> pts;
+          for (const auto &p : rail["points"]) {
+            // floatへの変換を安全に行うため get<double>() などで受けてキャスト
+            pts.push_back({static_cast<float>(p[0].get<double>()),
+                           static_cast<float>(p[1].get<double>()),
+                           static_cast<float>(p[2].get<double>())});
           }
-      } catch (const std::exception& e) {
-          Logger::Log(std::string("Failed to parse splines.json: ") + e.what() + "\n");
+          loadedSplines_[name] = pts;
+        }
+        Logger::Log("Successfully loaded " +
+                    std::to_string(loadedSplines_.size()) +
+                    " splines from splines.json\n");
       }
+    } catch (const std::exception &e) {
+      Logger::Log(std::string("Failed to parse splines.json: ") + e.what() +
+                  "\n");
+    }
   } else {
-      Logger::Log("Failed to open resources/levels/splines.json\n");
+    Logger::Log("Failed to open resources/levels/splines.json\n");
   }
 }

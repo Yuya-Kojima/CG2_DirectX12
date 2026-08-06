@@ -69,6 +69,39 @@
             "textString": "Press ENTER to return to Stage Select",
             "textureName": "",
             "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.0,
+                0.0
+            ],
+            "children": [],
+            "color": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "focusedColor": [
+                1.0,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "fontName": "MPLUS1p-Black",
+            "isSelectable": false,
+            "name": "ScoreText",
+            "position": [
+                450.0,
+                315.0
+            ],
+            "scale": [
+                1.0,
+                1.0
+            ],
+            "textString": "SCORE: 0",
+            "textureName": "",
+            "type": 1
         }
     ],
     "color": [
