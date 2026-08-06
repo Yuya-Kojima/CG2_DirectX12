@@ -1,17 +1,17 @@
 #include "Actor/Enemy.h"
+#include "Actor/Player.h"
+#include "Behavior/IEnemyBehavior.h"
 #include "Camera/ICamera.h"
 #include "Camera/RailCamera.h"
-#include "Effect/EffectManager.h"
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
+#include "Debug/Logger.h"
+#include "Effect/EffectManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
 #include "Render/Particle/IParticleEmitter.h"
-#include "Behavior/IEnemyBehavior.h"
 #include "Render/Particle/ParticleEmitter.h"
 #include "Render/Particle/ParticleManager.h"
-#include "Actor/Player.h" 
-#include "Debug/Logger.h"
 #include <cmath>
 
 Enemy::Enemy() = default;
@@ -25,7 +25,8 @@ Enemy::~Enemy() {
 void Enemy::Initialize() {
   // 敵のコライダーの初期化
   collider_ = std::make_unique<SphereCollider>(this);
-  collider_->SetRadius(0.8f); // 敵の当たり判定の大きさをモデルより少し小さめに設定
+  collider_->SetRadius(
+      0.8f); // 敵の当たり判定の大きさをモデルより少し小さめに設定
   collider_->SetAttribute(kCollisionAttributeEnemy); // 自機から見て「敵」
   collider_->SetMask(kCollisionAttributePlayer |
                      kCollisionAttributePlayerBullet); // 自機や自機の弾と当たる
@@ -43,7 +44,7 @@ void Enemy::Update() {
 
   // --- カメラ基準値の毎フレーム更新 ---
   if (camera_) {
-    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+    if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
       basePos_ = railCam->GetRailPosition();
       baseForward_ = railCam->GetRailForward();
       baseRight_ = railCam->GetRailRight();
@@ -73,19 +74,17 @@ void Enemy::Update() {
       model_->SetColor(baseColor_); // 元の色
     }
   }
-    // モデルの更新
-    UpdateTransform();
+  // モデルの更新
+  UpdateTransform();
 
-    // 連続衝突判定用に速度を計算してコライダーに渡す
-    if (collider_) {
-      Vector3 velocity = {
-          transform_.translate.x - previousPos_.x,
-          transform_.translate.y - previousPos_.y,
-          transform_.translate.z - previousPos_.z
-      };
-      collider_->SetVelocity(velocity);
-    }
-    previousPos_ = transform_.translate;
+  // 連続衝突判定用に速度を計算してコライダーに渡す
+  if (collider_) {
+    Vector3 velocity = {transform_.translate.x - previousPos_.x,
+                        transform_.translate.y - previousPos_.y,
+                        transform_.translate.z - previousPos_.z};
+    collider_->SetVelocity(velocity);
+  }
+  previousPos_ = transform_.translate;
 }
 
 void Enemy::UpdateTransform() {
@@ -107,8 +106,8 @@ void Enemy::Draw3D() {
 
 void Enemy::OnCollision(Collider *other) {
   // プレイヤーと衝突した場合、自身もダメージを受けて自爆する
-  if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
-    Player* p = dynamic_cast<Player*>(other->GetOwner());
+  if (other->GetOwner() && dynamic_cast<Player *>(other->GetOwner())) {
+    Player *p = dynamic_cast<Player *>(other->GetOwner());
     if (p->GetInvincibleTimer() > 0) {
       return; // 無敵中なら食らわない
     }
@@ -128,15 +127,12 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
 
   if (hp_ <= 0) {
     Logger::Log("Enemy Destroyed!\n");
-    
-    // コールバック（ボス等の特別処理）が設定されていない、かつ自爆でない場合、自律的に爆発する
-    if (!onDestroyedCallback_ && !isSelfDestruct) {
-      EffectManager::GetInstance()->PlayEnemyDeathEffect(transform_.translate, baseColor_);
-      if (camera_) {
-        if (auto railCamera = dynamic_cast<const RailCamera*>(camera_)) {
-            const_cast<RailCamera*>(railCamera)->Shake(1.0f, 0.3f);
-        }
-      }
+
+    // 自爆でない場合、自律的に爆発する
+    if (!isSelfDestruct) {
+      // 死亡時エフェクト
+      EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(
+          transform_.translate, baseColor_);
     }
 
     if (onDestroyedCallback_) {
@@ -145,5 +141,3 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
     Destroy();
   }
 }
-
-

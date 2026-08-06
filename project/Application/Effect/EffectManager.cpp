@@ -152,6 +152,23 @@ void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 
   nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
 }
 
+void EffectManager::PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor) {
+  int i = nextHitEffectIndex_;
+  
+  // コア（しっかり見えるようにサイズを30に拡大）
+  deathCoreEmitters_[i]->SetBaseScale({30.0f, 30.0f, 30.0f});
+  deathCoreEmitters_[i]->SetCenter(worldPos);
+  deathCoreEmitters_[i]->Emit(baseColor);
+  
+  // フレア（敵のモデルより大きくなるようにサイズを2.5に拡大）
+  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f, baseColor.z * 2.0f, 1.0f};
+  deathFlareEmitters_[i]->SetBaseScale({2.5f, 2.5f, 2.5f});
+  deathFlareEmitters_[i]->SetCenter(worldPos);
+  deathFlareEmitters_[i]->Emit(flareColor);
+  
+  nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+}
+
 void EffectManager::PlayShockwave(const Vector3& worldPos) {
   if (activeShockwaves_.size() < 5) {
     activeShockwaves_.push_back({shockwaveConfig_.duration, worldPos});
