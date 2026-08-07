@@ -521,6 +521,7 @@ void GamePlayScene::Update() {
             if (auto scoreNode =
                     UIManager::GetInstance()->GetNodeByName("ScoreText")) {
               if (player_) {
+                player_->AddScore(10000); // ボス撃破スコアを加算
                 char scoreBuf[64];
                 snprintf(scoreBuf, sizeof(scoreBuf), "SCORE: %06d",
                          player_->GetScore());

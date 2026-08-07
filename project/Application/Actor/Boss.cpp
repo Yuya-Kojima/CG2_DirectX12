@@ -375,13 +375,11 @@ void Boss::TakeDamage(int damage, bool isSelfDestruct) {
   hitFlashTimer_ = 5;
 
   // フェーズ移行判定 (T-2)
-  if (phase_ == BossPhase::Phase1 && hp_ <= maxHp_ / 2) {
-    ChangePhase(BossPhase::Phase2);
-  }
-
   if (hp_ <= 0) {
     hp_ = 0;
     ChangePhase(BossPhase::Dying); // 即消滅ではなくDyingフェーズへ
+  } else if (phase_ == BossPhase::Phase1 && hp_ <= maxHp_ / 2) {
+    ChangePhase(BossPhase::Phase2);
   }
 }
 
@@ -402,8 +400,6 @@ void Boss::ChangePhase(BossPhase nextPhase) {
   } else if (phase_ == BossPhase::Defeated) {
     Logger::Log("Boss Defeated!\n");
     onDyingUpdateCallback_ = nullptr; // 塵の放出を止める
-    // スコア加算
-    GameManager::GetInstance()->AddScore(10000);
 
     if (onDestroyedCallback_) {
       onDestroyedCallback_(false);
