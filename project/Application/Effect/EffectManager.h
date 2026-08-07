@@ -33,6 +33,11 @@ public:
   /// </summary>
   void PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
 
+  /// <summary>
+  /// ザコ敵用のシンプルな撃破エフェクト（コアのみ）を発生させる
+  /// </summary>
+  void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
+
 private:
   EffectManager() = default;
   ~EffectManager() = default;

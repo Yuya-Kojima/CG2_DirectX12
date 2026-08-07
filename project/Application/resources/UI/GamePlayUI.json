@@ -1,0 +1,29 @@
+{
+    "name": "Canvas",
+    "type": 0,
+    "position": [0, 0],
+    "scale": [1, 1],
+    "anchorPoint": [0, 0],
+    "textString": "",
+    "fontName": "Roboto",
+    "color": [1, 1, 1, 1],
+    "textureName": "",
+    "isSelectable": false,
+    "focusedColor": [1, 1, 0, 1],
+    "children": [
+        {
+            "name": "HPBarImage",
+            "type": 2,
+            "position": [50.0, 680.0],
+            "scale": [300.0, 15.0],
+            "anchorPoint": [0.0, 0.5],
+            "textString": "",
+            "fontName": "Roboto",
+            "color": [0.0, 1.0, 0.0, 1.0],
+            "textureName": "resources/white1x1.png",
+            "isSelectable": false,
+            "focusedColor": [1, 1, 0, 1],
+            "children": []
+        }
+    ]
+}

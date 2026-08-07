@@ -3,9 +3,9 @@
 #include "Core/EngineBase.h"
 #include "Math/MathUtil.h"
 #include "Scene/BaseScene.h"
-#include <vector>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 class Sprite;
 class Object3d;
@@ -18,27 +18,23 @@ class PostProcess;
 class BillboardParticleEmitter;
 class MeshParticleEmitter;
 
-#include "Render/SkyBox/SkyBox.h"
-#include "Camera/RailCamera.h"
-#include "Actor/Player.h"
-#include "Actor/Enemy.h"
 #include "Actor/Boss.h"
+#include "Actor/Enemy.h"
+#include "Actor/Player.h"
+#include "Camera/RailCamera.h"
+#include "Render/SkyBox/SkyBox.h"
 
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
   Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
-  std::string splineName = "";               // 使用するレール名（空なら直線移動）
-  float splineDuration = 5.0f;               // レールを走り切る秒数
-  bool isWorldSpaceSpline = false;           // ワールド空間か、カメラローカル空間か
-  bool hasSpawned = false; // 実行管理用フラグ
+  std::string splineName = "";     // 使用するレール名（空なら直線移動）
+  float splineDuration = 5.0f;     // レールを走り切る秒数
+  bool isWorldSpaceSpline = false; // ワールド空間か、カメラローカル空間か
+  bool hasSpawned = false;         // 実行管理用フラグ
 };
 
-enum class GameState {
-  Play,
-  Clear,
-  GameOver
-};
+enum class GameState { Play, Clear, GameOver };
 
 class GamePlayScene : public BaseScene {
 
@@ -77,7 +73,7 @@ private: // メンバ変数(ゲーム用)
 
   // ダミー敵管理
   std::vector<std::unique_ptr<Enemy>> runtimeEnemies_;
-  std::vector<Enemy*> enemyPtrs_;
+  std::vector<Enemy *> enemyPtrs_;
 
   // ロード済みスプラインデータ (Blender JSON等から)
   std::unordered_map<std::string, std::vector<Vector3>> loadedSplines_;
@@ -96,7 +92,6 @@ private: // メンバ変数(ゲーム用)
 
   // 環境マッピング確認用オブジェクト
   std::unique_ptr<Object3d> metallicObject_ = nullptr;
-
 
   // ボス専用エミッター
   std::unique_ptr<BillboardParticleEmitter> bossExplosionParticleGroup_;
@@ -124,16 +119,20 @@ private: // メンバ変数(ゲーム用)
   int selectedWaypointIndex_ = -1;
   int selectedSceneObjectIndex_ = -1;
   int selectedSpawnEventIndex_ = -1;
-  
+
   // プレハブ編集用
   std::string selectedPrefabName_ = "";
   std::unique_ptr<Enemy> tempPrefabEditEnemy_ = nullptr;
 
+  // HPバー用
+  float hpBarBaseWidth_ = 0.0f;
+
 public: // Undo/Redo用アクセッサ
-  std::vector<SpawnEvent>& GetSpawnEvents() { return spawnEvents_; }
-  void SelectSpawnEvent(int index) { 
-    selectedSpawnEventIndex_ = index; 
-    currentSelectType_ = (index >= 0) ? EditorSelectType::SpawnEvent : EditorSelectType::None; 
+  std::vector<SpawnEvent> &GetSpawnEvents() { return spawnEvents_; }
+  void SelectSpawnEvent(int index) {
+    selectedSpawnEventIndex_ = index;
+    currentSelectType_ =
+        (index >= 0) ? EditorSelectType::SpawnEvent : EditorSelectType::None;
   }
 
 public: // メンバ関数
@@ -176,25 +175,27 @@ public: // メンバ関数
   /// エディタ用UIとGizmoの描画
   /// </summary>
   void DrawEditorUI() override;
-  void OnFileDropped(const std::string &filePath, const Vector2& ndcPos) override;
-  void OnDragHovering(const std::string &filePath, const Vector2& ndcPos) override;
+  void OnFileDropped(const std::string &filePath,
+                     const Vector2 &ndcPos) override;
+  void OnDragHovering(const std::string &filePath,
+                      const Vector2 &ndcPos) override;
   void OnDragHoverEnd() override;
 
   // Waypoint
   void AppendWaypoint(const Vector3 &pos);
 
 private:
-  void SpawnSceneObject(const std::string& modelPath, const Vector3& position);
+  void SpawnSceneObject(const std::string &modelPath, const Vector3 &position);
 
   /// <summary>
   /// レベルデータの読み込み
   /// </summary>
-  void LoadLevel(const std::string& filename = "level_editor.json");
+  void LoadLevel(const std::string &filename = "level_editor.json");
 
   /// <summary>
   /// レベルデータの保存
   /// </summary>
-  void SaveLevel(const std::string& filename = "level_editor.json");
+  void SaveLevel(const std::string &filename = "level_editor.json");
 
 private: // メンバ変数(システム用)
 private:
