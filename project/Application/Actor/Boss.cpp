@@ -27,16 +27,15 @@ void Boss::Initialize() {
   }
   SetHP(100);
   maxHp_ = 100;
-  chargeOffsetZ_ = 0.0f;
-  chargeStartOffsetZ_ = 0.0f;
-  chargeTargetOffsetZ_ = 0.0f;
   phase_ = BossPhase::Phase1;
   isDead_ = false;
 
+  currentState_ = BossState::Enter;
+  stateTimer_ = 0.0f;
+  startPos_ = {0.0f, 0.0f, 0.0f};
+  targetPos_ = {0.0f, 0.0f, 0.0f};
+
   aliveTime_ = 0.0f;
-  shotTimer_ = 0.0f;
-  actionTimer_ = 0.0f;
-  isCharging_ = false;
   dyingTimer_ = 0.0f;
 
   dissolveEnabled_ = false;
@@ -64,37 +63,7 @@ void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
 }
 
 void Boss::Update() {
-
   if (isDead_) {
-    return;
-  }
-
-  // --- Dyingフェーズ処理 ---
-  if (phase_ == BossPhase::Dying) {
-    dyingTimer_ += 1.0f / 60.0f;
-
-    // ディゾルブ進行
-    if (model_) {
-      if (!dissolveEnabled_ && dyingTimer_ > 0.0f) {
-        model_->SetEnableDissolve(true);
-        dissolveEnabled_ = true;
-      }
-      float progress = dyingTimer_ / dyingDuration_;
-      progress = std::min(progress, 1.0f);
-      model_->SetDissolveThreshold(progress);
-    }
-
-    // 塵パーティクルの位置更新
-    // ノイズテクスチャの最大値に合わせて、完全に消え去る少し前(0.6)にパーティクルの放出を止める
-    float progressForDust = dyingTimer_ / dyingDuration_;
-    if (onDyingUpdateCallback_ && progressForDust < 0.6f) {
-      onDyingUpdateCallback_(transform_.translate);
-    }
-
-    // 演出終了 → 完全消滅
-    if (dyingTimer_ >= dyingDuration_) {
-      ChangePhase(BossPhase::Defeated);
-    }
     return;
   }
 
@@ -105,220 +74,402 @@ void Boss::Update() {
       model_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤色に点滅
     }
   } else {
+    // 状態に応じたカラーの適用
     if (model_) {
-      model_->SetColor(baseColor_);
+      if (currentState_ == BossState::Telegraph) {
+        model_->SetColor({1.0f, 0.5f, 0.0f, 1.0f}); // 予兆時はオレンジ
+      } else {
+        model_->SetColor(baseColor_);
+      }
     }
   }
 
   aliveTime_ += 1.0f / 60.0f;
 
   if (phase_ == BossPhase::Phase1) {
-    // フェーズ1の動き: ゆっくりホバリング
-    if (!camera_)
-      return;
-    Vector3 cPos = camera_->GetTranslate();
-    Vector3 cRight = camera_->GetRight();
-    Vector3 cUp = camera_->GetUp();
-    Vector3 cForward = camera_->GetForward();
-    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-        cPos = railCam->GetRailPosition();
-        cRight = railCam->GetRailRight();
-        cUp = railCam->GetRailUp();
-        cForward = railCam->GetRailForward();
-    }
-    Vector3 center = cPos +
-                     cRight * spawnOffset_.x +
-                     cUp * spawnOffset_.y +
-                     cForward * spawnOffset_.z;
-
-    transform_.translate.x = center.x + std::sin(aliveTime_ * 0.5f) * 8.0f;
-    transform_.translate.y = center.y + std::cos(aliveTime_ * 0.8f) * 1.5f;
-    transform_.translate.z = center.z;
-
-    // プレイヤーの方向を向く
-    if (player_) {
-      Vector3 playerPos = player_->GetTransform().translate;
-      Vector3 dirToPlayer = {playerPos.x - transform_.translate.x,
-                             playerPos.y - transform_.translate.y,
-                             playerPos.z - transform_.translate.z};
-      transform_.rotate.y =
-          std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
-    }
-
-    // 3秒ごとに攻撃パターンを切り替えて撃つ（同時に異なる弾を撃つ理不尽を無くす）
-    shotTimer_ += 1.0f / 60.0f;
-    if (shotTimer_ >= 3.0f) {
-      shotTimer_ = 0.0f;
-      if (player_) {
-        Vector3 playerPos = player_->GetTransform().translate;
-        Vector3 myPos = transform_.translate;
-        Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
-                       playerPos.z - myPos.z};
-        float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-        if (dist > 0.001f) {
-          dir.x /= dist;
-          dir.y /= dist;
-          dir.z /= dist;
-          
-          auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
-            auto bullet = std::make_unique<EnemyBullet>();
-            bullet->Initialize(
-                PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
-                const_cast<Player *>(player_), type);
-            ActorManager::GetInstance()->AddActor(std::move(bullet));
-          };
-
-          // actionTimer_ をフラグ代わりにして、通常弾とミサイルを交互に撃つ
-          if (actionTimer_ == 0.0f) {
-            actionTimer_ = 1.0f;
-            // ターンA：通常弾のみを扇状にばら撒く（連打で迎撃するターン）
-            float normalSpeed = 0.5f;
-            for (int i = 0; i < 5; ++i) {
-              float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
-              Vector3 vel = {
-                  (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * normalSpeed,
-                  dir.y * normalSpeed,
-                  (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * normalSpeed};
-              spawnBullet(vel, EnemyBulletType::NormalDestructible);
-            }
-          } else {
-            actionTimer_ = 0.0f;
-            // ターンB：ロックオンミサイルのみを発射する（長押しで一掃するターン）
-            float missileSpeed = 3.0f; // 初速を爆発的に上げる
-            for (int i = 0; i < 3; ++i) {
-              float angle = (-60.0f + i * 60.0f) * (3.14159265f / 180.0f); // 角度を大きく広げて横に散らす
-              Vector3 missileVel = {
-                  (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
-                  dir.y * missileSpeed - 1.5f, // 下にも強く散らす
-                  (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
-              spawnBullet(missileVel, EnemyBulletType::LockOnDestructible);
-            }
-          }
-
-          if (camera_) {
-            auto railCam =
-                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
-            railCam->Shake(0.3f, 0.1f);
-          }
-        }
-      }
-    }
+    UpdatePhase1();
   } else if (phase_ == BossPhase::Phase2) {
-    // フェーズ2の動き: 激しいホバリング
-    if (!camera_)
-      return;
-    Vector3 cPos = camera_->GetTranslate();
-    Vector3 cRight = camera_->GetRight();
-    Vector3 cUp = camera_->GetUp();
-    Vector3 cForward = camera_->GetForward();
-    if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-        cPos = railCam->GetRailPosition();
-        cRight = railCam->GetRailRight();
-        cUp = railCam->GetRailUp();
-        cForward = railCam->GetRailForward();
-    }
-    Vector3 center = cPos +
-                     cRight * spawnOffset_.x +
-                     cUp * spawnOffset_.y +
-                     cForward * spawnOffset_.z;
-
-    transform_.translate.x = center.x + std::sin(aliveTime_ * 1.5f) * 12.0f;
-    transform_.translate.y = center.y + std::cos(aliveTime_ * 1.0f) * 2.0f;
-    transform_.translate.z = center.z + chargeOffsetZ_;
-
-    // プレイヤーの方向を向く
-    if (player_) {
-      Vector3 playerPos = player_->GetTransform().translate;
-      Vector3 dirToPlayer = {playerPos.x - transform_.translate.x,
-                             playerPos.y - transform_.translate.y,
-                             playerPos.z - transform_.translate.z};
-      transform_.rotate.y =
-          std::atan2(dirToPlayer.x, dirToPlayer.z) + 3.14159265f;
-    }
-
-    // 4秒ごとに激しいロックオンミサイル一斉射出
-    shotTimer_ += 1.0f / 60.0f;
-    if (shotTimer_ >= 4.0f) {
-      shotTimer_ = 0.0f;
-      if (player_) {
-        Vector3 playerPos = player_->GetTransform().translate;
-        Vector3 myPos = transform_.translate;
-        Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
-                       playerPos.z - myPos.z};
-        float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-        if (dist > 0.001f) {
-          dir.x /= dist;
-          dir.y /= dist;
-          dir.z /= dist;
-          
-          auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
-            auto bullet = std::make_unique<EnemyBullet>();
-            bullet->Initialize(
-                PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
-                const_cast<Player *>(player_), type);
-            ActorManager::GetInstance()->AddActor(std::move(bullet));
-          };
-
-          // 放射状にロックオン用ミサイルを5発ばら撒く（プレイヤーをマルチロックオンで一掃する快感用）
-          float missileSpeed = 4.0f; // 初速を爆発的に上げる
-          for (int i = 0; i < 5; ++i) {
-            float angle = (-80.0f + i * 40.0f) * (3.14159265f / 180.0f); // 真横まで広く散らす
-            Vector3 vel = {
-                (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
-                dir.y * missileSpeed - 2.0f, // 下にも強く散らす
-                (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
-            spawnBullet(vel, EnemyBulletType::LockOnDestructible);
-          }
-          
-          if (camera_) {
-            auto railCam =
-                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
-            railCam->Shake(0.5f, 0.15f);
-          }
-        }
-      }
-    }
-
-    // 定期的な突進(Z軸接近)
-    if (!isCharging_) {
-      actionTimer_ += 1.0f / 60.0f;
-      if (actionTimer_ >= 4.0f) {
-        isCharging_ = true;
-        actionTimer_ = 0.0f;
-        chargeTime_ = 0.0f;
-        chargeDuration_ = 1.0f;
-        chargeStartOffsetZ_ = chargeOffsetZ_;
-        chargeTargetOffsetZ_ = chargeOffsetZ_ - 40.0f; // 前に40ユニット迫る
-
-        if (camera_) {
-          auto railCam =
-              static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
-          railCam->Shake(0.8f, 0.3f);
-        }
-      }
-    } else {
-      chargeTime_ += 1.0f / 60.0f;
-      float t = std::min(chargeTime_ / chargeDuration_, 1.0f);
-      float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
-      chargeOffsetZ_ = chargeStartOffsetZ_ +
-                       (chargeTargetOffsetZ_ - chargeStartOffsetZ_) * easeT;
-
-      if (t >= 1.0f) {
-        if (actionTimer_ == 0.0f) {
-          actionTimer_ = 1.0f;
-          chargeTime_ = 0.0f;
-          chargeStartOffsetZ_ = chargeOffsetZ_;
-          chargeTargetOffsetZ_ = 0.0f; // 元に戻る
-        } else {
-          isCharging_ = false;
-          actionTimer_ = 0.0f;
-        }
-      }
-    }
+    UpdatePhase2();
+  } else if (phase_ == BossPhase::Dying) {
+    UpdateDying();
   }
 
   // 最後にトランスフォーム（モデル・コライダー位置）を更新する
   UpdateTransform();
+}
+
+void Boss::UpdatePhase1() {
+  stateTimer_ += 1.0f / 60.0f;
+
+  switch (currentState_) {
+  case BossState::Enter:
+    // カメラの前方（基準位置）に配置
+    if (camera_) {
+        Vector3 cPos = camera_->GetTranslate();
+        Vector3 cRight = camera_->GetRight();
+        Vector3 cUp = camera_->GetUp();
+        Vector3 cForward = camera_->GetForward();
+        if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+            cPos = railCam->GetRailPosition();
+            cRight = railCam->GetRailRight();
+            cUp = railCam->GetRailUp();
+            cForward = railCam->GetRailForward();
+        }
+        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
+        transform_.translate = center;
+        startPos_ = center;
+        targetPos_ = center;
+    }
+    currentState_ = BossState::Hover;
+    stateTimer_ = 0.0f;
+    break;
+
+  case BossState::Hover: {
+    // イージング（EaseOutCubic）を用いて targetPos_ へ滑らかに移動
+    float t = std::min(stateTimer_ / 3.0f, 1.0f);
+    float easeT = 1.0f - std::pow(1.0f - t, 3.0f); 
+    
+    transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
+    transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
+    transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
+
+    // 常にプレイヤーの方向を向く
+    if (player_) {
+      Vector3 pPos = player_->GetTransform().translate;
+      Vector3 dir = {pPos.x - transform_.translate.x, pPos.y - transform_.translate.y, pPos.z - transform_.translate.z};
+      transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
+    }
+
+    // 3秒経過したら予兆ステートへ
+    if (stateTimer_ >= 3.0f) {
+      currentState_ = BossState::Telegraph;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::Telegraph: {
+    // 予兆：小刻みに震える
+    // 基準位置（targetPos_）にランダムな微小オフセットを加算
+    float shakeAmount = 0.2f;
+    float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float rz = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    transform_.translate.x = targetPos_.x + rx;
+    transform_.translate.y = targetPos_.y + ry;
+    transform_.translate.z = targetPos_.z + rz;
+
+    // 1秒経過したら攻撃ステートへ
+    if (stateTimer_ >= 1.0f) {
+      // 震えを元に戻す
+      transform_.translate = targetPos_;
+      currentState_ = BossState::Attack;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::Attack: {
+    // プレイヤーの方向を計算して扇状に弾を発射
+    if (player_) {
+      Vector3 playerPos = player_->GetTransform().translate;
+      Vector3 myPos = transform_.translate;
+      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y, playerPos.z - myPos.z};
+      float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+      if (dist > 0.001f) {
+        dir.x /= dist;
+        dir.y /= dist;
+        dir.z /= dist;
+        
+        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
+          auto bullet = std::make_unique<EnemyBullet>();
+          bullet->Initialize(
+              PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
+              const_cast<Player *>(player_), type);
+          ActorManager::GetInstance()->AddActor(std::move(bullet));
+        };
+
+        // 扇状に5発の通常弾を発射
+        float normalSpeed = 0.5f;
+        for (int i = 0; i < 5; ++i) {
+          float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
+          Vector3 vel = {
+              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * normalSpeed,
+              dir.y * normalSpeed,
+              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * normalSpeed};
+          spawnBullet(vel, EnemyBulletType::NormalDestructible);
+        }
+        
+        // 発射時のカメラ揺れ
+        if (camera_) {
+          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+            // Const外しを避けるためにconst_cast（元のコード踏襲）
+            auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+            mutableRailCam->Shake(0.3f, 0.1f);
+          }
+        }
+      }
+    }
+    
+    // 発射後、即座に硬直ステートへ
+    currentState_ = BossState::Cooldown;
+    stateTimer_ = 0.0f;
+    break;
+  }
+
+  case BossState::Cooldown:
+    // 2秒経過したら再びHoverに戻ってループ
+    // 新しい目標座標（targetPos_）を計算してセット
+    if (stateTimer_ >= 2.0f) {
+      startPos_ = targetPos_;
+      
+      // カメラを基準にした新しい移動先をランダムに決定
+      if (camera_) {
+          Vector3 cPos = camera_->GetTranslate();
+          Vector3 cRight = camera_->GetRight();
+          Vector3 cUp = camera_->GetUp();
+          Vector3 cForward = camera_->GetForward();
+          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+              cPos = railCam->GetRailPosition();
+              cRight = railCam->GetRailRight();
+              cUp = railCam->GetRailUp();
+              cForward = railCam->GetRailForward();
+          }
+          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
+          
+          // ランダムに左右(X)・上下(Y)に少しずらした位置を次の目標にする
+          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 20.0f; // -10 から +10
+          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 10.0f; // -5 から +5
+          
+          targetPos_.x = center.x + offsetX;
+          targetPos_.y = center.y + offsetY;
+          targetPos_.z = center.z; // Z軸（奥への距離）は基準位置をキープ
+      }
+
+      currentState_ = BossState::Hover;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+}
+
+void Boss::UpdatePhase2() {
+  stateTimer_ += 1.0f / 60.0f;
+
+  switch (currentState_) {
+  case BossState::Enter:
+  case BossState::Hover: {
+    // 高速・広範囲なイージング移動
+    float t = std::min(stateTimer_ / 1.5f, 1.0f);
+    float easeT = 1.0f - std::pow(1.0f - t, 3.0f); 
+    
+    transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
+    transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
+    transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
+
+    if (player_) {
+      Vector3 pPos = player_->GetTransform().translate;
+      Vector3 dir = {pPos.x - transform_.translate.x, pPos.y - transform_.translate.y, pPos.z - transform_.translate.z};
+      transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
+    }
+
+    if (stateTimer_ >= 1.5f) {
+      if (attackStep_ % 2 == 0) {
+        currentState_ = BossState::Telegraph; // ミサイル攻撃へ
+      } else {
+        currentState_ = BossState::DashTelegraph; // 突進攻撃へ
+      }
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::Telegraph: {
+    // 激しい予兆（ミサイル用）
+    float shakeAmount = 0.4f;
+    float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float rz = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    transform_.translate.x = targetPos_.x + rx;
+    transform_.translate.y = targetPos_.y + ry;
+    transform_.translate.z = targetPos_.z + rz;
+
+    if (stateTimer_ >= 0.5f) {
+      transform_.translate = targetPos_;
+      currentState_ = BossState::Attack;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::Attack: {
+    if (player_) {
+      Vector3 playerPos = player_->GetTransform().translate;
+      Vector3 myPos = transform_.translate;
+      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y, playerPos.z - myPos.z};
+      float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+      if (dist > 0.001f) {
+        dir.x /= dist; dir.y /= dist; dir.z /= dist;
+        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
+          auto bullet = std::make_unique<EnemyBullet>();
+          bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel, const_cast<Player *>(player_), type);
+          ActorManager::GetInstance()->AddActor(std::move(bullet));
+        };
+
+        // ロックオン用ミサイルを5発ばら撒く
+        float missileSpeed = 4.0f;
+        for (int i = 0; i < 5; ++i) {
+          float angle = (-80.0f + i * 40.0f) * (3.14159265f / 180.0f);
+          Vector3 vel = {
+              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
+              dir.y * missileSpeed - 2.0f,
+              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
+          spawnBullet(vel, EnemyBulletType::LockOnDestructible);
+        }
+        
+        if (camera_) {
+          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+            auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+            mutableRailCam->Shake(0.5f, 0.15f);
+          }
+        }
+      }
+    }
+    currentState_ = BossState::Cooldown;
+    stateTimer_ = 0.0f;
+    break;
+  }
+
+  case BossState::Cooldown: {
+    if (stateTimer_ >= 1.0f) {
+      attackStep_++;
+      startPos_ = targetPos_;
+      if (camera_) {
+          Vector3 cPos = camera_->GetTranslate();
+          Vector3 cRight = camera_->GetRight();
+          Vector3 cUp = camera_->GetUp();
+          Vector3 cForward = camera_->GetForward();
+          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+              cPos = railCam->GetRailPosition();
+              cRight = railCam->GetRailRight();
+              cUp = railCam->GetRailUp();
+              cForward = railCam->GetRailForward();
+          }
+          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
+          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+          targetPos_.x = center.x + offsetX;
+          targetPos_.y = center.y + offsetY;
+          targetPos_.z = center.z; 
+      }
+      currentState_ = BossState::Hover;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::DashTelegraph: {
+    // 突進前のタメ動作（大きく震える）
+    float shakeAmount = 0.6f;
+    float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    float rz = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+    transform_.translate.x = targetPos_.x + rx;
+    transform_.translate.y = targetPos_.y + ry;
+    transform_.translate.z = targetPos_.z + rz;
+
+    if (stateTimer_ >= 0.8f) {
+      transform_.translate = targetPos_;
+      startPos_ = targetPos_;
+      // 突進の目標座標を現在位置からZ方向手前に40ユニット迫った場所に設定
+      targetPos_.z -= 40.0f; 
+
+      if (camera_) {
+        if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+          auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+          mutableRailCam->Shake(0.8f, 0.3f); // 突進開始時の大きな揺れ
+        }
+      }
+
+      currentState_ = BossState::Dash;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::Dash: {
+    // 0.5秒で目標(Z-40)へ急接近
+    float t = std::min(stateTimer_ / 0.5f, 1.0f);
+    float easeT = t * t; // EaseIn
+    
+    transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
+    transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
+    transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
+
+    if (stateTimer_ >= 0.5f) {
+      currentState_ = BossState::DashCooldown;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+
+  case BossState::DashCooldown: {
+    // 突進後、1.5秒間隙を晒す
+    if (stateTimer_ >= 1.5f) {
+      attackStep_++;
+      startPos_ = targetPos_;
+      
+      // 元のZ位置（奥）に戻るためのHover目標を設定
+      if (camera_) {
+          Vector3 cPos = camera_->GetTranslate();
+          Vector3 cRight = camera_->GetRight();
+          Vector3 cUp = camera_->GetUp();
+          Vector3 cForward = camera_->GetForward();
+          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+              cPos = railCam->GetRailPosition();
+              cRight = railCam->GetRailRight();
+              cUp = railCam->GetRailUp();
+              cForward = railCam->GetRailForward();
+          }
+          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
+          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+          targetPos_.x = center.x + offsetX;
+          targetPos_.y = center.y + offsetY;
+          targetPos_.z = center.z; // Z軸を元の距離に戻す
+      }
+      currentState_ = BossState::Hover;
+      stateTimer_ = 0.0f;
+    }
+    break;
+  }
+  }
+}
+
+void Boss::UpdateDying() {
+  dyingTimer_ += 1.0f / 60.0f;
+
+  // ディゾルブ進行
+  if (model_) {
+    if (!dissolveEnabled_ && dyingTimer_ > 0.0f) {
+      model_->SetEnableDissolve(true);
+      dissolveEnabled_ = true;
+    }
+    float progress = dyingTimer_ / dyingDuration_;
+    progress = std::min(progress, 1.0f);
+    model_->SetDissolveThreshold(progress);
+  }
+
+  // 塵パーティクルの位置更新
+  float progressForDust = dyingTimer_ / dyingDuration_;
+  if (onDyingUpdateCallback_ && progressForDust < 0.6f) {
+    onDyingUpdateCallback_(transform_.translate);
+  }
+
+  // 演出終了 → 完全消滅
+  if (dyingTimer_ >= dyingDuration_) {
+    ChangePhase(BossPhase::Defeated);
+  }
 }
 
 void Boss::Draw3D() {
@@ -388,6 +539,11 @@ void Boss::ChangePhase(BossPhase nextPhase) {
   if (phase_ == BossPhase::Phase2) {
     Logger::Log("Boss entering Phase 2!\n");
     // パターン変化の初期化など
+    currentState_ = BossState::Hover;
+    stateTimer_ = 0.0f;
+    attackStep_ = 0;
+    startPos_ = transform_.translate;
+    targetPos_ = transform_.translate;
   } else if (phase_ == BossPhase::Dying) {
     Logger::Log("Boss entering Dying phase!\n");
     // コライダーを無効化（メモリは破棄しない）

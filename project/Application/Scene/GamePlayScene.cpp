@@ -347,8 +347,8 @@ void GamePlayScene::Update() {
 
   // HPバーUI
   if (player_) {
-    float playerMaxHp = player_->GetMaxHp();
-    float playerCurrentHp = player_->GetHp();
+    float playerMaxHp = static_cast<float>(player_->GetMaxHp());
+    float playerCurrentHp = static_cast<float>(player_->GetHp());
 
     // Hp割合計算
     float hpRatio = (std::max)(playerCurrentHp / playerMaxHp, 0.0f);

@@ -67,18 +67,20 @@ public:
 
 private:
   void ChangePhase(BossPhase nextPhase);
+  void UpdatePhase1();
+  void UpdatePhase2();
+  void UpdateDying();
 
   int maxHp_ = 100;
   BossPhase phase_ = BossPhase::Phase1;
-  float actionTimer_ = 0.0f;
-  float shotTimer_ = 0.0f;
-  
-  float chargeOffsetZ_ = 0.0f;
-  bool isCharging_ = false;
-  float chargeDuration_ = 0.0f;
-  float chargeTime_ = 0.0f;
-  float chargeStartOffsetZ_ = 0.0f;
-  float chargeTargetOffsetZ_ = 0.0f;
+
+  // ステートマシン管理
+  enum class BossState { Enter, Hover, Telegraph, Attack, Cooldown, DashTelegraph, Dash, DashCooldown };
+  BossState currentState_ = BossState::Enter;
+  float stateTimer_ = 0.0f;
+  int attackStep_ = 0;
+  Vector3 startPos_ = {0.0f, 0.0f, 0.0f};
+  Vector3 targetPos_ = {0.0f, 0.0f, 0.0f};
 
   // --- UI ---
   std::unique_ptr<Sprite> hpBarBg_;
