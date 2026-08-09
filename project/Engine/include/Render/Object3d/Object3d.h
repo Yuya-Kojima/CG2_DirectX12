@@ -3,6 +3,7 @@
 #include "Core/Dx12Core.h"
 #include "Math/MathUtil.h"
 #include "Model/Model.h"
+#include "Framework/BaseActor.h"
 #include <d3d12.h>
 #include <stdint.h>
 #include <string>
@@ -59,7 +60,7 @@ public:
   void SetSkinCluster(SkinCluster *skinCluster) { skinCluster_ = skinCluster; }
 
   std::string name_ = "Object3d";
-  std::string tag_ = "Untagged";
+  ActorTag tag_ = ActorTag::Untagged;
 
 private:
   /* 座標変換行列データ

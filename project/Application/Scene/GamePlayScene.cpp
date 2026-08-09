@@ -577,14 +577,14 @@ void GamePlayScene::Update() {
   // 死亡済みの敵は除外してダングリングポインタを渡さないようにする
   std::vector<BaseActor *> lockOnTargets;
   for (auto &e : runtimeEnemies_) {
-    if (!e->IsDead()) {
+    if (!e->IsDead() && e->IsLockOnTarget()) {
       lockOnTargets.push_back(e.get());
     }
   }
 
   // 敵の弾（ロックオン対象としてタグ付けされたもの）もリストに加える
   std::vector<BaseActor *> bulletTargets =
-      ActorManager::GetInstance()->FindActorsWithTag("LockOnTarget");
+      ActorManager::GetInstance()->FindActorsWithTag(ActorTag::LockOnTarget);
   lockOnTargets.insert(lockOnTargets.end(), bulletTargets.begin(),
                        bulletTargets.end());
 
@@ -909,10 +909,10 @@ void GamePlayScene::Update() {
     ImGui::TextDisabled("%s", selected->GetModelPath().c_str());
     ImGui::Separator();
 
-    char tagBuf[128] = {0};
-    snprintf(tagBuf, sizeof(tagBuf), "%s", selected->tag_.c_str());
-    if (ImGui::InputText("Tag", tagBuf, sizeof(tagBuf))) {
-      selected->tag_ = tagBuf;
+    const char* tagItems[] = { "Untagged", "Player", "Enemy", "LockOnTarget" };
+    int currentItem = static_cast<int>(selected->tag_);
+    if (ImGui::Combo("Tag", &currentItem, tagItems, IM_ARRAYSIZE(tagItems))) {
+      selected->tag_ = static_cast<ActorTag>(currentItem);
     }
     ImGui::Separator();
 
@@ -1741,7 +1741,7 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     oJson["rotation"] = {r.x, r.y, r.z};
     oJson["scale"] = {s.x, s.y, s.z};
     oJson["modelPath"] = obj->GetModelPath();
-    oJson["tag"] = obj->tag_;
+    oJson["tag"] = ActorTagToString(obj->tag_);
     sceneObjectsArray.push_back(oJson);
   }
   root["sceneObjects"] = sceneObjectsArray;
@@ -1839,7 +1839,7 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       obj->SetRotation(r);
       obj->SetScale(s);
       if (oJson.contains("tag"))
-        obj->tag_ = oJson["tag"];
+        obj->tag_ = StringToActorTag(oJson["tag"]);
     }
   }
 

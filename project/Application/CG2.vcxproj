@@ -164,6 +164,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Actor\Behavior\BehaviorStraight.cpp" />
     <ClCompile Include="Actor\Behavior\BehaviorTurret.cpp" />
     <ClCompile Include="Actor\Boss.cpp" />
+    <ClCompile Include="Actor\BossBit.cpp" />
+    <ClCompile Include="Actor\BossCore.cpp" />
     <ClCompile Include="Actor\Enemy.cpp" />
     <ClCompile Include="Actor\EnemyBullet.cpp" />
     <ClCompile Include="Framework\PrefabManager.cpp" />
@@ -250,6 +252,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Actor\Behavior\BehaviorTurret.h" />
     <ClInclude Include="Actor\Behavior\IEnemyBehavior.h" />
     <ClInclude Include="Actor\Boss.h" />
+    <ClInclude Include="Actor\BossBit.h" />
+    <ClInclude Include="Actor\BossCore.h" />
     <ClInclude Include="Actor\Enemy.h" />
     <ClInclude Include="Actor\EnemyBullet.h" />
     <ClInclude Include="Framework\PrefabManager.h" />

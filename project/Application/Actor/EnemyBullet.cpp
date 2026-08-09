@@ -38,7 +38,7 @@ void EnemyBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos
     object3d_->SetScale({2.5f, 2.5f, 2.5f});
     object3d_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤
     hp_ = 3;
-    SetTag("LockOnTarget");
+    SetTag(ActorTag::LockOnTarget);
   } else {
     // 破壊不可エネルギー弾
     object3d_->SetScale({1.5f, 1.5f, 3.0f});

@@ -1,4 +1,6 @@
 #include "Actor/Boss.h"
+#include "Actor/BossBit.h"
+#include "Actor/BossCore.h"
 #include "Actor/EnemyBullet.h"
 #include "Actor/Player.h"
 #include "Camera/ICamera.h"
@@ -23,7 +25,7 @@ Boss::~Boss() {}
 void Boss::Initialize() {
   Enemy::Initialize();
   if (collider_) {
-    collider_->SetRadius(1.5f); // 巨大化に合わせて大きめの当たり判定に変更
+    collider_->SetRadius(0.4f); // コアより判定を小さくして、弾がボス本体に吸われないようにする
   }
   SetHP(100);
   maxHp_ = 100;
@@ -39,6 +41,74 @@ void Boss::Initialize() {
   dyingTimer_ = 0.0f;
 
   dissolveEnabled_ = false;
+
+  // --- コアと装甲の生成 ---
+  // ボスからの距離。1.5だと遠すぎて公転しているように見えてしまうため、
+  // 表面に張り付くように0.6程度に縮小します。
+  float bitOffsetRadius = 0.6f;
+  
+  // Z軸を手前にずらす。コアは奥、装甲は手前。
+  Vector3 coreOffsets[4] = {
+      {0.0f, bitOffsetRadius, -0.6f},  // 上
+      {0.0f, -bitOffsetRadius, -0.6f}, // 下
+      {-bitOffsetRadius, 0.0f, -0.6f}, // 左
+      {bitOffsetRadius, 0.0f, -0.6f}   // 右
+  };
+  
+  Vector3 bitOffsets[4] = {
+      {0.0f, bitOffsetRadius, -1.2f},  // 上
+      {0.0f, -bitOffsetRadius, -1.2f}, // 下
+      {-bitOffsetRadius, 0.0f, -1.2f}, // 左
+      {bitOffsetRadius, 0.0f, -1.2f}   // 右
+  };
+  
+  for (int i = 0; i < 4; ++i) {
+      // 1. コアの生成（奥側）
+      auto core = std::make_unique<BossCore>();
+      // コアの見た目は仮で赤く光るSphere（モデルがない場合は適当なものを赤くする）
+      auto coreModel = std::make_unique<Object3d>();
+      coreModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
+      coreModel->SetModel("suzanne.obj"); // 仮
+      coreModel->SetScale({0.4f, 0.4f, 0.4f}); 
+      coreModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
+      core->SetModel(std::move(coreModel));
+      
+      core->SetBoss(this);
+      core->SetOffset(coreOffsets[i]);
+      
+      BossCore* corePtr = core.get();
+      ActorManager::GetInstance()->AddActor(std::move(core));
+
+      // 2. 装甲の生成（手前側）
+      auto bit = std::make_unique<BossBit>();
+      auto bitModel = std::make_unique<Object3d>();
+      bitModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
+      bitModel->SetModel("suzanne.obj");
+      bitModel->SetScale({0.5f, 0.5f, 0.5f}); // ビットなので少し小さくする
+      bitModel->SetColor({0.2f, 0.4f, 0.8f, 1.0f}); 
+      bit->SetModel(std::move(bitModel));
+      
+      bit->SetBoss(this);
+      bit->SetOffset(bitOffsets[i]);
+      
+      BossBit* bitPtr = bit.get();
+      bit->SetOnDestroyedCallback([this, bitPtr](bool) {
+          this->OnBitDestroyed(bitPtr);
+      });
+      
+      // コアに装甲をセットする
+      corePtr->SetShield(bitPtr);
+      
+      activeBits_.push_back(bitPtr);
+      ActorManager::GetInstance()->AddActor(std::move(bit));
+  }
+}
+
+void Boss::OnBitDestroyed(BossBit* bit) {
+    auto it = std::find(activeBits_.begin(), activeBits_.end(), bit);
+    if (it != activeBits_.end()) {
+        activeBits_.erase(it);
+    }
 }
 
 void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {

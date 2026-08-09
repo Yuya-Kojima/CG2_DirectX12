@@ -33,6 +33,8 @@ public:
   void Draw2D() override;
   void OnCollision(class Collider *other) override;
 
+  bool IsLockOnTarget() const override { return false; }
+
   // 表示用の3Dモデルを外から渡してセットする（overrideで確実にこちらが呼ばれる）
   void SetModel(std::unique_ptr<Object3d> model) override {
     model_ = std::move(model);
@@ -93,6 +95,13 @@ private:
   float dyingTimer_ = 0.0f;        // 消滅演出の経過時間
   float dyingDuration_ = 3.0f;    // 演出の総時間(秒)
   std::function<void(const Vector3&)> onDyingUpdateCallback_; // Dyingフェーズの毎フレームコールバック
+
+  // --- 部位（装甲）管理 ---
+  std::vector<class BossBit*> activeBits_;
+
 public:
   void SetOnDyingUpdateCallback(std::function<void(const Vector3&)> cb) { onDyingUpdateCallback_ = cb; }
+  
+  // ビットが死んだときにリストから削除するコールバック関数
+  void OnBitDestroyed(BossBit* bit);
 };

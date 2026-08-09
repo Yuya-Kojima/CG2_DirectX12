@@ -2,6 +2,30 @@
 #include "Math/Transform.h"
 #include <string>
 
+enum class ActorTag {
+    Untagged,
+    Player,
+    Enemy,
+    LockOnTarget
+};
+
+inline std::string ActorTagToString(ActorTag tag) {
+    switch(tag) {
+        case ActorTag::Player: return "Player";
+        case ActorTag::Enemy: return "Enemy";
+        case ActorTag::LockOnTarget: return "LockOnTarget";
+        case ActorTag::Untagged:
+        default: return "Untagged";
+    }
+}
+
+inline ActorTag StringToActorTag(const std::string& str) {
+    if (str == "Player") return ActorTag::Player;
+    if (str == "Enemy") return ActorTag::Enemy;
+    if (str == "LockOnTarget") return ActorTag::LockOnTarget;
+    return ActorTag::Untagged;
+}
+
 /// <summary>
 /// 全てのゲームオブジェクトの親となるベースクラス
 /// </summary>
@@ -34,10 +58,10 @@ public:
 
     // 識別用の名前やタグ
     std::string name_ = "Actor";
-    std::string tag_ = "Untagged";
+    ActorTag tag_ = ActorTag::Untagged;
 
-    const std::string& GetTag() const { return tag_; }
-    void SetTag(const std::string& tag) { tag_ = tag; }
+    ActorTag GetTag() const { return tag_; }
+    void SetTag(ActorTag tag) { tag_ = tag; }
 
 protected:
     // 3D空間上の位置・回転・スケール
