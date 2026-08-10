@@ -12,6 +12,7 @@
 #include "Framework/ActorManager.h"
 #include "Framework/GameManager.h"
 #include "Framework/PrefabManager.h"
+#include "Effect/EffectManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
 #include "Render/Texture/TextureManager.h"
@@ -229,6 +230,10 @@ void Boss::UpdatePhase1() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
+    // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
+
     // 1秒経過したら攻撃ステートへ
     if (stateTimer_ >= 1.0f) {
       // 震えを元に戻す
@@ -240,6 +245,9 @@ void Boss::UpdatePhase1() {
   }
 
   case BossState::Attack: {
+    // ★発射の瞬間に発散エフェクト（大爆発＋ショックウェーブ）を発生
+    EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
+
     // プレイヤーの方向を計算して扇状に弾を発射
     if (player_) {
       Vector3 playerPos = player_->GetTransform().translate;
@@ -364,6 +372,10 @@ void Boss::UpdatePhase2() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
+    // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    float chargeRatio = std::min(stateTimer_ / 0.5f, 1.0f);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
+
     if (stateTimer_ >= 0.5f) {
       transform_.translate = targetPos_;
       currentState_ = BossState::Attack;
@@ -373,6 +385,9 @@ void Boss::UpdatePhase2() {
   }
 
   case BossState::Attack: {
+    // ★発射の瞬間に発散エフェクト（大爆発＋ショックウェーブ）を発生
+    EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
+
     if (player_) {
       Vector3 playerPos = player_->GetTransform().translate;
       Vector3 myPos = transform_.translate;
@@ -447,6 +462,10 @@ void Boss::UpdatePhase2() {
     transform_.translate.x = targetPos_.x + rx;
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
+
+    // ★突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    float chargeRatio = std::min(stateTimer_ / 0.8f, 1.0f);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
 
     if (stateTimer_ >= 0.8f) {
       transform_.translate = targetPos_;

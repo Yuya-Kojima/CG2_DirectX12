@@ -34,6 +34,16 @@ public:
   void PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
 
   /// <summary>
+  /// ボスの予兆エフェクト（収束するエネルギー）を発生させる
+  /// </summary>
+  void PlayBossTelegraphEffect(const Vector3& center, float chargeRatio);
+
+  /// <summary>
+  /// ボスの発射時エフェクト（発散するエネルギーと衝撃波）を発生させる
+  /// </summary>
+  void PlayBossBurstEffect(const Vector3& center);
+
+  /// <summary>
   /// ザコ敵用のシンプルな撃破エフェクト（コアのみ）を発生させる
   /// </summary>
   void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
@@ -43,6 +53,12 @@ private:
   ~EffectManager() = default;
   EffectManager(const EffectManager &) = delete;
   EffectManager &operator=(const EffectManager &) = delete;
+
+  std::unique_ptr<BillboardParticleEmitter> bossTelegraphParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossTelegraphEmitter_;
+
+  std::unique_ptr<BillboardParticleEmitter> bossBurstParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossBurstEmitter_;
 
   struct ShockwaveConfig {
     float duration = 0.5f;    // 再生時間

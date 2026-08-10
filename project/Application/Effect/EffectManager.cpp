@@ -19,6 +19,31 @@ EffectManager* EffectManager::GetInstance() {
 void EffectManager::Initialize() {
   LoadShockwaveConfig();
 
+  bossTelegraphParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  bossTelegraphParticleGroup_->Initialize("resources/gradationLine.png"); // グラデーションラインを使ってシャープなリングに
+  bossTelegraphParticleGroup_->SetIsRingMode(true); // 3Dの輪っかが収束するSF的な演出にする
+
+  bossTelegraphEmitter_ = std::make_unique<ParticleEmitter>(
+      bossTelegraphParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.4f, 0.4f); // 寿命を少し伸ばして輪が迫ってくる過程を見せる
+  bossTelegraphEmitter_->SetBaseScale({50.0f, 50.0f, 50.0f}); // 大きな輪
+  bossTelegraphEmitter_->SetScaleRandom({20.0f, 20.0f, 20.0f});
+  bossTelegraphEmitter_->SetColor({3.0f, 1.2f, 0.1f, 0.15f}); 
+  bossTelegraphEmitter_->SetScaleVelocity({-200.0f, -200.0f, -200.0f}); 
+  // ランダムな角度（X, Y, Z軸）からリングが発生するようにして、球状にエネルギーが集まるように見せる
+  bossTelegraphEmitter_->SetRotateRandom({3.14f, 3.14f, 3.14f});
+
+  bossBurstParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  bossBurstParticleGroup_->Initialize("resources/circle.png");
+  bossBurstParticleGroup_->SetIsRingMode(false);
+
+  bossBurstEmitter_ = std::make_unique<ParticleEmitter>(
+      bossBurstParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
+      Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.3f, 0.3f); // 発散エフェクトの寿命
+  bossBurstEmitter_->SetBaseScale({10.0f, 10.0f, 10.0f}); // 最初は小さめ
+  bossBurstEmitter_->SetColor({4.0f, 3.0f, 1.0f, 0.8f}); // 強い白・黄色系でフラッシュ
+  bossBurstEmitter_->SetScaleVelocity({400.0f, 400.0f, 400.0f}); // 超高速で膨張する（発散）
+
   for (int i = 0; i < kMaxHitEffects; ++i) {
     hitCoreParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
     hitCoreParticleGroups_[i]->Initialize("resources/circle.png");
@@ -120,6 +145,16 @@ void EffectManager::Update(const ICamera* camera) {
       hitFlareParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
       hitRingParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
   }
+
+  if (bossTelegraphEmitter_) {
+      bossTelegraphEmitter_->Update();
+      bossTelegraphParticleGroup_->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+  }
+
+  if (bossBurstEmitter_) {
+      bossBurstEmitter_->Update();
+      bossBurstParticleGroup_->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+  }
 }
 
 void EffectManager::Draw() {
@@ -128,6 +163,45 @@ void EffectManager::Draw() {
       hitFlareParticleGroups_[i]->Draw();
       hitRingParticleGroups_[i]->Draw();
   }
+
+  if (bossTelegraphParticleGroup_) {
+      bossTelegraphParticleGroup_->Draw();
+  }
+
+  if (bossBurstParticleGroup_) {
+      bossBurstParticleGroup_->Draw();
+  }
+}
+
+void EffectManager::PlayBossTelegraphEffect(const Vector3& center, float chargeRatio) {
+  if (bossTelegraphEmitter_) {
+    // chargeRatio (0.0 ~ 1.0) に応じてエフェクトを激しくする
+    
+    // 最初はゆっくり迫る大きな輪、最後は超高速で吸い込まれる中くらいの輪
+    float currentSize = 80.0f - (30.0f * chargeRatio); 
+    bossTelegraphEmitter_->SetBaseScale({currentSize, currentSize, currentSize});
+    
+    // 吸い込みスピードも徐々に速くする (-150.0f -> -400.0f)
+    float currentSpeed = -150.0f - (250.0f * chargeRatio);
+    bossTelegraphEmitter_->SetScaleVelocity({currentSpeed, currentSpeed, currentSpeed});
+    
+    bossTelegraphEmitter_->SetCenter(center);
+    
+    // 最初は少なめ、最後は大量のリングが球状に押し寄せる
+    float emitChance = 0.3f + (0.7f * chargeRatio); 
+    if ((rand() % 100) / 100.0f <= emitChance) {
+        bossTelegraphEmitter_->Emit();
+    }
+  }
+}
+
+void EffectManager::PlayBossBurstEffect(const Vector3& center) {
+  if (bossBurstEmitter_) {
+    bossBurstEmitter_->SetCenter(center);
+    bossBurstEmitter_->Emit();
+  }
+  // 画面の歪み（ショックウェーブ）も同時に発生させて衝撃を表現
+  PlayShockwave(center);
 }
 
 void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor) {
