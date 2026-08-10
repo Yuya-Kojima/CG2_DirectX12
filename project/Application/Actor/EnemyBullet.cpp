@@ -8,6 +8,7 @@
 #include "Collision/CollisionManager.h"
 #include "Collision/CollisionConfig.h"
 #include "Debug/Logger.h"
+#include "Effect/EffectManager.h"
 #include <cmath>
 
 EnemyBullet::EnemyBullet() {}
@@ -34,11 +35,10 @@ void EnemyBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPos
     object3d_->SetColor({1.0f, 0.5f, 0.0f, 1.0f}); // オレンジ
     hp_ = 1;
   } else if (type_ == EnemyBulletType::LockOnDestructible) {
-    // ロックオンで壊す大型ミサイル
-    object3d_->SetScale({2.5f, 2.5f, 2.5f});
+    // スウォームミサイル
+    object3d_->SetScale({2.0f, 2.0f, 2.0f}); // 少し小さく
     object3d_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤
-    hp_ = 3;
-    SetTag(ActorTag::LockOnTarget);
+    hp_ = 1; 
   } else {
     // 破壊不可エネルギー弾
     object3d_->SetScale({1.5f, 1.5f, 3.0f});
@@ -92,11 +92,26 @@ void EnemyBullet::Update() {
         toPlayer.x /= dist; toPlayer.y /= dist; toPlayer.z /= dist;
       }
 
-        if (aliveFrames_ < 80) {
-          // 最初の80フレームは直進する
-          velocity_.x *= 0.92f;
-          velocity_.y *= 0.92f;
-          velocity_.z *= 0.92f;
+        if (aliveFrames_ < swarmWaitFrames_) {
+          int framesLeft = swarmWaitFrames_ - aliveFrames_;
+          if (framesLeft == 1) {
+            // タメから解放され、発射されるまさにその瞬間
+            float burstSpeed = 1.0f; // 発射時の初速（鋭く飛び出す）
+            velocity_ = {toPlayer.x * burstSpeed, toPlayer.y * burstSpeed, toPlayer.z * burstSpeed};
+            
+            // 発射時の衝撃波リングエフェクト（真っ白）を発生
+            EffectManager::GetInstance()->PlayFunnelMuzzleRing(object3d_->GetTranslation(), {1.0f, 1.0f, 1.0f, 1.0f});
+          } else if (framesLeft < 15) {
+            // 発射直前の約0.25秒は完全に静止してタメを作る
+            velocity_ = {0.0f, 0.0f, 0.0f};
+          } else {
+            // 展開中は急ブレーキをかける
+            velocity_.x *= 0.85f;
+            velocity_.y *= 0.85f;
+            velocity_.z *= 0.85f;
+            // ほんの少しだけ重力で落としてホバリング感を出す
+            velocity_.y -= 0.01f;
+          }
         } else {
           // 現在の進行方向と、プレイヤーへの方向の内積を計算
           Vector3 vNorm = velocity_;
@@ -113,10 +128,10 @@ void EnemyBullet::Update() {
 
           // homingStrength_ が 0 以上なら誘導を続ける（-1ならそのまま直進）
           if (homingStrength_ >= 0.0f) {
-            homingStrength_ += 0.002f;
-            if (homingStrength_ > 0.05f) homingStrength_ = 0.05f;
+            homingStrength_ += 0.010f; 
+            if (homingStrength_ > 0.10f) homingStrength_ = 0.10f; 
             
-            float missileSpeed = 0.35f; // 通常弾(0.5f)よりさらに遅く、ゆっくり迫る
+            float missileSpeed = 0.75f;
             Vector3 desiredVelocity = {toPlayer.x * missileSpeed, toPlayer.y * missileSpeed, toPlayer.z * missileSpeed};
             
             velocity_.x = Lerp(velocity_.x, desiredVelocity.x, homingStrength_);

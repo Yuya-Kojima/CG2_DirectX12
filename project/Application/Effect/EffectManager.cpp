@@ -220,6 +220,8 @@ void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 
   
   // リングも同色系統にする
   Vector4 ringColor = {baseColor.x * 1.5f, baseColor.y * 1.5f, baseColor.z * 1.5f, 1.0f};
+  deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f}); // 爆発用の初期サイズ
+  deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f}); // 爆発用に高速で広がる
   deathRingEmitters_[i]->SetCenter(worldPos);
   deathRingEmitters_[i]->Emit(ringColor);
 
@@ -241,6 +243,27 @@ void EffectManager::PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Ve
   deathFlareEmitters_[i]->Emit(flareColor);
   
   nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+}
+
+void EffectManager::PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color) {
+  // 3枚のリングを少しずつサイズと速度をズラして重ねる
+  for (int j = 0; j < 3; ++j) {
+    int i = nextHitEffectIndex_;
+    
+    // リングごとに初期サイズと広がるスピードに差をつける
+    float baseScale = 0.2f + (j * 0.15f);
+    float speed = 15.0f - (j * 2.0f);
+    
+    // 発光を強くするためRGB成分を強調
+    Vector4 brightColor = {color.x * 2.5f, color.y * 2.5f, color.z * 2.5f, color.w};
+
+    deathRingEmitters_[i]->SetBaseScale({baseScale, baseScale, baseScale});
+    deathRingEmitters_[i]->SetScaleVelocity({speed, speed, speed});
+    deathRingEmitters_[i]->SetCenter(worldPos);
+    deathRingEmitters_[i]->Emit(brightColor);
+
+    nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+  }
 }
 
 void EffectManager::PlayShockwave(const Vector3& worldPos) {

@@ -44,6 +44,11 @@ public:
   void PlayBossBurstEffect(const Vector3& center);
 
   /// <summary>
+  /// ファンネル急発進時の白いリングエフェクトを発生させる
+  /// </summary>
+  void PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f});
+
+  /// <summary>
   /// ザコ敵用のシンプルな撃破エフェクト（コアのみ）を発生させる
   /// </summary>
   void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});

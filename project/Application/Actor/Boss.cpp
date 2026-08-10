@@ -9,10 +9,10 @@
 #include "Collision/CollisionManager.h"
 #include "Collision/SphereCollider.h"
 #include "Debug/Logger.h"
+#include "Effect/EffectManager.h"
 #include "Framework/ActorManager.h"
 #include "Framework/GameManager.h"
 #include "Framework/PrefabManager.h"
-#include "Effect/EffectManager.h"
 #include "Math/MathUtil.h"
 #include "Render/Object3d/Object3d.h"
 #include "Render/Texture/TextureManager.h"
@@ -26,7 +26,8 @@ Boss::~Boss() {}
 void Boss::Initialize() {
   Enemy::Initialize();
   if (collider_) {
-    collider_->SetRadius(0.4f); // コアより判定を小さくして、弾がボス本体に吸われないようにする
+    collider_->SetRadius(
+        0.4f); // コアより判定を小さくして、弾がボス本体に吸われないようにする
   }
   SetHP(100);
   maxHp_ = 100;
@@ -47,7 +48,7 @@ void Boss::Initialize() {
   // ボスからの距離。1.5だと遠すぎて公転しているように見えてしまうため、
   // 表面に張り付くように0.6程度に縮小します。
   float bitOffsetRadius = 0.6f;
-  
+
   // Z軸を手前にずらす。コアは奥、装甲は手前。
   Vector3 coreOffsets[4] = {
       {0.0f, bitOffsetRadius, -0.6f},  // 上
@@ -55,61 +56,60 @@ void Boss::Initialize() {
       {-bitOffsetRadius, 0.0f, -0.6f}, // 左
       {bitOffsetRadius, 0.0f, -0.6f}   // 右
   };
-  
+
   Vector3 bitOffsets[4] = {
       {0.0f, bitOffsetRadius, -1.2f},  // 上
       {0.0f, -bitOffsetRadius, -1.2f}, // 下
       {-bitOffsetRadius, 0.0f, -1.2f}, // 左
       {bitOffsetRadius, 0.0f, -1.2f}   // 右
   };
-  
-  for (int i = 0; i < 4; ++i) {
-      // 1. コアの生成（奥側）
-      auto core = std::make_unique<BossCore>();
-      // コアの見た目は仮で赤く光るSphere（モデルがない場合は適当なものを赤くする）
-      auto coreModel = std::make_unique<Object3d>();
-      coreModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
-      coreModel->SetModel("suzanne.obj"); // 仮
-      coreModel->SetScale({0.4f, 0.4f, 0.4f}); 
-      coreModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
-      core->SetModel(std::move(coreModel));
-      
-      core->SetBoss(this);
-      core->SetOffset(coreOffsets[i]);
-      
-      BossCore* corePtr = core.get();
-      ActorManager::GetInstance()->AddActor(std::move(core));
 
-      // 2. 装甲の生成（手前側）
-      auto bit = std::make_unique<BossBit>();
-      auto bitModel = std::make_unique<Object3d>();
-      bitModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
-      bitModel->SetModel("suzanne.obj");
-      bitModel->SetScale({0.5f, 0.5f, 0.5f}); // ビットなので少し小さくする
-      bitModel->SetColor({0.2f, 0.4f, 0.8f, 1.0f}); 
-      bit->SetModel(std::move(bitModel));
-      
-      bit->SetBoss(this);
-      bit->SetOffset(bitOffsets[i]);
-      
-      BossBit* bitPtr = bit.get();
-      bit->SetOnDestroyedCallback([this, bitPtr](bool) {
-          this->OnBitDestroyed(bitPtr);
-      });
-      
-      // コアに装甲をセットする
-      corePtr->SetShield(bitPtr);
-      
-      activeBits_.push_back(bitPtr);
-      ActorManager::GetInstance()->AddActor(std::move(bit));
+  for (int i = 0; i < 4; ++i) {
+    // 1. コアの生成（奥側）
+    auto core = std::make_unique<BossCore>();
+    // コアの見た目は仮で赤く光るSphere（モデルがない場合は適当なものを赤くする）
+    auto coreModel = std::make_unique<Object3d>();
+    coreModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
+    coreModel->SetModel("suzanne.obj"); // 仮
+    coreModel->SetScale({0.4f, 0.4f, 0.4f});
+    coreModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
+    core->SetModel(std::move(coreModel));
+
+    core->SetBoss(this);
+    core->SetOffset(coreOffsets[i]);
+
+    BossCore *corePtr = core.get();
+    ActorManager::GetInstance()->AddActor(std::move(core));
+
+    // 2. 装甲の生成（手前側）
+    auto bit = std::make_unique<BossBit>();
+    auto bitModel = std::make_unique<Object3d>();
+    bitModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
+    bitModel->SetModel("suzanne.obj");
+    bitModel->SetScale({0.5f, 0.5f, 0.5f}); // ビットなので少し小さくする
+    bitModel->SetColor({0.2f, 0.4f, 0.8f, 1.0f});
+    bit->SetModel(std::move(bitModel));
+
+    bit->SetBoss(this);
+    bit->SetOffset(bitOffsets[i]);
+
+    BossBit *bitPtr = bit.get();
+    bit->SetOnDestroyedCallback(
+        [this, bitPtr](bool) { this->OnBitDestroyed(bitPtr); });
+
+    // コアに装甲をセットする
+    corePtr->SetShield(bitPtr);
+
+    activeBits_.push_back(bitPtr);
+    ActorManager::GetInstance()->AddActor(std::move(bit));
   }
 }
 
-void Boss::OnBitDestroyed(BossBit* bit) {
-    auto it = std::find(activeBits_.begin(), activeBits_.end(), bit);
-    if (it != activeBits_.end()) {
-        activeBits_.erase(it);
-    }
+void Boss::OnBitDestroyed(BossBit *bit) {
+  auto it = std::find(activeBits_.begin(), activeBits_.end(), bit);
+  if (it != activeBits_.end()) {
+    activeBits_.erase(it);
+  }
 }
 
 void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
@@ -176,20 +176,21 @@ void Boss::UpdatePhase1() {
   case BossState::Enter:
     // カメラの前方（基準位置）に配置
     if (camera_) {
-        Vector3 cPos = camera_->GetTranslate();
-        Vector3 cRight = camera_->GetRight();
-        Vector3 cUp = camera_->GetUp();
-        Vector3 cForward = camera_->GetForward();
-        if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-            cPos = railCam->GetRailPosition();
-            cRight = railCam->GetRailRight();
-            cUp = railCam->GetRailUp();
-            cForward = railCam->GetRailForward();
-        }
-        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
-        transform_.translate = center;
-        startPos_ = center;
-        targetPos_ = center;
+      Vector3 cPos = camera_->GetTranslate();
+      Vector3 cRight = camera_->GetRight();
+      Vector3 cUp = camera_->GetUp();
+      Vector3 cForward = camera_->GetForward();
+      if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+        cPos = railCam->GetRailPosition();
+        cRight = railCam->GetRailRight();
+        cUp = railCam->GetRailUp();
+        cForward = railCam->GetRailForward();
+      }
+      Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                       cForward * spawnOffset_.z;
+      transform_.translate = center;
+      startPos_ = center;
+      targetPos_ = center;
     }
     currentState_ = BossState::Hover;
     stateTimer_ = 0.0f;
@@ -198,8 +199,8 @@ void Boss::UpdatePhase1() {
   case BossState::Hover: {
     // イージング（EaseOutCubic）を用いて targetPos_ へ滑らかに移動
     float t = std::min(stateTimer_ / 3.0f, 1.0f);
-    float easeT = 1.0f - std::pow(1.0f - t, 3.0f); 
-    
+    float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
+
     transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
     transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
     transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
@@ -207,7 +208,9 @@ void Boss::UpdatePhase1() {
     // 常にプレイヤーの方向を向く
     if (player_) {
       Vector3 pPos = player_->GetTransform().translate;
-      Vector3 dir = {pPos.x - transform_.translate.x, pPos.y - transform_.translate.y, pPos.z - transform_.translate.z};
+      Vector3 dir = {pPos.x - transform_.translate.x,
+                     pPos.y - transform_.translate.y,
+                     pPos.z - transform_.translate.z};
       transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
     }
 
@@ -232,7 +235,8 @@ void Boss::UpdatePhase1() {
 
     // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
+                                                          chargeRatio);
 
     // 1秒経過したら攻撃ステートへ
     if (stateTimer_ >= 1.0f) {
@@ -252,13 +256,14 @@ void Boss::UpdatePhase1() {
     if (player_) {
       Vector3 playerPos = player_->GetTransform().translate;
       Vector3 myPos = transform_.translate;
-      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y, playerPos.z - myPos.z};
+      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
+                     playerPos.z - myPos.z};
       float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
       if (dist > 0.001f) {
         dir.x /= dist;
         dir.y /= dist;
         dir.z /= dist;
-        
+
         auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
           auto bullet = std::make_unique<EnemyBullet>();
           bullet->Initialize(
@@ -271,24 +276,26 @@ void Boss::UpdatePhase1() {
         float normalSpeed = 0.5f;
         for (int i = 0; i < 5; ++i) {
           float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
-          Vector3 vel = {
-              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * normalSpeed,
-              dir.y * normalSpeed,
-              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * normalSpeed};
+          Vector3 vel = {(dir.x * std::cos(angle) + dir.z * std::sin(angle)) *
+                             normalSpeed,
+                         dir.y * normalSpeed,
+                         (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) *
+                             normalSpeed};
           spawnBullet(vel, EnemyBulletType::NormalDestructible);
         }
-        
+
         // 発射時のカメラ揺れ
         if (camera_) {
-          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
+          if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
             // Const外しを避けるためにconst_cast（元のコード踏襲）
-            auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+            auto mutableRailCam =
+                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
             mutableRailCam->Shake(0.3f, 0.1f);
           }
         }
       }
     }
-    
+
     // 発射後、即座に硬直ステートへ
     currentState_ = BossState::Cooldown;
     stateTimer_ = 0.0f;
@@ -300,28 +307,30 @@ void Boss::UpdatePhase1() {
     // 新しい目標座標（targetPos_）を計算してセット
     if (stateTimer_ >= 2.0f) {
       startPos_ = targetPos_;
-      
+
       // カメラを基準にした新しい移動先をランダムに決定
       if (camera_) {
-          Vector3 cPos = camera_->GetTranslate();
-          Vector3 cRight = camera_->GetRight();
-          Vector3 cUp = camera_->GetUp();
-          Vector3 cForward = camera_->GetForward();
-          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-              cPos = railCam->GetRailPosition();
-              cRight = railCam->GetRailRight();
-              cUp = railCam->GetRailUp();
-              cForward = railCam->GetRailForward();
-          }
-          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
-          
-          // ランダムに左右(X)・上下(Y)に少しずらした位置を次の目標にする
-          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 20.0f; // -10 から +10
-          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 10.0f; // -5 から +5
-          
-          targetPos_.x = center.x + offsetX;
-          targetPos_.y = center.y + offsetY;
-          targetPos_.z = center.z; // Z軸（奥への距離）は基準位置をキープ
+        Vector3 cPos = camera_->GetTranslate();
+        Vector3 cRight = camera_->GetRight();
+        Vector3 cUp = camera_->GetUp();
+        Vector3 cForward = camera_->GetForward();
+        if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+          cPos = railCam->GetRailPosition();
+          cRight = railCam->GetRailRight();
+          cUp = railCam->GetRailUp();
+          cForward = railCam->GetRailForward();
+        }
+        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                         cForward * spawnOffset_.z;
+
+        // ランダムに左右(X)・上下(Y)に少しずらした位置を次の目標にする
+        float offsetX =
+            ((rand() % 100) / 100.0f - 0.5f) * 20.0f; // -10 から +10
+        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 10.0f; // -5 から +5
+
+        targetPos_.x = center.x + offsetX;
+        targetPos_.y = center.y + offsetY;
+        targetPos_.z = center.z; // Z軸（奥への距離）は基準位置をキープ
       }
 
       currentState_ = BossState::Hover;
@@ -339,15 +348,17 @@ void Boss::UpdatePhase2() {
   case BossState::Hover: {
     // 高速・広範囲なイージング移動
     float t = std::min(stateTimer_ / 1.5f, 1.0f);
-    float easeT = 1.0f - std::pow(1.0f - t, 3.0f); 
-    
+    float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
+
     transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
     transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
     transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
 
     if (player_) {
       Vector3 pPos = player_->GetTransform().translate;
-      Vector3 dir = {pPos.x - transform_.translate.x, pPos.y - transform_.translate.y, pPos.z - transform_.translate.z};
+      Vector3 dir = {pPos.x - transform_.translate.x,
+                     pPos.y - transform_.translate.y,
+                     pPos.z - transform_.translate.z};
       transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
     }
 
@@ -374,7 +385,8 @@ void Boss::UpdatePhase2() {
 
     // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.5f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
+                                                          chargeRatio);
 
     if (stateTimer_ >= 0.5f) {
       transform_.translate = targetPos_;
@@ -391,30 +403,62 @@ void Boss::UpdatePhase2() {
     if (player_) {
       Vector3 playerPos = player_->GetTransform().translate;
       Vector3 myPos = transform_.translate;
-      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y, playerPos.z - myPos.z};
+      Vector3 dir = {playerPos.x - myPos.x, playerPos.y - myPos.y,
+                     playerPos.z - myPos.z};
       float dist = std::sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
       if (dist > 0.001f) {
-        dir.x /= dist; dir.y /= dist; dir.z /= dist;
-        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
+        dir.x /= dist;
+        dir.y /= dist;
+        dir.z /= dist;
+        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type, int waitFrames) {
           auto bullet = std::make_unique<EnemyBullet>();
-          bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel, const_cast<Player *>(player_), type);
+          bullet->Initialize(
+              PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
+              const_cast<Player *>(player_), type);
+          bullet->SetSwarmWait(waitFrames); // ランダムではなく指定された待機時間をセット
           ActorManager::GetInstance()->AddActor(std::move(bullet));
         };
 
-        // ロックオン用ミサイルを5発ばら撒く
-        float missileSpeed = 4.0f;
-        for (int i = 0; i < 5; ++i) {
-          float angle = (-80.0f + i * 40.0f) * (3.14159265f / 180.0f);
+        // スウォームミサイルを4発（左右に2発ずつ）真横＆斜め後ろに射出する
+        for (int i = 0; i < 4; ++i) {
+          // プレイヤー方向（dir）に対して垂直な「真横」のベクトルを計算
+          Vector3 rightDir = {dir.z, 0.0f, -dir.x};
+          
+          // プレイヤーの逆方向「真後ろ」のベクトルを計算（XZ平面）
+          Vector3 backwardDir = {-dir.x, 0.0f, -dir.z};
+          float bLen = std::sqrt(backwardDir.x * backwardDir.x + backwardDir.z * backwardDir.z);
+          if (bLen > 0.001f) {
+            backwardDir.x /= bLen;
+            backwardDir.z /= bLen;
+          }
+
+          // i=0: 左遠く, i=1: 左近く, i=2: 右近く, i=3: 右遠く
+          float spread = 0.0f;
+          if (i == 0) spread = -1.0f;
+          else if (i == 1) spread = -0.5f;
+          else if (i == 2) spread = 0.5f;
+          else if (i == 3) spread = 1.0f;
+
+          float upwardForce = ((rand() % 100) / 100.0f) * 0.5f;
+          float launchSpeed = 10.0f; // 横への射出力
+          float backwardSpeed = 10.0f; // はるか奥へ吹き飛ばす力
+
+          // 左(i=0)から順に30フレーム（0.5秒）間隔で急降下を開始するようにする
+          int waitFrames = 40 + (i * 30);
+
+          // 斜め後ろに向かって射出
           Vector3 vel = {
-              (dir.x * std::cos(angle) + dir.z * std::sin(angle)) * missileSpeed,
-              dir.y * missileSpeed - 2.0f,
-              (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) * missileSpeed};
-          spawnBullet(vel, EnemyBulletType::LockOnDestructible);
+              rightDir.x * spread * launchSpeed + backwardDir.x * backwardSpeed,
+              upwardForce,
+              rightDir.z * spread * launchSpeed + backwardDir.z * backwardSpeed
+          };
+          spawnBullet(vel, EnemyBulletType::LockOnDestructible, waitFrames);
         }
-        
+
         if (camera_) {
-          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-            auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+          if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+            auto mutableRailCam =
+                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
             mutableRailCam->Shake(0.5f, 0.15f);
           }
         }
@@ -430,22 +474,23 @@ void Boss::UpdatePhase2() {
       attackStep_++;
       startPos_ = targetPos_;
       if (camera_) {
-          Vector3 cPos = camera_->GetTranslate();
-          Vector3 cRight = camera_->GetRight();
-          Vector3 cUp = camera_->GetUp();
-          Vector3 cForward = camera_->GetForward();
-          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-              cPos = railCam->GetRailPosition();
-              cRight = railCam->GetRailRight();
-              cUp = railCam->GetRailUp();
-              cForward = railCam->GetRailForward();
-          }
-          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
-          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
-          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
-          targetPos_.x = center.x + offsetX;
-          targetPos_.y = center.y + offsetY;
-          targetPos_.z = center.z; 
+        Vector3 cPos = camera_->GetTranslate();
+        Vector3 cRight = camera_->GetRight();
+        Vector3 cUp = camera_->GetUp();
+        Vector3 cForward = camera_->GetForward();
+        if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+          cPos = railCam->GetRailPosition();
+          cRight = railCam->GetRailRight();
+          cUp = railCam->GetRailUp();
+          cForward = railCam->GetRailForward();
+        }
+        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                         cForward * spawnOffset_.z;
+        float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+        targetPos_.x = center.x + offsetX;
+        targetPos_.y = center.y + offsetY;
+        targetPos_.z = center.z;
       }
       currentState_ = BossState::Hover;
       stateTimer_ = 0.0f;
@@ -463,19 +508,22 @@ void Boss::UpdatePhase2() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
-    // ★突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    // ★突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0
+    // を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.8f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, chargeRatio);
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
+                                                          chargeRatio);
 
     if (stateTimer_ >= 0.8f) {
       transform_.translate = targetPos_;
       startPos_ = targetPos_;
       // 突進の目標座標を現在位置からZ方向手前に40ユニット迫った場所に設定
-      targetPos_.z -= 40.0f; 
+      targetPos_.z -= 40.0f;
 
       if (camera_) {
-        if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-          auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+        if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+          auto mutableRailCam =
+              static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
           mutableRailCam->Shake(0.8f, 0.3f); // 突進開始時の大きな揺れ
         }
       }
@@ -490,7 +538,7 @@ void Boss::UpdatePhase2() {
     // 0.5秒で目標(Z-40)へ急接近
     float t = std::min(stateTimer_ / 0.5f, 1.0f);
     float easeT = t * t; // EaseIn
-    
+
     transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
     transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
     transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
@@ -507,25 +555,26 @@ void Boss::UpdatePhase2() {
     if (stateTimer_ >= 1.5f) {
       attackStep_++;
       startPos_ = targetPos_;
-      
+
       // 元のZ位置（奥）に戻るためのHover目標を設定
       if (camera_) {
-          Vector3 cPos = camera_->GetTranslate();
-          Vector3 cRight = camera_->GetRight();
-          Vector3 cUp = camera_->GetUp();
-          Vector3 cForward = camera_->GetForward();
-          if (auto railCam = dynamic_cast<const RailCamera*>(camera_)) {
-              cPos = railCam->GetRailPosition();
-              cRight = railCam->GetRailRight();
-              cUp = railCam->GetRailUp();
-              cForward = railCam->GetRailForward();
-          }
-          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y + cForward * spawnOffset_.z;
-          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
-          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
-          targetPos_.x = center.x + offsetX;
-          targetPos_.y = center.y + offsetY;
-          targetPos_.z = center.z; // Z軸を元の距離に戻す
+        Vector3 cPos = camera_->GetTranslate();
+        Vector3 cRight = camera_->GetRight();
+        Vector3 cUp = camera_->GetUp();
+        Vector3 cForward = camera_->GetForward();
+        if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+          cPos = railCam->GetRailPosition();
+          cRight = railCam->GetRailRight();
+          cUp = railCam->GetRailUp();
+          cForward = railCam->GetRailForward();
+        }
+        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                         cForward * spawnOffset_.z;
+        float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+        targetPos_.x = center.x + offsetX;
+        targetPos_.y = center.y + offsetY;
+        targetPos_.z = center.z; // Z軸を元の距離に戻す
       }
       currentState_ = BossState::Hover;
       stateTimer_ = 0.0f;
@@ -598,8 +647,8 @@ void Boss::Draw2D() {
 }
 
 void Boss::OnCollision(Collider *other) {
-  if (other->GetOwner() && dynamic_cast<Player*>(other->GetOwner())) {
-    Player* p = dynamic_cast<Player*>(other->GetOwner());
+  if (other->GetOwner() && dynamic_cast<Player *>(other->GetOwner())) {
+    Player *p = dynamic_cast<Player *>(other->GetOwner());
     if (p->GetInvincibleTimer() > 0) {
       return; // 無敵中は食らわない
     }
