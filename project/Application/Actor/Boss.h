@@ -1,10 +1,12 @@
 #pragma once
-#include "Framework/BaseActor.h"
 #include "Actor/Enemy.h"
-#include <memory>
-#include <functional>
-#include "Math/Vector4.h"
+#include "Framework/BaseActor.h"
 #include "Math/Vector3.h"
+#include "Math/Vector4.h"
+#include <array>
+#include <functional>
+#include <memory>
+#include <vector>
 
 #include "Render/Object3d/Object3d.h"
 #include "Render/Sprite/Sprite.h"
@@ -14,12 +16,7 @@ class ICamera;
 class Player;
 class SpriteRenderer;
 
-enum class BossPhase {
-  Phase1,
-  Phase2,
-  Dying,
-  Defeated
-};
+enum class BossPhase { Phase1, Phase2, Dying, Defeated };
 
 class Boss : public Enemy {
 public:
@@ -27,7 +24,7 @@ public:
   ~Boss() override;
 
   void Initialize() override;
-  void InitializeUI(SpriteRenderer* spriteRenderer);
+  void InitializeUI(SpriteRenderer *spriteRenderer);
   void Update() override;
   void Draw3D() override;
   void Draw2D() override;
@@ -45,17 +42,18 @@ public:
       model_->SetEnableDissolve(false);
       model_->SetDissolveThreshold(0.0f);
       model_->SetDissolveEdgeRange(0.1f); // DebugSceneのSuzanneと同じ値
-      model_->SetDissolveEdgeColor({0.0f, 5.0f, 5.0f, 1.0f}); // 強いネオンシアン
+      model_->SetDissolveEdgeColor(
+          {0.0f, 5.0f, 5.0f, 1.0f}); // 強いネオンシアン
     }
   }
-  Object3d* GetModel() const { return model_.get(); }
-  void SetBaseColor(const Vector4& color) { baseColor_ = color; }
-  const Vector4& GetBaseColor() const { return baseColor_; }
+  Object3d *GetModel() const { return model_.get(); }
+  void SetBaseColor(const Vector4 &color) { baseColor_ = color; }
+  const Vector4 &GetBaseColor() const { return baseColor_; }
 
-  void SetCamera(const ICamera* camera) { camera_ = camera; }
-  void SetPlayer(const Player* player) { player_ = player; }
-  
-  Transform& GetTransform() { return transform_; }
+  void SetCamera(const ICamera *camera) { camera_ = camera; }
+  void SetPlayer(const Player *player) { player_ = player; }
+
+  Transform &GetTransform() { return transform_; }
 
   // ステータスのゲッター/セッター
   int GetHP() const { return hp_; }
@@ -77,10 +75,20 @@ private:
   BossPhase phase_ = BossPhase::Phase1;
 
   // ステートマシン管理
-  enum class BossState { Enter, Hover, Telegraph, Attack, Cooldown, DashTelegraph, Dash, DashCooldown };
+  enum class BossState {
+    Enter,
+    Hover,
+    Telegraph,
+    Attack,
+    Cooldown,
+    DashTelegraph,
+    Dash,
+    DashCooldown
+  };
   BossState currentState_ = BossState::Enter;
   float stateTimer_ = 0.0f;
   int attackStep_ = 0;
+  int attackPattern_ = 0;
   Vector3 startPos_ = {0.0f, 0.0f, 0.0f};
   Vector3 targetPos_ = {0.0f, 0.0f, 0.0f};
 
@@ -89,19 +97,25 @@ private:
   std::unique_ptr<Sprite> hpBarFg_;
   bool isUIInitialized_ = false;
 
+  // --- 動的移動用のスプライン制御点 ---
+  std::array<Vector3, 4> hoverWaypoints_;
+
   // --- ディゾルブ制御 ---
   bool dissolveEnabled_ = false;
 
-  float dyingTimer_ = 0.0f;        // 消滅演出の経過時間
-  float dyingDuration_ = 3.0f;    // 演出の総時間(秒)
-  std::function<void(const Vector3&)> onDyingUpdateCallback_; // Dyingフェーズの毎フレームコールバック
+  float dyingTimer_ = 0.0f;    // 消滅演出の経過時間
+  float dyingDuration_ = 3.0f; // 演出の総時間(秒)
+  std::function<void(const Vector3 &)>
+      onDyingUpdateCallback_; // Dyingフェーズの毎フレームコールバック
 
   // --- 部位（装甲）管理 ---
-  std::vector<class BossBit*> activeBits_;
+  std::vector<class BossBit *> activeBits_;
 
 public:
-  void SetOnDyingUpdateCallback(std::function<void(const Vector3&)> cb) { onDyingUpdateCallback_ = cb; }
-  
+  void SetOnDyingUpdateCallback(std::function<void(const Vector3 &)> cb) {
+    onDyingUpdateCallback_ = cb;
+  }
+
   // ビットが死んだときにリストから削除するコールバック関数
-  void OnBitDestroyed(BossBit* bit);
+  void OnBitDestroyed(BossBit *bit);
 };

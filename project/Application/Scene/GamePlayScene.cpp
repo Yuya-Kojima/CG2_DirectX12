@@ -129,8 +129,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // --- フォグの初期化 ---
   FogData fog;
   fog.color = Vector4(0.8f, 0.9f, 1.0f, 1.0f); // 空色っぽいフォグ
-  fog.nearDist = 150.0f;
-  fog.farDist = 400.0f;
+  fog.nearDist = 300.0f;
+  fog.farDist = 600.0f;
   fog.enabled = 1.0f;
   engine_->GetObject3dRenderer()->SetFog(fog);
 
@@ -909,7 +909,7 @@ void GamePlayScene::Update() {
     ImGui::TextDisabled("%s", selected->GetModelPath().c_str());
     ImGui::Separator();
 
-    const char* tagItems[] = { "Untagged", "Player", "Enemy", "LockOnTarget" };
+    const char *tagItems[] = {"Untagged", "Player", "Enemy", "LockOnTarget"};
     int currentItem = static_cast<int>(selected->tag_);
     if (ImGui::Combo("Tag", &currentItem, tagItems, IM_ARRAYSIZE(tagItems))) {
       selected->tag_ = static_cast<ActorTag>(currentItem);

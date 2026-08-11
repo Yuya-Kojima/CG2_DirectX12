@@ -44,7 +44,7 @@ public:
   void PlayBossBurstEffect(const Vector3& center);
 
   /// <summary>
-  /// ファンネル急発進時の白いリングエフェクトを発生させる
+  /// ミサイル急発進時の白いリングエフェクトを発生させる
   /// </summary>
   void PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f});
 

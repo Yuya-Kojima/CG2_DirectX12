@@ -45,8 +45,6 @@ void Boss::Initialize() {
   dissolveEnabled_ = false;
 
   // --- コアと装甲の生成 ---
-  // ボスからの距離。1.5だと遠すぎて公転しているように見えてしまうため、
-  // 表面に張り付くように0.6程度に縮小します。
   float bitOffsetRadius = 0.6f;
 
   // Z軸を手前にずらす。コアは奥、装甲は手前。
@@ -67,7 +65,6 @@ void Boss::Initialize() {
   for (int i = 0; i < 4; ++i) {
     // 1. コアの生成（奥側）
     auto core = std::make_unique<BossCore>();
-    // コアの見た目は仮で赤く光るSphere（モデルがない場合は適当なものを赤くする）
     auto coreModel = std::make_unique<Object3d>();
     coreModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
     coreModel->SetModel("suzanne.obj"); // 仮
@@ -191,19 +188,24 @@ void Boss::UpdatePhase1() {
       transform_.translate = center;
       startPos_ = center;
       targetPos_ = center;
+      hoverWaypoints_ = {center, center, center,
+                         center}; // 初回は同じ位置に留まる
     }
     currentState_ = BossState::Hover;
     stateTimer_ = 0.0f;
     break;
 
   case BossState::Hover: {
-    // イージング（EaseOutCubic）を用いて targetPos_ へ滑らかに移動
-    float t = std::min(stateTimer_ / 3.0f, 1.0f);
-    float easeT = 1.0f - std::pow(1.0f - t, 3.0f);
+    float duration = 2.5f; // 飛行にかける時間
+    float t = std::min(stateTimer_ / duration, 1.0f);
 
-    transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
-    transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
-    transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
+    // SmoothStepによる緩急
+    float easeT = t * t * (3.0f - 2.0f * t);
+
+    // スプライン曲線による移動
+    transform_.translate =
+        CatmullRom(hoverWaypoints_[0], hoverWaypoints_[1], hoverWaypoints_[2],
+                   hoverWaypoints_[3], easeT);
 
     // 常にプレイヤーの方向を向く
     if (player_) {
@@ -214,8 +216,8 @@ void Boss::UpdatePhase1() {
       transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
     }
 
-    // 3秒経過したら予兆ステートへ
-    if (stateTimer_ >= 3.0f) {
+    // 移動完了で予兆ステートへ
+    if (stateTimer_ >= duration) {
       currentState_ = BossState::Telegraph;
       stateTimer_ = 0.0f;
     }
@@ -224,7 +226,6 @@ void Boss::UpdatePhase1() {
 
   case BossState::Telegraph: {
     // 予兆：小刻みに震える
-    // 基準位置（targetPos_）にランダムな微小オフセットを加算
     float shakeAmount = 0.2f;
     float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
     float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
@@ -233,7 +234,7 @@ void Boss::UpdatePhase1() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
-    // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    // 予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
     EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
                                                           chargeRatio);
@@ -249,10 +250,8 @@ void Boss::UpdatePhase1() {
   }
 
   case BossState::Attack: {
-    // ★発射の瞬間に発散エフェクト（大爆発＋ショックウェーブ）を発生
     EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
 
-    // プレイヤーの方向を計算して扇状に弾を発射
     if (player_) {
       Vector3 playerPos = player_->GetTransform().translate;
       Vector3 myPos = transform_.translate;
@@ -264,51 +263,85 @@ void Boss::UpdatePhase1() {
         dir.y /= dist;
         dir.z /= dist;
 
-        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type) {
+        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type,
+                               int waitFrames = 0) {
           auto bullet = std::make_unique<EnemyBullet>();
           bullet->Initialize(
               PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
               const_cast<Player *>(player_), type);
+          if (type == EnemyBulletType::LockOnDestructible) {
+            bullet->SetSwarmWait(waitFrames);
+          }
           ActorManager::GetInstance()->AddActor(std::move(bullet));
         };
 
-        // 扇状に5発の通常弾を発射
-        float normalSpeed = 0.5f;
-        for (int i = 0; i < 5; ++i) {
-          float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
-          Vector3 vel = {(dir.x * std::cos(angle) + dir.z * std::sin(angle)) *
-                             normalSpeed,
-                         dir.y * normalSpeed,
-                         (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) *
-                             normalSpeed};
-          spawnBullet(vel, EnemyBulletType::NormalDestructible);
+        if (attackPattern_ == 1) {
+          // ミサイル
+          for (int i = 0; i < 4; ++i) {
+            Vector3 rightDir = {dir.z, 0.0f, -dir.x};
+            Vector3 backwardDir = {-dir.x, 0.0f, -dir.z};
+            float bLen = std::sqrt(backwardDir.x * backwardDir.x +
+                                   backwardDir.z * backwardDir.z);
+            if (bLen > 0.001f) {
+              backwardDir.x /= bLen;
+              backwardDir.z /= bLen;
+            }
+
+            float spread = (i == 0)   ? -1.0f
+                           : (i == 1) ? -0.4f
+                           : (i == 2) ? 0.4f
+                                      : 1.0f;
+            float upwardForce = ((rand() % 100) / 100.0f) * 0.5f;
+            float launchSpeed =
+                15.0f; // 横への展開速度を少しだけ落とす（18.0 -> 15.0）
+            float backwardSpeed =
+                0.0f; // 後ろには飛ばさず、ボスの真横に展開する
+            int waitFrames =
+                40 + (i * 50); // 一発ごとの間隔を 30f から 50f に延長
+            Vector3 vel = {rightDir.x * spread * launchSpeed +
+                               backwardDir.x * backwardSpeed,
+                           upwardForce,
+                           rightDir.z * spread * launchSpeed +
+                               backwardDir.z * backwardSpeed};
+            spawnBullet(vel, EnemyBulletType::LockOnDestructible, waitFrames);
+          }
+        } else {
+          // 通常弾（扇状）
+          float normalSpeed = 0.5f;
+          for (int i = 0; i < 5; ++i) {
+            float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
+            Vector3 vel = {
+                (dir.x * std::cos(angle) + dir.z * std::sin(angle)) *
+                    normalSpeed,
+                dir.y * normalSpeed,
+                (-dir.x * std::sin(angle) + dir.z * std::cos(angle)) *
+                    normalSpeed};
+            spawnBullet(vel, EnemyBulletType::NormalDestructible);
+          }
         }
 
-        // 発射時のカメラ揺れ
         if (camera_) {
           if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
-            // Const外しを避けるためにconst_cast（元のコード踏襲）
-            auto mutableRailCam =
-                static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
-            mutableRailCam->Shake(0.3f, 0.1f);
+            static_cast<RailCamera *>(const_cast<ICamera *>(camera_))
+                ->Shake(0.3f, 0.1f);
           }
         }
       }
     }
 
-    // 発射後、即座に硬直ステートへ
     currentState_ = BossState::Cooldown;
     stateTimer_ = 0.0f;
     break;
   }
 
-  case BossState::Cooldown:
+  case BossState::Cooldown: {
     // 2秒経過したら再びHoverに戻ってループ
-    // 新しい目標座標（targetPos_）を計算してセット
     if (stateTimer_ >= 2.0f) {
-      startPos_ = targetPos_;
+      startPos_ = transform_.translate;
 
-      // カメラを基準にした新しい移動先をランダムに決定
+      // 次の攻撃パターンを切り替える（0:通常弾, 1:ミサイル）
+      attackPattern_ = (attackPattern_ + 1) % 2;
+
       if (camera_) {
         Vector3 cPos = camera_->GetTranslate();
         Vector3 cRight = camera_->GetRight();
@@ -320,23 +353,50 @@ void Boss::UpdatePhase1() {
           cUp = railCam->GetRailUp();
           cForward = railCam->GetRailForward();
         }
-        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
-                         cForward * spawnOffset_.z;
 
-        // ランダムに左右(X)・上下(Y)に少しずらした位置を次の目標にする
+        // 1. 攻撃パターンに基づく目標座標（着地地点）の決定 = 予兆（Telegraph）
+        if (attackPattern_ == 1) {
+          // ミサイル：画面の奥深く（遠距離）へ
+          targetPos_ = cPos + cUp * 15.0f + cForward * 250.0f;
+        } else {
+          // 通常弾：プレイヤーの近く（近距離）へ
+          targetPos_ = cPos + cUp * 5.0f + cForward * 110.0f;
+        }
+
+        // 少しランダムにズラす
         float offsetX =
-            ((rand() % 100) / 100.0f - 0.5f) * 20.0f; // -10 から +10
-        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 10.0f; // -5 から +5
+            ((rand() % 100) / 100.0f - 0.5f) * 40.0f; // ズレ幅も少し抑える
+        targetPos_.x += offsetX;
 
-        targetPos_.x = center.x + offsetX;
-        targetPos_.y = center.y + offsetY;
-        targetPos_.z = center.z; // Z軸（奥への距離）は基準位置をキープ
+        // 2. スプライン曲線の制御点を生成（行き方はランダム）
+        hoverWaypoints_[1] = startPos_;
+        hoverWaypoints_[2] = targetPos_;
+
+        // 引っ張り点（P0, P3）をランダムに配置して有機的なカーブを作る
+        int flightPattern = rand() % 3;
+        if (flightPattern == 0) {
+          // 左から大きく回り込む
+          hoverWaypoints_[0] = cPos - cRight * 600.0f + cUp * 50.0f;
+          hoverWaypoints_[3] = cPos + cRight * 600.0f - cUp * 50.0f;
+        } else if (flightPattern == 1) {
+          // 上空へ大きく膨らむ
+          hoverWaypoints_[0] = cPos + cUp * 600.0f + cForward * 100.0f;
+          hoverWaypoints_[3] = cPos - cUp * 600.0f + cForward * 100.0f;
+        } else {
+          // 右から大きく回り込む
+          hoverWaypoints_[0] = cPos + cRight * 600.0f + cUp * 50.0f;
+          hoverWaypoints_[3] = cPos - cRight * 600.0f - cUp * 50.0f;
+        }
+      } else {
+        targetPos_ = startPos_;
+        hoverWaypoints_ = {startPos_, startPos_, startPos_, startPos_};
       }
 
       currentState_ = BossState::Hover;
       stateTimer_ = 0.0f;
     }
     break;
+  }
   }
 }
 
@@ -383,7 +443,7 @@ void Boss::UpdatePhase2() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
-    // ★予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
+    // 予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.5f, 1.0f);
     EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
                                                           chargeRatio);
@@ -397,7 +457,7 @@ void Boss::UpdatePhase2() {
   }
 
   case BossState::Attack: {
-    // ★発射の瞬間に発散エフェクト（大爆発＋ショックウェーブ）を発生
+    // 発射の瞬間に発散エフェクト（大爆発＋ショックウェーブ）を発生
     EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
 
     if (player_) {
@@ -410,23 +470,26 @@ void Boss::UpdatePhase2() {
         dir.x /= dist;
         dir.y /= dist;
         dir.z /= dist;
-        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type, int waitFrames) {
+        auto spawnBullet = [&](const Vector3 &vel, EnemyBulletType type,
+                               int waitFrames) {
           auto bullet = std::make_unique<EnemyBullet>();
           bullet->Initialize(
               PrefabManager::GetInstance()->GetObject3dRenderer(), myPos, vel,
               const_cast<Player *>(player_), type);
-          bullet->SetSwarmWait(waitFrames); // ランダムではなく指定された待機時間をセット
+          bullet->SetSwarmWait(
+              waitFrames); // ランダムではなく指定された待機時間をセット
           ActorManager::GetInstance()->AddActor(std::move(bullet));
         };
 
-        // スウォームミサイルを4発（左右に2発ずつ）真横＆斜め後ろに射出する
+        // ミサイルを4発（左右に2発ずつ）真横＆斜め後ろに射出する
         for (int i = 0; i < 4; ++i) {
           // プレイヤー方向（dir）に対して垂直な「真横」のベクトルを計算
           Vector3 rightDir = {dir.z, 0.0f, -dir.x};
-          
+
           // プレイヤーの逆方向「真後ろ」のベクトルを計算（XZ平面）
           Vector3 backwardDir = {-dir.x, 0.0f, -dir.z};
-          float bLen = std::sqrt(backwardDir.x * backwardDir.x + backwardDir.z * backwardDir.z);
+          float bLen = std::sqrt(backwardDir.x * backwardDir.x +
+                                 backwardDir.z * backwardDir.z);
           if (bLen > 0.001f) {
             backwardDir.x /= bLen;
             backwardDir.z /= bLen;
@@ -434,24 +497,28 @@ void Boss::UpdatePhase2() {
 
           // i=0: 左遠く, i=1: 左近く, i=2: 右近く, i=3: 右遠く
           float spread = 0.0f;
-          if (i == 0) spread = -1.0f;
-          else if (i == 1) spread = -0.5f;
-          else if (i == 2) spread = 0.5f;
-          else if (i == 3) spread = 1.0f;
+          if (i == 0)
+            spread = -1.0f;
+          else if (i == 1)
+            spread = -0.5f;
+          else if (i == 2)
+            spread = 0.5f;
+          else if (i == 3)
+            spread = 1.0f;
 
           float upwardForce = ((rand() % 100) / 100.0f) * 0.5f;
-          float launchSpeed = 10.0f; // 横への射出力
+          float launchSpeed = 10.0f;   // 横への射出力
           float backwardSpeed = 10.0f; // はるか奥へ吹き飛ばす力
 
           // 左(i=0)から順に30フレーム（0.5秒）間隔で急降下を開始するようにする
           int waitFrames = 40 + (i * 30);
 
           // 斜め後ろに向かって射出
-          Vector3 vel = {
-              rightDir.x * spread * launchSpeed + backwardDir.x * backwardSpeed,
-              upwardForce,
-              rightDir.z * spread * launchSpeed + backwardDir.z * backwardSpeed
-          };
+          Vector3 vel = {rightDir.x * spread * launchSpeed +
+                             backwardDir.x * backwardSpeed,
+                         upwardForce,
+                         rightDir.z * spread * launchSpeed +
+                             backwardDir.z * backwardSpeed};
           spawnBullet(vel, EnemyBulletType::LockOnDestructible, waitFrames);
         }
 
@@ -508,7 +575,7 @@ void Boss::UpdatePhase2() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
-    // ★突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0
+    // 突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0
     // を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.8f, 1.0f);
     EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
