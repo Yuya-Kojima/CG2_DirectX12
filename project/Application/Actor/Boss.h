@@ -97,6 +97,12 @@ private:
   std::unique_ptr<Sprite> hpBarFg_;
   bool isUIInitialized_ = false;
 
+  // ミサイル用2Dロックオンレティクル (9パーツで構成: 外枠4, 内枠4, センター1)
+  std::array<std::unique_ptr<Sprite>, 9> reticleSprites_;
+
+  // Callback
+  std::function<void(bool)> onDestroyedCallback_;
+
   // --- 動的移動用のスプライン制御点 ---
   std::array<Vector3, 4> hoverWaypoints_;
 

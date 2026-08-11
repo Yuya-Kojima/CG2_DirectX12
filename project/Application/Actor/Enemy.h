@@ -95,7 +95,6 @@ public:
 protected:
   std::unique_ptr<Object3d> model_;
   std::unique_ptr<SphereCollider> collider_;
-  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
 
   // 死亡フラグ
   bool isDead_ = false; // 体力

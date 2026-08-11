@@ -57,6 +57,8 @@ void IParticleEmitter::CreateInstancingResource() {
     emitterData_->scaleRandom = { 0.4f, 0.4f, 0.4f };
     emitterData_->baseRotate = { 0.0f, 0.0f, 0.0f };
     emitterData_->rotateRandom = { 0.0f, 0.0f, 0.0f };
+    emitterData_->scaleVelocity = { 0.0f, 0.0f, 0.0f };
+    emitterData_->isConverge = 0.0f;
 
     ParticleManager::GetInstance()->RegisterEmitter(this);
     ParticleManager::GetInstance()->InitializeEmitter(this);
@@ -103,6 +105,7 @@ void IParticleEmitter::Emit(const ParticleEmitDesc& desc) {
     emitterData_->baseRotate = desc.baseRotate;
     emitterData_->rotateRandom = desc.rotateRandom;
     emitterData_->scaleVelocity = desc.scaleVelocity;
+    emitterData_->isConverge = desc.isConverge ? 1.0f : 0.0f;
 }
 
 void IParticleEmitter::Emit(const Vector3& position, uint32_t count,

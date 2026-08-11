@@ -31,12 +31,7 @@ inline ActorTag StringToActorTag(const std::string& str) {
 /// </summary>
 class BaseActor {
 public:
-    BaseActor() {
-        // 初期値の設定
-        transform_.scale = {1.0f, 1.0f, 1.0f};
-        transform_.rotate = {0.0f, 0.0f, 0.0f};
-        transform_.translate = {0.0f, 0.0f, 0.0f};
-    }
+    BaseActor();
     virtual ~BaseActor() = default;
 
     virtual void Initialize() {}
@@ -69,4 +64,11 @@ protected:
     
     // 生存フラグ（trueになればManagerが自動で削除する）
     bool isDead_ = false;
+
+    // 衝突判定用の前回座標と初期化フラグ
+    Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
+    bool hasInitializedPreviousPos_ = false;
+
+    // 連続衝突判定（カプセル）用の速度を計算する
+    Vector3 CalculateVelocityForCollision();
 };

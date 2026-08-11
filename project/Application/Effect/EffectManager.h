@@ -36,7 +36,7 @@ public:
   /// <summary>
   /// ボスの予兆エフェクト（収束するエネルギー）を発生させる
   /// </summary>
-  void PlayBossTelegraphEffect(const Vector3& center, float chargeRatio);
+  void PlayBossTelegraphEffect(const Vector3& center, const Vector3& targetPos, float chargeRatio, int attackPattern);
 
   /// <summary>
   /// ボスの発射時エフェクト（発散するエネルギーと衝撃波）を発生させる
@@ -59,8 +59,9 @@ private:
   EffectManager(const EffectManager &) = delete;
   EffectManager &operator=(const EffectManager &) = delete;
 
-  std::unique_ptr<BillboardParticleEmitter> bossTelegraphParticleGroup_;
-  std::unique_ptr<ParticleEmitter> bossTelegraphEmitter_;
+  std::unique_ptr<BillboardParticleEmitter> bossTelegraphNormalParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossTelegraphNormalEmitter_;
+
 
   std::unique_ptr<BillboardParticleEmitter> bossBurstParticleGroup_;
   std::unique_ptr<ParticleEmitter> bossBurstEmitter_;
@@ -79,6 +80,7 @@ private:
     Vector3 worldPos;
   };
   std::vector<ActiveShockwave> activeShockwaves_;
+
 
   void SaveShockwaveConfig();
   void LoadShockwaveConfig();

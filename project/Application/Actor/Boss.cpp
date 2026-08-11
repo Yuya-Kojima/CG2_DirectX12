@@ -18,6 +18,7 @@
 #include "Render/Texture/TextureManager.h"
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 Boss::Boss() {}
 
@@ -127,6 +128,13 @@ void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
   hpBarFg_->SetSize({800.0f, 20.0f});
   hpBarFg_->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
 
+  for (size_t i = 0; i < reticleSprites_.size(); ++i) {
+    reticleSprites_[i] = std::make_unique<Sprite>();
+    reticleSprites_[i]->Initialize(spriteRenderer, "resources/white1x1.png"); // 全て四角ベースにする
+    reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, 1.0f});
+    reticleSprites_[i]->SetAnchorPoint({0.5f, 0.5f});
+  }
+
   isUIInitialized_ = true;
 }
 
@@ -213,7 +221,7 @@ void Boss::UpdatePhase1() {
       Vector3 dir = {pPos.x - transform_.translate.x,
                      pPos.y - transform_.translate.y,
                      pPos.z - transform_.translate.z};
-      transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
+      transform_.rotate.y = std::atan2(dir.x, dir.z) + std::numbers::pi_v<float>;
     }
 
     // 移動完了で予兆ステートへ
@@ -236,11 +244,15 @@ void Boss::UpdatePhase1() {
 
     // 予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
-                                                          chargeRatio);
+    Vector3 effectPos = transform_.translate;
+    if (player_) {
+        effectPos = player_->GetTransform().translate;
+    }
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, effectPos, chargeRatio, attackPattern_);
 
-    // 1秒経過したら攻撃ステートへ
-    if (stateTimer_ >= 1.0f) {
+    // 1秒経過でロックオン完了。ミサイルの場合はアニメーション後さらに1秒間（計2.0秒まで）待ってから発射する
+    float telegraphDuration = (attackPattern_ == 1) ? 2.0f : 1.0f;
+    if (stateTimer_ >= telegraphDuration) {
       // 震えを元に戻す
       transform_.translate = targetPos_;
       currentState_ = BossState::Attack;
@@ -309,7 +321,7 @@ void Boss::UpdatePhase1() {
           // 通常弾（扇状）
           float normalSpeed = 0.5f;
           for (int i = 0; i < 5; ++i) {
-            float angle = (-20.0f + i * 10.0f) * (3.14159265f / 180.0f);
+            float angle = (-20.0f + i * 10.0f) * (std::numbers::pi_v<float> / 180.0f);
             Vector3 vel = {
                 (dir.x * std::cos(angle) + dir.z * std::sin(angle)) *
                     normalSpeed,
@@ -419,7 +431,7 @@ void Boss::UpdatePhase2() {
       Vector3 dir = {pPos.x - transform_.translate.x,
                      pPos.y - transform_.translate.y,
                      pPos.z - transform_.translate.z};
-      transform_.rotate.y = std::atan2(dir.x, dir.z) + 3.14159265f;
+      transform_.rotate.y = std::atan2(dir.x, dir.z) + std::numbers::pi_v<float>;
     }
 
     if (stateTimer_ >= 1.5f) {
@@ -445,8 +457,11 @@ void Boss::UpdatePhase2() {
 
     // 予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.5f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
-                                                          chargeRatio);
+    Vector3 effectPos = transform_.translate;
+    if (player_) {
+        effectPos = player_->GetTransform().translate;
+    }
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, effectPos, chargeRatio, 1); // Phase 2のTelegraphはミサイル固定なので1
 
     if (stateTimer_ >= 0.5f) {
       transform_.translate = targetPos_;
@@ -575,11 +590,13 @@ void Boss::UpdatePhase2() {
     transform_.translate.y = targetPos_.y + ry;
     transform_.translate.z = targetPos_.z + rz;
 
-    // 突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0
-    // を渡す）
+    // 突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
     float chargeRatio = std::min(stateTimer_ / 0.8f, 1.0f);
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate,
-                                                          chargeRatio);
+    Vector3 effectPos = transform_.translate;
+    if (player_) {
+        effectPos = player_->GetTransform().translate;
+    }
+    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, effectPos, chargeRatio, 2); // 突進は仮実装なのでとりあえず2(Missileフォールバック)を渡す
 
     if (stateTimer_ >= 0.8f) {
       transform_.translate = targetPos_;
@@ -711,6 +728,100 @@ void Boss::Draw2D() {
 
   hpBarBg_->Draw();
   hpBarFg_->Draw();
+
+  // ミサイル予兆中のレティクル描画 (attackPattern_ == 1 はミサイル)
+  if (currentState_ == BossState::Telegraph && attackPattern_ == 1 && player_ && camera_) {
+    float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
+    
+    Vector3 playerPos = player_->GetTransform().translate;
+    Vector2 screenPos = WorldToScreen(playerPos, camera_->GetViewProjectionMatrix(), 1280.0f, 720.0f);
+
+    // 画面外を描画から除外
+    if (screenPos.x > -100 && screenPos.x < 1380 && screenPos.y > -100 && screenPos.y < 820) {
+      
+      // チャージ比率 (0.0~1.0)
+      float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
+      bool isLocked = stateTimer_ >= 1.0f; // 1.0秒以降はロック完了状態
+
+      Transform uvTransform;
+      uvTransform.scale = {1.0f, 1.0f, 1.0f};
+      uvTransform.rotate = {0.0f, 0.0f, 0.0f};
+      uvTransform.translate = {0.0f, 0.0f, 0.0f};
+      
+      //  外枠 
+      // 外枠は縮小せず、画面中央を中心に公転・自転する。ターゲットを囲む四角い枠（□）にする
+      float outerOffset = 160.0f;
+      float outerThick = 6.0f;
+      float outerLen = 100.0f;
+      // 1.0秒でピッタリ90度回転し、四角い枠のままカチッと止まる
+      float outerRot = stateTimer_ * (std::numbers::pi_v<float> / 2.0f);
+      float finalOuterRot = isLocked ? (std::numbers::pi_v<float> / 2.0f) : outerRot;
+
+      constexpr float baseAngles[4] = {
+          0.0f,                               // 上
+          std::numbers::pi_v<float>,          // 下
+          -std::numbers::pi_v<float> / 2.0f,  // 左
+          std::numbers::pi_v<float> / 2.0f    // 右
+      };
+
+      for (int i=0; i<4; ++i) {
+         float currentAngle = baseAngles[i] + finalOuterRot;
+         float ox = sinf(currentAngle) * outerOffset;
+         float oy = -cosf(currentAngle) * outerOffset;
+         
+         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
+         // 外枠は「横線（-）」をベースにして回転させることで四角い枠（□）を形成する
+         reticleSprites_[i]->SetSize({outerLen, outerThick}); 
+         reticleSprites_[i]->SetRotation(currentAngle);
+         
+         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, isLocked ? 1.0f : 0.6f});
+         reticleSprites_[i]->Update(uvTransform);
+         reticleSprites_[i]->Draw();
+      }
+
+      //内枠
+      // チャージが進むにつれて枠が激しく縮小する。内枠はターゲットを狙う十字（＋）にする
+      float innerOffset = 200.0f - (150.0f * chargeRatio);
+      float innerThick = 10.0f;
+      float innerLen = 50.0f;
+      // 1.0秒でピッタリ180度回転する
+      float innerRot = -stateTimer_ * std::numbers::pi_v<float>;
+      float finalInnerRot = isLocked ? -std::numbers::pi_v<float> : innerRot;
+
+      float innerAlpha = 1.0f;
+      if (!isLocked && chargeRatio > 0.7f) {
+         innerAlpha = fmodf(stateTimer_ * 15.0f, 1.0f) > 0.5f ? 1.0f : 0.2f;
+      }
+      
+      for (int i=4; i<8; ++i) {
+         int idx = i - 4;
+         float currentAngle = baseAngles[idx] + finalInnerRot;
+         float ox = sinf(currentAngle) * innerOffset;
+         float oy = -cosf(currentAngle) * innerOffset;
+         
+         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
+         // 内枠は「縦線（|）」をベースにして回転させることで十字（＋）を形成する
+         reticleSprites_[i]->SetSize({innerThick, innerLen}); 
+         reticleSprites_[i]->SetRotation(currentAngle);
+         
+         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, innerAlpha});
+         reticleSprites_[i]->Update(uvTransform);
+         reticleSprites_[i]->Draw();
+      }
+
+      // センタードット
+      if (isLocked) {
+         reticleSprites_[8]->SetPosition({screenPos.x, screenPos.y});
+         reticleSprites_[8]->SetSize({14.0f, 14.0f}); 
+         reticleSprites_[8]->SetRotation(0.0f);
+         
+         reticleSprites_[8]->SetScale({1.0f, 1.0f});
+         reticleSprites_[8]->SetColor({1.0f, 0.0f, 0.0f, 1.0f});
+         reticleSprites_[8]->Update(uvTransform);
+         reticleSprites_[8]->Draw();
+      }
+    }
+  }
 }
 
 void Boss::OnCollision(Collider *other) {

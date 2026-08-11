@@ -43,7 +43,7 @@ struct EmitterData {
     float padding6;          // 4 bytes  (16 bytes)
 
     Vector3 scaleVelocity;   // 12 bytes
-    float padding7;          // 4 bytes  (16 bytes)
+    float isConverge;        // 4 bytes  (16 bytes)
 };
 
 struct ParticleForGPU {
@@ -68,6 +68,7 @@ struct ParticleEmitDesc {
     Vector3 rotateRandom = {0.0f, 0.0f, 0.0f};
 
     Vector3 scaleVelocity = {0.0f, 0.0f, 0.0f};
+    bool isConverge = false;
 };
 
 class IParticleEmitter {
@@ -92,6 +93,7 @@ public:
     void SetUVTransform(const Matrix4x4& uvTransform) { materialData_->uvTransform = uvTransform; }
     void SetMaterialColor(const Vector4& color) { materialData_->color = color; }
     void SetIsRingMode(bool isRing) { materialData_->isRingMode = isRing ? 1 : 0; }
+    void SetIsConverge(bool isConverge) { emitterData_->isConverge = isConverge ? 1.0f : 0.0f; }
 
     bool IsEmitting() const { return emitterData_->emit != 0; }
     ID3D12Resource* GetEmitterResource() const { return emitterResource_.Get(); }
