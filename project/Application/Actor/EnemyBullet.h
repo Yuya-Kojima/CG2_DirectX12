@@ -27,6 +27,7 @@ public:
 
   EnemyBulletType GetBulletType() const { return type_; }
   void SetBulletType(EnemyBulletType type) { type_ = type; }
+  void SetSwarmWait(int frames) { swarmWaitFrames_ = frames; }
 
 private:
   std::unique_ptr<Object3d> object3d_;
@@ -40,4 +41,5 @@ private:
   // ミサイル用パラメータ
   float homingStrength_ = 0.0f;
   int aliveFrames_ = 0;
+  int swarmWaitFrames_ = 0; 
 };

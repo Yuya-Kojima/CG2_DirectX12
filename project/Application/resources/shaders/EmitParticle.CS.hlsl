@@ -34,7 +34,7 @@ struct EmitterData {
 	float32_t padding6; // 4 bytes  (16 bytes)
 
 	float32_t3 scaleVelocity; // 12 bytes
-	float32_t padding7; // 4 bytes  (16 bytes)
+	float32_t isConverge; // 4 bytes  (16 bytes)
 };
 
 struct PerFrame {
@@ -112,18 +112,24 @@ void main(uint32_t3 DTid : SV_DispatchThreadID) {
 
             // Translateは エミッター位置を中心に、spawnAreaの範囲で散らす
             // (randomTranslate - 0.5f) * 2.0f は -1.0 ~ 1.0 になる
-			gParticles[particleIndex].translate = gEmitter.translate + (randomTranslate - 0.5f) * 2.0f * gEmitter.spawnArea;
+			float32_t3 offset = (randomTranslate - 0.5f) * 2.0f * gEmitter.spawnArea;
+			gParticles[particleIndex].translate = gEmitter.translate + offset;
             
             // Colorは baseColor、alphaは1.0
 			gParticles[particleIndex].color.rgb = gEmitter.baseColor;
 			gParticles[particleIndex].color.a = 1.0f;
 
-            // 速度 (velocity) をランダムに設定
-            // baseVelocity + velocityRandom * (-1.0 ~ 1.0)
-			gParticles[particleIndex].velocity = gEmitter.baseVelocity + (randomVelocity - 0.5f) * 2.0f * gEmitter.velocityRandom;
-
             // 寿命 (lifeTime) をランダムに設定
 			gParticles[particleIndex].lifeTime = gEmitter.lifeMin + generator.Generate1d() * (gEmitter.lifeMax - gEmitter.lifeMin);
+
+            // 速度 (velocity) を設定
+			if (gEmitter.isConverge > 0.5f) {
+				// 収束モード：寿命の終わりぴったりに中心（offset=0）に到達する速度
+				gParticles[particleIndex].velocity = -offset / gParticles[particleIndex].lifeTime;
+			} else {
+				// 通常モード：ランダムに設定
+				gParticles[particleIndex].velocity = gEmitter.baseVelocity + (randomVelocity - 0.5f) * 2.0f * gEmitter.velocityRandom;
+			}
 
             // 経過時間 (currentTime) を 0 に初期化
 			gParticles[particleIndex].currentTime = 0.0f;

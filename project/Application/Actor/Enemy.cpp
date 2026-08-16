@@ -79,12 +79,8 @@ void Enemy::Update() {
 
   // 連続衝突判定用に速度を計算してコライダーに渡す
   if (collider_) {
-    Vector3 velocity = {transform_.translate.x - previousPos_.x,
-                        transform_.translate.y - previousPos_.y,
-                        transform_.translate.z - previousPos_.z};
-    collider_->SetVelocity(velocity);
+    collider_->SetVelocity(CalculateVelocityForCollision());
   }
-  previousPos_ = transform_.translate;
 }
 
 void Enemy::UpdateTransform() {

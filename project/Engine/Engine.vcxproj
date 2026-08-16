@@ -127,6 +127,7 @@
   <ItemGroup>
     <ClCompile Include="src\Collision\CollisionManager.cpp" />
     <ClCompile Include="src\Framework\ActorManager.cpp" />
+    <ClCompile Include="src\Framework\BaseActor.cpp" />
     <ClCompile Include="src\Math\CollisionMath.cpp" />
     <ClCompile Include="src\Render\Model\Skeleton.cpp" />
     <ClCompile Include="src\Render\Primitive\Cube.cpp" />

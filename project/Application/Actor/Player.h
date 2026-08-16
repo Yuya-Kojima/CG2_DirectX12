@@ -130,8 +130,6 @@ private:
   void FireHomingShot();
   void FireNormalShot(); // 追加
 
-  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f}; // 1フレーム前の座標
-
   // 照準用
   Vector2 reticlePosition_;
   Vector2 reticleVelocity_ = {0.0f, 0.0f}; // 照準の移動速度（慣性用）

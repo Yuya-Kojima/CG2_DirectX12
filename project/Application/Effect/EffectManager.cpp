@@ -1,17 +1,17 @@
 #include "EffectManager.h"
 #include "../../externals/nlohmann/json.hpp"
-#include "Scene/SceneManager.h"
-#include "Render/Renderer/PostProcess.h"
 #include "Camera/ICamera.h"
 #include "Camera/RailCamera.h"
+#include "Render/Renderer/PostProcess.h"
+#include "Scene/SceneManager.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 
-EffectManager* EffectManager::GetInstance() {
+EffectManager *EffectManager::GetInstance() {
   static EffectManager instance;
   return &instance;
 }
@@ -19,6 +19,51 @@ EffectManager* EffectManager::GetInstance() {
 void EffectManager::Initialize() {
   LoadShockwaveConfig();
 
+  // ==========================================
+  // ボス用エフェクト
+  // ==========================================
+
+  // 通常弾の予兆
+  bossTelegraphNormalParticleGroup_ =
+      std::make_unique<BillboardParticleEmitter>();
+  bossTelegraphNormalParticleGroup_->Initialize("resources/circle.png");
+  bossTelegraphNormalParticleGroup_->SetIsRingMode(false);
+
+  bossTelegraphNormalEmitter_ = std::make_unique<ParticleEmitter>(
+      bossTelegraphNormalParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f},
+      Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+      Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);                    // 寿命0.5秒
+  bossTelegraphNormalEmitter_->SetBaseScale({3.0f, 3.0f, 3.0f}); // 小さめ
+  bossTelegraphNormalEmitter_->SetScaleRandom({2.0f, 2.0f, 2.0f});
+  bossTelegraphNormalEmitter_->SetColor(
+      {5.0f, 1.0f, 0.2f, 1.0f}); // 赤・オレンジ系の強い光
+  bossTelegraphNormalEmitter_->SetScaleVelocity(
+      {-3.0f, -3.0f, -3.0f}); // 中心に到達する頃には消えるように縮小
+  bossTelegraphNormalEmitter_->SetHalfSize(
+      {40.0f, 40.0f, 40.0f}); // 広い範囲から発生
+  bossTelegraphNormalEmitter_->SetIsConverge(
+      true); // 発生位置から中心に向かって飛ぶ
+
+  // 攻撃時エフェクト
+  bossBurstParticleGroup_ = std::make_unique<BillboardParticleEmitter>();
+  bossBurstParticleGroup_->Initialize("resources/circle.png");
+  bossBurstParticleGroup_->SetIsRingMode(false);
+
+  bossBurstEmitter_ = std::make_unique<ParticleEmitter>(
+      bossBurstParticleGroup_.get(), Vector3{0.0f, 0.0f, 0.0f},
+      Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+      Vector3{0.0f, 0.0f, 0.0f}, 0.3f, 0.3f); // 発散エフェクトの寿命
+  bossBurstEmitter_->SetBaseScale({10.0f, 10.0f, 10.0f}); // 最初は小さめ
+  bossBurstEmitter_->SetColor(
+      {4.0f, 3.0f, 1.0f, 0.8f}); // 強い白・黄色系でフラッシュ
+  bossBurstEmitter_->SetScaleVelocity(
+      {400.0f, 400.0f, 400.0f}); // 超高速で膨張する（発散）
+
+  // ==========================================
+  // 雑魚敵用エフェクト
+  // ==========================================
+
+  // 死亡時エフェクト
   for (int i = 0; i < kMaxHitEffects; ++i) {
     hitCoreParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
     hitCoreParticleGroups_[i]->Initialize("resources/circle.png");
@@ -30,40 +75,46 @@ void EffectManager::Initialize() {
 
     // 1. コア
     deathCoreEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
+        hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 0.5f, 0.5f);
     deathCoreEmitters_[i]->SetBaseScale({20.0f, 20.0f, 20.0f});
     deathCoreEmitters_[i]->SetColor({1.0f, 0.8f, 0.8f, 1.0f});
     deathCoreEmitters_[i]->SetScaleVelocity({-20.0f, -20.0f, -20.0f});
 
     // 2. フレア
     deathFlareEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitFlareParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f,
-        Vector3{-30.0f, -30.0f, -30.0f}, Vector3{30.0f, 30.0f, 30.0f}, 0.4f, 0.6f);
+        hitFlareParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.5f, 0.5f, 0.5f}, 40, 0.0f, Vector3{-30.0f, -30.0f, -30.0f},
+        Vector3{30.0f, 30.0f, 30.0f}, 0.4f, 0.6f);
     deathFlareEmitters_[i]->SetBaseScale({0.8f, 0.8f, 0.8f});
     deathFlareEmitters_[i]->SetColor({2.0f, 0.6f, 0.1f, 1.0f});
     deathFlareEmitters_[i]->SetScaleVelocity({-1.0f, -1.0f, -1.0f});
 
     // 3. リング衝撃波
     deathRingEmitters_[i] = std::make_unique<ParticleEmitter>(
-        hitRingParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f,
-        Vector3{0.0f, 0.0f, 0.0f}, Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
+        hitRingParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 0.7f, 0.7f);
     deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f});
     deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
     deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
   }
 }
 
-void EffectManager::Update(const ICamera* camera) {
-  if (!camera) return;
-  Matrix4x4 viewProj = Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+void EffectManager::Update(const ICamera *camera) {
+  if (!camera)
+    return;
+  Matrix4x4 viewProj =
+      Multiply(camera->GetViewMatrix(), camera->GetProjectionMatrix());
 
   auto postProcess = SceneManager::GetInstance()->GetCurrentScenePostProcess();
-  if (!postProcess) return;
+  if (!postProcess)
+    return;
 
   if (!activeShockwaves_.empty()) {
     // タイマー更新
-    for (auto it = activeShockwaves_.begin(); it != activeShockwaves_.end(); ) {
+    for (auto it = activeShockwaves_.begin(); it != activeShockwaves_.end();) {
       it->timer -= 1.0f / 60.0f;
       if (it->timer <= 0.0f) {
         it = activeShockwaves_.erase(it);
@@ -77,21 +128,27 @@ void EffectManager::Update(const ICamera* camera) {
     postProcess->SetPostEffectType(10); // 10: Shockwave
 
     std::vector<PostProcess::ShockwaveParams> shockwaveParams;
-    for (const auto& sw : activeShockwaves_) {
+    for (const auto &sw : activeShockwaves_) {
       Vector3 pos = sw.worldPos;
-      float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] + pos.z * viewProj.m[2][3] + viewProj.m[3][3];
-      if (w <= 0.0f) w = 0.0001f;
+      float w = pos.x * viewProj.m[0][3] + pos.y * viewProj.m[1][3] +
+                pos.z * viewProj.m[2][3] + viewProj.m[3][3];
+      if (w <= 0.0f)
+        w = 0.0001f;
 
-      Vector3 ndcPos = {
-          (pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] + pos.z * viewProj.m[2][0] + viewProj.m[3][0]) / w,
-          (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] + pos.z * viewProj.m[2][1] + viewProj.m[3][1]) / w,
-          (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] + pos.z * viewProj.m[2][2] + viewProj.m[3][2]) / w
-      };
-      
+      Vector3 ndcPos = {(pos.x * viewProj.m[0][0] + pos.y * viewProj.m[1][0] +
+                         pos.z * viewProj.m[2][0] + viewProj.m[3][0]) /
+                            w,
+                        (pos.x * viewProj.m[0][1] + pos.y * viewProj.m[1][1] +
+                         pos.z * viewProj.m[2][1] + viewProj.m[3][1]) /
+                            w,
+                        (pos.x * viewProj.m[0][2] + pos.y * viewProj.m[1][2] +
+                         pos.z * viewProj.m[2][2] + viewProj.m[3][2]) /
+                            w};
+
       float uvX = (ndcPos.x + 1.0f) * 0.5f;
       float uvY = (1.0f - ndcPos.y) * 0.5f;
       float t = sw.timer / shockwaveConfig_.duration;
-      
+
       PostProcess::ShockwaveParams param;
       param.center[0] = uvX;
       param.center[1] = uvY;
@@ -99,7 +156,7 @@ void EffectManager::Update(const ICamera* camera) {
       param.thickness = shockwaveConfig_.thickness;
       param.weight = t;
       param.distortion = shockwaveConfig_.distortion;
-      
+
       shockwaveParams.push_back(param);
     }
     postProcess->SetShockwaves(shockwaveParams);
@@ -113,114 +170,209 @@ void EffectManager::Update(const ICamera* camera) {
 
   // パーティクルの更新
   for (int i = 0; i < kMaxHitEffects; ++i) {
-      deathCoreEmitters_[i]->Update();
-      deathFlareEmitters_[i]->Update();
-      deathRingEmitters_[i]->Update();
-      hitCoreParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-      hitFlareParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-      hitRingParticleGroups_[i]->Update(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+    deathCoreEmitters_[i]->Update();
+    deathFlareEmitters_[i]->Update();
+    deathRingEmitters_[i]->Update();
+    hitCoreParticleGroups_[i]->Update(camera->GetViewMatrix(),
+                                      camera->GetProjectionMatrix());
+    hitFlareParticleGroups_[i]->Update(camera->GetViewMatrix(),
+                                       camera->GetProjectionMatrix());
+    hitRingParticleGroups_[i]->Update(camera->GetViewMatrix(),
+                                      camera->GetProjectionMatrix());
+  }
+
+  if (bossTelegraphNormalEmitter_) {
+    bossTelegraphNormalEmitter_->Update();
+    bossTelegraphNormalParticleGroup_->Update(camera->GetViewMatrix(),
+                                              camera->GetProjectionMatrix());
+  }
+
+  if (bossBurstEmitter_) {
+    bossBurstEmitter_->Update();
+    bossBurstParticleGroup_->Update(camera->GetViewMatrix(),
+                                    camera->GetProjectionMatrix());
   }
 }
 
 void EffectManager::Draw() {
   for (int i = 0; i < kMaxHitEffects; ++i) {
-      hitCoreParticleGroups_[i]->Draw();
-      hitFlareParticleGroups_[i]->Draw();
-      hitRingParticleGroups_[i]->Draw();
+    hitCoreParticleGroups_[i]->Draw();
+    hitFlareParticleGroups_[i]->Draw();
+    hitRingParticleGroups_[i]->Draw();
+  }
+
+  if (bossTelegraphNormalParticleGroup_) {
+    bossTelegraphNormalParticleGroup_->Draw();
+  }
+
+  if (bossBurstParticleGroup_) {
+    bossBurstParticleGroup_->Draw();
   }
 }
 
-void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor) {
+void EffectManager::PlayBossTelegraphEffect(const Vector3 &center,
+                                            const Vector3 &targetPos,
+                                            float chargeRatio,
+                                            int attackPattern) {
+  auto postProcess = SceneManager::GetInstance()->GetCurrentScenePostProcess();
+
+  if (attackPattern == 0) {
+    // 通常弾予兆
+    if (bossTelegraphNormalEmitter_) {
+      bossTelegraphNormalEmitter_->SetCenter(center);
+
+      // 発射直前に発生を止め、粒子がすべて中心に吸い込まれるタメを作る
+      if (chargeRatio <= 0.6f) {
+        // チャージ進行度に応じて1フレームあたりの発生数を増やす
+        int emitCount = 3 + (int)(15.0f * (chargeRatio / 0.6f));
+        bossTelegraphNormalEmitter_->SetCount(emitCount);
+        bossTelegraphNormalEmitter_->Emit();
+      }
+    }
+  }
+}
+
+void EffectManager::PlayBossBurstEffect(const Vector3 &center) {
+  if (bossBurstEmitter_) {
+    bossBurstEmitter_->SetCenter(center);
+    bossBurstEmitter_->Emit();
+  }
+  // 画面の歪み（ショックウェーブ）も同時に発生させて衝撃を表現
+  PlayShockwave(center);
+}
+
+void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos,
+                                         const Vector4 &baseColor) {
   PlayShockwave(worldPos);
 
   int i = nextHitEffectIndex_;
-  
+
   // 色を動的に変更してEmit
   deathCoreEmitters_[i]->SetCenter(worldPos);
   deathCoreEmitters_[i]->Emit(baseColor);
-  
+
   // フレアは元の色にEnemyの色を少し混ぜるか、明るめにする
-  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f, baseColor.z * 2.0f, 1.0f};
+  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f,
+                        baseColor.z * 2.0f, 1.0f};
   deathFlareEmitters_[i]->SetCenter(worldPos);
   deathFlareEmitters_[i]->Emit(flareColor);
-  
+
   // リングも同色系統にする
-  Vector4 ringColor = {baseColor.x * 1.5f, baseColor.y * 1.5f, baseColor.z * 1.5f, 1.0f};
+  Vector4 ringColor = {baseColor.x * 1.5f, baseColor.y * 1.5f,
+                       baseColor.z * 1.5f, 1.0f};
+  deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f}); // 爆発用の初期サイズ
+  deathRingEmitters_[i]->SetScaleVelocity(
+      {80.0f, 80.0f, 80.0f}); // 爆発用に高速で広がる
   deathRingEmitters_[i]->SetCenter(worldPos);
   deathRingEmitters_[i]->Emit(ringColor);
 
   nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
 }
 
-void EffectManager::PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor) {
+void EffectManager::PlayEnemyDeathSimpleEffect(const Vector3 &worldPos,
+                                               const Vector4 &baseColor) {
   int i = nextHitEffectIndex_;
-  
+
   // コア（しっかり見えるようにサイズを30に拡大）
   deathCoreEmitters_[i]->SetBaseScale({30.0f, 30.0f, 30.0f});
   deathCoreEmitters_[i]->SetCenter(worldPos);
   deathCoreEmitters_[i]->Emit(baseColor);
-  
+
   // フレア（敵のモデルより大きくなるようにサイズを2.5に拡大）
-  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f, baseColor.z * 2.0f, 1.0f};
+  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f,
+                        baseColor.z * 2.0f, 1.0f};
   deathFlareEmitters_[i]->SetBaseScale({2.5f, 2.5f, 2.5f});
   deathFlareEmitters_[i]->SetCenter(worldPos);
   deathFlareEmitters_[i]->Emit(flareColor);
-  
+
   nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
 }
 
-void EffectManager::PlayShockwave(const Vector3& worldPos) {
+void EffectManager::PlayFunnelMuzzleRing(const Vector3 &worldPos,
+                                         const Vector4 &color) {
+  // 3枚のリングを少しずつサイズと速度をズラして重ねる
+  for (int j = 0; j < 3; ++j) {
+    int i = nextHitEffectIndex_;
+
+    // リングごとに初期サイズと広がるスピードに差をつける
+    float baseScale = 0.2f + (j * 0.15f);
+    float speed = 15.0f - (j * 2.0f);
+
+    // 発光を強くするためRGB成分を強調
+    Vector4 brightColor = {color.x * 2.5f, color.y * 2.5f, color.z * 2.5f,
+                           color.w};
+
+    deathRingEmitters_[i]->SetBaseScale({baseScale, baseScale, baseScale});
+    deathRingEmitters_[i]->SetScaleVelocity({speed, speed, speed});
+    deathRingEmitters_[i]->SetCenter(worldPos);
+    deathRingEmitters_[i]->Emit(brightColor);
+
+    nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+  }
+}
+
+void EffectManager::PlayShockwave(const Vector3 &worldPos) {
   if (activeShockwaves_.size() < 5) {
     activeShockwaves_.push_back({shockwaveConfig_.duration, worldPos});
   }
 }
 
-void EffectManager::DrawEditorUI(RailCamera* railCamera) {
+void EffectManager::DrawEditorUI(RailCamera *railCamera) {
 #ifdef USE_IMGUI
   ImGui::Text("Effect Master Settings");
   ImGui::Separator();
-  
+
   if (isShockwaveConfigDirty_) {
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 1.0f)); 
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                          ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,
+                          ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
   }
-  
-  std::string buttonText = isShockwaveConfigDirty_ ? (const char*)u8"[* 未保存] Save Config" : (const char*)u8"Save Config";
-  if (ImGui::Button(buttonText.c_str(), ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+
+  std::string buttonText = isShockwaveConfigDirty_
+                               ? (const char *)u8"[* 未保存] Save Config"
+                               : (const char *)u8"Save Config";
+  if (ImGui::Button(buttonText.c_str(),
+                    ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
     SaveShockwaveConfig();
   }
-  
+
   if (isShockwaveConfigDirty_) {
     ImGui::PopStyleColor(3);
   }
-  
+
   ImGui::Spacing();
   ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f));
-  if (ImGui::Button((const char*)u8"▶ Test Play (テスト再生)", ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
+  if (ImGui::Button((const char *)u8"▶ Test Play (テスト再生)",
+                    ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
     if (railCamera) {
       Matrix4x4 viewMatrix = railCamera->GetViewMatrix();
       Matrix4x4 cameraWorld = Inverse(viewMatrix);
-      Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1], cameraWorld.m[3][2]};
-      Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1], cameraWorld.m[2][2]};
-      Vector3 testPos = {
-        cameraPos.x + cameraForward.x * 20.0f,
-        cameraPos.y + cameraForward.y * 20.0f,
-        cameraPos.z + cameraForward.z * 20.0f
-      };
+      Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
+                           cameraWorld.m[3][2]};
+      Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                               cameraWorld.m[2][2]};
+      Vector3 testPos = {cameraPos.x + cameraForward.x * 20.0f,
+                         cameraPos.y + cameraForward.y * 20.0f,
+                         cameraPos.z + cameraForward.z * 20.0f};
       PlayShockwave(testPos);
     }
   }
   ImGui::PopStyleColor();
-  
+
   ImGui::Spacing();
-  
+
   bool changed = false;
-  changed |= ImGui::DragFloat((const char*)u8"再生時間 (Duration)", &shockwaveConfig_.duration, 0.01f, 0.1f, 5.0f);
-  changed |= ImGui::DragFloat((const char*)u8"最大半径 (Max Radius)", &shockwaveConfig_.maxRadius, 0.01f, 0.1f, 5.0f);
-  changed |= ImGui::DragFloat((const char*)u8"歪みの強さ (Distortion)", &shockwaveConfig_.distortion, 0.001f, 0.0f, 0.5f);
-  changed |= ImGui::DragFloat((const char*)u8"波の太さ (Thickness)", &shockwaveConfig_.thickness, 0.001f, 0.0f, 1.0f);
-  
+  changed |= ImGui::DragFloat((const char *)u8"再生時間 (Duration)",
+                              &shockwaveConfig_.duration, 0.01f, 0.1f, 5.0f);
+  changed |= ImGui::DragFloat((const char *)u8"最大半径 (Max Radius)",
+                              &shockwaveConfig_.maxRadius, 0.01f, 0.1f, 5.0f);
+  changed |= ImGui::DragFloat((const char *)u8"歪みの強さ (Distortion)",
+                              &shockwaveConfig_.distortion, 0.001f, 0.0f, 0.5f);
+  changed |= ImGui::DragFloat((const char *)u8"波の太さ (Thickness)",
+                              &shockwaveConfig_.thickness, 0.001f, 0.0f, 1.0f);
+
   if (changed) {
     isShockwaveConfigDirty_ = true;
   }
@@ -251,10 +403,14 @@ void EffectManager::LoadShockwaveConfig() {
     nlohmann::json root;
     try {
       file >> root;
-      if (root.contains("duration")) shockwaveConfig_.duration = root["duration"];
-      if (root.contains("maxRadius")) shockwaveConfig_.maxRadius = root["maxRadius"];
-      if (root.contains("distortion")) shockwaveConfig_.distortion = root["distortion"];
-      if (root.contains("thickness")) shockwaveConfig_.thickness = root["thickness"];
+      if (root.contains("duration"))
+        shockwaveConfig_.duration = root["duration"];
+      if (root.contains("maxRadius"))
+        shockwaveConfig_.maxRadius = root["maxRadius"];
+      if (root.contains("distortion"))
+        shockwaveConfig_.distortion = root["distortion"];
+      if (root.contains("thickness"))
+        shockwaveConfig_.thickness = root["thickness"];
     } catch (...) {
       // Parse error, keep defaults
     }

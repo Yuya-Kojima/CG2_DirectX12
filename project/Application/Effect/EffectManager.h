@@ -34,6 +34,21 @@ public:
   void PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
 
   /// <summary>
+  /// ボスの予兆エフェクト（収束するエネルギー）を発生させる
+  /// </summary>
+  void PlayBossTelegraphEffect(const Vector3& center, const Vector3& targetPos, float chargeRatio, int attackPattern);
+
+  /// <summary>
+  /// ボスの発射時エフェクト（発散するエネルギーと衝撃波）を発生させる
+  /// </summary>
+  void PlayBossBurstEffect(const Vector3& center);
+
+  /// <summary>
+  /// ミサイル急発進時の白いリングエフェクトを発生させる
+  /// </summary>
+  void PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f});
+
+  /// <summary>
   /// ザコ敵用のシンプルな撃破エフェクト（コアのみ）を発生させる
   /// </summary>
   void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
@@ -43,6 +58,13 @@ private:
   ~EffectManager() = default;
   EffectManager(const EffectManager &) = delete;
   EffectManager &operator=(const EffectManager &) = delete;
+
+  std::unique_ptr<BillboardParticleEmitter> bossTelegraphNormalParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossTelegraphNormalEmitter_;
+
+
+  std::unique_ptr<BillboardParticleEmitter> bossBurstParticleGroup_;
+  std::unique_ptr<ParticleEmitter> bossBurstEmitter_;
 
   struct ShockwaveConfig {
     float duration = 0.5f;    // 再生時間
@@ -58,6 +80,7 @@ private:
     Vector3 worldPos;
   };
   std::vector<ActiveShockwave> activeShockwaves_;
+
 
   void SaveShockwaveConfig();
   void LoadShockwaveConfig();

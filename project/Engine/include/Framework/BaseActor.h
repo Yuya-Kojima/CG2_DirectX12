@@ -2,17 +2,36 @@
 #include "Math/Transform.h"
 #include <string>
 
+enum class ActorTag {
+    Untagged,
+    Player,
+    Enemy,
+    LockOnTarget
+};
+
+inline std::string ActorTagToString(ActorTag tag) {
+    switch(tag) {
+        case ActorTag::Player: return "Player";
+        case ActorTag::Enemy: return "Enemy";
+        case ActorTag::LockOnTarget: return "LockOnTarget";
+        case ActorTag::Untagged:
+        default: return "Untagged";
+    }
+}
+
+inline ActorTag StringToActorTag(const std::string& str) {
+    if (str == "Player") return ActorTag::Player;
+    if (str == "Enemy") return ActorTag::Enemy;
+    if (str == "LockOnTarget") return ActorTag::LockOnTarget;
+    return ActorTag::Untagged;
+}
+
 /// <summary>
 /// 全てのゲームオブジェクトの親となるベースクラス
 /// </summary>
 class BaseActor {
 public:
-    BaseActor() {
-        // 初期値の設定
-        transform_.scale = {1.0f, 1.0f, 1.0f};
-        transform_.rotate = {0.0f, 0.0f, 0.0f};
-        transform_.translate = {0.0f, 0.0f, 0.0f};
-    }
+    BaseActor();
     virtual ~BaseActor() = default;
 
     virtual void Initialize() {}
@@ -34,10 +53,10 @@ public:
 
     // 識別用の名前やタグ
     std::string name_ = "Actor";
-    std::string tag_ = "Untagged";
+    ActorTag tag_ = ActorTag::Untagged;
 
-    const std::string& GetTag() const { return tag_; }
-    void SetTag(const std::string& tag) { tag_ = tag; }
+    ActorTag GetTag() const { return tag_; }
+    void SetTag(ActorTag tag) { tag_ = tag; }
 
 protected:
     // 3D空間上の位置・回転・スケール
@@ -45,4 +64,11 @@ protected:
     
     // 生存フラグ（trueになればManagerが自動で削除する）
     bool isDead_ = false;
+
+    // 衝突判定用の前回座標と初期化フラグ
+    Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
+    bool hasInitializedPreviousPos_ = false;
+
+    // 連続衝突判定（カプセル）用の速度を計算する
+    Vector3 CalculateVelocityForCollision();
 };

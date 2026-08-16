@@ -129,8 +129,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // --- フォグの初期化 ---
   FogData fog;
   fog.color = Vector4(0.8f, 0.9f, 1.0f, 1.0f); // 空色っぽいフォグ
-  fog.nearDist = 150.0f;
-  fog.farDist = 400.0f;
+  fog.nearDist = 300.0f;
+  fog.farDist = 600.0f;
   fog.enabled = 1.0f;
   engine_->GetObject3dRenderer()->SetFog(fog);
 
@@ -347,8 +347,8 @@ void GamePlayScene::Update() {
 
   // HPバーUI
   if (player_) {
-    float playerMaxHp = player_->GetMaxHp();
-    float playerCurrentHp = player_->GetHp();
+    float playerMaxHp = static_cast<float>(player_->GetMaxHp());
+    float playerCurrentHp = static_cast<float>(player_->GetHp());
 
     // Hp割合計算
     float hpRatio = (std::max)(playerCurrentHp / playerMaxHp, 0.0f);
@@ -379,10 +379,21 @@ void GamePlayScene::Update() {
   //=======================
   if (gameState_ == GameState::Play) {
     if (railCamera_ && railCamera_->IsFinished()) {
-      gameState_ = GameState::Clear;
-      if (railCamera_)
-        railCamera_->SetAutoMove(false);
-      UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+      // ボスが生きている場合はレールが終わってもクリアにしない
+      bool isBossActive = false;
+      for (const auto &enemy : runtimeEnemies_) {
+        if (dynamic_cast<Boss *>(enemy.get())) {
+          isBossActive = true;
+          break;
+        }
+      }
+
+      if (!isBossActive) {
+        gameState_ = GameState::Clear;
+        if (railCamera_)
+          railCamera_->SetAutoMove(false);
+        UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+      }
     } else if (player_ && player_->IsDead()) {
       gameState_ = GameState::GameOver;
       if (railCamera_)
@@ -577,14 +588,14 @@ void GamePlayScene::Update() {
   // 死亡済みの敵は除外してダングリングポインタを渡さないようにする
   std::vector<BaseActor *> lockOnTargets;
   for (auto &e : runtimeEnemies_) {
-    if (!e->IsDead()) {
+    if (!e->IsDead() && e->IsLockOnTarget()) {
       lockOnTargets.push_back(e.get());
     }
   }
 
   // 敵の弾（ロックオン対象としてタグ付けされたもの）もリストに加える
   std::vector<BaseActor *> bulletTargets =
-      ActorManager::GetInstance()->FindActorsWithTag("LockOnTarget");
+      ActorManager::GetInstance()->FindActorsWithTag(ActorTag::LockOnTarget);
   lockOnTargets.insert(lockOnTargets.end(), bulletTargets.begin(),
                        bulletTargets.end());
 
@@ -909,10 +920,10 @@ void GamePlayScene::Update() {
     ImGui::TextDisabled("%s", selected->GetModelPath().c_str());
     ImGui::Separator();
 
-    char tagBuf[128] = {0};
-    snprintf(tagBuf, sizeof(tagBuf), "%s", selected->tag_.c_str());
-    if (ImGui::InputText("Tag", tagBuf, sizeof(tagBuf))) {
-      selected->tag_ = tagBuf;
+    const char *tagItems[] = {"Untagged", "Player", "Enemy", "LockOnTarget"};
+    int currentItem = static_cast<int>(selected->tag_);
+    if (ImGui::Combo("Tag", &currentItem, tagItems, IM_ARRAYSIZE(tagItems))) {
+      selected->tag_ = static_cast<ActorTag>(currentItem);
     }
     ImGui::Separator();
 
@@ -1741,7 +1752,7 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     oJson["rotation"] = {r.x, r.y, r.z};
     oJson["scale"] = {s.x, s.y, s.z};
     oJson["modelPath"] = obj->GetModelPath();
-    oJson["tag"] = obj->tag_;
+    oJson["tag"] = ActorTagToString(obj->tag_);
     sceneObjectsArray.push_back(oJson);
   }
   root["sceneObjects"] = sceneObjectsArray;
@@ -1839,7 +1850,7 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       obj->SetRotation(r);
       obj->SetScale(s);
       if (oJson.contains("tag"))
-        obj->tag_ = oJson["tag"];
+        obj->tag_ = StringToActorTag(oJson["tag"]);
     }
   }
 

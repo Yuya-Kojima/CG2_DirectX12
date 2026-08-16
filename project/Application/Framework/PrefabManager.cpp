@@ -31,7 +31,7 @@ bool PrefabManager::SavePrefab(const std::string& prefabName, Enemy* enemy) {
     nlohmann::json root;
     
     // 基本パラメータ
-    root["tag"] = enemy->GetTag();
+    root["tag"] = ActorTagToString(enemy->GetTag());
     if (enemy->GetModel()) {
         root["modelPath"] = enemy->GetModel()->GetModelPath();
     }
@@ -78,7 +78,7 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
         
         // タグの復元
         if (root.contains("tag")) {
-            newEnemy->SetTag(root["tag"]);
+            newEnemy->SetTag(StringToActorTag(root["tag"]));
         }
         
         // モデルパスの復元

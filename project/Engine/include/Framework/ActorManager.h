@@ -32,12 +32,12 @@ public:
     /// <summary>
     /// 指定したタグを持つ最初のActorを取得する
     /// </summary>
-    BaseActor* FindActorWithTag(const std::string& tag);
+    BaseActor* FindActorWithTag(ActorTag tag);
 
     /// <summary>
     /// 指定したタグを持つすべてのActorを取得する
     /// </summary>
-    std::vector<BaseActor*> FindActorsWithTag(const std::string& tag);
+    std::vector<BaseActor*> FindActorsWithTag(ActorTag tag);
 
 private:
     ActorManager() = default;

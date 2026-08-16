@@ -35,6 +35,9 @@ public:
   void Draw3D() override;
   void OnCollision(class Collider *other) override;
 
+  // ロックオン対象になるかどうか
+  virtual bool IsLockOnTarget() const { return true; }
+
   // 表示用の3Dモデルを外から渡してセットする
   virtual void SetModel(std::unique_ptr<Object3d> model) {
     model_ = std::move(model);
@@ -92,7 +95,6 @@ public:
 protected:
   std::unique_ptr<Object3d> model_;
   std::unique_ptr<SphereCollider> collider_;
-  Vector3 previousPos_ = {0.0f, 0.0f, 0.0f};
 
   // 死亡フラグ
   bool isDead_ = false; // 体力

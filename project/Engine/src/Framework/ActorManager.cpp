@@ -50,7 +50,7 @@ void ActorManager::Finalize() {
     Clear();
 }
 
-BaseActor* ActorManager::FindActorWithTag(const std::string& tag) {
+BaseActor* ActorManager::FindActorWithTag(ActorTag tag) {
     for (const auto& actor : actors_) {
         if (actor->GetTag() == tag && !actor->IsDead()) {
             return actor.get();
@@ -59,7 +59,7 @@ BaseActor* ActorManager::FindActorWithTag(const std::string& tag) {
     return nullptr;
 }
 
-std::vector<BaseActor*> ActorManager::FindActorsWithTag(const std::string& tag) {
+std::vector<BaseActor*> ActorManager::FindActorsWithTag(ActorTag tag) {
     std::vector<BaseActor*> result;
     for (const auto& actor : actors_) {
         if (actor->GetTag() == tag && !actor->IsDead()) {
