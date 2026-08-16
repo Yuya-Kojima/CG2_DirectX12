@@ -1,6 +1,7 @@
 #include "Actor/Boss.h"
 #include "Actor/BossBit.h"
 #include "Actor/BossCore.h"
+#include "Actor/BossWeakPoint.h"
 #include "Actor/EnemyBullet.h"
 #include "Actor/Player.h"
 #include "Camera/ICamera.h"
@@ -110,6 +111,33 @@ void Boss::OnBitDestroyed(BossBit *bit) {
   }
 }
 
+void Boss::OnWeakPointDestroyed(BossWeakPoint *wp) {
+  auto it = std::find(activeWeakPoints_.begin(), activeWeakPoints_.end(), wp);
+  if (it != activeWeakPoints_.end()) {
+    activeWeakPoints_.erase(it);
+  }
+
+  // 突進中・予兆中に全て破壊されたらカウンター成功
+  if (activeWeakPoints_.empty() && (currentState_ == BossState::DashTelegraph || currentState_ == BossState::Dash)) {
+      currentState_ = BossState::Stagger;
+      stateTimer_ = 0.0f;
+      
+      // 装甲を元に戻す
+      for (auto* bit : activeBits_) {
+          bit->ResetPosition();
+      }
+      
+      // ヒットストップ・画面揺れなどの派手な演出
+      if (camera_) {
+          if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+              auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+              mutableRailCam->Shake(1.5f, 0.5f); // 激しい揺れ
+          }
+      }
+      EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
+  }
+}
+
 void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
   if (!spriteRenderer)
     return;
@@ -127,6 +155,13 @@ void Boss::InitializeUI(SpriteRenderer *spriteRenderer) {
   hpBarFg_->SetPosition({(1280.0f / 2.0f) - 400.0f, 60.0f});
   hpBarFg_->SetSize({800.0f, 20.0f});
   hpBarFg_->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+
+  dangerUI_ = std::make_unique<Sprite>();
+  dangerUI_->Initialize(spriteRenderer, "resources/white1x1.png"); 
+  dangerUI_->SetAnchorPoint({0.5f, 0.5f});
+  dangerUI_->SetPosition({1280.0f / 2.0f, 720.0f / 2.0f});
+  dangerUI_->SetSize({600.0f, 100.0f}); // 大きな警告バー
+  dangerUI_->SetColor({1.0f, 0.0f, 0.0f, 0.5f}); // 半透明の赤
 
   for (size_t i = 0; i < reticleSprites_.size(); ++i) {
     reticleSprites_[i] = std::make_unique<Sprite>();
@@ -154,6 +189,8 @@ void Boss::Update() {
     if (model_) {
       if (currentState_ == BossState::Telegraph) {
         model_->SetColor({1.0f, 0.5f, 0.0f, 1.0f}); // 予兆時はオレンジ
+      } else if (currentState_ == BossState::DashTelegraph) {
+        model_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 突進予兆時は赤
       } else {
         model_->SetColor(baseColor_);
       }
@@ -456,14 +493,14 @@ void Boss::UpdatePhase2() {
     transform_.translate.z = targetPos_.z + rz;
 
     // 予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
-    float chargeRatio = std::min(stateTimer_ / 0.5f, 1.0f);
+    float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
     Vector3 effectPos = transform_.translate;
     if (player_) {
         effectPos = player_->GetTransform().translate;
     }
     EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, effectPos, chargeRatio, 1); // Phase 2のTelegraphはミサイル固定なので1
 
-    if (stateTimer_ >= 0.5f) {
+    if (stateTimer_ >= 1.0f) {
       transform_.translate = targetPos_;
       currentState_ = BossState::Attack;
       stateTimer_ = 0.0f;
@@ -581,33 +618,94 @@ void Boss::UpdatePhase2() {
   }
 
   case BossState::DashTelegraph: {
-    // 突進前のタメ動作（大きく震える）
-    float shakeAmount = 0.6f;
-    float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
-    float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
-    float rz = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
-    transform_.translate.x = targetPos_.x + rx;
-    transform_.translate.y = targetPos_.y + ry;
-    transform_.translate.z = targetPos_.z + rz;
-
-    // 突進予兆パーティクルエフェクトの発生（チャージの進行度 0.0 ~ 1.0 を渡す）
-    float chargeRatio = std::min(stateTimer_ / 0.8f, 1.0f);
-    Vector3 effectPos = transform_.translate;
-    if (player_) {
-        effectPos = player_->GetTransform().translate;
+    // 初回のみ：装甲退避と的のスポーン
+    if (stateTimer_ <= 0.02f) {
+        for (auto* bit : activeBits_) {
+            bit->SpreadOut();
+        }
+        Vector3 wpOffsets[4] = {
+            { 0.0f,  1.8f, -1.0f},
+            { 0.0f, -1.8f, -1.0f},
+            {-1.8f,  0.0f, -1.0f},
+            { 1.8f,  0.0f, -1.0f}
+        };
+        for (int i = 0; i < 4; ++i) {
+            auto wp = std::make_unique<BossWeakPoint>();
+            auto model = std::make_unique<Object3d>();
+            model->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
+            model->SetModel("suzanne.obj"); // 仮
+            wp->SetModel(std::move(model));
+            wp->SetBoss(this);
+            wp->SetOffset(wpOffsets[i]);
+            
+            BossWeakPoint* wpPtr = wp.get();
+            wp->SetOnDestroyedCallback([this, wpPtr](bool) { this->OnWeakPointDestroyed(wpPtr); });
+            
+            activeWeakPoints_.push_back(wpPtr);
+            ActorManager::GetInstance()->AddActor(std::move(wp));
+        }
+        
+        // Z奥へ下がるための目標位置を設定
+        startPos_ = transform_.translate;
+        if (camera_) {
+            Vector3 cPos = camera_->GetTranslate();
+            Vector3 cForward = camera_->GetForward();
+            if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+                cPos = railCam->GetRailPosition();
+                cForward = railCam->GetRailForward();
+            }
+            targetPos_ = cPos + cForward * 200.0f; // かなり奥へ
+        }
     }
-    EffectManager::GetInstance()->PlayBossTelegraphEffect(transform_.translate, effectPos, chargeRatio, 2); // 突進は仮実装なのでとりあえず2(Missileフォールバック)を渡す
 
-    if (stateTimer_ >= 0.8f) {
+    // 最初の0.5秒で奥へ下がる
+    float moveT = std::min(stateTimer_ / 0.5f, 1.0f);
+    float easeMoveT = 1.0f - std::pow(1.0f - moveT, 3.0f);
+    transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeMoveT;
+    transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeMoveT;
+    transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeMoveT;
+
+    // 奥に到達してから大きく震える
+    if (moveT >= 1.0f) {
+        float shakeAmount = 0.6f;
+        float rx = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+        float ry = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+        float rz = ((rand() % 100) / 100.0f - 0.5f) * shakeAmount;
+        transform_.translate.x = targetPos_.x + rx;
+        transform_.translate.y = targetPos_.y + ry;
+        transform_.translate.z = targetPos_.z + rz;
+    }
+
+    // 突進予兆パーティクルエフェクトの発生
+    float totalTelegraphTime = 8.0f;
+
+    if (stateTimer_ >= totalTelegraphTime) {
       transform_.translate = targetPos_;
       startPos_ = targetPos_;
-      // 突進の目標座標を現在位置からZ方向手前に40ユニット迫った場所に設定
-      targetPos_.z -= 40.0f;
+      
+      // 突進の目標座標を「プレイヤーの現在の位置のさらに後方」へ設定
+      if (player_ && camera_) {
+          Vector3 pPos = player_->GetTransform().translate;
+          Vector3 cForward = camera_->GetForward();
+          if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+              cForward = railCam->GetRailForward();
+          }
+          targetPos_ = pPos - cForward * 50.0f; // 自機の背面へ通り抜ける
+      } else if (camera_) {
+          Vector3 cPos = camera_->GetTranslate();
+          Vector3 cForward = camera_->GetForward();
+          if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+              cPos = railCam->GetRailPosition();
+              cForward = railCam->GetRailForward();
+          }
+          targetPos_ = cPos - cForward * 50.0f; // カメラの背面へ通り抜ける
+      } else {
+          targetPos_.z -= 200.0f;
+      }
 
       if (camera_) {
         if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
-          auto mutableRailCam =
-              static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
+          auto mutableRailCam = static_cast<RailCamera *>(const_cast<ICamera *>(camera_));
           mutableRailCam->Shake(0.8f, 0.3f); // 突進開始時の大きな揺れ
         }
       }
@@ -619,27 +717,128 @@ void Boss::UpdatePhase2() {
   }
 
   case BossState::Dash: {
-    // 0.5秒で目標(Z-40)へ急接近
-    float t = std::min(stateTimer_ / 0.5f, 1.0f);
+    // 0.8秒で画面を通り抜ける超高速移動
+    float t = std::min(stateTimer_ / 0.8f, 1.0f);
     float easeT = t * t; // EaseIn
 
     transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeT;
     transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeT;
     transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeT;
 
-    if (stateTimer_ >= 0.5f) {
+    // 途中でプレイヤーとの衝突判定は OnCollision で行われる。
+    // (Player側で被弾処理が行われる)
+
+    if (stateTimer_ >= 0.8f) {
+      // 突進終了（カウンター失敗で通り抜けた後）
+      // 残った的を安全に消す
+      for (auto* wp : activeWeakPoints_) {
+          wp->SetOnDestroyedCallback(nullptr); // コールバックを解除
+          wp->Destroy(); // 即死させる
+      }
+      activeWeakPoints_.clear();
+      // 装甲を元に戻す
+      for (auto* bit : activeBits_) {
+          bit->ResetPosition();
+      }
+
+      // カメラ後方から再配置し、Cooldownへ
       currentState_ = BossState::DashCooldown;
       stateTimer_ = 0.0f;
     }
     break;
   }
 
+  case BossState::Stagger: {
+      // カウンター成功時、大きく後方へ弾き飛ばされる
+      if (stateTimer_ <= 0.02f) {
+          startPos_ = transform_.translate;
+          if (camera_) {
+              Vector3 cForward = camera_->GetForward();
+              if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+                  cForward = railCam->GetRailForward();
+              }
+              // 奥へ吹っ飛ぶ目標 + 少し下に落ちる
+              targetPos_ = startPos_ + cForward * 100.0f;
+              targetPos_.y -= 25.0f;
+          }
+      }
+
+      // ヒットストップのため最初の0.3秒間は止まる
+      if (stateTimer_ < 0.3f) {
+          // ボス自身も激しく振動させる（ブレ）
+          float shake = 0.2f;
+          transform_.rotate.z += ((rand() % 100) / 100.0f - 0.5f) * shake;
+          transform_.rotate.x += ((rand() % 100) / 100.0f - 0.5f) * shake;
+      } else if (stateTimer_ < 1.3f) {
+          // 0.3〜1.3秒で、奥・下へノックバック
+          float moveT = (stateTimer_ - 0.3f) / 1.0f;
+          float easeMoveT = 1.0f - std::pow(1.0f - moveT, 3.0f); // EaseOut
+          transform_.translate.x = startPos_.x + (targetPos_.x - startPos_.x) * easeMoveT;
+          transform_.translate.y = startPos_.y + (targetPos_.y - startPos_.y) * easeMoveT;
+          transform_.translate.z = startPos_.z + (targetPos_.z - startPos_.z) * easeMoveT;
+      } else {
+          // 1.3〜2.0秒で、元の位置(startPos_)へ復帰
+          float moveT = (stateTimer_ - 1.3f) / 0.7f;
+          float easeMoveT = 1.0f - std::pow(1.0f - moveT, 3.0f); // EaseOut
+          transform_.translate.x = targetPos_.x + (startPos_.x - targetPos_.x) * easeMoveT;
+          transform_.translate.y = targetPos_.y + (startPos_.y - targetPos_.y) * easeMoveT;
+          transform_.translate.z = targetPos_.z + (startPos_.z - targetPos_.z) * easeMoveT;
+      }
+
+      // 姿勢を崩す（仰け反り＋横に傾く）
+      // 0.3秒〜1.3秒で最大まで傾き、1.3秒〜2.0秒で元に戻る
+      float tiltT = 0.0f;
+      if (stateTimer_ < 1.3f) {
+          tiltT = (stateTimer_ - 0.3f) / 1.0f; 
+          if (tiltT < 0.0f) tiltT = 0.0f;
+          tiltT = std::sin(tiltT * 3.141592f / 2.0f); // EaseOut
+      } else {
+          // 姿勢もEaseOutで戻るように移動と同じ計算を使用する
+          float moveT = (stateTimer_ - 1.3f) / 0.7f;
+          float easeMoveT = 1.0f - std::pow(1.0f - moveT, 3.0f);
+          tiltT = 1.0f - easeMoveT;
+          if (tiltT < 0.0f) tiltT = 0.0f;
+      }
+          
+      // 後ろへ仰け反り（X回転）と、力なく横に倒れる（Z回転）
+      transform_.rotate.x = tiltT * -1.2f; // 上を向くように仰け反る
+      transform_.rotate.z = tiltT * 0.8f;  // 横に傾く
+
+      if (stateTimer_ >= 2.0f) {
+          attackStep_++;
+          // ワープを防ぐため、ダウン復帰した現在位置を次のスタート地点にする
+          startPos_ = transform_.translate;
+          if (camera_) {
+              Vector3 cPos = camera_->GetTranslate();
+              Vector3 cRight = camera_->GetRight();
+              Vector3 cUp = camera_->GetUp();
+              Vector3 cForward = camera_->GetForward();
+              if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+                  cPos = railCam->GetRailPosition();
+                  cRight = railCam->GetRailRight();
+                  cUp = railCam->GetRailUp();
+                  cForward = railCam->GetRailForward();
+              }
+              Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                               cForward * spawnOffset_.z;
+              float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+              float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+              targetPos_.x = center.x + offsetX;
+              targetPos_.y = center.y + offsetY;
+              targetPos_.z = center.z;
+          } else {
+              targetPos_ = startPos_;
+          }
+          currentState_ = BossState::Hover;
+          stateTimer_ = 0.0f;
+      }
+      break;
+  }
+
   case BossState::DashCooldown: {
     // 突進後、1.5秒間隙を晒す
     if (stateTimer_ >= 1.5f) {
       attackStep_++;
-      startPos_ = targetPos_;
-
       // 元のZ位置（奥）に戻るためのHover目標を設定
       if (camera_) {
         Vector3 cPos = camera_->GetTranslate();
@@ -659,7 +858,15 @@ void Boss::UpdatePhase2() {
         targetPos_.x = center.x + offsetX;
         targetPos_.y = center.y + offsetY;
         targetPos_.z = center.z; // Z軸を元の距離に戻す
+        
+        // 後ろから突き抜けるのを防ぐため、スタート位置を「はるか奥の上空」にワープさせる
+        startPos_ = cPos + cForward * 400.0f + cUp * 150.0f;
+      } else {
+        startPos_ = targetPos_;
+        startPos_.z += 400.0f;
+        startPos_.y += 150.0f;
       }
+      
       currentState_ = BossState::Hover;
       stateTimer_ = 0.0f;
     }
@@ -729,8 +936,17 @@ void Boss::Draw2D() {
   hpBarBg_->Draw();
   hpBarFg_->Draw();
 
-  // ミサイル予兆中のレティクル描画 (attackPattern_ == 1 はミサイル)
-  if (currentState_ == BossState::Telegraph && attackPattern_ == 1 && player_ && camera_) {
+  // 突進予兆時の警告UI描画
+  if (currentState_ == BossState::DashTelegraph) {
+      // 点滅させる
+      float alpha = (std::sin(stateTimer_ * 20.0f) + 1.0f) * 0.5f * 0.8f;
+      dangerUI_->SetColor({1.0f, 0.0f, 0.0f, alpha});
+      dangerUI_->Update(defaultUv);
+      dangerUI_->Draw();
+  }
+
+  // ミサイル予兆中のレティクル描画 (Phase2の場合は常にミサイル)
+  if (currentState_ == BossState::Telegraph && (attackPattern_ == 1 || phase_ == BossPhase::Phase2) && player_ && camera_) {
     float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
     
     Vector3 playerPos = player_->GetTransform().translate;

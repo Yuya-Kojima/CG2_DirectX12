@@ -44,11 +44,20 @@ void BossCore::Update() {
     transform_.scale.y = bossScale.y * 0.3f;
     transform_.scale.z = bossScale.z * 0.3f;
     
-    // 装甲（シールド）が破壊されたらロックオン可能にする
-    if (shield_ && shield_->IsDead()) {
-      if (GetTag() != ActorTag::LockOnTarget) {
-        SetTag(ActorTag::LockOnTarget);
-      }
+    // 突進中は強制的にロックオン不可＆暗くする
+    if (boss_->IsDashing()) {
+        SetTag(ActorTag::Enemy);
+        baseColor_ = {0.3f, 0.3f, 0.3f, 1.0f};
+    } else {
+        // 通常時：装甲（シールド）が破壊されたらロックオン可能にする
+        if (shield_ && shield_->IsDead()) {
+            if (GetTag() != ActorTag::LockOnTarget) {
+                SetTag(ActorTag::LockOnTarget);
+            }
+        } else {
+            SetTag(ActorTag::Enemy);
+        }
+        baseColor_ = {1.0f, 1.0f, 1.0f, 1.0f};
     }
   }
   
@@ -56,6 +65,10 @@ void BossCore::Update() {
 }
 
 void BossCore::TakeDamage(int damage, bool isSelfDestruct) {
+  if (boss_ && boss_->IsDashing()) {
+      return; // 突進中はダメージ無効
+  }
+
   // 自分が受けたダメージを親（ボス）に全額転送する
   if (boss_) {
     boss_->TakeDamage(damage, isSelfDestruct);

@@ -379,10 +379,21 @@ void GamePlayScene::Update() {
   //=======================
   if (gameState_ == GameState::Play) {
     if (railCamera_ && railCamera_->IsFinished()) {
-      gameState_ = GameState::Clear;
-      if (railCamera_)
-        railCamera_->SetAutoMove(false);
-      UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+      // ボスが生きている場合はレールが終わってもクリアにしない
+      bool isBossActive = false;
+      for (const auto &enemy : runtimeEnemies_) {
+        if (dynamic_cast<Boss *>(enemy.get())) {
+          isBossActive = true;
+          break;
+        }
+      }
+
+      if (!isBossActive) {
+        gameState_ = GameState::Clear;
+        if (railCamera_)
+          railCamera_->SetAutoMove(false);
+        UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
+      }
     } else if (player_ && player_->IsDead()) {
       gameState_ = GameState::GameOver;
       if (railCamera_)

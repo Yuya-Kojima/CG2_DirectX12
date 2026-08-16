@@ -24,6 +24,25 @@ void BossBit::SetOffset(const Vector3& offset) {
     offset_ = offset;
 }
 
+void BossBit::SpreadOut() {
+    isSpreadingOut_ = true;
+    SetTag(ActorTag::Enemy); // ロックオン不可にする
+    baseColor_ = {0.3f, 0.3f, 0.3f, 1.0f}; // 暗くして機能停止感を出す
+}
+
+void BossBit::ResetPosition() {
+    isSpreadingOut_ = false;
+    SetTag(ActorTag::LockOnTarget); // ロックオン可能に戻す
+    baseColor_ = {1.0f, 1.0f, 1.0f, 1.0f}; // 元の色に戻す
+}
+
+void BossBit::TakeDamage(int damage, bool isSelfDestruct) {
+    if (isSpreadingOut_) {
+        return; // 退避中はダメージ無効
+    }
+    Enemy::TakeDamage(damage, isSelfDestruct);
+}
+
 void BossBit::Update() {
     // 親が死んでいるか存在しなければ自壊
     if (!boss_ || boss_->GetHP() <= 0) {
@@ -37,7 +56,18 @@ void BossBit::Update() {
         Vector3 bossScale = boss_->GetTransform().scale;
         Vector3 bossRot = boss_->GetTransform().rotate;
         
-        offset_ = baseOffset_; // 今は固定
+        // 退避中かどうかでオフセット距離を変える
+        Vector3 targetOffset = baseOffset_;
+        if (isSpreadingOut_) {
+            targetOffset.x *= 2.5f; // より遠くへ広がる
+            targetOffset.y *= 2.5f;
+            targetOffset.z *= 2.5f;
+        }
+        
+        // 滑らかに移動させる
+        offset_.x += (targetOffset.x - offset_.x) * 0.1f;
+        offset_.y += (targetOffset.y - offset_.y) * 0.1f;
+        offset_.z += (targetOffset.z - offset_.z) * 0.1f;
 
         // Y軸回転を適用（ボスがプレイヤーの方を向く回転に追従する）
         float cosY = std::cos(bossRot.y);

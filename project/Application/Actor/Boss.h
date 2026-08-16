@@ -15,6 +15,7 @@ class SphereCollider;
 class ICamera;
 class Player;
 class SpriteRenderer;
+class BossWeakPoint;
 
 enum class BossPhase { Phase1, Phase2, Dying, Defeated };
 
@@ -29,6 +30,11 @@ public:
   void Draw3D() override;
   void Draw2D() override;
   void OnCollision(class Collider *other) override;
+
+  // 突進中（予兆含む）かどうかの判定
+  bool IsDashing() const {
+      return currentState_ == BossState::DashTelegraph || currentState_ == BossState::Dash;
+  }
 
   bool IsLockOnTarget() const override { return false; }
 
@@ -83,7 +89,8 @@ private:
     Cooldown,
     DashTelegraph,
     Dash,
-    DashCooldown
+    DashCooldown,
+    Stagger // カウンター成功時のダウン状態
   };
   BossState currentState_ = BossState::Enter;
   float stateTimer_ = 0.0f;
@@ -95,14 +102,13 @@ private:
   // --- UI ---
   std::unique_ptr<Sprite> hpBarBg_;
   std::unique_ptr<Sprite> hpBarFg_;
+  std::unique_ptr<Sprite> dangerUI_; // 突進時の警告UI
   bool isUIInitialized_ = false;
 
   // ミサイル用2Dロックオンレティクル (9パーツで構成: 外枠4, 内枠4, センター1)
   std::array<std::unique_ptr<Sprite>, 9> reticleSprites_;
 
   // Callback
-  std::function<void(bool)> onDestroyedCallback_;
-
   // --- 動的移動用のスプライン制御点 ---
   std::array<Vector3, 4> hoverWaypoints_;
 
@@ -116,6 +122,9 @@ private:
 
   // --- 部位（装甲）管理 ---
   std::vector<class BossBit *> activeBits_;
+  
+  // --- 突進時の弱点管理 ---
+  std::vector<BossWeakPoint*> activeWeakPoints_;
 
 public:
   void SetOnDyingUpdateCallback(std::function<void(const Vector3 &)> cb) {
@@ -124,4 +133,7 @@ public:
 
   // ビットが死んだときにリストから削除するコールバック関数
   void OnBitDestroyed(BossBit *bit);
+  
+  // 突進時の弱点が死んだときにリストから削除し、全破壊を判定する
+  void OnWeakPointDestroyed(BossWeakPoint* wp);
 };
