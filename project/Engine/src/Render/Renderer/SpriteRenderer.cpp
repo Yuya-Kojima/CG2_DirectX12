@@ -162,6 +162,10 @@ void SpriteRenderer::CreateSpritePSO() {
       dx12Core_->CompileShader(L"resources/shaders/UIEffect.PS.hlsl", L"ps_6_0");
   assert(uiEffectPixelShaderBlob != nullptr);
 
+  IDxcBlob *aiEffectPixelShaderBlob =
+      dx12Core_->CompileShader(L"resources/shaders/NeonGlitch.hlsl", L"ps_6_0");
+  assert(aiEffectPixelShaderBlob != nullptr);
+
   // DepthStencilStateの設定
   D3D12_DEPTH_STENCIL_DESC depthStencilDesc{};
 
@@ -218,6 +222,16 @@ void SpriteRenderer::CreateSpritePSO() {
   hr = device_->CreateGraphicsPipelineState(
       &graphicsPipeLineStateDesc, IID_PPV_ARGS(&uiEffectPipeLineState_));
   assert(SUCCEEDED(hr));
+
+  // AIEffect用PSO生成
+  graphicsPipeLineStateDesc.PS = {
+      aiEffectPixelShaderBlob->GetBufferPointer(),
+      aiEffectPixelShaderBlob->GetBufferSize()};
+  
+  aiEffectPipeLineState_ = nullptr;
+  hr = device_->CreateGraphicsPipelineState(
+      &graphicsPipeLineStateDesc, IID_PPV_ARGS(&aiEffectPipeLineState_));
+  assert(SUCCEEDED(hr));
 }
 
 void SpriteRenderer::Begin() {
@@ -229,5 +243,11 @@ void SpriteRenderer::Begin() {
 void SpriteRenderer::BeginUIEffect() {
   commandList_->SetGraphicsRootSignature(rootSignature_.Get());
   commandList_->SetPipelineState(uiEffectPipeLineState_.Get());
+  commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+}
+
+void SpriteRenderer::BeginAiEffect() {
+  commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+  commandList_->SetPipelineState(aiEffectPipeLineState_.Get());
   commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }

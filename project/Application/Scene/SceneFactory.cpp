@@ -3,6 +3,7 @@
 #include "GamePlayScene.h"
 #include "TitleScene.h"
 #include "StageSelectScene.h"
+#include "SplashScene.h"
 
 std::unique_ptr<BaseScene>
 SceneFactory::CreateScene(const std::string &sceneName) {
@@ -18,6 +19,8 @@ SceneFactory::CreateScene(const std::string &sceneName) {
     return std::make_unique<StageSelectScene>();
   } else if (sceneName == "DEBUG") {
     return std::make_unique<DebugScene>();
+  } else if (sceneName == "SPLASH") {
+    return std::make_unique<SplashScene>();
   }
 
   assert(false && "Unknown sceneName");

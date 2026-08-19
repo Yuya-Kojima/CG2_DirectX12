@@ -151,9 +151,8 @@ void DebugScene::Initialize(EngineBase *engine) {
 
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
-  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
-  playerModel->SetColor(
-      {0.0f, 0.5f, 1.0f, 1.0f}); // プレイヤーは青色で分かりやすく
+  playerModel->SetModel("suzanne.obj"); // 仮モデル
+  playerModel->SetColor(Vector4{0.5f, 1.0f, 0.5f, 1.0f}); // プレイヤーは緑色にして見分けやすくする
   player->SetModel(std::move(playerModel));
 
   playerPtr_ = player.get(); // ポインタを控えておく
@@ -335,9 +334,15 @@ void DebugScene::Initialize(EngineBase *engine) {
         sneakWalk_->GetObject3d()->SetTranslation(playerData.translation);
         sneakWalk_->GetObject3d()->SetRotation(playerData.rotation);
       }
+      if (playerPtr_) {
+        playerPtr_->GetTransform().translate = playerData.translation;
+        playerPtr_->GetTransform().rotate = playerData.rotation;
+        playerPtr_->SetStatic(true);
+      }
     }
 
     // レベルデータから敵を生成、配置
+    int enemyIndex = 0;
     for (auto &enemyData : levelData_->enemies) {
       // 敵キャラの生成
       auto enemy = std::make_unique<Object3d>();
@@ -349,6 +354,8 @@ void DebugScene::Initialize(EngineBase *engine) {
         enemy->SetModel(enemyData.fileName);
       } else {
         enemy->SetModel("suzanne.obj");
+        // 敵はすべて赤色に統一して見分けやすくする
+        enemy->SetColor(Vector4{1.0f, 0.5f, 0.5f, 1.0f});
       }
 
       // 敵キャラの初期化
@@ -357,6 +364,7 @@ void DebugScene::Initialize(EngineBase *engine) {
 
       // 敵リストに追加
       enemies_.push_back(std::move(enemy));
+      enemyIndex++;
     }
   }
 }
@@ -376,6 +384,11 @@ void DebugScene::CreateObjectsRecursive(const LevelData::ObjectData &objectData,
     obj->SetTranslation(objectData.translation);
     obj->SetRotation(objectData.rotation);
     obj->SetScale(objectData.scaling);
+
+    // ICO球（ファイル名がsuzanne.objのMESH）は青色にして見分けやすくする
+    if (objectData.fileName == "suzanne.obj") {
+        obj->SetColor(Vector4{0.5f, 0.5f, 1.0f, 1.0f});
+    }
 
     // 親子関係の設定
     if (parent) {
@@ -824,11 +837,11 @@ void DebugScene::Draw3D() {
     engine_->GetObject3dRenderer()->Begin();
   }
 
-  object3d_->Draw();
-  for (auto &target : testTargets_) {
-    target->Draw();
-  }
-  animatedCube_->Draw();
+  // object3d_->Draw();
+  // for (auto &target : testTargets_) {
+  //   target->Draw();
+  // }
+  // animatedCube_->Draw();
 
   // 全アクターの3Dモデル部分だけをまとめて描く
   ActorManager::GetInstance()->Draw3D();
@@ -844,9 +857,10 @@ void DebugScene::Draw3D() {
   }
 
   // CSで計算済みの頂点を使って描画されるため、通常のBegin()のまま
-  sneakWalk_->Draw();
+  // sneakWalk_->Draw();
 
   // スケルトンのデバッグ描画（最前面に表示するためZテスト無効）
+  /*
   engine_->GetObject3dRenderer()->SetDepthEnable(false);
 
   // 関節間のLineを登録
@@ -871,14 +885,16 @@ void DebugScene::Draw3D() {
     jointObj->Draw();
   }
   engine_->GetObject3dRenderer()->SetDepthEnable(true); // 元に戻す
+  */
 
-  testParticleGroup_->Draw();
-  clearParticleGroup_->Draw();
-  hitParticleGroup_->Draw();
-  cylinderParticleGroup_->Draw();
-  planeHitParticleGroup_->Draw();
+  // testParticleGroup_->Draw();
+  // clearParticleGroup_->Draw();
+  // hitParticleGroup_->Draw();
+  // cylinderParticleGroup_->Draw();
+  // planeHitParticleGroup_->Draw();
 
   // レールのデバッグ描画（Catmull-Rom曲線）
+  /*
   if (waypoints_.size() >= 2) {
     const int divisions = 20; // 1区間あたりの分割数
     Vector3 prevPos = waypoints_[0];
@@ -892,6 +908,7 @@ void DebugScene::Draw3D() {
       prevPos = currentPos;
     }
   }
+  */
 
   //  Lineを描画 (他の描画のパイプラインを壊さないように最後に呼ぶ)
   if (const ICamera *camera =
@@ -903,6 +920,7 @@ void DebugScene::Draw3D() {
 void DebugScene::Draw2D() {
   // ここから下で2DオブジェクトのDrawを呼ぶ
 
+  /*
   // まず通常描画で下地となる文字（上半分が見える部分）を描画
   engine_->GetSpriteRenderer()->Begin();
   sprites_[0]->Draw();
@@ -927,6 +945,7 @@ void DebugScene::Draw2D() {
 
   // アクターの2D部分の描画
   ActorManager::GetInstance()->Draw2D();
+  */
 }
 
 DebugScene::~DebugScene() = default;

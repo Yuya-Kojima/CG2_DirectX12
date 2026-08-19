@@ -36,8 +36,8 @@ void Game::Initialize() {
   sceneFactory_ = std::make_unique<SceneFactory>();
 
   SceneManager::GetInstance()->SetSceneFactory(sceneFactory_.get());
-  // 初期シーンの設定
-  SceneManager::GetInstance()->ChangeScene("TITLE");
+  // 最初のシーンを設定
+  SceneManager::GetInstance()->ChangeScene("SPLASH");
 
   //===========================
   // ローカル変数宣言

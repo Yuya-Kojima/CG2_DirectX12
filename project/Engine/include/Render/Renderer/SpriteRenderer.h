@@ -21,6 +21,11 @@ public:
   /// </summary>
   void BeginUIEffect();
 
+  /// <summary>
+  /// AI生成エフェクト描画設定
+  /// </summary>
+  void BeginAiEffect();
+
 private:
   Dx12Core *dx12Core_ = nullptr;
 
@@ -38,6 +43,7 @@ private:
   // PSO
   Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipeLineState_ = nullptr;
   Microsoft::WRL::ComPtr<ID3D12PipelineState> uiEffectPipeLineState_ = nullptr;
+  Microsoft::WRL::ComPtr<ID3D12PipelineState> aiEffectPipeLineState_ = nullptr;
 
   /// <summary>
   /// ルートシグネチャの生成

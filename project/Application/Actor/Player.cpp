@@ -116,7 +116,15 @@ void Player::Update() {
     invincibleTimer_--;
   }
 
-  // プレイヤー自身の更新処理
+  if (isStatic_) {
+    if (object3d_) {
+      object3d_->SetTranslation(transform_.translate);
+      object3d_->SetRotation(transform_.rotate);
+      object3d_->SetScale(transform_.scale);
+      object3d_->Update();
+    }
+    return;
+  }
 
   // 照準の移動操作
   if (input_) {
@@ -328,11 +336,11 @@ void Player::Update() {
                       targetPos.z - transform_.translate.z};
   float distSq = warpDiff.x * warpDiff.x + warpDiff.y * warpDiff.y + warpDiff.z * warpDiff.z;
   
-  if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
-    transform_.translate = targetPos;
-  } else {
-    transform_.translate = nextPos;
-  }
+    if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
+      transform_.translate = targetPos;
+    } else {
+      transform_.translate = nextPos;
+    }
 
   //  弾の実際の目標地点を計算し、自機をそちらに向かせる
   float bulletTargetDist = 1000.0f;

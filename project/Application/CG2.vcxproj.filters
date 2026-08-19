@@ -36,6 +36,9 @@
     <ClCompile Include="Scene\TitleScene.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="Scene\SplashScene.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="Actor\LockOn.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -120,6 +123,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="Scene\TitleScene.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene\SplashScene.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="Actor\LockOn.h">

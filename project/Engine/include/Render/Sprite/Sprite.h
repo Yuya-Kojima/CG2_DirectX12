@@ -64,6 +64,11 @@ public:
   void DrawUIEffect();
 
   /// <summary>
+  /// AI生成エフェクト用の描画処理
+  /// </summary>
+  void DrawAiEffect(float u_time);
+
+  /// <summary>
   /// UIEffectのパラメータを設定する
   /// </summary>
   void SetUIEffectParams(float time, int effectType, float splitY = 0.5f, float amplitude = 0.05f, float frequency = 20.0f, float speed = 5.0f);

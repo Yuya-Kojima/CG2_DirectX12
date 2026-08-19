@@ -54,6 +54,9 @@ public:
     lockOnTargets_ = targets;
   }
 
+  // デバッグ用：カメラに追従せず静止するかどうかのフラグ
+  void SetStatic(bool isStatic) { isStatic_ = isStatic; }
+
   int GetHp() const { return hp_; }
   int GetMaxHp() const { return kMaxHp; }
 
@@ -164,4 +167,6 @@ private:
   };
   AttackState attackState_ = AttackState::Idle;
   float pressTimer_ = 0.0f;
+
+  bool isStatic_ = false; // デバッグ用静止フラグ
 };

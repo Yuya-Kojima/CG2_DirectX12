@@ -180,6 +180,38 @@ void Sprite::DrawUIEffect() {
   commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);
 }
 
+void Sprite::DrawAiEffect(float u_time) {
+  assert(dx12Core_ && "Sprite::DrawAiEffect: not initialized");
+  assert(materialResource && "Sprite::DrawAiEffect: materialResource is null");
+  assert(transformationMatrixResource && "Sprite::DrawAiEffect: transformationMatrixResource is null");
+  assert(vertexResource && "Sprite::DrawAiEffect: vertexResource is null");
+  assert(indexResource && "Sprite::DrawAiEffect: indexResource is null");
+  assert(uiEffectParamsResource_ && "Sprite::DrawAiEffect: uiEffectParamsResource is null");
+
+  if (uiEffectParamsData_) {
+    uiEffectParamsData_->time = u_time;
+  }
+
+  ID3D12GraphicsCommandList *commandList_ = dx12Core_->GetCommandList();
+
+  commandList_->IASetVertexBuffers(0, 1, &vertexBufferView);
+  commandList_->IASetIndexBuffer(&indexBufferView);
+
+  // b0: Material
+  commandList_->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
+
+  // b0 (VS): TransformationMatrix
+  commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResource->GetGPUVirtualAddress());
+
+  // t0: Texture
+  commandList_->SetGraphicsRootDescriptorTable(2, TextureManager::GetInstance()->GetSrvHandleGPU(textureFilePath_));
+
+  // b1: TimeBuffer (UIEffectParamsの先頭floatであるtimeを流用)
+  commandList_->SetGraphicsRootConstantBufferView(3, uiEffectParamsResource_->GetGPUVirtualAddress());
+
+  commandList_->DrawIndexedInstanced(6, 1, 0, 0, 0);
+}
+
 void Sprite::SetUIEffectParams(float time, int effectType, float splitY, float amplitude, float frequency, float speed) {
   if (uiEffectParamsData_) {
     uiEffectParamsData_->time = time;

@@ -45,9 +45,9 @@
             "type": "MESH",
             "transform": {
                 "translation": [
-                    -17.928747177124023,
+                    0.020524978637695312,
                     4.250186920166016,
-                    0.0
+                    -1.184661865234375
                 ],
                 "rotation": [
                     0.0,
@@ -60,7 +60,7 @@
                     1.0
                 ]
             },
-            "disabled": true,
+            "disabled": false,
             "file_name": "terrain.obj"
         },
         {
@@ -112,7 +112,7 @@
             "transform": {
                 "translation": [
                     0.0,
-                    -4.956237316131592,
+                    -5.0,
                     0.0
                 ],
                 "rotation": [
@@ -124,6 +124,21 @@
                     1.0,
                     1.0,
                     1.0
+                ]
+            },
+            "disabled": false,
+            "file_name": "suzanne.obj",
+            "collider": {
+                "type": "BOX",
+                "center": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "size": [
+                    2.0,
+                    2.0,
+                    2.0
                 ]
             }
         },
@@ -164,6 +179,40 @@
                     1.0,
                     1.0,
                     1.0
+                ]
+            }
+        },
+        {
+            "type": "EnemySpawn",
+            "transform": {
+                "translation": [
+                    0.0,
+                    0.0,
+                    3.4049923419952393
+                ],
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scaling": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "disabled": false,
+            "collider": {
+                "type": "BOX",
+                "center": [
+                    0.0,
+                    0.0,
+                    0.8199999928474426
+                ],
+                "size": [
+                    2.1600000858306885,
+                    2.0,
+                    2.0
                 ]
             }
         }
