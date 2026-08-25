@@ -4,6 +4,7 @@
 #include "Actor/BossWeakPoint.h"
 #include "Actor/EnemyBullet.h"
 #include "Actor/Player.h"
+#include "Framework/ActorManager.h" 
 #include "Camera/ICamera.h"
 #include "Camera/RailCamera.h"
 #include "Collision/CollisionConfig.h"
@@ -31,8 +32,8 @@ void Boss::Initialize() {
     collider_->SetRadius(
         0.4f); // コアより判定を小さくして、弾がボス本体に吸われないようにする
   }
-  SetHP(100);
-  maxHp_ = 100;
+  SetHP(500);
+  maxHp_ = 500;
   phase_ = BossPhase::Phase1;
   isDead_ = false;
 
@@ -91,6 +92,7 @@ void Boss::Initialize() {
 
     bit->SetBoss(this);
     bit->SetOffset(bitOffsets[i]);
+    bit->SetId(i);
 
     BossBit *bitPtr = bit.get();
     bit->SetOnDestroyedCallback(
@@ -112,6 +114,15 @@ void Boss::OnBitDestroyed(BossBit *bit) {
 }
 
 void Boss::OnWeakPointDestroyed(BossWeakPoint *wp) {
+  // 的が破壊されたら、同じIDを持つ装甲（BossBit）にボーナスダメージを与える
+  int targetId = wp->GetId();
+  for (auto* bit : activeBits_) {
+      if (bit->GetId() == targetId) {
+          bit->TakeDamage(15);
+          break; 
+      }
+  }
+
   auto it = std::find(activeWeakPoints_.begin(), activeWeakPoints_.end(), wp);
   if (it != activeWeakPoints_.end()) {
     activeWeakPoints_.erase(it);
@@ -199,12 +210,21 @@ void Boss::Update() {
 
   aliveTime_ += 1.0f / 60.0f;
 
-  if (phase_ == BossPhase::Phase1) {
-    UpdatePhase1();
-  } else if (phase_ == BossPhase::Phase2) {
-    UpdatePhase2();
-  } else if (phase_ == BossPhase::Dying) {
-    UpdateDying();
+  if (currentState_ == BossState::DashTelegraph ||
+      currentState_ == BossState::Dash ||
+      currentState_ == BossState::Stagger ||
+      currentState_ == BossState::DashCooldown) {
+    UpdateDashSequence();
+  } else {
+    if (phase_ == BossPhase::Phase1) {
+      UpdatePhase1();
+    } else if (phase_ == BossPhase::PhaseTransition) {
+      UpdatePhaseTransition();
+    } else if (phase_ == BossPhase::Phase2) {
+      UpdatePhase2();
+    } else if (phase_ == BossPhase::Dying) {
+      UpdateDying();
+    }
   }
 
   // 最後にトランスフォーム（モデル・コライダー位置）を更新する
@@ -388,8 +408,26 @@ void Boss::UpdatePhase1() {
     if (stateTimer_ >= 2.0f) {
       startPos_ = transform_.translate;
 
-      // 次の攻撃パターンを切り替える（0:通常弾, 1:ミサイル）
-      attackPattern_ = (attackPattern_ + 1) % 2;
+      // 次の攻撃パターンを切り替える（ランダム抽選）
+      // 0:通常弾, 1:ミサイル, 2:突進
+      std::vector<int> availablePatterns = {0, 1};
+      
+      if (dashCooldown_ > 0) {
+          dashCooldown_--;
+      } else {
+          // クールダウンが明けていれば突進(2)を抽選候補に加える
+          availablePatterns.push_back(2);
+      }
+      
+      int randomIndex = rand() % availablePatterns.size();
+      attackPattern_ = availablePatterns[randomIndex];
+      
+      if (attackPattern_ == 2) {
+          dashCooldown_ = 3; // 突進を選んだら3ターンのクールダウンを設定
+          currentState_ = BossState::DashTelegraph;
+          stateTimer_ = 0.0f;
+          return; // Hoverへは行かずに突進予兆へ遷移
+      }
 
       if (camera_) {
         Vector3 cPos = camera_->GetTranslate();
@@ -449,8 +487,101 @@ void Boss::UpdatePhase1() {
   }
 }
 
+void Boss::UpdatePhaseTransition() {
+  stateTimer_ += 1.0f / 60.0f;
+  float duration = 3.5f;
+
+  // 1. ボスの退避移動 
+  float moveDuration = duration - 0.5f; // 最後の0.5秒はバースト用
+  float moveT = std::min(stateTimer_ / moveDuration, 1.0f);
+  float easeT = moveT * moveT * (3.0f - 2.0f * moveT);
+
+  transform_.translate.x = std::lerp(startPos_.x, targetPos_.x, easeT);
+  transform_.translate.y = std::lerp(startPos_.y, targetPos_.y, easeT);
+  transform_.translate.z = std::lerp(startPos_.z, targetPos_.z, easeT);
+
+  // 2. ボスのシェイクとカラー点滅
+  float shakePower = 1.0f * (stateTimer_ / duration);
+  float rx = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * shakePower;
+  float ry = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * shakePower;
+  float rz = (static_cast<float>(rand()) / RAND_MAX * 2.0f - 1.0f) * shakePower;
+  transform_.translate.x += rx;
+  transform_.translate.y += ry;
+  transform_.translate.z += rz;
+
+  float flashSpeed = 10.0f + 30.0f * (stateTimer_ / duration);
+  float flashIntensity = (std::sin(stateTimer_ * flashSpeed) + 1.0f) * 0.5f;
+  if (model_) {
+      Vector4 flashColor = {1.0f, 1.0f - flashIntensity * 0.8f, 1.0f - flashIntensity * 0.8f, 1.0f};
+      model_->SetColor(flashColor);
+  }
+
+  // 3. カメラのズームとシェイク
+  if (camera_) {
+      if (auto railCam = const_cast<RailCamera*>(dynamic_cast<const RailCamera *>(camera_))) {
+          float defaultFov = 45.0f * (3.14159265f / 180.0f);
+          float zoomFov = 25.0f * (3.14159265f / 180.0f); // 寄る
+          
+          float fovT = std::min(stateTimer_ / 1.0f, 1.0f); // 最初の1秒でズームしてそのまま維持
+          float easeFovT = fovT * fovT * (3.0f - 2.0f * fovT);
+          float currentFov = std::lerp(defaultFov, zoomFov, easeFovT);
+          railCam->SetFov(currentFov);
+          
+          // ボスへの注視設定
+          railCam->SetFocusTarget(&transform_.translate);
+          railCam->SetFocusWeight(easeFovT); // FOVと同じ緩急で注視を強める
+          
+          railCam->Shake(0.5f * (stateTimer_ / duration), 0.1f);
+      }
+  }
+
+  // 4. 移行完了でPhase2へ
+  if (stateTimer_ >= duration) {
+      if (model_) {
+          model_->SetColor(baseColor_);
+      }
+      if (camera_) {
+          if (auto railCam = const_cast<RailCamera*>(dynamic_cast<const RailCamera *>(camera_))) {
+              // ここではFOVもフォーカスも戻さない（Phase2側で引き戻す）
+              railCam->Shake(3.0f, 0.5f);
+          }
+      }
+      EffectManager::GetInstance()->PlayBossBurstEffect(transform_.translate);
+      ChangePhase(BossPhase::Phase2);
+  }
+}
+
 void Boss::UpdatePhase2() {
   stateTimer_ += 1.0f / 60.0f;
+
+  // 形態変化直後のカメラ引き戻し演出
+  if (attackStep_ == -1 && currentState_ == BossState::Cooldown && camera_) {
+      if (auto railCam = const_cast<RailCamera*>(dynamic_cast<const RailCamera *>(camera_))) {
+          float defaultFov = 45.0f * (3.14159265f / 180.0f);
+          float zoomFov = 25.0f * (3.14159265f / 180.0f);
+          
+          // 最初の1.0秒間はズームを維持（爆発の余韻と変化後の姿を見せる）
+          // その後の1.0秒間（stateTimer_ が 1.0 ～ 2.0）でズームを元に戻す
+          float pullBackT = 0.0f;
+          if (stateTimer_ > 1.0f) {
+              pullBackT = std::min((stateTimer_ - 1.0f) / 1.0f, 1.0f);
+          }
+          float easePullBack = 1.0f - std::pow(1.0f - pullBackT, 3.0f); // イーズアウト
+          
+          float currentFov = std::lerp(zoomFov, defaultFov, easePullBack);
+          railCam->SetFov(currentFov);
+          
+          // 注視（フォーカス）も、カメラ引き戻しと同じタイミングでスッと解除する
+          railCam->SetFocusTarget(&transform_.translate);
+          railCam->SetFocusWeight(1.0f - easePullBack); 
+          
+          // 引き戻しが完了したら完全に注視を解除
+          if (stateTimer_ >= 2.0f) {
+              railCam->SetFocusTarget(nullptr);
+              railCam->SetFocusWeight(0.0f);
+          }
+      }
+  }
 
   switch (currentState_) {
   case BossState::Enter:
@@ -472,9 +603,9 @@ void Boss::UpdatePhase2() {
     }
 
     if (stateTimer_ >= 1.5f) {
-      if (attackStep_ % 2 == 0) {
+      if (attackPattern_ == 1) {
         currentState_ = BossState::Telegraph; // ミサイル攻撃へ
-      } else {
+      } else if (attackPattern_ == 2) {
         currentState_ = BossState::DashTelegraph; // 突進攻撃へ
       }
       stateTimer_ = 0.0f;
@@ -533,8 +664,8 @@ void Boss::UpdatePhase2() {
           ActorManager::GetInstance()->AddActor(std::move(bullet));
         };
 
-        // ミサイルを4発（左右に2発ずつ）真横＆斜め後ろに射出する
-        for (int i = 0; i < 4; ++i) {
+        // スウォーム弾幕（8発）をランダムに散らす
+        for (int i = 0; i < 8; ++i) {
           // プレイヤー方向（dir）に対して垂直な「真横」のベクトルを計算
           Vector3 rightDir = {dir.z, 0.0f, -dir.x};
 
@@ -547,30 +678,24 @@ void Boss::UpdatePhase2() {
             backwardDir.z /= bLen;
           }
 
-          // i=0: 左遠く, i=1: 左近く, i=2: 右近く, i=3: 右遠く
-          float spread = 0.0f;
-          if (i == 0)
-            spread = -1.0f;
-          else if (i == 1)
-            spread = -0.5f;
-          else if (i == 2)
-            spread = 0.5f;
-          else if (i == 3)
-            spread = 1.0f;
+          // -1.0 ~ 1.0 のランダム
+          float randX = ((rand() % 200) / 100.0f) - 1.0f; 
+          float randY = ((rand() % 200) / 100.0f) - 1.0f;
+          float randZ = ((rand() % 100) / 100.0f); // 0.0 ~ 1.0
 
-          float upwardForce = ((rand() % 100) / 100.0f) * 0.5f;
-          float launchSpeed = 10.0f;   // 横への射出力
-          float backwardSpeed = 10.0f; // はるか奥へ吹き飛ばす力
+          // 上下左右・後ろに大きく散らす（画面内に収まる程度に抑える）
+          float spreadX = randX * 15.0f; // 左右の散らばり（35.0 -> 15.0）
+          float spreadY = randY * 10.0f; // 上下の散らばり（20.0 -> 10.0）
+          float backwardSpeed = 2.0f + randZ * 8.0f; // 奥へ吹き飛ばす力（15.0 -> 8.0）
 
-          // 左(i=0)から順に30フレーム（0.5秒）間隔で急降下を開始するようにする
-          int waitFrames = 40 + (i * 30);
+          // ディレイ（タメ時間）をランダムにばらけさせる（60F〜180F）
+          // 2回ロックオンする猶予を作るため全体的に長めに。
+          int waitFrames = 60 + (rand() % 120);
 
-          // 斜め後ろに向かって射出
-          Vector3 vel = {rightDir.x * spread * launchSpeed +
-                             backwardDir.x * backwardSpeed,
-                         upwardForce,
-                         rightDir.z * spread * launchSpeed +
-                             backwardDir.z * backwardSpeed};
+          Vector3 vel = {rightDir.x * spreadX + backwardDir.x * backwardSpeed,
+                         spreadY,
+                         rightDir.z * spreadX + backwardDir.z * backwardSpeed};
+
           spawnBullet(vel, EnemyBulletType::LockOnDestructible, waitFrames);
         }
 
@@ -589,8 +714,24 @@ void Boss::UpdatePhase2() {
   }
 
   case BossState::Cooldown: {
-    if (stateTimer_ >= 1.0f) {
+    float waitTime = (attackStep_ == -1) ? 2.0f : 1.0f; // 形態変化直後は演出用に長め（2.0秒）に待つ
+    if (stateTimer_ >= waitTime) {
       attackStep_++;
+      
+      // ランダム抽選ロジック
+      std::vector<int> availablePatterns = {1}; // 1: ミサイル
+      if (dashCooldown_ > 0) {
+          dashCooldown_--;
+      } else {
+          availablePatterns.push_back(2); // 2: 突進
+      }
+      int randomIndex = rand() % availablePatterns.size();
+      attackPattern_ = availablePatterns[randomIndex];
+
+      if (attackPattern_ == 2) {
+          dashCooldown_ = 3;
+      }
+      
       startPos_ = targetPos_;
       if (camera_) {
         Vector3 cPos = camera_->GetTranslate();
@@ -603,13 +744,22 @@ void Boss::UpdatePhase2() {
           cUp = railCam->GetRailUp();
           cForward = railCam->GetRailForward();
         }
-        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
-                         cForward * spawnOffset_.z;
-        float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
-        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
-        targetPos_.x = center.x + offsetX;
-        targetPos_.y = center.y + offsetY;
-        targetPos_.z = center.z;
+        // 次の攻撃パターンに応じて目標位置を変える
+        if (attackPattern_ == 1) {
+          // 次はミサイル攻撃：画面奥深く（突進と同じ距離200）へ移動
+          targetPos_ = cPos + cUp * 15.0f + cForward * 200.0f;
+          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 40.0f;
+          targetPos_.x += offsetX;
+        } else if (attackPattern_ == 2) {
+          // 次は突進攻撃：一旦手前（基準位置付近）へ移動し、その後大きく下がる演出に繋げる
+          Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
+                           cForward * spawnOffset_.z;
+          float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
+          float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
+          targetPos_.x = center.x + offsetX;
+          targetPos_.y = center.y + offsetY;
+          targetPos_.z = center.z;
+        }
       }
       currentState_ = BossState::Hover;
       stateTimer_ = 0.0f;
@@ -617,6 +767,282 @@ void Boss::UpdatePhase2() {
     break;
   }
 
+
+  }
+}
+
+void Boss::UpdateDying() {
+  dyingTimer_ += 1.0f / 60.0f;
+
+  // ディゾルブ進行
+  if (model_) {
+    if (!dissolveEnabled_ && dyingTimer_ > 0.0f) {
+      model_->SetEnableDissolve(true);
+      dissolveEnabled_ = true;
+    }
+    float progress = dyingTimer_ / dyingDuration_;
+    progress = std::min(progress, 1.0f);
+    model_->SetDissolveThreshold(progress);
+  }
+
+  // 塵パーティクルの位置更新
+  float progressForDust = dyingTimer_ / dyingDuration_;
+  if (onDyingUpdateCallback_ && progressForDust < 0.6f) {
+    onDyingUpdateCallback_(transform_.translate);
+  }
+
+  // 演出終了 → 完全消滅
+  if (dyingTimer_ >= dyingDuration_) {
+    ChangePhase(BossPhase::Defeated);
+  }
+}
+
+void Boss::Draw3D() {
+  if (model_) {
+    model_->Draw();
+  }
+}
+
+void Boss::Draw2D() {
+  if (!isUIInitialized_ || isDead_)
+    return;
+
+  // HPの割合でスケール(Size)を更新
+  float hpRatio = static_cast<float>(hp_) / maxHp_;
+  if (hpRatio < 0.0f)
+    hpRatio = 0.0f;
+
+  hpBarFg_->SetSize({800.0f * hpRatio, 20.0f});
+
+  // 色もフェーズによって変える（例: Phase2でオレンジ色に）
+  if (phase_ == BossPhase::Phase2) {
+    hpBarFg_->SetColor({1.0f, 0.6f, 0.0f, 1.0f});
+  } else if (phase_ == BossPhase::PhaseTransition) {
+    // 移行中は点滅させる
+    float flashIntensity = (std::sin(stateTimer_ * 30.0f) + 1.0f) * 0.5f;
+    hpBarFg_->SetColor({1.0f, 1.0f - flashIntensity * 0.4f, 1.0f - flashIntensity * 0.8f, 1.0f});
+  } else {
+    hpBarFg_->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+  }
+
+  Transform defaultUv;
+  defaultUv.scale = {1.0f, 1.0f, 1.0f};
+  defaultUv.rotate = {0.0f, 0.0f, 0.0f};
+  defaultUv.translate = {0.0f, 0.0f, 0.0f};
+
+  hpBarBg_->Update(defaultUv);
+  hpBarFg_->Update(defaultUv);
+
+  hpBarBg_->Draw();
+  hpBarFg_->Draw();
+
+  // 突進予兆時の警告UI描画
+  if (currentState_ == BossState::DashTelegraph) {
+      // 点滅させる
+      float alpha = (std::sin(stateTimer_ * 20.0f) + 1.0f) * 0.5f * 0.8f;
+      dangerUI_->SetColor({1.0f, 0.0f, 0.0f, alpha});
+      dangerUI_->Update(defaultUv);
+      dangerUI_->Draw();
+  }
+
+  // ミサイル予兆中のレティクル描画 (Phase2の場合は常にミサイル)
+  if (currentState_ == BossState::Telegraph && (attackPattern_ == 1 || phase_ == BossPhase::Phase2) && player_ && camera_) {
+    float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
+    
+    Vector3 playerPos = player_->GetTransform().translate;
+    Vector2 screenPos = WorldToScreen(playerPos, camera_->GetViewProjectionMatrix(), 1280.0f, 720.0f);
+
+    // 画面外を描画から除外
+    if (screenPos.x > -100 && screenPos.x < 1380 && screenPos.y > -100 && screenPos.y < 820) {
+      
+      // チャージ比率 (0.0~1.0)
+      float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
+      bool isLocked = stateTimer_ >= 1.0f; // 1.0秒以降はロック完了状態
+
+      Transform uvTransform;
+      uvTransform.scale = {1.0f, 1.0f, 1.0f};
+      uvTransform.rotate = {0.0f, 0.0f, 0.0f};
+      uvTransform.translate = {0.0f, 0.0f, 0.0f};
+      
+      //  外枠 
+      // 外枠は縮小せず、画面中央を中心に公転・自転する。ターゲットを囲む四角い枠（□）にする
+      float outerOffset = 160.0f;
+      float outerThick = 6.0f;
+      float outerLen = 100.0f;
+      // 1.0秒でピッタリ90度回転し、四角い枠のままカチッと止まる
+      float outerRot = stateTimer_ * (std::numbers::pi_v<float> / 2.0f);
+      float finalOuterRot = isLocked ? (std::numbers::pi_v<float> / 2.0f) : outerRot;
+
+      constexpr float baseAngles[4] = {
+          0.0f,                               // 上
+          std::numbers::pi_v<float>,          // 下
+          -std::numbers::pi_v<float> / 2.0f,  // 左
+          std::numbers::pi_v<float> / 2.0f    // 右
+      };
+
+      for (int i=0; i<4; ++i) {
+         float currentAngle = baseAngles[i] + finalOuterRot;
+         float ox = sinf(currentAngle) * outerOffset;
+         float oy = -cosf(currentAngle) * outerOffset;
+         
+         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
+         // 外枠は「横線（-）」をベースにして回転させることで四角い枠（□）を形成する
+         reticleSprites_[i]->SetSize({outerLen, outerThick}); 
+         reticleSprites_[i]->SetRotation(currentAngle);
+         
+         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, isLocked ? 1.0f : 0.6f});
+         reticleSprites_[i]->Update(uvTransform);
+         reticleSprites_[i]->Draw();
+      }
+
+      //内枠
+      // チャージが進むにつれて枠が激しく縮小する。内枠はターゲットを狙う十字（＋）にする
+      float innerOffset = 200.0f - (150.0f * chargeRatio);
+      float innerThick = 10.0f;
+      float innerLen = 50.0f;
+      // 1.0秒でピッタリ180度回転する
+      float innerRot = -stateTimer_ * std::numbers::pi_v<float>;
+      float finalInnerRot = isLocked ? -std::numbers::pi_v<float> : innerRot;
+
+      float innerAlpha = 1.0f;
+      if (!isLocked && chargeRatio > 0.7f) {
+         innerAlpha = fmodf(stateTimer_ * 15.0f, 1.0f) > 0.5f ? 1.0f : 0.2f;
+      }
+      
+      for (int i=4; i<8; ++i) {
+         int idx = i - 4;
+         float currentAngle = baseAngles[idx] + finalInnerRot;
+         float ox = sinf(currentAngle) * innerOffset;
+         float oy = -cosf(currentAngle) * innerOffset;
+         
+         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
+         // 内枠は「縦線（|）」をベースにして回転させることで十字（＋）を形成する
+         reticleSprites_[i]->SetSize({innerThick, innerLen}); 
+         reticleSprites_[i]->SetRotation(currentAngle);
+         
+         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, innerAlpha});
+         reticleSprites_[i]->Update(uvTransform);
+         reticleSprites_[i]->Draw();
+      }
+
+      // センタードット
+      if (isLocked) {
+         reticleSprites_[8]->SetPosition({screenPos.x, screenPos.y});
+         reticleSprites_[8]->SetSize({14.0f, 14.0f}); 
+         reticleSprites_[8]->SetRotation(0.0f);
+         
+         reticleSprites_[8]->SetScale({1.0f, 1.0f});
+         reticleSprites_[8]->SetColor({1.0f, 0.0f, 0.0f, 1.0f});
+         reticleSprites_[8]->Update(uvTransform);
+         reticleSprites_[8]->Draw();
+      }
+    }
+  }
+}
+
+void Boss::OnCollision(Collider *other) {
+  if (other->GetOwner() && dynamic_cast<Player *>(other->GetOwner())) {
+    Player *p = dynamic_cast<Player *>(other->GetOwner());
+    if (p->GetInvincibleTimer() > 0) {
+      return; // 無敵中は食らわない
+    }
+    p->TakeDamage(1); // プレイヤーにダメージを与える
+  }
+}
+
+void Boss::TakeDamage(int damage, bool isSelfDestruct) {
+  // 形態変化中、死亡演出中、または死亡済みの場合はダメージを受け付けない（演出リセット防止）
+  if (isDead_ || phase_ == BossPhase::PhaseTransition || phase_ == BossPhase::Dying || phase_ == BossPhase::Defeated)
+    return;
+
+  // 装甲が1つでも残っている間はボス本体へのダメージを完全に無効化する
+  if (!activeBits_.empty())
+    return;
+
+  hp_ -= damage;
+  hitFlashTimer_ = 5;
+
+  // フェーズ移行判定 (T-2)
+  if (hp_ <= 0) {
+    hp_ = 0;
+    ChangePhase(BossPhase::Dying); // 即消滅ではなくDyingフェーズへ
+  } else if (phase_ == BossPhase::Phase1 && hp_ <= maxHp_ * 0.7f) {
+    ChangePhase(BossPhase::PhaseTransition);
+  }
+}
+
+void Boss::ChangePhase(BossPhase nextPhase) {
+  phase_ = nextPhase;
+  if (phase_ == BossPhase::PhaseTransition) {
+    Logger::Log("Boss entering Phase Transition!\n");
+    
+    // 形態変化に入った瞬間に、画面上のすべての敵弾（EnemyBullet）を消去する
+    ActorManager::GetInstance()->ClearActorsIf([](BaseActor* actor) {
+        return dynamic_cast<EnemyBullet*>(actor) != nullptr;
+    });
+    
+    stateTimer_ = 0.0f;
+    startPos_ = transform_.translate;
+    if (camera_) {
+      Vector3 cPos = camera_->GetTranslate();
+      Vector3 cUp = camera_->GetUp();
+      Vector3 cForward = camera_->GetForward();
+      if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
+        cPos = railCam->GetRailPosition();
+        cUp = railCam->GetRailUp();
+        cForward = railCam->GetRailForward();
+      }
+      // 画面奥深くへ退避
+      targetPos_ = cPos + cUp * 15.0f + cForward * 200.0f;
+    } else {
+      targetPos_ = startPos_;
+    }
+  } else if (phase_ == BossPhase::Phase2) {
+    Logger::Log("Boss entering Phase 2!\n");
+    // パターン変化の初期化など
+    currentState_ = BossState::Cooldown; // 形態変化直後はスキを作る（カメラ引き戻し用）
+    stateTimer_ = 0.0f;
+    attackStep_ = -1; // -1から始めることで、次の行動がミサイル（0 % 2 == 0）になる
+    startPos_ = transform_.translate;
+    targetPos_ = transform_.translate;
+  } else if (phase_ == BossPhase::Dying) {
+    Logger::Log("Boss entering Dying phase!\n");
+    
+    // ボス撃破と同時に画面上のすべての敵弾（ミサイル含む）を誘爆させる
+    ActorManager::GetInstance()->ClearActorsIf([](BaseActor* actor) {
+        if (auto* bullet = dynamic_cast<EnemyBullet*>(actor)) {
+            bullet->Explode();
+            return true; // 誘爆させつつリストからも直ちに消去する
+        }
+        // 残存しているすべてのコア（BossCore）も爆発エフェクトと共に消去する
+        if (auto* core = dynamic_cast<class BossCore*>(actor)) {
+            EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(core->GetTransform().translate, {1.0f, 0.5f, 0.0f, 1.0f});
+            return true; 
+        }
+        return false;
+    });
+
+    // コライダーを無効化（メモリは破棄しない）
+    if (collider_) {
+      collider_->SetEnable(false);
+    }
+    dyingTimer_ = 0.0f;
+    // HPバーを非表示にする
+    isUIInitialized_ = false;
+  } else if (phase_ == BossPhase::Defeated) {
+    Logger::Log("Boss Defeated!\n");
+    onDyingUpdateCallback_ = nullptr; // 塵の放出を止める
+
+    if (onDestroyedCallback_) {
+      onDestroyedCallback_(false);
+    }
+    isDead_ = true;
+  }
+}
+
+void Boss::UpdateDashSequence() {
+  stateTimer_ += 1.0f / 60.0f;
+  switch (currentState_) {
   case BossState::DashTelegraph: {
     // 初回のみ：装甲退避と的のスポーン
     if (stateTimer_ <= 0.02f) {
@@ -637,6 +1063,7 @@ void Boss::UpdatePhase2() {
             wp->SetModel(std::move(model));
             wp->SetBoss(this);
             wp->SetOffset(wpOffsets[i]);
+            wp->SetId(i);
             
             BossWeakPoint* wpPtr = wp.get();
             wp->SetOnDestroyedCallback([this, wpPtr](bool) { this->OnWeakPointDestroyed(wpPtr); });
@@ -805,31 +1232,7 @@ void Boss::UpdatePhase2() {
       transform_.rotate.z = tiltT * 0.8f;  // 横に傾く
 
       if (stateTimer_ >= 2.0f) {
-          attackStep_++;
-          // ワープを防ぐため、ダウン復帰した現在位置を次のスタート地点にする
-          startPos_ = transform_.translate;
-          if (camera_) {
-              Vector3 cPos = camera_->GetTranslate();
-              Vector3 cRight = camera_->GetRight();
-              Vector3 cUp = camera_->GetUp();
-              Vector3 cForward = camera_->GetForward();
-              if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
-                  cPos = railCam->GetRailPosition();
-                  cRight = railCam->GetRailRight();
-                  cUp = railCam->GetRailUp();
-                  cForward = railCam->GetRailForward();
-              }
-              Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
-                               cForward * spawnOffset_.z;
-              float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
-              float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
-              targetPos_.x = center.x + offsetX;
-              targetPos_.y = center.y + offsetY;
-              targetPos_.z = center.z;
-          } else {
-              targetPos_ = startPos_;
-          }
-          currentState_ = BossState::Hover;
+          currentState_ = BossState::Cooldown;
           stateTimer_ = 0.0f;
       }
       break;
@@ -838,260 +1241,10 @@ void Boss::UpdatePhase2() {
   case BossState::DashCooldown: {
     // 突進後、1.5秒間隙を晒す
     if (stateTimer_ >= 1.5f) {
-      attackStep_++;
-      // 元のZ位置（奥）に戻るためのHover目標を設定
-      if (camera_) {
-        Vector3 cPos = camera_->GetTranslate();
-        Vector3 cRight = camera_->GetRight();
-        Vector3 cUp = camera_->GetUp();
-        Vector3 cForward = camera_->GetForward();
-        if (auto railCam = dynamic_cast<const RailCamera *>(camera_)) {
-          cPos = railCam->GetRailPosition();
-          cRight = railCam->GetRailRight();
-          cUp = railCam->GetRailUp();
-          cForward = railCam->GetRailForward();
-        }
-        Vector3 center = cPos + cRight * spawnOffset_.x + cUp * spawnOffset_.y +
-                         cForward * spawnOffset_.z;
-        float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 24.0f;
-        float offsetY = ((rand() % 100) / 100.0f - 0.5f) * 12.0f;
-        targetPos_.x = center.x + offsetX;
-        targetPos_.y = center.y + offsetY;
-        targetPos_.z = center.z; // Z軸を元の距離に戻す
-        
-        // 後ろから突き抜けるのを防ぐため、スタート位置を「はるか奥の上空」にワープさせる
-        startPos_ = cPos + cForward * 400.0f + cUp * 150.0f;
-      } else {
-        startPos_ = targetPos_;
-        startPos_.z += 400.0f;
-        startPos_.y += 150.0f;
-      }
-      
-      currentState_ = BossState::Hover;
+      currentState_ = BossState::Cooldown;
       stateTimer_ = 0.0f;
     }
     break;
   }
-  }
-}
-
-void Boss::UpdateDying() {
-  dyingTimer_ += 1.0f / 60.0f;
-
-  // ディゾルブ進行
-  if (model_) {
-    if (!dissolveEnabled_ && dyingTimer_ > 0.0f) {
-      model_->SetEnableDissolve(true);
-      dissolveEnabled_ = true;
-    }
-    float progress = dyingTimer_ / dyingDuration_;
-    progress = std::min(progress, 1.0f);
-    model_->SetDissolveThreshold(progress);
-  }
-
-  // 塵パーティクルの位置更新
-  float progressForDust = dyingTimer_ / dyingDuration_;
-  if (onDyingUpdateCallback_ && progressForDust < 0.6f) {
-    onDyingUpdateCallback_(transform_.translate);
-  }
-
-  // 演出終了 → 完全消滅
-  if (dyingTimer_ >= dyingDuration_) {
-    ChangePhase(BossPhase::Defeated);
-  }
-}
-
-void Boss::Draw3D() {
-  if (model_) {
-    model_->Draw();
-  }
-}
-
-void Boss::Draw2D() {
-  if (!isUIInitialized_ || isDead_)
-    return;
-
-  // HPの割合でスケール(Size)を更新
-  float hpRatio = static_cast<float>(hp_) / maxHp_;
-  if (hpRatio < 0.0f)
-    hpRatio = 0.0f;
-
-  hpBarFg_->SetSize({800.0f * hpRatio, 20.0f});
-
-  // 色もフェーズによって変える（例: Phase2でオレンジ色に）
-  if (phase_ == BossPhase::Phase2) {
-    hpBarFg_->SetColor({1.0f, 0.6f, 0.0f, 1.0f});
-  } else {
-    hpBarFg_->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
-  }
-
-  Transform defaultUv;
-  defaultUv.scale = {1.0f, 1.0f, 1.0f};
-  defaultUv.rotate = {0.0f, 0.0f, 0.0f};
-  defaultUv.translate = {0.0f, 0.0f, 0.0f};
-
-  hpBarBg_->Update(defaultUv);
-  hpBarFg_->Update(defaultUv);
-
-  hpBarBg_->Draw();
-  hpBarFg_->Draw();
-
-  // 突進予兆時の警告UI描画
-  if (currentState_ == BossState::DashTelegraph) {
-      // 点滅させる
-      float alpha = (std::sin(stateTimer_ * 20.0f) + 1.0f) * 0.5f * 0.8f;
-      dangerUI_->SetColor({1.0f, 0.0f, 0.0f, alpha});
-      dangerUI_->Update(defaultUv);
-      dangerUI_->Draw();
-  }
-
-  // ミサイル予兆中のレティクル描画 (Phase2の場合は常にミサイル)
-  if (currentState_ == BossState::Telegraph && (attackPattern_ == 1 || phase_ == BossPhase::Phase2) && player_ && camera_) {
-    float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
-    
-    Vector3 playerPos = player_->GetTransform().translate;
-    Vector2 screenPos = WorldToScreen(playerPos, camera_->GetViewProjectionMatrix(), 1280.0f, 720.0f);
-
-    // 画面外を描画から除外
-    if (screenPos.x > -100 && screenPos.x < 1380 && screenPos.y > -100 && screenPos.y < 820) {
-      
-      // チャージ比率 (0.0~1.0)
-      float chargeRatio = std::min(stateTimer_ / 1.0f, 1.0f);
-      bool isLocked = stateTimer_ >= 1.0f; // 1.0秒以降はロック完了状態
-
-      Transform uvTransform;
-      uvTransform.scale = {1.0f, 1.0f, 1.0f};
-      uvTransform.rotate = {0.0f, 0.0f, 0.0f};
-      uvTransform.translate = {0.0f, 0.0f, 0.0f};
-      
-      //  外枠 
-      // 外枠は縮小せず、画面中央を中心に公転・自転する。ターゲットを囲む四角い枠（□）にする
-      float outerOffset = 160.0f;
-      float outerThick = 6.0f;
-      float outerLen = 100.0f;
-      // 1.0秒でピッタリ90度回転し、四角い枠のままカチッと止まる
-      float outerRot = stateTimer_ * (std::numbers::pi_v<float> / 2.0f);
-      float finalOuterRot = isLocked ? (std::numbers::pi_v<float> / 2.0f) : outerRot;
-
-      constexpr float baseAngles[4] = {
-          0.0f,                               // 上
-          std::numbers::pi_v<float>,          // 下
-          -std::numbers::pi_v<float> / 2.0f,  // 左
-          std::numbers::pi_v<float> / 2.0f    // 右
-      };
-
-      for (int i=0; i<4; ++i) {
-         float currentAngle = baseAngles[i] + finalOuterRot;
-         float ox = sinf(currentAngle) * outerOffset;
-         float oy = -cosf(currentAngle) * outerOffset;
-         
-         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
-         // 外枠は「横線（-）」をベースにして回転させることで四角い枠（□）を形成する
-         reticleSprites_[i]->SetSize({outerLen, outerThick}); 
-         reticleSprites_[i]->SetRotation(currentAngle);
-         
-         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, isLocked ? 1.0f : 0.6f});
-         reticleSprites_[i]->Update(uvTransform);
-         reticleSprites_[i]->Draw();
-      }
-
-      //内枠
-      // チャージが進むにつれて枠が激しく縮小する。内枠はターゲットを狙う十字（＋）にする
-      float innerOffset = 200.0f - (150.0f * chargeRatio);
-      float innerThick = 10.0f;
-      float innerLen = 50.0f;
-      // 1.0秒でピッタリ180度回転する
-      float innerRot = -stateTimer_ * std::numbers::pi_v<float>;
-      float finalInnerRot = isLocked ? -std::numbers::pi_v<float> : innerRot;
-
-      float innerAlpha = 1.0f;
-      if (!isLocked && chargeRatio > 0.7f) {
-         innerAlpha = fmodf(stateTimer_ * 15.0f, 1.0f) > 0.5f ? 1.0f : 0.2f;
-      }
-      
-      for (int i=4; i<8; ++i) {
-         int idx = i - 4;
-         float currentAngle = baseAngles[idx] + finalInnerRot;
-         float ox = sinf(currentAngle) * innerOffset;
-         float oy = -cosf(currentAngle) * innerOffset;
-         
-         reticleSprites_[i]->SetPosition({screenPos.x + ox, screenPos.y + oy});
-         // 内枠は「縦線（|）」をベースにして回転させることで十字（＋）を形成する
-         reticleSprites_[i]->SetSize({innerThick, innerLen}); 
-         reticleSprites_[i]->SetRotation(currentAngle);
-         
-         reticleSprites_[i]->SetColor({1.0f, 0.0f, 0.0f, innerAlpha});
-         reticleSprites_[i]->Update(uvTransform);
-         reticleSprites_[i]->Draw();
-      }
-
-      // センタードット
-      if (isLocked) {
-         reticleSprites_[8]->SetPosition({screenPos.x, screenPos.y});
-         reticleSprites_[8]->SetSize({14.0f, 14.0f}); 
-         reticleSprites_[8]->SetRotation(0.0f);
-         
-         reticleSprites_[8]->SetScale({1.0f, 1.0f});
-         reticleSprites_[8]->SetColor({1.0f, 0.0f, 0.0f, 1.0f});
-         reticleSprites_[8]->Update(uvTransform);
-         reticleSprites_[8]->Draw();
-      }
-    }
-  }
-}
-
-void Boss::OnCollision(Collider *other) {
-  if (other->GetOwner() && dynamic_cast<Player *>(other->GetOwner())) {
-    Player *p = dynamic_cast<Player *>(other->GetOwner());
-    if (p->GetInvincibleTimer() > 0) {
-      return; // 無敵中は食らわない
-    }
-    p->TakeDamage(1); // プレイヤーにダメージを与える
-  }
-}
-
-void Boss::TakeDamage(int damage, bool isSelfDestruct) {
-  if (isDead_)
-    return;
-
-  hp_ -= damage;
-  hitFlashTimer_ = 5;
-
-  // フェーズ移行判定 (T-2)
-  if (hp_ <= 0) {
-    hp_ = 0;
-    ChangePhase(BossPhase::Dying); // 即消滅ではなくDyingフェーズへ
-  } else if (phase_ == BossPhase::Phase1 && hp_ <= maxHp_ / 2) {
-    ChangePhase(BossPhase::Phase2);
-  }
-}
-
-void Boss::ChangePhase(BossPhase nextPhase) {
-  phase_ = nextPhase;
-  if (phase_ == BossPhase::Phase2) {
-    Logger::Log("Boss entering Phase 2!\n");
-    // パターン変化の初期化など
-    currentState_ = BossState::Hover;
-    stateTimer_ = 0.0f;
-    attackStep_ = 0;
-    startPos_ = transform_.translate;
-    targetPos_ = transform_.translate;
-  } else if (phase_ == BossPhase::Dying) {
-    Logger::Log("Boss entering Dying phase!\n");
-    // コライダーを無効化（メモリは破棄しない）
-    if (collider_) {
-      collider_->SetEnable(false);
-    }
-    dyingTimer_ = 0.0f;
-    // HPバーを非表示にする
-    isUIInitialized_ = false;
-  } else if (phase_ == BossPhase::Defeated) {
-    Logger::Log("Boss Defeated!\n");
-    onDyingUpdateCallback_ = nullptr; // 塵の放出を止める
-
-    if (onDestroyedCallback_) {
-      onDestroyedCallback_(false);
-    }
-    isDead_ = true;
   }
 }

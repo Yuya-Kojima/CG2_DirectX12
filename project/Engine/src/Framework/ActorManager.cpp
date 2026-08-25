@@ -46,6 +46,14 @@ void ActorManager::Clear() {
     actors_.clear();
 }
 
+void ActorManager::ClearActorsIf(std::function<bool(BaseActor*)> condition) {
+    for (auto& actor : actors_) {
+        if (condition(actor.get())) {
+            actor->Destroy();
+        }
+    }
+}
+
 void ActorManager::Finalize() {
     Clear();
 }

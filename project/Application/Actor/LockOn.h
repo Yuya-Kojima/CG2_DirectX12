@@ -40,14 +40,18 @@ public:
 
   /// <summary>
   /// ロックオン状態を解除
-  /// </summary>
-  void Clear() { targets_.clear(); }
+  void Clear() { 
+      targets_.clear(); 
+      lockOnDelayTimer_ = 0;
+  }
 
   const std::vector<BaseActor*>& GetTargets() const { return targets_; }
 
 private:
   static const size_t kMaxLockOnCount = 8; // 最大ロックオン数
+  static const int kLockOnInterval = 10;   // ロックオンする間隔（フレーム）
   std::vector<BaseActor *> targets_; // ロックオン中の敵リスト
+  int lockOnDelayTimer_ = 0;         // ロックオン間隔を管理するタイマー
   
   // 照準（マーカー）用スプライトを最大ロックオン数分用意
   std::array<std::unique_ptr<Sprite>, kMaxLockOnCount> reticles_;

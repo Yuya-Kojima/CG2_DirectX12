@@ -19,7 +19,11 @@ public:
     // ボス中心からの相対配置オフセットを設定
     void SetOffset(const Vector3& offset);
 
+    void SetId(int id) { id_ = id; }
+    int GetId() const { return id_; }
+
 private:
+    int id_ = 0;
     Boss* boss_ = nullptr;
     Vector3 offset_ = {0.0f, 0.0f, 0.0f};
     Vector3 baseOffset_ = {0.0f, 0.0f, 0.0f};

@@ -31,6 +31,7 @@ struct SpawnEvent {
   std::string splineName = "";     // 使用するレール名（空なら直線移動）
   float splineDuration = 5.0f;     // レールを走り切る秒数
   bool isWorldSpaceSpline = false; // ワールド空間か、カメラローカル空間か
+  int fireInterval = -1;           // -1なら撃たない。0以上なら指定フレーム間隔で射撃
   bool hasSpawned = false;         // 実行管理用フラグ
 };
 

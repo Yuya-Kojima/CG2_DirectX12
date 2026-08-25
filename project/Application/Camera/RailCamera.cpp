@@ -114,6 +114,13 @@ void RailCamera::Update() {
                         transform_.translate.z + tangentNow.z * lookDistance +
                             right.z * (localX * lookWeightX)};
 
+  // フォーカス対象が設定されている場合は注視点をそちらに向ける
+  if (focusTarget_ && focusWeight_ > 0.0f) {
+      lookTarget.x = Lerp(lookTarget.x, focusTarget_->x, focusWeight_);
+      lookTarget.y = Lerp(lookTarget.y, focusTarget_->y, focusWeight_);
+      lookTarget.z = Lerp(lookTarget.z, focusTarget_->z, focusWeight_);
+  }
+
   // --- カメラ行列を基底ベクトルから直接構築 ---
   viewMatrix_ = MakeLookAtMatrix(transform_.translate, lookTarget, up);
   projectionMatrix_ =

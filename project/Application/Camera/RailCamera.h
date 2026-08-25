@@ -46,6 +46,8 @@ public:
       isFinished_ = false;
     }
   }
+  float GetFov() const { return fov_; }
+  void SetFov(float fov) { fov_ = fov; }
   
   // 自動進行フラグ
   void SetAutoMove(bool autoMove) { isAutoMove_ = autoMove; }
@@ -107,4 +109,12 @@ private:
 
 public:
   void SetPlayerWorldPosition(const Vector3& pos) { playerWorldPos_ = pos; }
+  
+  // ボスなどの特定の対象を注視するための機能
+  void SetFocusTarget(const Vector3* target) { focusTarget_ = target; }
+  void SetFocusWeight(float weight) { focusWeight_ = weight; }
+
+private:
+  const Vector3* focusTarget_ = nullptr;
+  float focusWeight_ = 0.0f;
 };

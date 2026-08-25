@@ -25,7 +25,11 @@ public:
     // 退避の解除
     void ResetPosition();
 
+    void SetId(int id) { id_ = id; }
+    int GetId() const { return id_; }
+
 private:
+    int id_ = 0;
     Boss* boss_ = nullptr;
     Vector3 offset_ = {0.0f, 0.0f, 0.0f};
     Vector3 baseOffset_ = {0.0f, 0.0f, 0.0f};

@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <functional>
 
 /// <summary>
 /// すべてのActorを一括管理するマネージャークラス（シングルトン）
@@ -28,6 +29,11 @@ public:
     /// 登録されている全てのActorを削除する（シーン切り替え時などに呼ぶ）
     /// </summary>
     void Clear();
+
+    /// <summary>
+    /// 条件に一致するActorを削除フラグ(Destroy)を立てる
+    /// </summary>
+    void ClearActorsIf(std::function<bool(BaseActor*)> condition);
 
     /// <summary>
     /// 指定したタグを持つ最初のActorを取得する

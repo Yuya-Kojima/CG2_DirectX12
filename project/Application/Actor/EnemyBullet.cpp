@@ -41,6 +41,7 @@ void EnemyBullet::Initialize(Object3dRenderer *renderer,
     object3d_->SetScale({2.0f, 2.0f, 2.0f});       // 少し小さく
     object3d_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤
     hp_ = 1;
+    SetTag(ActorTag::LockOnTarget); // ロックオン対象としてタグ付け
   } else {
     // 破壊不可エネルギー弾
     object3d_->SetScale({1.5f, 1.5f, 3.0f});
@@ -145,11 +146,11 @@ void EnemyBullet::Update() {
 
         // homingStrength_ が 0 以上なら誘導を続ける（-1ならそのまま直進）
         if (homingStrength_ >= 0.0f) {
-          homingStrength_ += 0.010f;
+          homingStrength_ += 0.006f; // ゆっくり旋回させる
           if (homingStrength_ > 0.10f)
             homingStrength_ = 0.10f;
 
-          float missileSpeed = 1.1f; // ミサイルの最高速度を調整
+          float missileSpeed = 0.8f; // ミサイルの最高速度を少し遅くして猶予を与える
           Vector3 desiredVelocity = {toPlayer.x * missileSpeed,
                                      toPlayer.y * missileSpeed,
                                      toPlayer.z * missileSpeed};
@@ -219,11 +220,25 @@ void EnemyBullet::OnCollision(Collider *other) {
     }
 
     if (hp_ <= 0) {
-      isDead_ = true;
       Logger::Log("EnemyBullet: Intercepted!\n");
-      // TODO: ここで爆発エフェクトなどを生成できればなお良い
+      Explode(); // エフェクトを発生させて自身を破棄
     }
   }
+}
+
+void EnemyBullet::Explode() {
+    if (isDead_) return;
+    isDead_ = true;
+    
+    // タイプに応じた色で爆発エフェクトを発生させる
+    Vector4 color = {1.0f, 0.5f, 0.0f, 1.0f}; // デフォルト（通常弾）はオレンジ
+    if (type_ == EnemyBulletType::LockOnDestructible) {
+        color = {1.0f, 0.0f, 0.0f, 1.0f}; // ミサイルは赤
+    } else if (type_ == EnemyBulletType::Indestructible) {
+        color = {0.0f, 0.0f, 1.0f, 1.0f}; // 破壊不可弾は青
+    }
+    
+    EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(object3d_->GetTranslation(), color);
 }
 
 void EnemyBullet::Draw3D() {

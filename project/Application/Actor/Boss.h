@@ -17,7 +17,7 @@ class Player;
 class SpriteRenderer;
 class BossWeakPoint;
 
-enum class BossPhase { Phase1, Phase2, Dying, Defeated };
+enum class BossPhase { Phase1, PhaseTransition, Phase2, Dying, Defeated };
 
 class Boss : public Enemy {
 public:
@@ -35,6 +35,18 @@ public:
   bool IsDashing() const {
       return currentState_ == BossState::DashTelegraph || currentState_ == BossState::Dash;
   }
+
+  // 死亡演出中または死亡済みかどうかの判定
+  bool IsDyingOrDefeated() const {
+      return phase_ == BossPhase::Dying || phase_ == BossPhase::Defeated;
+  }
+
+  // 形態変化中かどうかの判定
+  bool IsTransitioning() const {
+      return phase_ == BossPhase::PhaseTransition;
+  }
+
+  bool HasActiveBits() const { return !activeBits_.empty(); }
 
   bool IsLockOnTarget() const override { return false; }
 
@@ -74,8 +86,10 @@ public:
 private:
   void ChangePhase(BossPhase nextPhase);
   void UpdatePhase1();
+  void UpdatePhaseTransition();
   void UpdatePhase2();
   void UpdateDying();
+  void UpdateDashSequence(); // 突進の一連の処理（予兆・突進本体・スタン・終了後クールダウン）
 
   int maxHp_ = 100;
   BossPhase phase_ = BossPhase::Phase1;
@@ -95,7 +109,8 @@ private:
   BossState currentState_ = BossState::Enter;
   float stateTimer_ = 0.0f;
   int attackStep_ = 0;
-  int attackPattern_ = 0;
+  int attackPattern_ = 0; // 0: 通常弾, 1: ミサイル, 2: 突進
+  int dashCooldown_ = 0;  // 突進のクールダウン管理用
   Vector3 startPos_ = {0.0f, 0.0f, 0.0f};
   Vector3 targetPos_ = {0.0f, 0.0f, 0.0f};
 
