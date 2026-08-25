@@ -46,7 +46,6 @@ bool PrefabManager::SavePrefab(const std::string& prefabName, Enemy* enemy) {
     
     Vector3 md = enemy->GetMoveDirection();
     root["moveDirection"] = {md.x, md.y, md.z};
-    root["moveType"] = static_cast<int>(enemy->GetMoveType());
 
     std::string filepath = "resources/prefabs/" + prefabName + ".prefab";
     std::ofstream file(filepath);
@@ -102,23 +101,6 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
         if (root.contains("moveDirection")) {
             Vector3 md = {root["moveDirection"][0], root["moveDirection"][1], root["moveDirection"][2]};
             newEnemy->SetMoveDirection(md);
-        }
-        if (root.contains("moveType")) {
-            int typeId = root["moveType"];
-            newEnemy->SetMoveType(static_cast<MoveType>(typeId));
-            
-            // Strategy生成
-            std::unique_ptr<IEnemyBehavior> behavior;
-            switch(typeId) {
-                case 0: behavior = std::make_unique<BehaviorStraight>(); break;
-                case 2: behavior = std::make_unique<BehaviorSineWave>(); break;
-                case 4: behavior = std::make_unique<BehaviorFighter>(); break;
-                case 5: behavior = std::make_unique<BehaviorMeteor>(); break;
-                case 6: behavior = std::make_unique<BehaviorStrafe>(); break;
-                case 7: behavior = std::make_unique<BehaviorTurret>(); break;
-                default: behavior = std::make_unique<BehaviorStraight>(); break;
-            }
-            newEnemy->SetBehavior(std::move(behavior));
         }
         
         // 位置と回転は引数で渡されたものを適用

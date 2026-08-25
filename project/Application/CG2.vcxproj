@@ -162,6 +162,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Actor\Behavior\BehaviorSpline.cpp" />
     <ClCompile Include="Actor\Behavior\BehaviorStrafe.cpp" />
     <ClCompile Include="Actor\Behavior\BehaviorStraight.cpp" />
+    <ClCompile Include="Actor\Behavior\BehaviorStationary.cpp" />
     <ClCompile Include="Actor\Behavior\BehaviorTurret.cpp" />
     <ClCompile Include="Actor\Boss.cpp" />
     <ClCompile Include="Actor\BossBit.cpp" />
@@ -250,6 +251,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Actor\Behavior\BehaviorSpline.h" />
     <ClInclude Include="Actor\Behavior\BehaviorStrafe.h" />
     <ClInclude Include="Actor\Behavior\BehaviorStraight.h" />
+    <ClInclude Include="Actor\Behavior\BehaviorStationary.h" />
     <ClInclude Include="Actor\Behavior\BehaviorTurret.h" />
     <ClInclude Include="Actor\Behavior\IEnemyBehavior.h" />
     <ClInclude Include="Actor\Boss.h" />

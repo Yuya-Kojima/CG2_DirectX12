@@ -2,79 +2,9 @@
     "sceneObjects": [],
     "spawnEvents": [
         {
+            "fireInterval": -1,
             "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -15.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 1.0,
-            "splineDuration": 10.0,
-            "splineName": "Curve_FrontAttack"
-        },
-        {
-            "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                15.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 1.0,
-            "splineDuration": 10.0,
-            "splineName": "Curve_FrontAttack"
-        },
-        {
-            "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 2.5,
-            "splineDuration": 16.0,
-            "splineName": "Curve_CrossLR"
-        },
-        {
-            "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 2.5,
-            "splineDuration": 16.0,
-            "splineName": "Curve_CrossRL"
-        },
-        {
-            "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -10.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 4.0,
-            "splineDuration": 10.0,
-            "splineName": "Curve_Overtake"
-        },
-        {
-            "isWorldSpaceSpline": false,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                10.0,
-                0.0,
-                0.0
-            ],
-            "spawnTime": 4.0,
-            "splineDuration": 10.0,
-            "splineName": "Curve_Overtake"
-        },
-        {
-            "isWorldSpaceSpline": false,
+            "moveType": 0,
             "prefabName": "Boss",
             "spawnOffset": [
                 0.0,
@@ -83,6 +13,62 @@
             ],
             "spawnTime": 6.119999885559082,
             "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 3,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [
+                0.0,
+                0.0,
+                300.0
+            ],
+            "spawnTime": 0.5640000104904175,
+            "splineDuration": 5.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [
+                -15.0,
+                5.0,
+                400.0
+            ],
+            "spawnTime": 1.0,
+            "splineDuration": 5.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [
+                0.0,
+                5.0,
+                400.0
+            ],
+            "spawnTime": 1.0,
+            "splineDuration": 5.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [
+                15.0,
+                5.0,
+                400.0
+            ],
+            "spawnTime": 1.0,
+            "splineDuration": 5.0,
             "splineName": ""
         }
     ]

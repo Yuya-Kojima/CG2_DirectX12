@@ -33,6 +33,7 @@ struct SpawnEvent {
   bool isWorldSpaceSpline = false; // ワールド空間か、カメラローカル空間か
   int fireInterval = -1;           // -1なら撃たない。0以上なら指定フレーム間隔で射撃
   bool hasSpawned = false;         // 実行管理用フラグ
+  MoveType moveType = MoveType::Straight;
 };
 
 enum class GameState { Play, Clear, GameOver };

@@ -2,6 +2,13 @@
 #include "../../externals/nlohmann/json.hpp"
 #include "../Effect/EffectManager.h"
 #include "Actor/Behavior/BehaviorSpline.h"
+#include "Actor/Behavior/BehaviorStraight.h"
+#include "Actor/Behavior/BehaviorStationary.h"
+#include "Actor/Behavior/BehaviorSineWave.h"
+#include "Actor/Behavior/BehaviorFighter.h"
+#include "Actor/Behavior/BehaviorMeteor.h"
+#include "Actor/Behavior/BehaviorStrafe.h"
+#include "Actor/Behavior/BehaviorTurret.h"
 #include "Audio/SoundManager.h"
 #include "Camera/GameCamera.h"
 #include "Debug/DebugCamera.h"
@@ -458,17 +465,11 @@ void GamePlayScene::Update() {
       if (t < ev.spawnTime) {
         ev.hasSpawned = false; // シークバック時にフラグをリセット
       } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
-        // スポーン (カメラの現在位置からの相対座標で計算)
-        Matrix4x4 viewMatrix = railCamera_->GetViewMatrix();
-        Matrix4x4 cameraWorld = Inverse(viewMatrix);
-        Vector3 cameraPos = {cameraWorld.m[3][0], cameraWorld.m[3][1],
-                             cameraWorld.m[3][2]};
-        Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
-                               cameraWorld.m[0][2]};
-        Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
-                            cameraWorld.m[1][2]};
-        Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
-                                 cameraWorld.m[2][2]};
+        // スポーン (カメラの動的なブレを排除し、指定時間tの「レールの基準座標」を用いて計算)
+        Vector3 cameraPos = railCamera_->GetRailPosition();
+        Vector3 cameraRight = railCamera_->GetRailRight();
+        Vector3 cameraUp = railCamera_->GetRailUp();
+        Vector3 cameraForward = railCamera_->GetRailForward();
 
         Vector3 spawnWorldPos = cameraPos +
                                 Vector3{cameraRight.x * ev.spawnOffset.x,
@@ -487,6 +488,20 @@ void GamePlayScene::Update() {
             Transform{{3.0f, 3.0f, 3.0f}, {0, 0, 0}, spawnWorldPos});
 
         Enemy *enemyPtr = newEnemy.get();
+
+        std::unique_ptr<IEnemyBehavior> behavior;
+        switch (static_cast<int>(ev.moveType)) {
+        case 0: behavior = std::make_unique<BehaviorStraight>(); break;
+        case 2: behavior = std::make_unique<BehaviorSineWave>(); break;
+        case 3: behavior = std::make_unique<BehaviorStationary>(); break;
+        case 4: behavior = std::make_unique<BehaviorFighter>(); break;
+        case 5: behavior = std::make_unique<BehaviorMeteor>(); break;
+        case 6: behavior = std::make_unique<BehaviorStrafe>(); break;
+        case 7: behavior = std::make_unique<BehaviorTurret>(); break;
+        default: behavior = std::make_unique<BehaviorStraight>(); break;
+        }
+        enemyPtr->SetMoveType(ev.moveType);
+        enemyPtr->SetBehavior(std::move(behavior));
 
         if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
           enemyPtr->SetBehavior(std::make_unique<BehaviorSpline>(
@@ -996,6 +1011,16 @@ void GamePlayScene::Update() {
       editFinished = true;
     }
 
+    const char *moveTypes[] = {"Straight (直進)",   "Parallel (平行移動)",
+                               "SineWave (波打ち)", "Stationary (静止)",
+                               "Fighter (戦闘機)",  "Meteor (メテオ突撃)",
+                               "Strafe (画面横断)", "Turret (固定砲台)"};
+    int currentMoveType = static_cast<int>(ev.moveType);
+    if (ImGui::Combo("Move Type", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
+      ev.moveType = static_cast<MoveType>(currentMoveType);
+      editFinished = true;
+    }
+
     // レール選択コンボボックス
     if (ImGui::BeginCombo("Rail Spline", ev.splineName.empty()
                                              ? "None (Straight)"
@@ -1050,30 +1075,15 @@ void GamePlayScene::Update() {
     }
 
     if (railCamera_) {
-      Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
-      Vector3 nextPos = railCamera_->CalcPosition(std::min(
-          ev.spawnTime + 0.01f,
-          static_cast<float>(railCamera_->GetWaypointsRef().size() - 1)));
-      Vector3 forwardDir = {nextPos.x - camPos.x, nextPos.y - camPos.y,
-                            nextPos.z - camPos.z};
-      forwardDir = SafeNormalize(forwardDir);
+      Vector3 rawCamPos = railCamera_->CalcPosition(ev.spawnTime);
+      Vector3 tangent = railCamera_->CalcTangent(ev.spawnTime);
+      Vector3 worldUp = {0.0f, 1.0f, 0.0f};
+      Vector3 right = SafeNormalize(Cross(worldUp, tangent));
+      Vector3 up = SafeNormalize(Cross(tangent, right));
+      Vector3 forward = tangent;
 
-      Vector3 camTrans = camPos;
-      camTrans.y += 2.5f;
-
-      Vector3 camRot = {0.0f, 0.0f, 0.0f};
-      camRot.y = std::atan2(forwardDir.x, forwardDir.z);
-      float xzLen =
-          std::sqrt(forwardDir.x * forwardDir.x + forwardDir.z * forwardDir.z);
-      camRot.x = std::atan2(-forwardDir.y, xzLen) + 0.1f;
-
-      Matrix4x4 camWorld =
-          MakeAffineMatrix({1.0f, 1.0f, 1.0f}, camRot, camTrans);
-      Vector3 right = {camWorld.m[0][0], camWorld.m[0][1], camWorld.m[0][2]};
-      Vector3 up = {camWorld.m[1][0], camWorld.m[1][1], camWorld.m[1][2]};
-      Vector3 forward = {camWorld.m[2][0], camWorld.m[2][1], camWorld.m[2][2]};
-      Vector3 camActualPos = {camWorld.m[3][0], camWorld.m[3][1],
-                              camWorld.m[3][2]};
+      Vector3 camActualPos = rawCamPos;
+      camActualPos.y += 2.5f;
 
       Vector3 worldPos =
           camActualPos +
@@ -1126,17 +1136,6 @@ void GamePlayScene::Update() {
     float speed = tempPrefabEditEnemy_->GetSpeed();
     if (ImGui::DragFloat("Speed (移動速度)", &speed, 0.01f, 0.0f, 10.0f)) {
       tempPrefabEditEnemy_->SetSpeed(speed);
-      changed = true;
-    }
-
-    const char *moveTypes[] = {"Straight (直進)",   "Parallel (平行移動)",
-                               "SineWave (波打ち)", "Stationary (静止)",
-                               "Fighter (戦闘機)",  "Meteor (メテオ突撃)",
-                               "Strafe (画面横断)", "Turret (固定砲台)"};
-    int currentMoveType = static_cast<int>(tempPrefabEditEnemy_->GetMoveType());
-    if (ImGui::Combo("Move Type (行動パターン)", &currentMoveType, moveTypes,
-                     IM_ARRAYSIZE(moveTypes))) {
-      tempPrefabEditEnemy_->SetMoveType(static_cast<MoveType>(currentMoveType));
       changed = true;
     }
 
@@ -1484,15 +1483,17 @@ void GamePlayScene::DrawEditorUI() {
     SpawnEvent &ev = spawnEvents_[selectedSpawnEventIndex_];
 
     if (railCamera_) {
-      // 指定時間(ev.spawnTime)におけるカメラのワールド行列をシミュレーション
-      Vector3 camPos = railCamera_->CalcPosition(ev.spawnTime);
-      Vector3 camTarget = railCamera_->CalcPosition(ev.spawnTime + 0.1f);
-
-      // 簡易的に前・上・右ベクトルを計算 (RailCamera内部のUpdateに類似)
-      Vector3 forward = Normalize(camTarget - camPos);
-      Vector3 up = {0.0f, 1.0f, 0.0f};
-      Vector3 right = Normalize(Cross(up, forward));
-      up = Normalize(Cross(forward, right));
+      // 指定時間(ev.spawnTime)における「レールの基準座標と向き」を計算
+      Vector3 rawCamPos = railCamera_->CalcPosition(ev.spawnTime);
+      Vector3 tangent = railCamera_->CalcTangent(ev.spawnTime);
+      Vector3 worldUp = {0.0f, 1.0f, 0.0f};
+      
+      Vector3 forward = tangent;
+      Vector3 right = SafeNormalize(Cross(worldUp, forward));
+      Vector3 up = SafeNormalize(Cross(forward, right));
+      
+      Vector3 camPos = rawCamPos;
+      camPos.y += 2.5f;
 
       // そのカメラ位置から、ev.spawnOffset
       // 分だけローカル空間で移動させた位置がゴーストのワールド座標
@@ -1744,6 +1745,7 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     evJson["splineDuration"] = ev.splineDuration;
     evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
     evJson["fireInterval"] = ev.fireInterval;
+    evJson["moveType"] = static_cast<int>(ev.moveType);
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1827,7 +1829,9 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       } else if (evJson.contains("spawnPosition")) { // 古いセーブデータ互換
         ev.spawnOffset = {0.0f, 0.0f, 50.0f};
       }
-      // moveType は読まない（Prefab側で管理）
+      if (evJson.contains("moveType")) {
+        ev.moveType = static_cast<MoveType>(evJson["moveType"].get<int>());
+      }
       if (evJson.contains("splineName")) {
         ev.splineName = evJson["splineName"];
       }
