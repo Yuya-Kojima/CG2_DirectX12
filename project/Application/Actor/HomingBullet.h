@@ -39,7 +39,7 @@ private:
   std::unique_ptr<Object3d> object3d_;
   std::unique_ptr<SphereCollider> collider_;
   BaseActor* target_ = nullptr;
-  int damage_ = 3;
+  int damage_ = 5;
   
   Vector3 velocity_;
   float speed_ = 1.5f;           // 弾の飛ぶ速さ

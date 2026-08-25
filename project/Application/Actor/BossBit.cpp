@@ -56,13 +56,8 @@ void BossBit::Update() {
         Vector3 bossScale = boss_->GetTransform().scale;
         Vector3 bossRot = boss_->GetTransform().rotate;
         
-        // 退避中かどうかでオフセット距離を変える
+        // 退避中であっても物理的な移動は行わず、元の位置を維持する
         Vector3 targetOffset = baseOffset_;
-        if (isSpreadingOut_) {
-            targetOffset.x *= 2.5f; // より遠くへ広がる
-            targetOffset.y *= 2.5f;
-            targetOffset.z *= 2.5f;
-        }
         
         // 滑らかに移動させる
         offset_.x += (targetOffset.x - offset_.x) * 0.1f;

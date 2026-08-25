@@ -23,6 +23,7 @@ public:
   
   void Update() override;
   void Draw3D() override;
+  void Explode(); // 破壊エフェクトを伴って消滅する
   void OnCollision(class Collider* other) override;
 
   EnemyBulletType GetBulletType() const { return type_; }

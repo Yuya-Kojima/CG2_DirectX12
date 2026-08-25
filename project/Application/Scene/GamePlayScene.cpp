@@ -378,7 +378,12 @@ void GamePlayScene::Update() {
   // ゲーム進行状態の更新
   //=======================
   if (gameState_ == GameState::Play) {
-    if (railCamera_ && railCamera_->IsFinished()) {
+    if (player_ && player_->IsDead()) {
+      gameState_ = GameState::GameOver;
+      if (railCamera_)
+        railCamera_->SetAutoMove(false);
+      UIManager::GetInstance()->Load("resources/UI/GameOverUI.json");
+    } else if (railCamera_ && railCamera_->IsFinished()) {
       // ボスが生きている場合はレールが終わってもクリアにしない
       bool isBossActive = false;
       for (const auto &enemy : runtimeEnemies_) {
@@ -394,11 +399,6 @@ void GamePlayScene::Update() {
           railCamera_->SetAutoMove(false);
         UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
       }
-    } else if (player_ && player_->IsDead()) {
-      gameState_ = GameState::GameOver;
-      if (railCamera_)
-        railCamera_->SetAutoMove(false);
-      UIManager::GetInstance()->Load("resources/UI/GameOverUI.json");
     }
   } else if (gameState_ == GameState::Clear ||
              gameState_ == GameState::GameOver) {
@@ -491,7 +491,7 @@ void GamePlayScene::Update() {
         if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
           enemyPtr->SetBehavior(std::make_unique<BehaviorSpline>(
               loadedSplines_[ev.splineName], ev.splineDuration,
-              ev.isWorldSpaceSpline));
+              ev.isWorldSpaceSpline, ev.fireInterval));
         }
 
         if (ev.prefabName == "Boss") {
@@ -1041,6 +1041,11 @@ void GamePlayScene::Update() {
 
       if (ImGui::Checkbox("World Space Spline", &ev.isWorldSpaceSpline)) {
         editFinished = true;
+      }
+      
+      if (ImGui::InputInt("Fire Interval (frames)", &ev.fireInterval)) {
+          if (ev.fireInterval < -1) ev.fireInterval = -1; // -1を最小値とする
+          editFinished = true;
       }
     }
 
@@ -1738,6 +1743,7 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     evJson["splineName"] = ev.splineName;
     evJson["splineDuration"] = ev.splineDuration;
     evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
+    evJson["fireInterval"] = ev.fireInterval;
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1830,6 +1836,9 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       }
       if (evJson.contains("isWorldSpaceSpline")) {
         ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
+      }
+      if (evJson.contains("fireInterval")) {
+        ev.fireInterval = evJson["fireInterval"];
       }
 
       ev.hasSpawned = false;

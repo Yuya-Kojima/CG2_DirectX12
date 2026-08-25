@@ -14,6 +14,7 @@ void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
 
   // 初期状態はターゲットリストを空にする
   targets_.clear();
+  lockOnDelayTimer_ = 0;
 }
 
 void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
@@ -27,8 +28,12 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
   //  ロックオン対象を探す処理
   // --------------------------------------------------
 
-  // ロックオンモード（長押し中）でのみ、新たな敵をストックする
-  if (isLockOnMode && targets_.size() < kMaxLockOnCount) {
+  if (lockOnDelayTimer_ > 0) {
+    lockOnDelayTimer_--;
+  }
+
+  // ロックオンモード（長押し中）かつ、ディレイが明けている場合のみ新たな敵をストックする
+  if (isLockOnMode && targets_.size() < kMaxLockOnCount && lockOnDelayTimer_ <= 0) {
     for (BaseActor* target : inputTargets) {
       if (!target) continue;
 
@@ -50,6 +55,7 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
 
       if (dist <= lockOnRadius) {
         targets_.push_back(target); // ロックオンストックに追加
+        lockOnDelayTimer_ = kLockOnInterval; // ディレイを開始
         break; // 1フレームに1体ずつロックオンする
       }
     }

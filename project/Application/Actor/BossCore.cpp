@@ -44,13 +44,17 @@ void BossCore::Update() {
     transform_.scale.y = bossScale.y * 0.3f;
     transform_.scale.z = bossScale.z * 0.3f;
     
-    // 突進中は強制的にロックオン不可＆暗くする
-    if (boss_->IsDashing()) {
+    // 突進中、形態変化中、もしくはボスの死亡演出以降は強制的にロックオン不可＆暗くする
+    if (boss_->IsDashing() || boss_->IsTransitioning() || boss_->IsDyingOrDefeated()) {
         SetTag(ActorTag::Enemy);
-        baseColor_ = {0.3f, 0.3f, 0.3f, 1.0f};
+        if (boss_->IsDyingOrDefeated()) {
+            baseColor_ = {0.1f, 0.1f, 0.1f, 1.0f}; // より暗くして完全な機能停止を表現
+        } else {
+            baseColor_ = {0.3f, 0.3f, 0.3f, 1.0f};
+        }
     } else {
-        // 通常時：装甲（シールド）が破壊されたらロックオン可能にする
-        if (shield_ && shield_->IsDead()) {
+        // 全ての装甲が破壊されたら全コアを一斉にロックオン可能にする
+        if (!boss_->HasActiveBits()) {
             if (GetTag() != ActorTag::LockOnTarget) {
                 SetTag(ActorTag::LockOnTarget);
             }

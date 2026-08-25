@@ -1,10 +1,14 @@
 #include "BehaviorSpline.h"
 #include "Actor/Enemy.h"
+#include "Actor/Player.h"
+#include "Actor/EnemyBullet.h"
+#include "Framework/ActorManager.h"
+#include "Framework/PrefabManager.h"
 #include <cmath>
 #include <algorithm>
 
-BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints, float duration, bool isWorldSpace)
-    : waypoints_(waypoints), duration_(duration), isWorldSpace_(isWorldSpace) {
+BehaviorSpline::BehaviorSpline(const std::vector<Vector3>& waypoints, float duration, bool isWorldSpace, int fireInterval)
+    : waypoints_(waypoints), duration_(duration), isWorldSpace_(isWorldSpace), fireInterval_(fireInterval), fireTimer_(0) {
 }
 
 void BehaviorSpline::Update(Enemy* enemy) {
@@ -106,5 +110,29 @@ void BehaviorSpline::Update(Enemy* enemy) {
     
     if (std::abs(dir.x) > 0.001f || std::abs(dir.z) > 0.001f) {
         enemy->GetTransform().rotate.y = std::atan2(dir.x, dir.z);
+    }
+    
+    // 射撃処理
+    if (fireInterval_ >= 0) {
+        fireTimer_++;
+        if (fireTimer_ >= fireInterval_) {
+            fireTimer_ = 0;
+            const Player* player = enemy->GetPlayer();
+            if (player) {
+                Vector3 pPos = player->GetTransform().translate;
+                Vector3 mPos = enemy->GetTransform().translate;
+                Vector3 bulletDir = {pPos.x - mPos.x, pPos.y - mPos.y, pPos.z - mPos.z};
+                float dist = std::sqrt(bulletDir.x*bulletDir.x + bulletDir.y*bulletDir.y + bulletDir.z*bulletDir.z);
+                if (dist > 0.001f) {
+                    bulletDir.x /= dist; bulletDir.y /= dist; bulletDir.z /= dist;
+                    float bulletSpeed = 2.0f; // 弾速
+                    Vector3 bulletVel = {bulletDir.x * bulletSpeed, bulletDir.y * bulletSpeed, bulletDir.z * bulletSpeed};
+                    auto bullet = std::make_unique<EnemyBullet>();
+                    bullet->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer(),
+                                       mPos, bulletVel, const_cast<Player*>(player), EnemyBulletType::NormalDestructible);
+                    ActorManager::GetInstance()->AddActor(std::move(bullet));
+                }
+            }
+        }
     }
 }
