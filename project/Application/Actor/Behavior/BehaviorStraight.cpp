@@ -5,36 +5,22 @@
 void BehaviorStraight::Update(Enemy* enemy) {
     if (!enemy) return;
 
-    auto camera = enemy->GetCamera();
-    if (camera) {
-        // Enemy本体が保持している基準ベクトルを取得
-        const Vector3& cameraPos = enemy->GetBasePosition();
-        const Vector3& cameraRight = enemy->GetBaseRight();
-        const Vector3& cameraUp = enemy->GetBaseUp();
-        const Vector3& cameraForward = enemy->GetBaseForward();
-
-        float aliveTime = enemy->GetAliveTime();
-        float speed = enemy->GetSpeed();
-        const Vector3& spawnOffset = enemy->GetSpawnOffset();
-
-        float currentXOffset = spawnOffset.x;
-        float currentYOffset = spawnOffset.y;
-        float currentZOffset = spawnOffset.z;
-
-        // まっすぐ手前（Zマイナス方向）に近づいてくる
-        currentZOffset -= speed * aliveTime * 60.0f;
-
-        enemy->GetTransform().translate =
-            cameraPos +
-            Vector3{cameraRight.x * currentXOffset, cameraRight.y * currentXOffset, cameraRight.z * currentXOffset} +
-            Vector3{cameraUp.x * currentYOffset, cameraUp.y * currentYOffset, cameraUp.z * currentYOffset} +
-            Vector3{cameraForward.x * currentZOffset, cameraForward.y * currentZOffset, cameraForward.z * currentZOffset};
-    } else {
-        // カメラがない場合のフォールバック（ワールド座標での直進）
-        Vector3 moveDir = enemy->GetMoveDirection();
-        float speed = enemy->GetSpeed();
-        enemy->GetTransform().translate.x += moveDir.x * speed;
-        enemy->GetTransform().translate.y += moveDir.y * speed;
-        enemy->GetTransform().translate.z += moveDir.z * speed;
+    if (!isInitialized_) {
+        isInitialized_ = true;
+        // 最初の一回だけ、進行方向のベクトルを決定して固定する
+        // レール基準で「手前（Zマイナス方向）」に飛んでくるということは、当時のレールの -forward 方向
+        moveDirection_ = { -enemy->GetBaseForward().x, -enemy->GetBaseForward().y, -enemy->GetBaseForward().z };
+        
+        // カメラが存在しない場合はEnemy自身のForwardなどを使うフォールバック
+        if (!enemy->GetCamera()) {
+             Vector3 moveDir = enemy->GetMoveDirection();
+             moveDirection_ = { moveDir.x, moveDir.y, moveDir.z };
+        }
     }
+
+    // 途中でベクトルを変えず、ただワールド空間で直進し続ける
+    float speed = enemy->GetSpeed();
+    enemy->GetTransform().translate.x += moveDirection_.x * speed;
+    enemy->GetTransform().translate.y += moveDirection_.y * speed;
+    enemy->GetTransform().translate.z += moveDirection_.z * speed;
 }
