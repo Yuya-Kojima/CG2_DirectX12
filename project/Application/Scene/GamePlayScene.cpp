@@ -288,7 +288,11 @@ void GamePlayScene::Update() {
       playStartT_ = railCamera_->GetT();
     }
     for (auto &ev : spawnEvents_) {
-      ev.hasSpawned = false;
+      if (ev.spawnTime < playStartT_) {
+        ev.hasSpawned = true; // 過去のイベントはスキップ
+      } else {
+        ev.hasSpawned = false;
+      }
     }
   } else if (!isPlayMode_ && previousGlobalPlayMode_) {
     isPaused_ = false;

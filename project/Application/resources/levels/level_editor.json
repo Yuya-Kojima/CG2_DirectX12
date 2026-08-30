@@ -1,17 +1,88 @@
 {
-    "sceneObjects": [],
+    "sceneObjects": [
+        {
+            "modelPath": "plane.obj",
+            "translation": [0.0, -15.0, 500.0],
+            "rotation": [-1.5708, 0.0, 0.0],
+            "scale": [1000.0, 1000.0, 1.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-30.0, -10.0, 100.0],
+            "rotation": [0.0, 0.3, 0.0],
+            "scale": [10.0, 20.0, 10.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [40.0, -10.0, 120.0],
+            "rotation": [0.0, -0.5, 0.0],
+            "scale": [15.0, 25.0, 15.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [0.0, -15.0, 250.0],
+            "rotation": [0.0, 0.785, 0.0],
+            "scale": [20.0, 40.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-50.0, -15.0, 450.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "scale": [15.0, 60.0, 15.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-10.0, -15.0, 450.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "scale": [15.0, 60.0, 15.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-30.0, -15.0, 550.0],
+            "rotation": [0.0, 1.57, 0.0],
+            "scale": [30.0, 10.0, 10.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [20.0, 10.0, 700.0],
+            "rotation": [0.0, 0.5, 0.0],
+            "scale": [10.0, 40.0, 10.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-40.0, 20.0, 750.0],
+            "rotation": [0.0, -0.5, 0.0],
+            "scale": [10.0, 40.0, 10.0]
+        }
+    ],
     "spawnEvents": [
         {
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
             "moveType": 0,
-            "prefabName": "Boss",
-            "spawnOffset": [
-                0.0,
-                0.0,
-                101.19999694824219
-            ],
-            "spawnTime": 6.119999885559082,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 5.0, 200.0],
+            "spawnTime": 0.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-20.0, 5.0, 210.0],
+            "spawnTime": 0.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [20.0, 5.0, 210.0],
+            "spawnTime": 0.5,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -19,14 +90,30 @@
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
             "moveType": 3,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                0.0,
-                300.0
-            ],
-            "spawnTime": 0.5640000104904175,
-            "splineDuration": 5.0,
+            "prefabName": "FastEnemy",
+            "spawnOffset": [-40.0, 5.0, 250.0],
+            "spawnTime": 1.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 3,
+            "prefabName": "FastEnemy",
+            "spawnOffset": [40.0, 5.0, 250.0],
+            "spawnTime": 1.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "TankEnemy",
+            "spawnOffset": [-15.0, -5.0, 100.0],
+            "spawnTime": 2.5,
+            "splineDuration": 0.0,
             "splineName": ""
         },
         {
@@ -34,13 +121,9 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                -15.0,
-                5.0,
-                400.0
-            ],
-            "spawnTime": 1.0,
-            "splineDuration": 5.0,
+            "spawnOffset": [-10.0, 5.0, 250.0],
+            "spawnTime": 3.5,
+            "splineDuration": 0.0,
             "splineName": ""
         },
         {
@@ -48,27 +131,49 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                0.0,
-                5.0,
-                400.0
-            ],
-            "spawnTime": 1.0,
-            "splineDuration": 5.0,
+            "spawnOffset": [10.0, 5.0, 250.0],
+            "spawnTime": 3.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 3,
+            "prefabName": "FastEnemy",
+            "spawnOffset": [0.0, -10.0, 200.0],
+            "spawnTime": 4.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 3,
+            "prefabName": "FastEnemy",
+            "spawnOffset": [-30.0, 0.0, 250.0],
+            "spawnTime": 5.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 3,
+            "prefabName": "FastEnemy",
+            "spawnOffset": [30.0, 0.0, 250.0],
+            "spawnTime": 5.5,
+            "splineDuration": 0.0,
             "splineName": ""
         },
         {
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
             "moveType": 0,
-            "prefabName": "ZakoEnemy",
-            "spawnOffset": [
-                15.0,
-                5.0,
-                400.0
-            ],
-            "spawnTime": 1.0,
-            "splineDuration": 5.0,
+            "prefabName": "Boss",
+            "spawnOffset": [0.0, 20.0, 250.0],
+            "spawnTime": 6.1,
+            "splineDuration": 0.0,
             "splineName": ""
         }
     ]
