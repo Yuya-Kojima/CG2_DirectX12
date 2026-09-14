@@ -38,6 +38,17 @@ void HomingBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
   collider_->SetMask(kCollisionAttributeEnemy | kCollisionAttributeEnemyBullet);
   collider_->SetVelocity(velocity_);
   CollisionManager::GetInstance()->Register(collider_.get());
+  
+  // 初速ベクトルから初期回転を計算
+  float lenSq = velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z;
+  if (lenSq > 0.0001f) {
+    float yaw = std::atan2(velocity_.x, velocity_.z);
+    float xzLen = std::sqrt(velocity_.x * velocity_.x + velocity_.z * velocity_.z);
+    float pitch = std::atan2(-velocity_.y, xzLen);
+    Vector3 rot = {pitch, yaw, 0.0f};
+    object3d_->SetRotation(rot);
+    transform_.rotate = rot;
+  }
 }
 
 void HomingBullet::Update() {
@@ -107,7 +118,16 @@ void HomingBullet::Update() {
     collider_->SetVelocity(velocity_);
   }
 
-  // TODO: 弾の向き（回転）を進行方向（velocity_）に向ける処理を追加するとさらに綺麗になる
+  // 弾の向き（回転）を進行方向（velocity_）に向ける
+  float lenSq = velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z;
+  if (lenSq > 0.0001f) {
+    float yaw = std::atan2(velocity_.x, velocity_.z);
+    float xzLen = std::sqrt(velocity_.x * velocity_.x + velocity_.z * velocity_.z);
+    float pitch = std::atan2(-velocity_.y, xzLen);
+    Vector3 rot = {pitch, yaw, 0.0f};
+    object3d_->SetRotation(rot);
+    transform_.rotate = rot;
+  }
 
   object3d_->Update();
 }

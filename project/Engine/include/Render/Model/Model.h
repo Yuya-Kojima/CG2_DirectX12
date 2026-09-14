@@ -85,6 +85,12 @@ public:
                               const std::vector<VertexData> &vertices);
 
   /// <summary>
+  /// ModelDataから直接初期化（プロシージャル・メッシュ生成用）
+  /// </summary>
+  void InitializeFromModelData(ModelRenderer *modelRenderer,
+                              const ModelData &modelData);
+
+  /// <summary>
   /// 描画
   /// </summary>
   void Draw(const SkinCluster* skinCluster = nullptr);

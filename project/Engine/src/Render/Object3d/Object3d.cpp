@@ -145,6 +145,7 @@ void Object3d::Draw() {
   // Fog
   commandList->SetGraphicsRootConstantBufferView(
       9, object3dRenderer_->GetFogResource()->GetGPUVirtualAddress());
+
   // 3Dモデルが割り当てられていれば描画する
   if (model_) {
     model_->Draw(skinCluster_);

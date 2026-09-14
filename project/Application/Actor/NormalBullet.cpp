@@ -1,5 +1,9 @@
 #include "NormalBullet.h"
 #include "Render/Object3d/Object3d.h"
+#include "Model/Model.h"
+#include "Model/ModelManager.h"
+#include "Renderer/Object3dRenderer.h"
+#include "Renderer/ModelRenderer.h"
 #include "Math/MathUtil.h"
 #include "Debug/Logger.h"
 #include <Windows.h>
@@ -21,16 +25,29 @@ void NormalBullet::Initialize(Object3dRenderer* renderer, const Vector3& startPo
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
   
-  // 通常弾のモデル
-  object3d_->SetModel("suzanne.obj"); 
-  object3d_->SetScale({2.0f, 2.0f, 2.0f}); 
-  object3d_->SetColor({1.0f, 0.5f, 0.0f, 1.0f}); 
+  // エンジンのビルトインカプセルモデルを使用
+  object3d_->SetModel("__builtin_capsule");
+  object3d_->SetScale({1.5f, 10.0f, 1.5f});      // 直径1.5m, 長さ20mのレーザービーム（Y軸が長手方向）
+  object3d_->SetEnableLighting(false);           // ライティングOFF（自己発光モード）
+  object3d_->SetColor({3.0f, 1.5f, 0.2f, 1.0f}); // 鮮やかなオレンジイエローオーラ
   object3d_->SetTranslation(startPos);
 
   velocity_ = velocity; // 目標へのベクトル
   lifeTimer_ = 180; 
 
-  // コライダーの設定
+  // 進行方向（初速）へ弾頭を向ける（縦向きY軸モデルを倒してベクトルへ向ける）
+  float lenSq = velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z;
+  if (lenSq > 0.0001f) {
+    float yaw = std::atan2(velocity_.x, velocity_.z);
+    float xzLen = std::sqrt(velocity_.x * velocity_.x + velocity_.z * velocity_.z);
+    float pitch = std::atan2(-velocity_.y, xzLen);
+    // 初期状態が上向き(+Y)のカプセルの頭を進行方向(+Z方向基準)へ90度倒す
+    Vector3 rot = {pitch + (std::numbers::pi_v<float> * 0.5f), yaw, 0.0f};
+    object3d_->SetRotation(rot);
+    transform_.rotate = rot;
+  }
+
+  // コライダーの設定（当てやすい元の2.0f）
   collider_ = std::make_unique<SphereCollider>(this);
   collider_->SetRadius(2.0f);
   collider_->SetAttribute(kCollisionAttributePlayerBullet);

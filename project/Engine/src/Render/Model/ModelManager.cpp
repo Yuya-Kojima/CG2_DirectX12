@@ -1,5 +1,6 @@
 #include "Model/ModelManager.h"
 #include "Model/Model.h"
+#include "Render/Mesh/MeshGenerator.h"
 #include "Renderer/ModelRenderer.h"
 #include "Debug/Logger.h"
 #include <cassert>
@@ -65,6 +66,22 @@ void ModelManager::Initialize(Dx12Core *dx12Core) {
 
   modelRenderer = std::make_unique<ModelRenderer>();
   modelRenderer->Initialize(dx12Core);
+
+  CreateBuiltinPrimitives();
+}
+
+void ModelManager::CreateBuiltinPrimitives() {
+  auto registerPrimitive = [this](const std::string &name, const Model::ModelData &data) {
+    auto model = std::make_unique<Model>();
+    model->InitializeFromModelData(modelRenderer.get(), data);
+    models[name] = std::move(model);
+  };
+
+  registerPrimitive("__builtin_cylinder", RC::MeshGenerator::GenerateCylinder(0.5f, 2.0f, 16));
+  registerPrimitive("__builtin_box", RC::MeshGenerator::GenerateBox(1.0f, 1.0f, 1.0f));
+  registerPrimitive("__builtin_sphere", RC::MeshGenerator::GenerateSphere(1.0f, 16, 16));
+  registerPrimitive("__builtin_capsule", RC::MeshGenerator::GenerateCapsule(0.5f, 2.0f, 16, 16));
+  registerPrimitive("__builtin_plane", RC::MeshGenerator::GeneratePlane(1.0f, 1.0f, 1, 1));
 }
 
 void ModelManager::LoadModel(const std::string &filePath) {

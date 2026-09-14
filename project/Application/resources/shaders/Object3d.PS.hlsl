@@ -59,10 +59,20 @@ GeometryShaderOutput input) {
 	PixelShaderOutput output;
 	
     //=========================
-    // No lighting
+    // No lighting (Emissive / Laser)
     //=========================
 	if (gMaterial.enableLighting == 0) {
-		output.color = base;
+		float3 toEye = normalize(gCamera.worldPosition - input.worldPosition);
+		float3 normal = normalize(input.normal);
+		// 視線と法線の角度からフレネル係数を計算（中心部ほど大きい）
+		float NdotV = saturate(abs(dot(normal, toEye)));
+
+		// 中心コア（純白）と外側（マテリアルカラー）のグラデーション
+		float coreFactor = pow(NdotV, 3.0f);
+		float3 core = float3(2.5f, 2.5f, 2.5f) * coreFactor;
+		float3 aura = base.rgb * (pow(1.0f - NdotV, 0.8f) + 0.4f);
+
+		output.color = float4(core + aura, base.a);
 		return output;
 	}
 	

@@ -61,6 +61,25 @@ void Model::InitializeFromVertices(ModelRenderer* modelRenderer, const std::vect
 	defaultMaterial_.environmentCoefficient = 0.0f;
 }
 
+void Model::InitializeFromModelData(ModelRenderer* modelRenderer, const ModelData& modelData) {
+	modelRenderer_ = modelRenderer;
+	dx12Core_ = modelRenderer_->GetDx12Core();
+
+	modelData_ = modelData;
+	if (modelData_.material.textureFilePath.empty()) {
+		modelData_.material.textureFilePath = "resources/white1x1.png";
+	}
+	TextureManager::GetInstance()->LoadTexture(modelData_.material.textureFilePath);
+
+	CreateVertexData();
+
+	defaultMaterial_.color = Vector4(1, 1, 1, 1);
+	defaultMaterial_.enableLighting = true;
+	defaultMaterial_.uvTransform = MakeIdentity4x4();
+	defaultMaterial_.shininess = 30.0f;
+	defaultMaterial_.environmentCoefficient = 0.0f;
+}
+
 void Model::Draw(const SkinCluster* skinCluster) {
 
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =

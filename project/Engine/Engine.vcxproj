@@ -180,6 +180,7 @@
     <ClCompile Include="src\Framework\UIManager.cpp" />
     <ClCompile Include="src\Scene\BaseScene.cpp" />
     <ClCompile Include="src\Util\StringUtil.cpp" />
+    <ClCompile Include="src\Render\Mesh\MeshGenerator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Collision\Collider.h" />
@@ -258,6 +259,7 @@
     <ClInclude Include="include\Input\Input.h" />
     <ClInclude Include="include\Input\InputPadState.h" />
     <ClInclude Include="include\Render\Primitive\Ring.h" />
+    <ClInclude Include="include\Render\Mesh\MeshGenerator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

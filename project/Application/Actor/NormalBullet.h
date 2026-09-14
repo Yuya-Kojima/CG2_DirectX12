@@ -8,8 +8,7 @@ class Object3d;
 class Object3dRenderer;
 class SphereCollider;
 class Collider;
-class Object3d;
-class Object3dRenderer;
+class Model;
 
 class NormalBullet : public BaseActor {
 public:
