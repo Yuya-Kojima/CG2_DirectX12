@@ -32,6 +32,8 @@ private:
 
   std::unique_ptr<ModelRenderer> modelRenderer = nullptr;
 
+  void CreateBuiltinPrimitives();
+
 public:
   /// <summary>
   /// モデルファイルの読み込み

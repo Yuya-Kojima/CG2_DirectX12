@@ -313,8 +313,6 @@ void Object3dRenderer::Begin() {
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-
-
 void Object3dRenderer::SetDepthEnable(bool enable) {
   Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList =
       dx12Core_->GetCommandList();
