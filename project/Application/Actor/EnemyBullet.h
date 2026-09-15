@@ -2,6 +2,7 @@
 #include "Framework/BaseActor.h"
 #include "Math/Vector3.h"
 #include <memory>
+#include <vector>
 
 class Player;
 class Object3d;
@@ -36,11 +37,16 @@ private:
   Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
   int lifeTimer_ = 0;
   int hp_ = 1;
+  Object3dRenderer* renderer_ = nullptr;
   Player* player_ = nullptr;
   EnemyBulletType type_ = EnemyBulletType::NormalDestructible;
 
   // ミサイル用パラメータ
   float homingStrength_ = 0.0f;
   int aliveFrames_ = 0;
-  int swarmWaitFrames_ = 0; 
+  int swarmWaitFrames_ = 0;
+
+  // トレイル（リボン軌跡）用パラメータ
+  std::vector<Vector3> trailHistory_;
+  static constexpr size_t kMaxTrailPoints = 150; // 軌跡を保持するフレーム数（約2.5秒分）
 };
