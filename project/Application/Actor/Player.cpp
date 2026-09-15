@@ -269,19 +269,22 @@ void Player::Update() {
   float deadzone = actionConfig_.playerDeadzone;
   float moveRatioX = 0.0f;
   if (std::abs(ndcX) > deadzone) {
-      moveRatioX = (std::abs(ndcX) - deadzone) / (1.0f - deadzone) * (ndcX > 0.0f ? 1.0f : -1.0f);
+    moveRatioX = (std::abs(ndcX) - deadzone) / (1.0f - deadzone) *
+                 (ndcX > 0.0f ? 1.0f : -1.0f);
   }
   float moveRatioY = 0.0f;
   if (std::abs(ndcY) > deadzone) {
-      moveRatioY = (std::abs(ndcY) - deadzone) / (1.0f - deadzone) * (ndcY > 0.0f ? 1.0f : -1.0f);
+    moveRatioY = (std::abs(ndcY) - deadzone) / (1.0f - deadzone) *
+                 (ndcY > 0.0f ? 1.0f : -1.0f);
   }
 
   // 上下方向の移動量を非対称に計算（上が広く、下が狭い）
   float moveY = 0.0f;
   if (moveRatioY >= 0.0f) {
-    moveY = moveRatioY * actionConfig_.playerMaxMoveY; 
+    moveY = moveRatioY * actionConfig_.playerMaxMoveY;
   } else {
-    moveY = moveRatioY * (actionConfig_.playerMaxMoveY * 0.5f); // 下方向には画面から消えないように制限
+    moveY = moveRatioY * (actionConfig_.playerMaxMoveY *
+                          0.5f); // 下方向には画面から消えないように制限
   }
 
   Vector3 targetPos =
@@ -311,23 +314,29 @@ void Player::Update() {
   float targetLocalY = moveY + actionConfig_.playerBaseOffsetY;
 
   // ローカルX, YのみをLerp（Zは常にdistanceで固定）
-  float nextLocalX = Lerp(currentLocalX, targetLocalX, actionConfig_.playerFollowSpeed);
-  float nextLocalY = Lerp(currentLocalY, targetLocalY, actionConfig_.playerFollowSpeed);
+  float nextLocalX =
+      Lerp(currentLocalX, targetLocalX, actionConfig_.playerFollowSpeed);
+  float nextLocalY =
+      Lerp(currentLocalY, targetLocalY, actionConfig_.playerFollowSpeed);
   float nextLocalZ = distance;
 
   // ワールド座標に戻す
-  Vector3 nextPos = 
-      cameraPos + 
-      Vector3{cameraRight.x * nextLocalX, cameraRight.y * nextLocalX, cameraRight.z * nextLocalX} +
-      Vector3{cameraUp.x * nextLocalY, cameraUp.y * nextLocalY, cameraUp.z * nextLocalY} +
-      Vector3{cameraForward.x * nextLocalZ, cameraForward.y * nextLocalZ, cameraForward.z * nextLocalZ};
+  Vector3 nextPos =
+      cameraPos +
+      Vector3{cameraRight.x * nextLocalX, cameraRight.y * nextLocalX,
+              cameraRight.z * nextLocalX} +
+      Vector3{cameraUp.x * nextLocalY, cameraUp.y * nextLocalY,
+              cameraUp.z * nextLocalY} +
+      Vector3{cameraForward.x * nextLocalZ, cameraForward.y * nextLocalZ,
+              cameraForward.z * nextLocalZ};
 
   // カメラのワープ時はLerpせずに瞬時にスナップする
   Vector3 warpDiff = {targetPos.x - transform_.translate.x,
                       targetPos.y - transform_.translate.y,
                       targetPos.z - transform_.translate.z};
-  float distSq = warpDiff.x * warpDiff.x + warpDiff.y * warpDiff.y + warpDiff.z * warpDiff.z;
-  
+  float distSq = warpDiff.x * warpDiff.x + warpDiff.y * warpDiff.y +
+                 warpDiff.z * warpDiff.z;
+
   if (distSq > 100.0f) { // 距離が10以上の場合はワープと判定
     transform_.translate = targetPos;
   } else {
@@ -408,13 +417,13 @@ void Player::Update() {
     }
 
     if (attackState_ == AttackState::Pressing) {
-        if (isPress) {
-          pressTimer_ += deltaTime;
-          // 長押しでロックオンモードへ移行
-          if (pressTimer_ >= 0.15f) {
-            attackState_ = AttackState::LockOn;
-          }
+      if (isPress) {
+        pressTimer_ += deltaTime;
+        // 長押しでロックオンモードへ移行
+        if (pressTimer_ >= 0.15f) {
+          attackState_ = AttackState::LockOn;
         }
+      }
     }
 
     if (isRelease) {
@@ -457,28 +466,55 @@ void Player::FireHomingShot() {
   if (targets.empty())
     return;
 
-  // プレイヤーの現在位置を弾の始点とする
-  Vector3 startPos = object3d_->GetTranslation();
+  // カメラ空間の各基底ベクトル（正面、右、上）を取得
+  Matrix4x4 viewMatrix = camera_->GetViewMatrix();
+  Matrix4x4 cameraWorld = Inverse(viewMatrix);
+  Vector3 cameraRight = {cameraWorld.m[0][0], cameraWorld.m[0][1],
+                         cameraWorld.m[0][2]};
+  Vector3 cameraUp = {cameraWorld.m[1][0], cameraWorld.m[1][1],
+                      cameraWorld.m[1][2]};
+  Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
+                           cameraWorld.m[2][2]};
+
+  // 自機砲門の位置（一点）
+  Vector3 playerPos = object3d_->GetTranslation();
+  Vector3 muzzlePos = {playerPos.x + cameraForward.x * 2.0f,
+                       playerPos.y + cameraForward.y * 2.0f,
+                       playerPos.z + cameraForward.z * 2.0f};
 
   // ロックオンしている敵すべてに対して弾を発射
   for (size_t i = 0; i < targets.size(); ++i) {
     auto bullet = std::make_unique<HomingBullet>();
 
-    // プレイヤーから見たターゲット（敵）の相対座標を計算
-    Vector3 targetPos = targets[i]->GetTransform().translate;
-    float relativeX = targetPos.x - startPos.x;
+    // 弾数に応じた放射状（扇形）の拡散角度を計算
+    float angle = 0.0f;
+    if (targets.size() == 1) {
+      angle = 0.0f; // 1発ならまっすぐ前方
+    } else {
+      // 複数発なら左右均等に扇状に広げる（-60度 ～ +60度）
+      float progress = (float)i / (float)(targets.size() - 1); // 0.0 ～ 1.0
+      angle = (-1.0f + progress * 2.0f) * 1.05f; // 約 -60度 ～ +60度
+    }
 
-    // 敵が右側にいるなら右へ、左側にいるなら左へ拡散させる
-    float spreadDirection = (relativeX >= 0.0f) ? 1.0f : -1.0f;
+    // 放射状の拡散量
+    float spreadRadius = actionConfig_.homingSpreadX * 2.2f;
+    float spreadX = std::sin(angle) * spreadRadius;
+    float heightOffset =
+        ((i % 2 == 0) ? 0.4f : -0.2f) * (targets.size() > 2 ? 1.0f : 0.0f);
+    float spreadY = actionConfig_.homingSpeedY + heightOffset;
 
-    // 弾同士が完全に重なるのを防ぐため、わずかなばらつき（対称オフセット）を加える
-    float scatter = ((float)i - ((float)targets.size() - 1.0f) / 2.0f) * 0.05f;
-
-    float spreadX = (spreadDirection * actionConfig_.homingSpreadX) + scatter;
-
+    // 自機の正面・右・上を基準に初速ベクトルを合成
     Vector3 initialVelocity = {
-        spreadX, actionConfig_.homingSpeedY,
-        actionConfig_.homingSpeedZ}; // 前方に強めに、上には少しだけ打ち上げる
+        cameraForward.x * actionConfig_.homingSpeedZ + cameraRight.x * spreadX +
+            cameraUp.x * spreadY,
+        cameraForward.y * actionConfig_.homingSpeedZ + cameraRight.y * spreadX +
+            cameraUp.y * spreadY,
+        cameraForward.z * actionConfig_.homingSpeedZ + cameraRight.z * spreadX +
+            cameraUp.z * spreadY};
+
+    Vector3 dir = Normalize(initialVelocity);
+    Vector3 startPos = {muzzlePos.x + dir.x * 8.0f, muzzlePos.y + dir.y * 8.0f,
+                        muzzlePos.z + dir.z * 8.0f};
 
     bullet->Initialize(object3dRenderer_, startPos, targets[i],
                        initialVelocity);
@@ -617,7 +653,8 @@ void Player::TakeDamage(int damage) {
       isDead_ = true;
       Logger::Log("Player is DEAD!\n");
     } else {
-      Logger::Log("Player took damage! Current HP: " + std::to_string(hp_) + "\n");
+      Logger::Log("Player took damage! Current HP: " + std::to_string(hp_) +
+                  "\n");
 
       // ダメージを受けたら60フレーム無敵になる
       invincibleTimer_ = 60;
@@ -662,13 +699,19 @@ void Player::ForceSnapToCamera() {
   float distance = 10.0f;
   float moveRatioX = 0.0f;
   if (std::abs(ndcX) > actionConfig_.playerDeadzone) {
-      moveRatioX = (std::abs(ndcX) - actionConfig_.playerDeadzone) / (1.0f - actionConfig_.playerDeadzone) * (ndcX > 0.0f ? 1.0f : -1.0f);
+    moveRatioX = (std::abs(ndcX) - actionConfig_.playerDeadzone) /
+                 (1.0f - actionConfig_.playerDeadzone) *
+                 (ndcX > 0.0f ? 1.0f : -1.0f);
   }
   float moveRatioY = 0.0f;
   if (std::abs(ndcY) > actionConfig_.playerDeadzone) {
-      moveRatioY = (std::abs(ndcY) - actionConfig_.playerDeadzone) / (1.0f - actionConfig_.playerDeadzone) * (ndcY > 0.0f ? 1.0f : -1.0f);
+    moveRatioY = (std::abs(ndcY) - actionConfig_.playerDeadzone) /
+                 (1.0f - actionConfig_.playerDeadzone) *
+                 (ndcY > 0.0f ? 1.0f : -1.0f);
   }
-  float moveY = moveRatioY >= 0.0f ? moveRatioY * actionConfig_.playerMaxMoveY : moveRatioY * (actionConfig_.playerMaxMoveY * 0.5f);
+  float moveY = moveRatioY >= 0.0f
+                    ? moveRatioY * actionConfig_.playerMaxMoveY
+                    : moveRatioY * (actionConfig_.playerMaxMoveY * 0.5f);
 
   Vector3 targetPos =
       cameraPos +
