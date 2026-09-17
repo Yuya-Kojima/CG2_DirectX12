@@ -9,6 +9,9 @@
 #include <cmath>
 
 #include "Collision/CollisionManager.h"
+#include "Renderer/TrailRenderer.h"
+#include "Render/Camera/ICamera.h"
+#include "Render/Renderer/Object3dRenderer.h"
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {
@@ -20,14 +23,15 @@ HomingBullet::~HomingBullet() {
 void HomingBullet::Initialize(Object3dRenderer *renderer,
                               const Vector3 &startPos, BaseActor *target,
                               const Vector3 &initialVelocity) {
+  renderer_ = renderer;
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
 
   object3d_->SetModel("__builtin_capsule");
-  object3d_->SetScale(
-      {0.4f, 8.0f, 0.4f}); // 直径0.4m, 長さ16mのホーミングレーザー
+  // 弾頭モデル：トレイル先端と繋げるためのコア（直径0.5m、長さ4m）
+  object3d_->SetScale({0.5f, 4.0f, 0.5f});
   object3d_->SetEnableLighting(false);
-  object3d_->SetColor({0.1f, 2.5f, 3.0f, 1.0f});
+  object3d_->SetColor({0.3f, 3.5f, 5.0f, 1.0f}); // シアン（自己発光）
   object3d_->SetTranslation(startPos);
 
   velocity_ = initialVelocity;
@@ -128,22 +132,40 @@ void HomingBullet::Update() {
   }
 
   object3d_->Update();
+
+  // レーザートレイル履歴の記録（弾頭位置）
+  trailHistory_.insert(trailHistory_.begin(), pos);
+  if (trailHistory_.size() > kMaxTrailPoints) {
+    trailHistory_.pop_back();
+  }
 }
 
 void HomingBullet::OnCollision(Collider *other) {
   if (isDead_)
     return;
 
+  BaseActor *owner = other->GetOwner();
+  if (!owner)
+    return;
+
+  // ロックオンターゲットが存在する場合、指定ターゲット以外はすべて貫通（すり抜け）する
+  if (target_) {
+    if (owner != target_) {
+      return;
+    }
+  }
+
+  // ターゲットに到達（またはターゲット喪失後の直進弾）
   if (other->GetAttribute() & kCollisionAttributeEnemy) {
-    Enemy *enemy = dynamic_cast<Enemy *>(other->GetOwner());
+    Enemy *enemy = dynamic_cast<Enemy *>(owner);
     if (enemy && !enemy->IsDead()) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
-      Logger::Log("Homing Bullet Hit Enemy!\n");
+      Logger::Log("Homing Bullet Hit Target Enemy!\n");
     }
   } else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
     isDead_ = true;
-    Logger::Log("Homing Bullet Intercepted EnemyBullet!\n");
+    Logger::Log("Homing Bullet Intercepted Target EnemyBullet!\n");
   }
 }
 
@@ -186,5 +208,32 @@ void HomingBullet::Draw3D() {
       lineRenderer->DrawLine(p1_yz, p2_yz, color);
     }
 #endif
+  }
+
+  // レーザーのリボントレイル描画登録
+  if (trailHistory_.size() >= 2) {
+    std::vector<TrailRenderer::TrailNode> nodes;
+    nodes.reserve(trailHistory_.size());
+
+    size_t count = trailHistory_.size();
+    for (size_t i = 0; i < count; ++i) {
+      float t = static_cast<float>(i) / static_cast<float>(count - 1); // 0.0(弾頭) 〜 1.0(末尾)
+      // 太さ：弾頭直後（0.8m）から末尾（0.05m）へ線形補間
+      float width = Lerp(0.8f, 0.05f, t);
+      // アルファ：末尾に向かって滑らかに減衰
+      float alpha = 1.0f - t;
+      // シアン（末尾フェードアウト）
+      Vector4 color = {0.2f * alpha, 3.5f * alpha, 4.5f * alpha, alpha};
+
+      nodes.push_back({trailHistory_[i], width, color});
+    }
+
+    // カメラ座標の取得
+    Vector3 cameraPos = {0.0f, 0.0f, 0.0f};
+    if (renderer_ && renderer_->GetDefaultCamera()) {
+      cameraPos = renderer_->GetDefaultCamera()->GetTranslate();
+    }
+
+    TrailRenderer::GetInstance()->AddTrail(nodes, cameraPos);
   }
 }
