@@ -134,16 +134,28 @@ void HomingBullet::OnCollision(Collider *other) {
   if (isDead_)
     return;
 
+  BaseActor *owner = other->GetOwner();
+  if (!owner)
+    return;
+
+  // ロックオンターゲットが存在する場合、指定ターゲット以外はすべて貫通（すり抜け）する
+  if (target_) {
+    if (owner != target_) {
+      return;
+    }
+  }
+
+  // ターゲットに到達（またはターゲット喪失後の直進弾）
   if (other->GetAttribute() & kCollisionAttributeEnemy) {
-    Enemy *enemy = dynamic_cast<Enemy *>(other->GetOwner());
+    Enemy *enemy = dynamic_cast<Enemy *>(owner);
     if (enemy && !enemy->IsDead()) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
-      Logger::Log("Homing Bullet Hit Enemy!\n");
+      Logger::Log("Homing Bullet Hit Target Enemy!\n");
     }
   } else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
     isDead_ = true;
-    Logger::Log("Homing Bullet Intercepted EnemyBullet!\n");
+    Logger::Log("Homing Bullet Intercepted Target EnemyBullet!\n");
   }
 }
 

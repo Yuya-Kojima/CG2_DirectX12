@@ -324,11 +324,14 @@ void EnemyBullet::OnCollision(Collider *other) {
       }
     }
     // 相手がロックオンレーザー（HomingBullet）の場合
-    else if (dynamic_cast<HomingBullet *>(bulletOwner)) {
-      if (type_ == EnemyBulletType::NormalDestructible ||
-          type_ == EnemyBulletType::LockOnDestructible) {
-        hp_ -= 3; // ロックオンレーザーで3ダメージ（誘導弾を一撃破壊）
-        Logger::Log("EnemyBullet: Hit by HomingBullet!\n");
+    else if (auto *homing = dynamic_cast<HomingBullet *>(bulletOwner)) {
+      // そのホーミング弾が自分（this）を狙っている場合のみ被弾
+      if (homing->GetTarget() == this) {
+        if (type_ == EnemyBulletType::NormalDestructible ||
+            type_ == EnemyBulletType::LockOnDestructible) {
+          hp_ -= 3; // ロックオンレーザーで3ダメージ（誘導弾を一撃破壊）
+          Logger::Log("EnemyBullet: Hit by targeted HomingBullet!\n");
+        }
       }
     }
 

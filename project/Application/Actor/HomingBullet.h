@@ -35,6 +35,8 @@ public:
   
   void OnCollision(Collider* other) override;
 
+  BaseActor* GetTarget() const { return target_; }
+
 private:
   std::unique_ptr<Object3d> object3d_;
   std::unique_ptr<SphereCollider> collider_;
