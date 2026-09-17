@@ -2,6 +2,7 @@
 #include "Framework/BaseActor.h"
 #include "Math/Vector3.h"
 #include <memory>
+#include <vector>
 
 class Object3d;
 class Object3dRenderer;
@@ -52,4 +53,10 @@ private:
   int homingFallTime_ = 165;
   float homingStrengthIncrease_ = 0.015f;
   float homingStrengthMax_ = 0.25f;
+
+  Object3dRenderer* renderer_ = nullptr;
+
+  // レーザートレイル（リボン軌跡）用パラメータ
+  std::vector<Vector3> trailHistory_;
+  static constexpr size_t kMaxTrailPoints = 35; // トレイル履歴の保持フレーム数（約0.6秒分）
 };
