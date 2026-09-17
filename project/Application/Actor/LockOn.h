@@ -39,22 +39,51 @@ public:
   void Draw();
 
   /// <summary>
-  /// ロックオン状態を解除
-  void Clear() { 
-      targets_.clear(); 
-      lockOnDelayTimer_ = 0;
-  }
+  /// ロックオン状態の種別
+  /// </summary>
+  enum class TargetState {
+    Locking,  // ロックオン準備中（長押し中、発射前）
+    Tracking  // ホーミング弾追尾中（発射後、着弾待ち）
+  };
+
+  /// <summary>
+  /// ロックオン状態を解除（すべて解除）
+  /// </summary>
+  void Clear();
+
+  /// <summary>
+  /// 準備中（Locking）のターゲットのみ解除（キャンセル時）
+  /// </summary>
+  void ClearLocking();
+
+  /// <summary>
+  /// ホーミング弾発射時の通知（Locking 状態の敵を Tracking 状態へ移行）
+  /// </summary>
+  void OnHomingFired();
+
+  /// <summary>
+  /// ホーミング弾着弾時の通知（指定ターゲットの追尾マーカーを解除）
+  /// </summary>
+  void RemoveTrackingTarget(BaseActor* target);
 
   const std::vector<BaseActor*>& GetTargets() const { return targets_; }
 
 private:
-  static const size_t kMaxLockOnCount = 8; // 最大ロックオン数
-  static const int kLockOnInterval = 10;   // ロックオンする間隔（フレーム）
-  std::vector<BaseActor *> targets_; // ロックオン中の敵リスト
-  int lockOnDelayTimer_ = 0;         // ロックオン間隔を管理するタイマー
+  struct TargetInfo {
+    BaseActor* actor = nullptr;
+    float lockTime = 0.0f; // 経過時間（秒）
+    TargetState state = TargetState::Locking;
+  };
+
+  static const size_t kMaxDisplayReticles = 16; // 画面上に表示できるマーカー最大数
+  static const size_t kMaxLockOnPerVolley = 8;  // 1回の一斉射撃でロックオンできる最大数
+  static const int kLockOnInterval = 10;        // ロックオンする間隔（フレーム）
+  std::vector<BaseActor *> targets_;            // 互換性・外部参照用の発射対象敵リスト
+  std::vector<TargetInfo> targetInfos_;         // ロックオン・追尾演出用の詳細情報リスト
+  int lockOnDelayTimer_ = 0;                    // ロックオン間隔を管理するタイマー
   
-  // 照準（マーカー）用スプライトを最大ロックオン数分用意
-  std::array<std::unique_ptr<Sprite>, kMaxLockOnCount> reticles_;
+  // 照準（マーカー）用スプライト
+  std::array<std::unique_ptr<Sprite>, kMaxDisplayReticles> reticles_;
   
   Matrix4x4 viewProjectionMatrix_;  // 描画用のカメラ行列キャッシュ
 };

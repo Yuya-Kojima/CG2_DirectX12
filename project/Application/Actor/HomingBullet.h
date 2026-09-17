@@ -1,6 +1,7 @@
 #pragma once
 #include "Framework/BaseActor.h"
 #include "Math/Vector3.h"
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -31,6 +32,11 @@ public:
     homingStrengthMax_ = strengthMax;
   }
 
+  // 弾消滅時（着弾・寿命切れ）のコールバックを設定
+  void SetOnDestroyCallback(std::function<void(BaseActor*)> callback) {
+    onDestroyCallback_ = callback;
+  }
+
   void Update() override;
   void Draw3D() override;
   
@@ -42,6 +48,7 @@ private:
   std::unique_ptr<Object3d> object3d_;
   std::unique_ptr<SphereCollider> collider_;
   BaseActor* target_ = nullptr;
+  BaseActor* originalTarget_ = nullptr;
   int damage_ = 5;
   
   Vector3 velocity_;
@@ -59,4 +66,7 @@ private:
   // レーザートレイル（リボン軌跡）用パラメータ
   std::vector<Vector3> trailHistory_;
   static constexpr size_t kMaxTrailPoints = 35; // トレイル履歴の保持フレーム数（約0.6秒分）
+
+  // 消滅時コールバック
+  std::function<void(BaseActor*)> onDestroyCallback_;
 };
