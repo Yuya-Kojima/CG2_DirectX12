@@ -10,6 +10,46 @@
 class RailCamera;
 class ICamera;
 
+enum class EffectType {
+  HitSpark,          // 着弾ヒットスパーク（瞬間閃光＋火花散乱＋衝撃リング）
+  EnemyDeath,        // 敵撃破（大爆発＋ショックウェーブ＋火花散乱）
+  EnemyDeathSimple,  // 敵撃破・中（コア＋火花）
+  MuzzleRing,        // 急発進・マズルリング（3重リング）
+  Count
+};
+
+struct EffectCoreConfig {
+  bool enable = true;
+  float scale = 3.5f;
+  float scaleVelocity = -30.0f;
+  float life = 0.10f;
+};
+
+struct EffectFlareConfig {
+  bool enable = true;
+  int count = 16;
+  float scale = 0.35f;
+  float scaleVelocity = -0.8f;
+  float speed = 18.0f;
+  float lifeMin = 0.12f;
+  float lifeMax = 0.22f;
+};
+
+struct EffectRingConfig {
+  bool enable = true;
+  int count = 1;
+  float startScale = 0.1f;
+  float expandSpeed = 45.0f;
+  float life = 0.10f;
+};
+
+struct EffectPresetConfig {
+  EffectCoreConfig core;
+  EffectFlareConfig flare;
+  EffectRingConfig ring;
+  bool enableShockwave = false;
+};
+
 class EffectManager {
 public:
   static EffectManager *GetInstance();
@@ -24,14 +64,23 @@ public:
   void DrawEditorUI(RailCamera *railCamera);
 
   /// <summary>
+  /// 汎用エフェクト再生インターフェース
+  /// </summary>
+  void PlayEffect(EffectType type, const Vector3 &worldPos,
+                  const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f},
+                  float scaleMultiplier = 1.0f);
+
+  /// <summary>
   /// ショックウェーブ（波紋）を発生させる
   /// </summary>
   void PlayShockwave(const Vector3 &worldPos);
 
   /// <summary>
-  /// 汎用的な敵の撃破エフェクト（爆発＋ショックウェーブ）を発生させる
+  /// 汎用的な敵の撃破エフェクト（後方互換ラッパー）
   /// </summary>
-  void PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
+  void PlayEnemyDeathEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f}) {
+    PlayEffect(EffectType::EnemyDeath, worldPos, baseColor);
+  }
 
   /// <summary>
   /// ボスの予兆エフェクト（収束するエネルギー）を発生させる
@@ -44,14 +93,18 @@ public:
   void PlayBossBurstEffect(const Vector3& center);
 
   /// <summary>
-  /// ミサイル急発進時の白いリングエフェクトを発生させる
+  /// ミサイル急発進時の白いリングエフェクト（後方互換ラッパー）
   /// </summary>
-  void PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f});
+  void PlayFunnelMuzzleRing(const Vector3 &worldPos, const Vector4 &color = {1.0f, 1.0f, 1.0f, 1.0f}) {
+    PlayEffect(EffectType::MuzzleRing, worldPos, color);
+  }
 
   /// <summary>
-  /// ザコ敵用のシンプルな撃破エフェクト（コアのみ）を発生させる
+  /// ザコ敵用のシンプルな撃破エフェクト（後方互換ラッパー）
   /// </summary>
-  void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f});
+  void PlayEnemyDeathSimpleEffect(const Vector3 &worldPos, const Vector4 &baseColor = {1.0f, 1.0f, 1.0f, 1.0f}) {
+    PlayEffect(EffectType::EnemyDeathSimple, worldPos, baseColor);
+  }
 
 private:
   EffectManager() = default;
@@ -84,6 +137,13 @@ private:
 
   void SaveShockwaveConfig();
   void LoadShockwaveConfig();
+
+  void SaveEffectsConfig();
+  void LoadEffectsConfig();
+
+  std::array<EffectPresetConfig, static_cast<size_t>(EffectType::Count)> effectConfigs_;
+  bool isEffectsConfigDirty_ = false;
+  int selectedEffectIndex_ = 0;
 
   static const int kMaxHitEffects = 32;
   std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitCoreParticleGroups_;

@@ -176,8 +176,9 @@ void EnemyBullet::Update() {
           homingStrength_ = 0.02f;
 
           // 発射時の衝撃波リングエフェクト（真っ白）を発生
-          EffectManager::GetInstance()->PlayFunnelMuzzleRing(
-              object3d_->GetTranslation(), {1.0f, 1.0f, 1.0f, 1.0f});
+          EffectManager::GetInstance()->PlayEffect(
+              EffectType::MuzzleRing, object3d_->GetTranslation(),
+              {1.0f, 1.0f, 1.0f, 1.0f});
         } else if (framesLeft < 15) {
           // 発射直前の約0.25秒は完全に静止してタメを作る
           velocity_ = {0.0f, 0.0f, 0.0f};

@@ -12,6 +12,7 @@
 #include "Renderer/TrailRenderer.h"
 #include "Render/Camera/ICamera.h"
 #include "Render/Renderer/Object3dRenderer.h"
+#include "Effect/EffectManager.h"
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {
@@ -161,10 +162,26 @@ void HomingBullet::OnCollision(Collider *other) {
     if (enemy && !enemy->IsDead()) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
+
+      // 着弾ヒットスパーク（シアンブルー系の高輝度発光）
+      EffectManager::GetInstance()->PlayEffect(
+          EffectType::HitSpark,
+          object3d_->GetTranslation(),
+          Vector4{0.3f, 1.2f, 2.0f, 1.0f}
+      );
+
       Logger::Log("Homing Bullet Hit Target Enemy!\n");
     }
   } else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
     isDead_ = true;
+
+    // 着弾ヒットスパーク（シアンブルー系の高輝度発光）
+    EffectManager::GetInstance()->PlayEffect(
+        EffectType::HitSpark,
+        object3d_->GetTranslation(),
+        Vector4{0.3f, 1.2f, 2.0f, 1.0f}
+    );
+
     Logger::Log("Homing Bullet Intercepted Target EnemyBullet!\n");
   }
 }
