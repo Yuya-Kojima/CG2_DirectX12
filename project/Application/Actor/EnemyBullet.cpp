@@ -41,22 +41,29 @@ void EnemyBullet::Initialize(Object3dRenderer *renderer,
 
   // タイプごとの見た目とHPの設定
   if (type_ == EnemyBulletType::NormalDestructible) {
-    // 通常ショットで撃ち落とせる基本エネルギー光弾（ボス戦でも見やすい黄金プラズマ大球）
+    // 通常ショット破壊可能弾（黄色）
     object3d_->SetModel("__builtin_sphere");
     object3d_->SetScale({1.8f, 1.8f, 1.8f});
     object3d_->SetColor({4.0f, 1.8f, 0.2f, 1.0f});
     colliderRadius = 1.4f;
     hp_ = 1;
   } else if (type_ == EnemyBulletType::LockOnDestructible) {
-    // ロックオン可能な誘導ミサイル（正面からでも見失わない極太の深紅ロケット）
-    object3d_->SetModel("__builtin_capsule");
-    object3d_->SetScale({2.2f, 4.5f, 2.2f});
-    object3d_->SetColor({5.0f, 0.3f, 0.5f, 1.0f});
-    colliderRadius = 1.8f;
+    // 親オブジェクト（姿勢・移動）：メッシュ描画は行わない
+    object3d_->SetScale({1.0f, 1.0f, 1.0f});
+
+    // 子オブジェクト（結晶メッシュ）：進行軸周りの自転を担当
+    crystalObject_ = std::make_unique<Object3d>();
+    crystalObject_->Initialize(renderer);
+    crystalObject_->SetModel("__builtin_crystal");
+    crystalObject_->SetScale({2.6f, 2.6f, 3.8f}); // 視認性確保のための大型結晶サイズ
+    crystalObject_->SetColor({0.8f, 3.5f, 6.0f, 1.0f}); // シアンブルー（自己発光）
+    crystalObject_->SetParent(object3d_.get());
+
+    colliderRadius = 2.2f;
     hp_ = 1;
     SetTag(ActorTag::LockOnTarget); // ロックオン対象としてタグ付け
   } else {
-    // 破壊不可の巨大重エネルギー弾（青紫）
+    // 破壊不可弾（青紫）
     object3d_->SetModel("__builtin_sphere");
     object3d_->SetScale({3.5f, 3.5f, 3.5f});
     object3d_->SetColor({2.0f, 0.6f, 6.0f, 1.0f});
@@ -66,19 +73,22 @@ void EnemyBullet::Initialize(Object3dRenderer *renderer,
 
   object3d_->SetTranslation(startPos);
 
-  // 初速ベクトルから初期回転を計算（カプセルの場合は進行方向へ頭を倒す）
+  // 初速ベクトルから初期回転を計算（+Z軸が進行方向）
   float lenSq = velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z;
   if (lenSq > 0.0001f) {
     float yaw = std::atan2(velocity_.x, velocity_.z);
     float xzLen = std::sqrt(velocity_.x * velocity_.x + velocity_.z * velocity_.z);
     float pitch = std::atan2(-velocity_.y, xzLen);
-    Vector3 rot = {pitch + (std::numbers::pi_v<float> * 0.5f), yaw, 0.0f};
+    Vector3 rot = {pitch, yaw, 0.0f};
     object3d_->SetRotation(rot);
     transform_.rotate = rot;
   }
 
   // 初回フレームの描画前にワールド行列を即時確定させる
   object3d_->Update();
+  if (crystalObject_) {
+    crystalObject_->Update();
+  }
 
   // コライダーの設定
   collider_ = std::make_unique<SphereCollider>(this);
@@ -240,31 +250,46 @@ void EnemyBullet::Update() {
     }
   }
 
-  // 弾の向き（forwardDir）へカプセルの頭を倒す（Pitch + 90度補正）
+  // 弾の向き（forwardDir）へ親オブジェクトを向ける（Pitch, Yawのみ）
   float lenSq = forwardDir.x * forwardDir.x + forwardDir.y * forwardDir.y + forwardDir.z * forwardDir.z;
   if (lenSq > 0.0001f) {
     float yaw = std::atan2(forwardDir.x, forwardDir.z);
     float xzLen = std::sqrt(forwardDir.x * forwardDir.x + forwardDir.z * forwardDir.z);
     float pitch = std::atan2(-forwardDir.y, xzLen);
-    Vector3 rot = {pitch + (std::numbers::pi_v<float> * 0.5f), yaw, 0.0f};
+
+    Vector3 rot = {pitch, yaw, 0.0f};
     object3d_->SetRotation(rot);
     transform_.rotate = rot;
   }
 
-  // ミサイルの発射後（タメ終了後）、後端ノズル位置をトレイル履歴に追加
-  if (type_ == EnemyBulletType::LockOnDestructible && aliveFrames_ >= swarmWaitFrames_) {
-    float velLen = std::sqrt(velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z);
-    Vector3 dir = (velLen > 0.0001f) ? Vector3{velocity_.x / velLen, velocity_.y / velLen, velocity_.z / velLen} : Vector3{0.0f, 0.0f, 1.0f};
-    // ノズル位置（カプセル長さ4.5mの半分＝後方2.25mの位置）
-    Vector3 nozzlePos = {pos.x - dir.x * 2.25f, pos.y - dir.y * 2.25f, pos.z - dir.z * 2.25f};
+  // 親（姿勢・位置）のワールド行列を確定
+  object3d_->Update();
 
-    trailHistory_.insert(trailHistory_.begin(), nozzlePos);
+  // 誘導弾の場合、子オブジェクトを親の進行軸（ローカルZ軸）周りに自転（Roll）させる
+  if (crystalObject_) {
+    rollAngle_ += 0.2f;
+    if (rollAngle_ > std::numbers::pi_v<float> * 2.0f) {
+      rollAngle_ -= std::numbers::pi_v<float> * 2.0f;
+    }
+    crystalObject_->SetRotation({0.0f, 0.0f, rollAngle_});
+    crystalObject_->Update();
+  }
+
+  // 誘導弾の発射後（待機終了後）、後端からトレイル履歴を追加
+  if (type_ == EnemyBulletType::LockOnDestructible && aliveFrames_ >= swarmWaitFrames_ && crystalObject_) {
+    // 結晶の後端（ローカル Z = -1.0）のワールド座標を取得
+    const Matrix4x4& world = crystalObject_->GetWorldMatrix();
+    Vector3 crystalTailPos = {
+        world.m[3][0] - world.m[2][0] * 1.0f,
+        world.m[3][1] - world.m[2][1] * 1.0f,
+        world.m[3][2] - world.m[2][2] * 1.0f
+    };
+
+    trailHistory_.insert(trailHistory_.begin(), crystalTailPos);
     if (trailHistory_.size() > kMaxTrailPoints) {
       trailHistory_.pop_back();
     }
   }
-
-  object3d_->Update();
 }
 
 void EnemyBullet::OnCollision(Collider *other) {
@@ -302,7 +327,7 @@ void EnemyBullet::OnCollision(Collider *other) {
     else if (dynamic_cast<HomingBullet *>(bulletOwner)) {
       if (type_ == EnemyBulletType::NormalDestructible ||
           type_ == EnemyBulletType::LockOnDestructible) {
-        hp_ -= 3; // ロックオンレーザーで3ダメージ（ミサイルを一撃破壊）
+        hp_ -= 3; // ロックオンレーザーで3ダメージ（誘導弾を一撃破壊）
         Logger::Log("EnemyBullet: Hit by HomingBullet!\n");
       }
     }
@@ -319,22 +344,26 @@ void EnemyBullet::Explode() {
     isDead_ = true;
     
     // タイプに応じた色で爆発エフェクトを発生させる
-    Vector4 color = {1.0f, 0.5f, 0.0f, 1.0f}; // デフォルト（通常弾）はオレンジ
+    Vector4 color = {1.0f, 0.5f, 0.0f, 1.0f}; // 通常弾：オレンジ
     if (type_ == EnemyBulletType::LockOnDestructible) {
-        color = {1.0f, 0.0f, 0.0f, 1.0f}; // ミサイルは赤
+        color = {0.2f, 0.8f, 1.0f, 1.0f}; // 誘導弾：シアンブルー
     } else if (type_ == EnemyBulletType::Indestructible) {
-        color = {0.0f, 0.0f, 1.0f, 1.0f}; // 破壊不可弾は青
+        color = {0.0f, 0.0f, 1.0f, 1.0f}; // 破壊不可弾：青
     }
     
     EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(object3d_->GetTranslation(), color);
 }
 
 void EnemyBullet::Draw3D() {
-  if (!isDead_ && object3d_) {
-    object3d_->Draw();
+  if (!isDead_) {
+    if (crystalObject_) {
+      crystalObject_->Draw();
+    } else if (object3d_) {
+      object3d_->Draw();
+    }
   }
 
-  // ミサイルのリボントレイル描画登録
+  // 誘導弾のリボントレイル描画登録
   if (type_ == EnemyBulletType::LockOnDestructible && trailHistory_.size() >= 2) {
     std::vector<TrailRenderer::TrailNode> nodes;
     nodes.reserve(trailHistory_.size());
@@ -342,11 +371,12 @@ void EnemyBullet::Draw3D() {
     size_t count = trailHistory_.size();
     for (size_t i = 0; i < count; ++i) {
       float t = static_cast<float>(i) / static_cast<float>(count - 1); // 0.0(弾頭直後) 〜 1.0(末尾)
-      // 太さ：弾頭直後はカプセルと一体化（2.5m）、末尾に向かって徐々に細く（0.3m）
-      float width = Lerp(2.5f, 0.3f, t);
-      // アルファ：末尾までしっかり光が見えるように線形フェードアウト
+      // 太さ：弾頭幅（2.6m）から末尾（0.3m）へ補間
+      float width = Lerp(2.6f, 0.3f, t);
+      // アルファ：末尾に向かって線形フェードアウト
       float alpha = 1.0f - t;
-      Vector4 color = {5.0f * alpha, 0.4f * alpha, 0.6f * alpha, alpha};
+      // シアンブルーの光帯
+      Vector4 color = {0.6f * alpha, 2.8f * alpha, 5.5f * alpha, alpha};
 
       nodes.push_back({trailHistory_[i], width, color});
     }

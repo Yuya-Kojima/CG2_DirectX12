@@ -346,8 +346,8 @@ Model::ModelData MeshGenerator::GenerateCone(float radius, float height, uint32_
   }
   for (uint32_t i = 0; i < segments; ++i) {
     data.indices.push_back(0);
-    data.indices.push_back(i + 2);
     data.indices.push_back(i + 1);
+    data.indices.push_back(i + 2);
   }
 
   // Bottom cap
@@ -361,9 +361,10 @@ Model::ModelData MeshGenerator::GenerateCone(float radius, float height, uint32_
     data.vertices.push_back({.position = {c * radius, -h2, s * radius, 1.0f}, .texcoord = {c * 0.5f + 0.5f, s * 0.5f + 0.5f}, .normal = {0, -1, 0}});
   }
   for (uint32_t i = 0; i < segments; ++i) {
+    // 下（外側）から見て時計回り: center -> ringStart + i + 1 -> ringStart + i
     data.indices.push_back(centerIdx);
-    data.indices.push_back(ringStart + i);
     data.indices.push_back(ringStart + i + 1);
+    data.indices.push_back(ringStart + i);
   }
 
   data.rootNode.name = "Cone";
@@ -414,4 +415,83 @@ Model::ModelData MeshGenerator::GenerateTorus(float majorRadius, float minorRadi
   return data;
 }
 
+Model::ModelData MeshGenerator::GenerateCrystal(float radius, float height, uint32_t segments) {
+  Model::ModelData data;
+  if (segments < 3) segments = 3;
+
+  // 上面ピラミッド(segments面) + 下面ピラミッド(segments面) = 計 2*segments 面 (1面あたり3頂点)
+  data.vertices.reserve(segments * 6);
+  data.indices.reserve(segments * 6);
+
+  const float h2 = height * 0.5f;
+  const float pi2 = 2.0f * std::numbers::pi_v<float>;
+
+  // 赤道面（XY平面）の頂点座標を事前計算
+  std::vector<Vector3> equator(segments);
+  for (uint32_t i = 0; i < segments; ++i) {
+    float rad = (float)i / segments * pi2;
+    equator[i] = {std::cos(rad) * radius, std::sin(rad) * radius, 0.0f};
+  }
+
+  // +Z が前方尖端、-Z が後方尖端
+  Vector3 frontApex = {0.0f, 0.0f, h2};
+  Vector3 rearApex = {0.0f, 0.0f, -h2};
+
+  // 面ごとに独立した頂点を生成（フラットシェーディング／ハードエッジ）
+  auto addTriangle = [&](const Vector3& p0, const Vector3& p1, const Vector3& p2) {
+    // 面法線の計算（外積）
+    Vector3 v01 = {p1.x - p0.x, p1.y - p0.y, p1.z - p0.z};
+    Vector3 v02 = {p2.x - p0.x, p2.y - p0.y, p2.z - p0.z};
+    Vector3 normal = {
+        v01.y * v02.z - v01.z * v02.y,
+        v01.z * v02.x - v01.x * v02.z,
+        v01.x * v02.y - v01.y * v02.x
+    };
+    float len = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    if (len > 0.0001f) {
+      normal.x /= len;
+      normal.y /= len;
+      normal.z /= len;
+    }
+
+    uint32_t startIndex = static_cast<uint32_t>(data.vertices.size());
+
+    Model::VertexData v0;
+    v0.position = {p0.x, p0.y, p0.z, 1.0f};
+    v0.normal = normal;
+    v0.texcoord = {0.5f, 0.0f};
+
+    Model::VertexData v1;
+    v1.position = {p1.x, p1.y, p1.z, 1.0f};
+    v1.normal = normal;
+    v1.texcoord = {0.0f, 1.0f};
+
+    Model::VertexData v2;
+    v2.position = {p2.x, p2.y, p2.z, 1.0f};
+    v2.normal = normal;
+    v2.texcoord = {1.0f, 1.0f};
+
+    data.vertices.push_back(v0);
+    data.vertices.push_back(v1);
+    data.vertices.push_back(v2);
+
+    data.indices.push_back(startIndex);
+    data.indices.push_back(startIndex + 1);
+    data.indices.push_back(startIndex + 2);
+  };
+
+  for (uint32_t i = 0; i < segments; ++i) {
+    uint32_t next = (i + 1) % segments;
+    // 前方ピラミッド（FrontApex -> equator[i] -> equator[next]）
+    addTriangle(frontApex, equator[i], equator[next]);
+    // 後方ピラミッド（RearApex -> equator[next] -> equator[i]）
+    addTriangle(rearApex, equator[next], equator[i]);
+  }
+
+  data.rootNode.name = "Crystal";
+  data.rootNode.localMatrix = MakeIdentity4x4();
+  return data;
+}
+
 } // namespace RC
+
