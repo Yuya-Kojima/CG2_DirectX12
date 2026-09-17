@@ -8,6 +8,7 @@
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/AbstractSceneFactory.h"
 #include "Renderer/LineRenderer.h"
+#include "Renderer/TrailRenderer.h"
 #include <memory>
 #include <wrl.h>
 #include <xaudio2.h>
@@ -53,6 +54,7 @@ public:
   }
   SkyboxRenderer *GetSkyboxRenderer() const { return skyboxRenderer_.get(); }
   LineRenderer *GetLineRenderer() const { return LineRenderer::GetInstance(); }
+  TrailRenderer *GetTrailRenderer() const { return TrailRenderer::GetInstance(); }
   SrvManager *GetSrvManager() const { return srvManager_.get(); }
   Dx12Core *GetDx12Core() const { return dx12Core_.get(); }
 

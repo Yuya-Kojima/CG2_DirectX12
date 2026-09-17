@@ -2,6 +2,7 @@
 #include "Framework/BaseActor.h"
 #include "Math/Vector3.h"
 #include <memory>
+#include <vector>
 
 class Player;
 class Object3d;
@@ -32,15 +33,22 @@ public:
 
 private:
   std::unique_ptr<Object3d> object3d_;
+  std::unique_ptr<Object3d> crystalObject_; // 自転用子オブジェクト（進行軸と自転軸の分離）
   std::unique_ptr<SphereCollider> collider_;
   Vector3 velocity_ = {0.0f, 0.0f, 0.0f};
+  float rollAngle_ = 0.0f; // 自転角（Roll軸）
   int lifeTimer_ = 0;
   int hp_ = 1;
+  Object3dRenderer* renderer_ = nullptr;
   Player* player_ = nullptr;
   EnemyBulletType type_ = EnemyBulletType::NormalDestructible;
 
-  // ミサイル用パラメータ
+  // 誘導弾用パラメータ
   float homingStrength_ = 0.0f;
   int aliveFrames_ = 0;
-  int swarmWaitFrames_ = 0; 
+  int swarmWaitFrames_ = 0;
+
+  // トレイル（リボン軌跡）用パラメータ
+  std::vector<Vector3> trailHistory_;
+  static constexpr size_t kMaxTrailPoints = 150; // 軌跡を保持するフレーム数（約2.5秒分）
 };

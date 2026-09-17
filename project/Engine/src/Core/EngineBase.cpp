@@ -82,6 +82,9 @@ void EngineBase::Initialize() {
   // ラインレンダラーの初期化
   LineRenderer::GetInstance()->Initialize(dx12Core_.get());
 
+  // トレイルレンダラーの初期化
+  TrailRenderer::GetInstance()->Initialize(dx12Core_.get());
+
   // フォントマネージャーの初期化とフォントのロード
   FontManager::GetInstance()->Initialize();
 
@@ -104,6 +107,7 @@ void EngineBase::Finalize() {
   TextureManager::GetInstance()->Finalize();
 
   LineRenderer::GetInstance()->Finalize();
+  TrailRenderer::GetInstance()->Finalize();
 
   // delete input_;
   // input_ = nullptr;

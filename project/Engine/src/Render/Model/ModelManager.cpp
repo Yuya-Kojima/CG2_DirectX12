@@ -81,7 +81,9 @@ void ModelManager::CreateBuiltinPrimitives() {
   registerPrimitive("__builtin_box", RC::MeshGenerator::GenerateBox(1.0f, 1.0f, 1.0f));
   registerPrimitive("__builtin_sphere", RC::MeshGenerator::GenerateSphere(1.0f, 16, 16));
   registerPrimitive("__builtin_capsule", RC::MeshGenerator::GenerateCapsule(0.5f, 2.0f, 16, 16));
+  registerPrimitive("__builtin_cone", RC::MeshGenerator::GenerateCone(0.5f, 1.0f, 16));
   registerPrimitive("__builtin_plane", RC::MeshGenerator::GeneratePlane(1.0f, 1.0f, 1, 1));
+  registerPrimitive("__builtin_crystal", RC::MeshGenerator::GenerateCrystal(0.5f, 2.0f, 6));
 }
 
 void ModelManager::LoadModel(const std::string &filePath) {

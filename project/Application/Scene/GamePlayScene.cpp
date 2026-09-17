@@ -26,6 +26,7 @@
 #include "Render/Particle/BillboardParticleEmitter.h"
 #include "Render/Particle/MeshParticleEmitter.h"
 #include "Render/Renderer/LineRenderer.h"
+#include "Renderer/TrailRenderer.h"
 #include "Renderer/Object3dRenderer.h"
 #include "Renderer/SpriteRenderer.h"
 #include "Scene/SceneManager.h"
@@ -268,6 +269,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   if (auto hpNode = UIManager::GetInstance()->GetNodeByName("HPBarImage")) {
     hpBarBaseWidth_ = hpNode->scale.x;
   }
+
+  // リボントレイル用テクスチャのロード
+  TextureManager::GetInstance()->LoadTexture("resources/gradationLine.png");
 }
 
 void GamePlayScene::Finalize() {}
@@ -1692,6 +1696,12 @@ void GamePlayScene::Draw3D() {
 
   bossExplosionParticleGroup_->Draw();
   bossDustParticleGroup_->Draw();
+
+  // リボントレイル（弾やミサイルの光の軌跡）の一括描画
+  if (activeCamera) {
+    auto srvHandle = TextureManager::GetInstance()->GetSrvHandleGPU("resources/gradationLine.png");
+    TrailRenderer::GetInstance()->Render(activeCamera->GetViewProjectionMatrix(), srvHandle);
+  }
 
   engine_->End3D();
 }

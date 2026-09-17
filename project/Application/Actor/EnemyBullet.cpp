@@ -8,8 +8,12 @@
 #include "Debug/Logger.h"
 #include "Effect/EffectManager.h"
 #include "Math/MathUtil.h"
+#include "Render/Camera/ICamera.h"
 #include "Render/Object3d/Object3d.h"
+#include "Render/Renderer/Object3dRenderer.h"
+#include "Renderer/TrailRenderer.h"
 #include <cmath>
+#include <numbers>
 
 EnemyBullet::EnemyBullet() {}
 EnemyBullet::~EnemyBullet() {
@@ -21,6 +25,7 @@ EnemyBullet::~EnemyBullet() {
 void EnemyBullet::Initialize(Object3dRenderer *renderer,
                              const Vector3 &startPos, const Vector3 &velocity,
                              Player *player, EnemyBulletType type) {
+  renderer_ = renderer;
   object3d_ = std::make_unique<Object3d>();
   object3d_->Initialize(renderer);
 
@@ -29,31 +34,65 @@ void EnemyBullet::Initialize(Object3dRenderer *renderer,
   player_ = player;
   lifeTimer_ = 1800; // 約30秒で消滅（安全装置としての寿命）
 
+  // 自己発光モード（周囲の光に影響されず美しく発光）
+  object3d_->SetEnableLighting(false);
+
+  float colliderRadius = 0.8f;
+
   // タイプごとの見た目とHPの設定
-  object3d_->SetModel("suzanne.obj");
   if (type_ == EnemyBulletType::NormalDestructible) {
-    // 通常ショットで壊す細かい弾
-    object3d_->SetScale({1.0f, 1.0f, 1.0f});
-    object3d_->SetColor({1.0f, 0.5f, 0.0f, 1.0f}); // オレンジ
+    // 通常ショット破壊可能弾（黄色）
+    object3d_->SetModel("__builtin_sphere");
+    object3d_->SetScale({1.8f, 1.8f, 1.8f});
+    object3d_->SetColor({4.0f, 1.8f, 0.2f, 1.0f});
+    colliderRadius = 1.4f;
     hp_ = 1;
   } else if (type_ == EnemyBulletType::LockOnDestructible) {
-    // スウォームミサイル
-    object3d_->SetScale({2.0f, 2.0f, 2.0f});       // 少し小さく
-    object3d_->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤
+    // 親オブジェクト（姿勢・移動）：メッシュ描画は行わない
+    object3d_->SetScale({1.0f, 1.0f, 1.0f});
+
+    // 子オブジェクト（結晶メッシュ）：進行軸周りの自転を担当
+    crystalObject_ = std::make_unique<Object3d>();
+    crystalObject_->Initialize(renderer);
+    crystalObject_->SetModel("__builtin_crystal");
+    crystalObject_->SetScale({2.6f, 2.6f, 3.8f}); // 視認性確保のための大型結晶サイズ
+    crystalObject_->SetColor({0.8f, 3.5f, 6.0f, 1.0f}); // シアンブルー（自己発光）
+    crystalObject_->SetParent(object3d_.get());
+
+    colliderRadius = 2.2f;
     hp_ = 1;
     SetTag(ActorTag::LockOnTarget); // ロックオン対象としてタグ付け
   } else {
-    // 破壊不可エネルギー弾
-    object3d_->SetScale({1.5f, 1.5f, 3.0f});
-    object3d_->SetColor({0.0f, 0.0f, 1.0f, 1.0f}); // 青
+    // 破壊不可弾（青紫）
+    object3d_->SetModel("__builtin_sphere");
+    object3d_->SetScale({3.5f, 3.5f, 3.5f});
+    object3d_->SetColor({2.0f, 0.6f, 6.0f, 1.0f});
+    colliderRadius = 2.8f;
     hp_ = 9999;
   }
 
   object3d_->SetTranslation(startPos);
 
+  // 初速ベクトルから初期回転を計算（+Z軸が進行方向）
+  float lenSq = velocity_.x * velocity_.x + velocity_.y * velocity_.y + velocity_.z * velocity_.z;
+  if (lenSq > 0.0001f) {
+    float yaw = std::atan2(velocity_.x, velocity_.z);
+    float xzLen = std::sqrt(velocity_.x * velocity_.x + velocity_.z * velocity_.z);
+    float pitch = std::atan2(-velocity_.y, xzLen);
+    Vector3 rot = {pitch, yaw, 0.0f};
+    object3d_->SetRotation(rot);
+    transform_.rotate = rot;
+  }
+
+  // 初回フレームの描画前にワールド行列を即時確定させる
+  object3d_->Update();
+  if (crystalObject_) {
+    crystalObject_->Update();
+  }
+
   // コライダーの設定
   collider_ = std::make_unique<SphereCollider>(this);
-  collider_->SetRadius(1.5f * object3d_->GetScale().x);
+  collider_->SetRadius(colliderRadius);
   collider_->SetAttribute(kCollisionAttributeEnemyBullet);
   // プレイヤー自身と、プレイヤーの弾の両方と衝突判定を行う
   collider_->SetMask(kCollisionAttributePlayer |
@@ -108,9 +147,33 @@ void EnemyBullet::Update() {
         int framesLeft = swarmWaitFrames_ - aliveFrames_;
         if (framesLeft == 1) {
           // タメから解放され、発射されるまさにその瞬間
-          float burstSpeed = 2.5f;
-          velocity_ = {toPlayer.x * burstSpeed, toPlayer.y * burstSpeed,
-                       toPlayer.z * burstSpeed};
+          // カメラ空間のRightとUpを取得して、画面の視野枠（端）に向けて散開させる
+          Vector3 camRight = {1.0f, 0.0f, 0.0f};
+          Vector3 camUp = {0.0f, 1.0f, 0.0f};
+          if (renderer_ && renderer_->GetDefaultCamera()) {
+            Matrix4x4 viewMat = renderer_->GetDefaultCamera()->GetViewMatrix();
+            Matrix4x4 camWorld = Inverse(viewMat);
+            camRight = {camWorld.m[0][0], camWorld.m[0][1], camWorld.m[0][2]};
+            camUp = {camWorld.m[1][0], camWorld.m[1][1], camWorld.m[1][2]};
+          }
+
+          // 自機から見てミサイルが左右どちら側にいるかを判定
+          Vector3 diff = {currentPos.x - playerPos.x, currentPos.y - playerPos.y, currentPos.z - playerPos.z};
+          float sideSign = (Dot(diff, camRight) >= 0.0f) ? 1.0f : -1.0f;
+
+          // プレイヤー方向を主軸（0.95）にし、左右（0.22）と上方（0.10）への散開角を約15度に抑えて画面外への飛び出しを防止
+          Vector3 spreadDir = Normalize(Vector3{
+              toPlayer.x * 0.95f + camRight.x * (sideSign * 0.22f) + camUp.x * 0.10f,
+              toPlayer.y * 0.95f + camRight.y * (sideSign * 0.22f) + camUp.y * 0.10f,
+              toPlayer.z * 0.95f + camRight.z * (sideSign * 0.22f) + camUp.z * 0.10f
+          });
+
+          float burstSpeed = 2.2f;
+          velocity_ = {spreadDir.x * burstSpeed, spreadDir.y * burstSpeed,
+                       spreadDir.z * burstSpeed};
+
+          // 旋回開始の初期値を設定（外側に広がりすぎず即座に追尾姿勢へ移行）
+          homingStrength_ = 0.02f;
 
           // 発射時の衝撃波リングエフェクト（真っ白）を発生
           EffectManager::GetInstance()->PlayFunnelMuzzleRing(
@@ -146,11 +209,11 @@ void EnemyBullet::Update() {
 
         // homingStrength_ が 0 以上なら誘導を続ける（-1ならそのまま直進）
         if (homingStrength_ >= 0.0f) {
-          homingStrength_ += 0.006f; // ゆっくり旋回させる
-          if (homingStrength_ > 0.10f)
-            homingStrength_ = 0.10f;
+          homingStrength_ += 0.008f; // 画面外に逃げずしっかり自機へ向く
+          if (homingStrength_ > 0.12f)
+            homingStrength_ = 0.12f;
 
-          float missileSpeed = 0.8f; // ミサイルの最高速度を少し遅くして猶予を与える
+          float missileSpeed = 1.2f;
           Vector3 desiredVelocity = {toPlayer.x * missileSpeed,
                                      toPlayer.y * missileSpeed,
                                      toPlayer.z * missileSpeed};
@@ -176,7 +239,57 @@ void EnemyBullet::Update() {
     collider_->SetVelocity(velocity_);
   }
 
+  // 弾の向き（回転）の計算
+  Vector3 forwardDir = velocity_;
+
+  // ミサイルのタメ・展開ホバリング中は、速度ではなくプレイヤーの方向を向いて狙いを定める
+  if (type_ == EnemyBulletType::LockOnDestructible && aliveFrames_ < swarmWaitFrames_) {
+    if (player_ && !player_->IsDead()) {
+      Vector3 playerPos = player_->GetTransform().translate;
+      forwardDir = {playerPos.x - pos.x, playerPos.y - pos.y, playerPos.z - pos.z};
+    }
+  }
+
+  // 弾の向き（forwardDir）へ親オブジェクトを向ける（Pitch, Yawのみ）
+  float lenSq = forwardDir.x * forwardDir.x + forwardDir.y * forwardDir.y + forwardDir.z * forwardDir.z;
+  if (lenSq > 0.0001f) {
+    float yaw = std::atan2(forwardDir.x, forwardDir.z);
+    float xzLen = std::sqrt(forwardDir.x * forwardDir.x + forwardDir.z * forwardDir.z);
+    float pitch = std::atan2(-forwardDir.y, xzLen);
+
+    Vector3 rot = {pitch, yaw, 0.0f};
+    object3d_->SetRotation(rot);
+    transform_.rotate = rot;
+  }
+
+  // 親（姿勢・位置）のワールド行列を確定
   object3d_->Update();
+
+  // 誘導弾の場合、子オブジェクトを親の進行軸（ローカルZ軸）周りに自転（Roll）させる
+  if (crystalObject_) {
+    rollAngle_ += 0.2f;
+    if (rollAngle_ > std::numbers::pi_v<float> * 2.0f) {
+      rollAngle_ -= std::numbers::pi_v<float> * 2.0f;
+    }
+    crystalObject_->SetRotation({0.0f, 0.0f, rollAngle_});
+    crystalObject_->Update();
+  }
+
+  // 誘導弾の発射後（待機終了後）、後端からトレイル履歴を追加
+  if (type_ == EnemyBulletType::LockOnDestructible && aliveFrames_ >= swarmWaitFrames_ && crystalObject_) {
+    // 結晶の後端（ローカル Z = -1.0）のワールド座標を取得
+    const Matrix4x4& world = crystalObject_->GetWorldMatrix();
+    Vector3 crystalTailPos = {
+        world.m[3][0] - world.m[2][0] * 1.0f,
+        world.m[3][1] - world.m[2][1] * 1.0f,
+        world.m[3][2] - world.m[2][2] * 1.0f
+    };
+
+    trailHistory_.insert(trailHistory_.begin(), crystalTailPos);
+    if (trailHistory_.size() > kMaxTrailPoints) {
+      trailHistory_.pop_back();
+    }
+  }
 }
 
 void EnemyBullet::OnCollision(Collider *other) {
@@ -214,7 +327,7 @@ void EnemyBullet::OnCollision(Collider *other) {
     else if (dynamic_cast<HomingBullet *>(bulletOwner)) {
       if (type_ == EnemyBulletType::NormalDestructible ||
           type_ == EnemyBulletType::LockOnDestructible) {
-        hp_ -= 3; // ロックオンレーザーで3ダメージ（ミサイルを一撃破壊）
+        hp_ -= 3; // ロックオンレーザーで3ダメージ（誘導弾を一撃破壊）
         Logger::Log("EnemyBullet: Hit by HomingBullet!\n");
       }
     }
@@ -231,18 +344,51 @@ void EnemyBullet::Explode() {
     isDead_ = true;
     
     // タイプに応じた色で爆発エフェクトを発生させる
-    Vector4 color = {1.0f, 0.5f, 0.0f, 1.0f}; // デフォルト（通常弾）はオレンジ
+    Vector4 color = {1.0f, 0.5f, 0.0f, 1.0f}; // 通常弾：オレンジ
     if (type_ == EnemyBulletType::LockOnDestructible) {
-        color = {1.0f, 0.0f, 0.0f, 1.0f}; // ミサイルは赤
+        color = {0.2f, 0.8f, 1.0f, 1.0f}; // 誘導弾：シアンブルー
     } else if (type_ == EnemyBulletType::Indestructible) {
-        color = {0.0f, 0.0f, 1.0f, 1.0f}; // 破壊不可弾は青
+        color = {0.0f, 0.0f, 1.0f, 1.0f}; // 破壊不可弾：青
     }
     
     EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(object3d_->GetTranslation(), color);
 }
 
 void EnemyBullet::Draw3D() {
-  if (!isDead_ && object3d_) {
-    object3d_->Draw();
+  if (!isDead_) {
+    if (crystalObject_) {
+      crystalObject_->Draw();
+    } else if (object3d_) {
+      object3d_->Draw();
+    }
+  }
+
+  // 誘導弾のリボントレイル描画登録
+  if (type_ == EnemyBulletType::LockOnDestructible && trailHistory_.size() >= 2) {
+    std::vector<TrailRenderer::TrailNode> nodes;
+    nodes.reserve(trailHistory_.size());
+
+    size_t count = trailHistory_.size();
+    for (size_t i = 0; i < count; ++i) {
+      float t = static_cast<float>(i) / static_cast<float>(count - 1); // 0.0(弾頭直後) 〜 1.0(末尾)
+      // 太さ：弾頭幅（2.6m）から末尾（0.3m）へ補間
+      float width = Lerp(2.6f, 0.3f, t);
+      // アルファ：末尾に向かって線形フェードアウト
+      float alpha = 1.0f - t;
+      // シアンブルーの光帯
+      Vector4 color = {0.6f * alpha, 2.8f * alpha, 5.5f * alpha, alpha};
+
+      nodes.push_back({trailHistory_[i], width, color});
+    }
+
+    // カメラ座標の取得
+    Vector3 cameraPos = {0.0f, 0.0f, 0.0f};
+    if (renderer_ && renderer_->GetDefaultCamera()) {
+      cameraPos = renderer_->GetDefaultCamera()->GetTranslate();
+    } else if (player_) {
+      cameraPos = player_->GetTransform().translate;
+    }
+
+    TrailRenderer::GetInstance()->AddTrail(nodes, cameraPos);
   }
 }

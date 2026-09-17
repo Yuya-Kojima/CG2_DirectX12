@@ -44,6 +44,10 @@ public:
                                         float minorRadius = 0.2f,
                                         uint32_t majorSegments = 32,
                                         uint32_t minorSegments = 16);
+
+  /// @brief 多面体クリスタル（両錐・結晶）メッシュを生成（Z軸中心、+Zが先端、フラットシェーディング）
+  static Model::ModelData GenerateCrystal(float radius = 0.5f, float height = 2.0f,
+                                          uint32_t segments = 6);
 };
 
 } // namespace RC
