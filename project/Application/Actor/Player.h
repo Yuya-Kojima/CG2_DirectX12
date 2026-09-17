@@ -120,6 +120,7 @@ private:
 
   std::unique_ptr<class SphereCollider> collider_;
   std::unique_ptr<LockOn> lockOn_;
+  std::shared_ptr<bool> isAliveToken_ = std::make_shared<bool>(true);
 
   SpriteRenderer *spriteRenderer_ = nullptr;
   class Object3dRenderer *object3dRenderer_ = nullptr;

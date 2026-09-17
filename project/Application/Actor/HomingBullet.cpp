@@ -16,6 +16,9 @@
 
 HomingBullet::HomingBullet() {}
 HomingBullet::~HomingBullet() {
+  if (onDestroyCallback_) {
+    onDestroyCallback_(originalTarget_);
+  }
   if (collider_) {
     CollisionManager::GetInstance()->Remove(collider_.get());
   }
@@ -37,6 +40,7 @@ void HomingBullet::Initialize(Object3dRenderer *renderer,
 
   velocity_ = initialVelocity;
   target_ = target;
+  originalTarget_ = target;
   lifeTimer_ = 180;
 
   // コライダーの設定

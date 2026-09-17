@@ -2,19 +2,63 @@
 #include "Math/MathUtil.h"
 #include "Framework/BaseActor.h"
 #include "Render/Object3d/Object3d.h"
+#include <cmath>
+#include <algorithm>
 
 void LockOn::Initialize(SpriteRenderer *spriteRenderer) {
-  // レティクル（カーソル）用のスプライトを最大数分、生成・初期化
-  for (int i = 0; i < kMaxLockOnCount; ++i) {
+  // ロックオンマーカー用スプライトを生成・初期化（最大表示数分）
+  for (size_t i = 0; i < kMaxDisplayReticles; ++i) {
     reticles_[i] = std::make_unique<Sprite>();
-    reticles_[i]->Initialize(spriteRenderer, "resources/white1x1.png");
-    reticles_[i]->SetSize({50.0f, 50.0f});
-    reticles_[i]->SetColor({1.0f, 0.0f, 0.0f, 1.0f}); // 赤色
+    reticles_[i]->Initialize(spriteRenderer, "resources/lockon_marker.png");
+    reticles_[i]->SetAnchorPoint({0.5f, 0.5f}); // 回転・拡大の中心をスプライト中央に設定
+    reticles_[i]->SetSize({64.0f, 64.0f});
+    reticles_[i]->SetColor({0.3f, 1.2f, 1.8f, 1.0f});
   }
 
-  // 初期状態はターゲットリストを空にする
+  targets_.clear();
+  targetInfos_.clear();
+  lockOnDelayTimer_ = 0;
+}
+
+void LockOn::Clear() {
+  targets_.clear();
+  targetInfos_.clear();
+  lockOnDelayTimer_ = 0;
+}
+
+void LockOn::ClearLocking() {
+  targetInfos_.erase(
+      std::remove_if(targetInfos_.begin(), targetInfos_.end(),
+                     [](const TargetInfo &info) {
+                       return info.state == TargetState::Locking;
+                     }),
+      targetInfos_.end());
   targets_.clear();
   lockOnDelayTimer_ = 0;
+}
+
+void LockOn::OnHomingFired() {
+  // 発射時：現在捕捉中の敵をすべて追尾中状態へ昇格させる
+  for (auto &info : targetInfos_) {
+    if (info.state == TargetState::Locking) {
+      info.state = TargetState::Tracking;
+    }
+  }
+  targets_.clear();
+  lockOnDelayTimer_ = 0;
+}
+
+void LockOn::RemoveTrackingTarget(BaseActor *target) {
+  if (!target)
+    return;
+
+  auto it = std::find_if(
+      targetInfos_.begin(), targetInfos_.end(), [target](const TargetInfo &info) {
+        return info.actor == target && info.state == TargetState::Tracking;
+      });
+  if (it != targetInfos_.end()) {
+    targetInfos_.erase(it);
+  }
 }
 
 void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
@@ -24,6 +68,16 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
   
   viewProjectionMatrix_ = viewProjectionMatrix; // 描画用にキャッシュ
 
+  // 撃破などで消滅した敵をリストから除外
+  for (auto it = targetInfos_.begin(); it != targetInfos_.end();) {
+    if (!it->actor || it->actor->IsDead()) {
+      it = targetInfos_.erase(it);
+    } else {
+      it->lockTime += 1.0f / 60.0f; // ロックオン・追尾経過時間を加算
+      ++it;
+    }
+  }
+
   // --------------------------------------------------
   //  ロックオン対象を探す処理
   // --------------------------------------------------
@@ -32,21 +86,32 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
     lockOnDelayTimer_--;
   }
 
-  // ロックオンモード（長押し中）かつ、ディレイが明けている場合のみ新たな敵をストックする
-  if (isLockOnMode && targets_.size() < kMaxLockOnCount && lockOnDelayTimer_ <= 0) {
-    for (BaseActor* target : inputTargets) {
-      if (!target) continue;
+  // 現在準備中（Locking）の敵数を取得
+  size_t lockingCount = std::count_if(
+      targetInfos_.begin(), targetInfos_.end(),
+      [](const TargetInfo &info) { return info.state == TargetState::Locking; });
 
-      // 撃破されて消滅している敵はロックオン対象から外す
-      if (target->IsDead()) continue;
-
-      // すでにロックオン済みの敵は無視
-      if (std::find(targets_.begin(), targets_.end(), target) != targets_.end()) {
+  // ロックオンモード（長押し中）かつ、1回の上限および総表示上限未満、ディレイ明けの場合のみ追加
+  if (isLockOnMode && lockingCount < kMaxLockOnPerVolley &&
+      targetInfos_.size() < kMaxDisplayReticles && lockOnDelayTimer_ <= 0) {
+    for (BaseActor *target : inputTargets) {
+      if (!target || target->IsDead())
         continue;
+
+      // すでに捕捉中、または現在弾が追尾中の敵は除外（二重ロックオン・無駄撃ち防止）
+      bool alreadyLocked = false;
+      for (const auto &info : targetInfos_) {
+        if (info.actor == target) {
+          alreadyLocked = true;
+          break;
+        }
       }
+      if (alreadyLocked)
+        continue;
 
       Vector3 worldPos = target->GetTransform().translate;
-      Vector2 screenPos = WorldToScreen(worldPos, viewProjectionMatrix, 1280.0f, 720.0f);
+      Vector2 screenPos =
+          WorldToScreen(worldPos, viewProjectionMatrix, 1280.0f, 720.0f);
 
       // 照準と敵の画面上の距離を計算
       float dx = screenPos.x - reticlePos.x;
@@ -54,33 +119,79 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
       float dist = std::sqrt(dx * dx + dy * dy);
 
       if (dist <= lockOnRadius) {
-        targets_.push_back(target); // ロックオンストックに追加
+        targetInfos_.push_back({target, 0.0f, TargetState::Locking});
         lockOnDelayTimer_ = kLockOnInterval; // ディレイを開始
         break; // 1フレームに1体ずつロックオンする
       }
     }
   }
+
+  // 外部互換用ターゲット配列の同期（発射対象は Locking 状態の敵のみ）
+  targets_.clear();
+  targets_.reserve(lockingCount);
+  for (const auto &info : targetInfos_) {
+    if (info.state == TargetState::Locking) {
+      targets_.push_back(info.actor);
+    }
+  }
 }
 
 void LockOn::Draw() {
-  for (size_t i = 0; i < targets_.size(); ++i) {
-    BaseActor* target = targets_[i];
-    if (!target) continue;
-    
+  const float kBaseSize = 60.0f;         // 基本マーカーサイズ
+  const float kConvergeDuration = 0.15f; // 外側からの収束時間（秒）
+
+  size_t drawCount = std::min(targetInfos_.size(), reticles_.size());
+
+  for (size_t i = 0; i < drawCount; ++i) {
+    BaseActor *target = targetInfos_[i].actor;
+    if (!target)
+      continue;
+
     Vector3 targetPos = target->GetTransform().translate;
-    Vector2 screenPos = WorldToScreen(targetPos, viewProjectionMatrix_, 1280.0f, 720.0f);
+    Vector2 screenPos =
+        WorldToScreen(targetPos, viewProjectionMatrix_, 1280.0f, 720.0f);
 
-    Vector2 drawPos;
-    drawPos.x = screenPos.x - 25.0f; // サイズの半分
-    drawPos.y = screenPos.y - 25.0f;
+    reticles_[i]->SetPosition(screenPos);
 
-    reticles_[i]->SetPosition(drawPos);
+    float elapsed = targetInfos_[i].lockTime;
+    float currentSize = kBaseSize;
+    float alpha = 1.0f;
+    float rotation = 0.0f;
+
+    if (targetInfos_[i].state == TargetState::Locking) {
+      // --- 捕捉中（発射前）：シアンブルーで収束 ＋ 回転・脈動 ---
+      if (elapsed < kConvergeDuration) {
+        float t = elapsed / kConvergeDuration;
+        float easeOut = 1.0f - std::pow(1.0f - t, 3.0f);
+        currentSize = Lerp(kBaseSize * 2.4f, kBaseSize, easeOut);
+        alpha = Lerp(0.4f, 1.0f, easeOut);
+        rotation = (1.0f - easeOut) * 0.8f;
+      } else {
+        float loopTime = elapsed - kConvergeDuration;
+        rotation = loopTime * 0.8f;
+        float pulse = 1.0f + std::sin(loopTime * 8.0f) * 0.04f;
+        currentSize = kBaseSize * pulse;
+        alpha = 1.0f;
+      }
+      reticles_[i]->SetColor({0.3f, 1.3f, 2.0f, alpha});
+    } else {
+      // --- 追尾中（発射後）：オレンジレッドで敵に吸着・追尾中を明示 ---
+      float pulse = 1.0f + std::sin(elapsed * 10.0f) * 0.03f;
+      currentSize = (kBaseSize * 0.95f) * pulse; // ややシャープなサイズ
+      rotation = 0.785398f; // 45度固定（X字クロスロック形態）
+      alpha = 0.95f;
+      reticles_[i]->SetColor({2.2f, 0.65f, 0.15f, alpha});
+    }
+
+    reticles_[i]->SetSize({currentSize, currentSize});
+    reticles_[i]->SetRotation(rotation);
+
     Transform defaultUV;
     defaultUV.scale = {1.0f, 1.0f, 1.0f};
     defaultUV.rotate = {0.0f, 0.0f, 0.0f};
     defaultUV.translate = {0.0f, 0.0f, 0.0f};
     reticles_[i]->Update(defaultUV);
-    
-    reticles_[i]->Draw(); 
+
+    reticles_[i]->Draw();
   }
 }

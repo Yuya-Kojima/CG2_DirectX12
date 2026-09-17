@@ -25,6 +25,9 @@
 
 Player::Player(const ICamera *camera) : camera_(camera) { assert(camera_); }
 Player::~Player() {
+  if (isAliveToken_) {
+    *isAliveToken_ = false;
+  }
   if (collider_) {
     CollisionManager::GetInstance()->Remove(collider_.get());
   }
@@ -430,14 +433,15 @@ void Player::Update() {
       if (attackState_ == AttackState::Pressing) {
         // 短押し：通常ショット発射
         FireNormalShot();
+        if (lockOn_) {
+          lockOn_->ClearLocking(); // 短押し時は準備中のロックオン枠のみ解除
+        }
       } else if (attackState_ == AttackState::LockOn) {
         // ロックオンモード終了：ホーミング弾を一斉発射
+        // （FireHomingShot 内で OnHomingFired() が呼ばれ、追尾中マーカーへ昇格）
         FireHomingShot();
       }
       attackState_ = AttackState::Idle;
-      if (lockOn_) {
-        lockOn_->Clear(); // ロックオン状態を解除
-      }
     }
   }
 
@@ -524,9 +528,21 @@ void Player::FireHomingShot() {
         actionConfig_.homingSpeed, actionConfig_.homingFallTime,
         actionConfig_.homingStrengthIncrease, actionConfig_.homingStrengthMax);
 
+    // 弾消滅時（着弾または寿命切れ）にロックオン追尾マーカーを解除するコールバックを設定
+    LockOn *lockOnPtr = lockOn_.get();
+    std::weak_ptr<bool> isAliveWeak = isAliveToken_;
+    bullet->SetOnDestroyCallback([lockOnPtr, isAliveWeak](BaseActor *target) {
+      if (!isAliveWeak.expired() && lockOnPtr) {
+        lockOnPtr->RemoveTrackingTarget(target);
+      }
+    });
+
     // ActorManagerに弾を登録して、自動でUpdate・Drawされるようにする
     ActorManager::GetInstance()->AddActor(std::move(bullet));
   }
+
+  // 発射完了後、捕捉中の敵をすべて追尾中（Tracking）マーカーへ昇格
+  lockOn_->OnHomingFired();
 
   // ホーミング弾発射時の反動を発生させる
   recoilOffset_ += actionConfig_.recoilStrength * 1.5f;
