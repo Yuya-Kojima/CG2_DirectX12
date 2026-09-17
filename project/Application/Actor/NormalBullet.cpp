@@ -13,6 +13,7 @@
 #include "Collision/SphereCollider.h"
 
 #include "Collision/CollisionManager.h"
+#include "Effect/EffectManager.h"
 
 NormalBullet::NormalBullet() {}
 NormalBullet::~NormalBullet() {
@@ -89,11 +90,27 @@ void NormalBullet::OnCollision(Collider* other) {
     if (enemy && !enemy->IsDead()) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
+
+      // 着弾ヒットスパーク（通常弾：ゴールド/オレンジ系の火花）
+      EffectManager::GetInstance()->PlayEffect(
+          EffectType::HitSpark,
+          object3d_->GetTranslation(),
+          Vector4{2.0f, 1.4f, 0.4f, 1.0f}
+      );
+
       Logger::Log("Normal Bullet Hit Enemy!\n");
     }
   }
   else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
     isDead_ = true;
+
+    // 着弾ヒットスパーク（通常弾：ゴールド/オレンジ系の火花）
+    EffectManager::GetInstance()->PlayEffect(
+        EffectType::HitSpark,
+        object3d_->GetTranslation(),
+        Vector4{2.0f, 1.4f, 0.4f, 1.0f}
+    );
+
     Logger::Log("Normal Bullet Intercepted EnemyBullet!\n");
   }
 }

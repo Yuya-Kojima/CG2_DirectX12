@@ -18,6 +18,7 @@ EffectManager *EffectManager::GetInstance() {
 
 void EffectManager::Initialize() {
   LoadShockwaveConfig();
+  LoadEffectsConfig();
 
   // ==========================================
   // ボス用エフェクト
@@ -241,73 +242,75 @@ void EffectManager::PlayBossBurstEffect(const Vector3 &center) {
   PlayShockwave(center);
 }
 
-void EffectManager::PlayEnemyDeathEffect(const Vector3 &worldPos,
-                                         const Vector4 &baseColor) {
-  PlayShockwave(worldPos);
+void EffectManager::PlayEffect(EffectType type, const Vector3 &worldPos,
+                                const Vector4 &color, float scaleMultiplier) {
+  size_t typeIndex = static_cast<size_t>(type);
+  if (typeIndex >= static_cast<size_t>(EffectType::Count)) {
+    return;
+  }
 
-  int i = nextHitEffectIndex_;
+  const auto &preset = effectConfigs_[typeIndex];
 
-  // 色を動的に変更してEmit
-  deathCoreEmitters_[i]->SetCenter(worldPos);
-  deathCoreEmitters_[i]->Emit(baseColor);
+  // 画面の空間歪みショックウェーブ
+  if (preset.enableShockwave) {
+    PlayShockwave(worldPos);
+  }
 
-  // フレアは元の色にEnemyの色を少し混ぜるか、明るめにする
-  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f,
-                        baseColor.z * 2.0f, 1.0f};
-  deathFlareEmitters_[i]->SetCenter(worldPos);
-  deathFlareEmitters_[i]->Emit(flareColor);
-
-  // リングも同色系統にする
-  Vector4 ringColor = {baseColor.x * 1.5f, baseColor.y * 1.5f,
-                       baseColor.z * 1.5f, 1.0f};
-  deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f}); // 爆発用の初期サイズ
-  deathRingEmitters_[i]->SetScaleVelocity(
-      {80.0f, 80.0f, 80.0f}); // 爆発用に高速で広がる
-  deathRingEmitters_[i]->SetCenter(worldPos);
-  deathRingEmitters_[i]->Emit(ringColor);
-
-  nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
-}
-
-void EffectManager::PlayEnemyDeathSimpleEffect(const Vector3 &worldPos,
-                                               const Vector4 &baseColor) {
-  int i = nextHitEffectIndex_;
-
-  // コア（しっかり見えるようにサイズを30に拡大）
-  deathCoreEmitters_[i]->SetBaseScale({30.0f, 30.0f, 30.0f});
-  deathCoreEmitters_[i]->SetCenter(worldPos);
-  deathCoreEmitters_[i]->Emit(baseColor);
-
-  // フレア（敵のモデルより大きくなるようにサイズを2.5に拡大）
-  Vector4 flareColor = {baseColor.x * 2.0f, baseColor.y * 2.0f,
-                        baseColor.z * 2.0f, 1.0f};
-  deathFlareEmitters_[i]->SetBaseScale({2.5f, 2.5f, 2.5f});
-  deathFlareEmitters_[i]->SetCenter(worldPos);
-  deathFlareEmitters_[i]->Emit(flareColor);
-
-  nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
-}
-
-void EffectManager::PlayFunnelMuzzleRing(const Vector3 &worldPos,
-                                         const Vector4 &color) {
-  // 3枚のリングを少しずつサイズと速度をズラして重ねる
-  for (int j = 0; j < 3; ++j) {
+  // 1. コア閃光
+  if (preset.core.enable) {
     int i = nextHitEffectIndex_;
-
-    // リングごとに初期サイズと広がるスピードに差をつける
-    float baseScale = 0.2f + (j * 0.15f);
-    float speed = 15.0f - (j * 2.0f);
-
-    // 発光を強くするためRGB成分を強調
-    Vector4 brightColor = {color.x * 2.5f, color.y * 2.5f, color.z * 2.5f,
-                           color.w};
-
-    deathRingEmitters_[i]->SetBaseScale({baseScale, baseScale, baseScale});
-    deathRingEmitters_[i]->SetScaleVelocity({speed, speed, speed});
-    deathRingEmitters_[i]->SetCenter(worldPos);
-    deathRingEmitters_[i]->Emit(brightColor);
+    float finalScale = preset.core.scale * scaleMultiplier;
+    deathCoreEmitters_[i]->SetBaseScale({finalScale, finalScale, finalScale});
+    deathCoreEmitters_[i]->SetScaleVelocity({preset.core.scaleVelocity * scaleMultiplier,
+                                             preset.core.scaleVelocity * scaleMultiplier,
+                                             preset.core.scaleVelocity * scaleMultiplier});
+    deathCoreEmitters_[i]->SetLifeRange(preset.core.life, preset.core.life);
+    deathCoreEmitters_[i]->SetCenter(worldPos);
+    deathCoreEmitters_[i]->Emit(color);
 
     nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+  }
+
+  // 2. 散乱火花パーティクル
+  if (preset.flare.enable && preset.flare.count > 0) {
+    int i = nextHitEffectIndex_;
+    float flareScale = preset.flare.scale * scaleMultiplier;
+    deathFlareEmitters_[i]->SetBaseScale({flareScale, flareScale, flareScale});
+    deathFlareEmitters_[i]->SetScaleVelocity({preset.flare.scaleVelocity,
+                                              preset.flare.scaleVelocity,
+                                              preset.flare.scaleVelocity});
+    deathFlareEmitters_[i]->SetCount(preset.flare.count);
+    deathFlareEmitters_[i]->SetLifeRange(preset.flare.lifeMin, preset.flare.lifeMax);
+    deathFlareEmitters_[i]->SetBaseVelocity({0.0f, 0.0f, 0.0f});
+    deathFlareEmitters_[i]->SetVelocityRandom({preset.flare.speed,
+                                               preset.flare.speed,
+                                               preset.flare.speed});
+    deathFlareEmitters_[i]->SetCenter(worldPos);
+
+    // 火花は少し高輝度に発光
+    Vector4 flareColor = {color.x * 1.5f, color.y * 1.5f, color.z * 1.5f, color.w};
+    deathFlareEmitters_[i]->Emit(flareColor);
+
+    nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+  }
+
+  // 3. 衝撃波リング
+  if (preset.ring.enable && preset.ring.count > 0) {
+    for (int j = 0; j < preset.ring.count; ++j) {
+      int i = nextHitEffectIndex_;
+      float startScale = (preset.ring.startScale + j * 0.15f) * scaleMultiplier;
+      float expandSpeed = (preset.ring.expandSpeed - j * 2.0f) * scaleMultiplier;
+
+      deathRingEmitters_[i]->SetBaseScale({startScale, startScale, startScale});
+      deathRingEmitters_[i]->SetScaleVelocity({expandSpeed, expandSpeed, expandSpeed});
+      deathRingEmitters_[i]->SetLifeRange(preset.ring.life, preset.ring.life);
+      deathRingEmitters_[i]->SetCenter(worldPos);
+
+      Vector4 ringColor = {color.x * 1.8f, color.y * 1.8f, color.z * 1.8f, color.w};
+      deathRingEmitters_[i]->Emit(ringColor);
+
+      nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
+    }
   }
 }
 
@@ -322,7 +325,8 @@ void EffectManager::DrawEditorUI(RailCamera *railCamera) {
   ImGui::Text("Effect Master Settings");
   ImGui::Separator();
 
-  if (isShockwaveConfigDirty_) {
+  // Shockwave 設定保存
+  if (isShockwaveConfigDirty_ || isEffectsConfigDirty_) {
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.6f, 0.0f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
                           ImVec4(0.9f, 0.7f, 0.1f, 1.0f));
@@ -330,21 +334,26 @@ void EffectManager::DrawEditorUI(RailCamera *railCamera) {
                           ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
   }
 
-  std::string buttonText = isShockwaveConfigDirty_
-                               ? (const char *)u8"[* 未保存] Save Config"
-                               : (const char *)u8"Save Config";
-  if (ImGui::Button(buttonText.c_str(),
+  std::string saveButtonText = (isShockwaveConfigDirty_ || isEffectsConfigDirty_)
+                                   ? (const char *)u8"[* 未保存] Save All Configs"
+                                   : (const char *)u8"Save All Configs";
+  if (ImGui::Button(saveButtonText.c_str(),
                     ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
-    SaveShockwaveConfig();
+    if (isShockwaveConfigDirty_) {
+      SaveShockwaveConfig();
+    }
+    if (isEffectsConfigDirty_) {
+      SaveEffectsConfig();
+    }
   }
 
-  if (isShockwaveConfigDirty_) {
+  if (isShockwaveConfigDirty_ || isEffectsConfigDirty_) {
     ImGui::PopStyleColor(3);
   }
 
   ImGui::Spacing();
   ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f));
-  if (ImGui::Button((const char *)u8"▶ Test Play (テスト再生)",
+  if (ImGui::Button((const char *)u8"▶ Test Play Selected Effect",
                     ImVec2(ImGui::GetContentRegionAvail().x, 30))) {
     if (railCamera) {
       Matrix4x4 viewMatrix = railCamera->GetViewMatrix();
@@ -353,28 +362,87 @@ void EffectManager::DrawEditorUI(RailCamera *railCamera) {
                            cameraWorld.m[3][2]};
       Vector3 cameraForward = {cameraWorld.m[2][0], cameraWorld.m[2][1],
                                cameraWorld.m[2][2]};
-      Vector3 testPos = {cameraPos.x + cameraForward.x * 20.0f,
-                         cameraPos.y + cameraForward.y * 20.0f,
-                         cameraPos.z + cameraForward.z * 20.0f};
-      PlayShockwave(testPos);
+      Vector3 testPos = {cameraPos.x + cameraForward.x * 25.0f,
+                         cameraPos.y + cameraForward.y * 25.0f,
+                         cameraPos.z + cameraForward.z * 25.0f};
+
+      EffectType selectedType = static_cast<EffectType>(selectedEffectIndex_);
+      Vector4 testColor = {1.0f, 1.0f, 1.0f, 1.0f};
+      if (selectedType == EffectType::HitSpark) {
+        testColor = {0.3f, 1.2f, 2.0f, 1.0f};
+      } else if (selectedType == EffectType::EnemyDeath || selectedType == EffectType::EnemyDeathSimple) {
+        testColor = {1.0f, 0.6f, 0.2f, 1.0f};
+      }
+      PlayEffect(selectedType, testPos, testColor);
     }
   }
   ImGui::PopStyleColor();
 
   ImGui::Spacing();
 
-  bool changed = false;
-  changed |= ImGui::DragFloat((const char *)u8"再生時間 (Duration)",
-                              &shockwaveConfig_.duration, 0.01f, 0.1f, 5.0f);
-  changed |= ImGui::DragFloat((const char *)u8"最大半径 (Max Radius)",
-                              &shockwaveConfig_.maxRadius, 0.01f, 0.1f, 5.0f);
-  changed |= ImGui::DragFloat((const char *)u8"歪みの強さ (Distortion)",
-                              &shockwaveConfig_.distortion, 0.001f, 0.0f, 0.5f);
-  changed |= ImGui::DragFloat((const char *)u8"波の太さ (Thickness)",
-                              &shockwaveConfig_.thickness, 0.001f, 0.0f, 1.0f);
+  // エフェクト選択
+  const char *effectNames[] = {
+      "HitSpark (着弾スパーク)",
+      "EnemyDeath (大爆発)",
+      "EnemyDeathSimple (中爆発)",
+      "MuzzleRing (急発進リング)"
+  };
+  ImGui::Combo((const char *)u8"対象エフェクト", &selectedEffectIndex_, effectNames, IM_ARRAYSIZE(effectNames));
 
-  if (changed) {
-    isShockwaveConfigDirty_ = true;
+  if (selectedEffectIndex_ >= 0 && selectedEffectIndex_ < static_cast<int>(EffectType::Count)) {
+    auto &preset = effectConfigs_[selectedEffectIndex_];
+
+    bool changed = false;
+    changed |= ImGui::Checkbox((const char *)u8"空間歪みショックウェーブ発生", &preset.enableShockwave);
+
+    if (ImGui::TreeNode((const char *)u8"コア閃光 (Core Flash)")) {
+      changed |= ImGui::Checkbox((const char *)u8"有効 (Core Enable)", &preset.core.enable);
+      changed |= ImGui::DragFloat((const char *)u8"初期スケール (Scale)", &preset.core.scale, 0.1f, 0.1f, 50.0f);
+      changed |= ImGui::DragFloat((const char *)u8"スケール変化速度 (Scale Vel)", &preset.core.scaleVelocity, 0.5f, -100.0f, 100.0f);
+      changed |= ImGui::DragFloat((const char *)u8"寿命 (Life)", &preset.core.life, 0.01f, 0.02f, 2.0f);
+      ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode((const char *)u8"散乱火花 (Flare Sparks)")) {
+      changed |= ImGui::Checkbox((const char *)u8"有効 (Flare Enable)", &preset.flare.enable);
+      changed |= ImGui::SliderInt((const char *)u8"発生粒数 (Count)", &preset.flare.count, 0, 80);
+      changed |= ImGui::DragFloat((const char *)u8"粒サイズ (Scale)", &preset.flare.scale, 0.02f, 0.05f, 10.0f);
+      changed |= ImGui::DragFloat((const char *)u8"飛散初速 (Speed)", &preset.flare.speed, 0.5f, 1.0f, 100.0f);
+      changed |= ImGui::DragFloat((const char *)u8"最小寿命 (LifeMin)", &preset.flare.lifeMin, 0.01f, 0.02f, 2.0f);
+      changed |= ImGui::DragFloat((const char *)u8"最大寿命 (LifeMax)", &preset.flare.lifeMax, 0.01f, 0.02f, 2.0f);
+      ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode((const char *)u8"衝撃波リング (Shock Ring)")) {
+      changed |= ImGui::Checkbox((const char *)u8"有効 (Ring Enable)", &preset.ring.enable);
+      changed |= ImGui::SliderInt((const char *)u8"重なり枚数 (Count)", &preset.ring.count, 0, 5);
+      changed |= ImGui::DragFloat((const char *)u8"初期半径 (Start Scale)", &preset.ring.startScale, 0.02f, 0.05f, 5.0f);
+      changed |= ImGui::DragFloat((const char *)u8"拡散速度 (Expand Speed)", &preset.ring.expandSpeed, 0.5f, 1.0f, 200.0f);
+      changed |= ImGui::DragFloat((const char *)u8"寿命 (Life)", &preset.ring.life, 0.01f, 0.02f, 2.0f);
+      ImGui::TreePop();
+    }
+
+    if (changed) {
+      isEffectsConfigDirty_ = true;
+    }
+  }
+
+  ImGui::Separator();
+  if (ImGui::TreeNode((const char *)u8"ショックウェーブ全体設定 (Shockwave Master)")) {
+    bool changed = false;
+    changed |= ImGui::DragFloat((const char *)u8"再生時間 (Duration)",
+                                &shockwaveConfig_.duration, 0.01f, 0.1f, 5.0f);
+    changed |= ImGui::DragFloat((const char *)u8"最大半径 (Max Radius)",
+                                &shockwaveConfig_.maxRadius, 0.01f, 0.1f, 5.0f);
+    changed |= ImGui::DragFloat((const char *)u8"歪みの強さ (Distortion)",
+                                &shockwaveConfig_.distortion, 0.001f, 0.0f, 0.5f);
+    changed |= ImGui::DragFloat((const char *)u8"波の太さ (Thickness)",
+                                &shockwaveConfig_.thickness, 0.001f, 0.0f, 1.0f);
+
+    if (changed) {
+      isShockwaveConfigDirty_ = true;
+    }
+    ImGui::TreePop();
   }
 #endif
 }
@@ -416,4 +484,135 @@ void EffectManager::LoadShockwaveConfig() {
     }
   }
   isShockwaveConfigDirty_ = false;
+}
+
+void EffectManager::SaveEffectsConfig() {
+  nlohmann::json root;
+  const char *keys[] = {"HitSpark", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
+
+  for (size_t i = 0; i < static_cast<size_t>(EffectType::Count); ++i) {
+    const auto &preset = effectConfigs_[i];
+    nlohmann::json item;
+
+    item["enableShockwave"] = preset.enableShockwave;
+
+    item["core"]["enable"] = preset.core.enable;
+    item["core"]["scale"] = preset.core.scale;
+    item["core"]["scaleVelocity"] = preset.core.scaleVelocity;
+    item["core"]["life"] = preset.core.life;
+
+    item["flare"]["enable"] = preset.flare.enable;
+    item["flare"]["count"] = preset.flare.count;
+    item["flare"]["scale"] = preset.flare.scale;
+    item["flare"]["scaleVelocity"] = preset.flare.scaleVelocity;
+    item["flare"]["speed"] = preset.flare.speed;
+    item["flare"]["lifeMin"] = preset.flare.lifeMin;
+    item["flare"]["lifeMax"] = preset.flare.lifeMax;
+
+    item["ring"]["enable"] = preset.ring.enable;
+    item["ring"]["count"] = preset.ring.count;
+    item["ring"]["startScale"] = preset.ring.startScale;
+    item["ring"]["expandSpeed"] = preset.ring.expandSpeed;
+    item["ring"]["life"] = preset.ring.life;
+
+    root[keys[i]] = item;
+  }
+
+  if (!std::filesystem::exists("resources/config")) {
+    std::filesystem::create_directories("resources/config");
+  }
+
+  std::ofstream file("resources/config/EffectsConfig.json");
+  if (file.is_open()) {
+    file << std::setw(4) << root << std::endl;
+    isEffectsConfigDirty_ = false;
+  }
+}
+
+void EffectManager::LoadEffectsConfig() {
+  // デフォルト値設定
+  // 1. HitSpark
+  {
+    auto &p = effectConfigs_[static_cast<size_t>(EffectType::HitSpark)];
+    p.enableShockwave = false;
+    p.core = {true, 12.0f, -20.0f, 0.25f};
+    p.flare = {true, 16, 1.2f, -1.0f, 22.0f, 0.25f, 0.40f};
+    p.ring = {true, 1, 0.2f, 50.0f, 0.20f};
+  }
+  // 2. EnemyDeath
+  {
+    auto &p = effectConfigs_[static_cast<size_t>(EffectType::EnemyDeath)];
+    p.enableShockwave = true;
+    p.core = {true, 20.0f, -20.0f, 0.50f};
+    p.flare = {true, 40, 0.8f, -1.0f, 30.0f, 0.40f, 0.60f};
+    p.ring = {true, 1, 0.1f, 80.0f, 0.70f};
+  }
+  // 3. EnemyDeathSimple
+  {
+    auto &p = effectConfigs_[static_cast<size_t>(EffectType::EnemyDeathSimple)];
+    p.enableShockwave = false;
+    p.core = {true, 30.0f, -20.0f, 0.50f};
+    p.flare = {true, 30, 2.5f, -1.0f, 20.0f, 0.40f, 0.60f};
+    p.ring = {false, 0, 0.1f, 0.0f, 0.0f};
+  }
+  // 4. MuzzleRing
+  {
+    auto &p = effectConfigs_[static_cast<size_t>(EffectType::MuzzleRing)];
+    p.enableShockwave = false;
+    p.core = {false, 0.0f, 0.0f, 0.0f};
+    p.flare = {false, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    p.ring = {true, 3, 0.2f, 15.0f, 0.50f};
+  }
+
+  // ファイルから上書きロード
+  std::ifstream file("resources/config/EffectsConfig.json");
+  if (file.is_open()) {
+    nlohmann::json root;
+    try {
+      file >> root;
+      const char *keys[] = {"HitSpark", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
+
+      for (size_t i = 0; i < static_cast<size_t>(EffectType::Count); ++i) {
+        const char *key = keys[i];
+        if (root.contains(key)) {
+          auto &preset = effectConfigs_[i];
+          const auto &item = root[key];
+
+          if (item.contains("enableShockwave"))
+            preset.enableShockwave = item["enableShockwave"];
+
+          if (item.contains("core")) {
+            const auto &c = item["core"];
+            if (c.contains("enable")) preset.core.enable = c["enable"];
+            if (c.contains("scale")) preset.core.scale = c["scale"];
+            if (c.contains("scaleVelocity")) preset.core.scaleVelocity = c["scaleVelocity"];
+            if (c.contains("life")) preset.core.life = c["life"];
+          }
+
+          if (item.contains("flare")) {
+            const auto &f = item["flare"];
+            if (f.contains("enable")) preset.flare.enable = f["enable"];
+            if (f.contains("count")) preset.flare.count = f["count"];
+            if (f.contains("scale")) preset.flare.scale = f["scale"];
+            if (f.contains("scaleVelocity")) preset.flare.scaleVelocity = f["scaleVelocity"];
+            if (f.contains("speed")) preset.flare.speed = f["speed"];
+            if (f.contains("lifeMin")) preset.flare.lifeMin = f["lifeMin"];
+            if (f.contains("lifeMax")) preset.flare.lifeMax = f["lifeMax"];
+          }
+
+          if (item.contains("ring")) {
+            const auto &r = item["ring"];
+            if (r.contains("enable")) preset.ring.enable = r["enable"];
+            if (r.contains("count")) preset.ring.count = r["count"];
+            if (r.contains("startScale")) preset.ring.startScale = r["startScale"];
+            if (r.contains("expandSpeed")) preset.ring.expandSpeed = r["expandSpeed"];
+            if (r.contains("life")) preset.ring.life = r["life"];
+          }
+        }
+      }
+    } catch (...) {
+      // JSONパースエラー時はデフォルト設定を維持
+    }
+  }
+  isEffectsConfigDirty_ = false;
 }
