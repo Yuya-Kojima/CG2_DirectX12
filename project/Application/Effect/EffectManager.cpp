@@ -74,6 +74,10 @@ void EffectManager::Initialize() {
     hitRingParticleGroups_[i]->Initialize("resources/circle.png");
     hitRingParticleGroups_[i]->SetIsRingMode(true);
 
+    // 4. ホーミング専用：鋭い十字グリント閃光
+    hitGlintParticleGroups_[i] = std::make_unique<BillboardParticleEmitter>();
+    hitGlintParticleGroups_[i]->Initialize("resources/laser_hit_glint.png");
+
     // 1. コア
     deathCoreEmitters_[i] = std::make_unique<ParticleEmitter>(
         hitCoreParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f},
@@ -100,6 +104,15 @@ void EffectManager::Initialize() {
     deathRingEmitters_[i]->SetBaseScale({0.1f, 0.1f, 0.1f});
     deathRingEmitters_[i]->SetColor({2.0f, 0.2f, 0.1f, 1.0f});
     deathRingEmitters_[i]->SetScaleVelocity({80.0f, 80.0f, 80.0f});
+
+    // 4. ホーミング用グリントエミッター
+    hitGlintEmitters_[i] = std::make_unique<ParticleEmitter>(
+        hitGlintParticleGroups_[i].get(), Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 1, 0.0f, Vector3{0.0f, 0.0f, 0.0f},
+        Vector3{0.0f, 0.0f, 0.0f}, 0.20f, 0.20f);
+    hitGlintEmitters_[i]->SetBaseScale({32.0f, 32.0f, 32.0f});
+    hitGlintEmitters_[i]->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+    hitGlintEmitters_[i]->SetScaleVelocity({-10.0f, -10.0f, -10.0f});
   }
 }
 
@@ -180,6 +193,8 @@ void EffectManager::Update(const ICamera *camera) {
                                        camera->GetProjectionMatrix());
     hitRingParticleGroups_[i]->Update(camera->GetViewMatrix(),
                                       camera->GetProjectionMatrix());
+    hitGlintParticleGroups_[i]->Update(camera->GetViewMatrix(),
+                                       camera->GetProjectionMatrix());
   }
 
   if (bossTelegraphNormalEmitter_) {
@@ -200,6 +215,7 @@ void EffectManager::Draw() {
     hitCoreParticleGroups_[i]->Draw();
     hitFlareParticleGroups_[i]->Draw();
     hitRingParticleGroups_[i]->Draw();
+    hitGlintParticleGroups_[i]->Draw();
   }
 
   if (bossTelegraphNormalParticleGroup_) {
@@ -256,17 +272,20 @@ void EffectManager::PlayEffect(EffectType type, const Vector3 &worldPos,
     PlayShockwave(worldPos);
   }
 
-  // 1. コア閃光
+  // 1. コア閃光（HomingHitの場合は鋭い十字グリント、その他は円形コア）
   if (preset.core.enable) {
     int i = nextHitEffectIndex_;
     float finalScale = preset.core.scale * scaleMultiplier;
-    deathCoreEmitters_[i]->SetBaseScale({finalScale, finalScale, finalScale});
-    deathCoreEmitters_[i]->SetScaleVelocity({preset.core.scaleVelocity * scaleMultiplier,
-                                             preset.core.scaleVelocity * scaleMultiplier,
-                                             preset.core.scaleVelocity * scaleMultiplier});
-    deathCoreEmitters_[i]->SetLifeRange(preset.core.life, preset.core.life);
-    deathCoreEmitters_[i]->SetCenter(worldPos);
-    deathCoreEmitters_[i]->Emit(color);
+    ParticleEmitter *emitter = (type == EffectType::HomingHit)
+                                   ? hitGlintEmitters_[i].get()
+                                   : deathCoreEmitters_[i].get();
+    emitter->SetBaseScale({finalScale, finalScale, finalScale});
+    emitter->SetScaleVelocity({preset.core.scaleVelocity * scaleMultiplier,
+                               preset.core.scaleVelocity * scaleMultiplier,
+                               preset.core.scaleVelocity * scaleMultiplier});
+    emitter->SetLifeRange(preset.core.life, preset.core.life);
+    emitter->SetCenter(worldPos);
+    emitter->Emit(color);
 
     nextHitEffectIndex_ = (nextHitEffectIndex_ + 1) % kMaxHitEffects;
   }
@@ -369,7 +388,9 @@ void EffectManager::DrawEditorUI(RailCamera *railCamera) {
       EffectType selectedType = static_cast<EffectType>(selectedEffectIndex_);
       Vector4 testColor = {1.0f, 1.0f, 1.0f, 1.0f};
       if (selectedType == EffectType::HitSpark) {
-        testColor = {0.3f, 1.2f, 2.0f, 1.0f};
+        testColor = {2.0f, 1.4f, 0.4f, 1.0f}; // 通常弾用：オレンジ火花
+      } else if (selectedType == EffectType::HomingHit) {
+        testColor = {0.6f, 2.5f, 4.0f, 1.0f}; // ホーミング用：高輝度シアンブルーム
       } else if (selectedType == EffectType::EnemyDeath || selectedType == EffectType::EnemyDeathSimple) {
         testColor = {1.0f, 0.6f, 0.2f, 1.0f};
       }
@@ -382,7 +403,8 @@ void EffectManager::DrawEditorUI(RailCamera *railCamera) {
 
   // エフェクト選択
   const char *effectNames[] = {
-      "HitSpark (着弾スパーク)",
+      "HitSpark (通常弾着弾)",
+      "HomingHit (ホーミング着弾グリント)",
       "EnemyDeath (大爆発)",
       "EnemyDeathSimple (中爆発)",
       "MuzzleRing (急発進リング)"
@@ -488,7 +510,7 @@ void EffectManager::LoadShockwaveConfig() {
 
 void EffectManager::SaveEffectsConfig() {
   nlohmann::json root;
-  const char *keys[] = {"HitSpark", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
+  const char *keys[] = {"HitSpark", "HomingHit", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
 
   for (size_t i = 0; i < static_cast<size_t>(EffectType::Count); ++i) {
     const auto &preset = effectConfigs_[i];
@@ -531,7 +553,7 @@ void EffectManager::SaveEffectsConfig() {
 
 void EffectManager::LoadEffectsConfig() {
   // デフォルト値設定
-  // 1. HitSpark
+  // 1. HitSpark (通常弾着弾)
   {
     auto &p = effectConfigs_[static_cast<size_t>(EffectType::HitSpark)];
     p.enableShockwave = false;
@@ -539,7 +561,15 @@ void EffectManager::LoadEffectsConfig() {
     p.flare = {true, 16, 1.2f, -1.0f, 22.0f, 0.25f, 0.40f};
     p.ring = {true, 1, 0.2f, 50.0f, 0.20f};
   }
-  // 2. EnemyDeath
+  // 2. HomingHit (ホーミング弾着弾：太く鋭い十字グリント＋極少数の高速火花＋高速プラズマリング)
+  {
+    auto &p = effectConfigs_[static_cast<size_t>(EffectType::HomingHit)];
+    p.enableShockwave = false;
+    p.core = {true, 32.0f, -10.0f, 0.20f};                 // 0.20秒持続し、十字のシルエットが目に残る
+    p.flare = {true, 8, 1.2f, -1.5f, 40.0f, 0.15f, 0.25f}; // 8本の高速火花
+    p.ring = {true, 1, 0.50f, 90.0f, 0.16f};               // 0.16秒で特大拡散するリング
+  }
+  // 3. EnemyDeath
   {
     auto &p = effectConfigs_[static_cast<size_t>(EffectType::EnemyDeath)];
     p.enableShockwave = true;
@@ -547,7 +577,7 @@ void EffectManager::LoadEffectsConfig() {
     p.flare = {true, 40, 0.8f, -1.0f, 30.0f, 0.40f, 0.60f};
     p.ring = {true, 1, 0.1f, 80.0f, 0.70f};
   }
-  // 3. EnemyDeathSimple
+  // 4. EnemyDeathSimple
   {
     auto &p = effectConfigs_[static_cast<size_t>(EffectType::EnemyDeathSimple)];
     p.enableShockwave = false;
@@ -555,7 +585,7 @@ void EffectManager::LoadEffectsConfig() {
     p.flare = {true, 30, 2.5f, -1.0f, 20.0f, 0.40f, 0.60f};
     p.ring = {false, 0, 0.1f, 0.0f, 0.0f};
   }
-  // 4. MuzzleRing
+  // 5. MuzzleRing
   {
     auto &p = effectConfigs_[static_cast<size_t>(EffectType::MuzzleRing)];
     p.enableShockwave = false;
@@ -570,7 +600,7 @@ void EffectManager::LoadEffectsConfig() {
     nlohmann::json root;
     try {
       file >> root;
-      const char *keys[] = {"HitSpark", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
+      const char *keys[] = {"HitSpark", "HomingHit", "EnemyDeath", "EnemyDeathSimple", "MuzzleRing"};
 
       for (size_t i = 0; i < static_cast<size_t>(EffectType::Count); ++i) {
         const char *key = keys[i];

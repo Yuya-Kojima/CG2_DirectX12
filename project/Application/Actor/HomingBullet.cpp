@@ -167,11 +167,11 @@ void HomingBullet::OnCollision(Collider *other) {
       enemy->TakeDamage(damage_);
       isDead_ = true;
 
-      // 着弾ヒットスパーク（シアンブルー系の高輝度発光）
+      // ホーミング専用着弾演出（太く鋭い十字グリント＋高速プラズマリング）
       EffectManager::GetInstance()->PlayEffect(
-          EffectType::HitSpark,
+          EffectType::HomingHit,
           object3d_->GetTranslation(),
-          Vector4{0.3f, 1.2f, 2.0f, 1.0f}
+          Vector4{0.6f, 2.5f, 4.0f, 1.0f}
       );
 
       Logger::Log("Homing Bullet Hit Target Enemy!\n");
@@ -179,11 +179,11 @@ void HomingBullet::OnCollision(Collider *other) {
   } else if (other->GetAttribute() & kCollisionAttributeEnemyBullet) {
     isDead_ = true;
 
-    // 着弾ヒットスパーク（シアンブルー系の高輝度発光）
+    // ホーミング専用着弾演出（迎撃時）
     EffectManager::GetInstance()->PlayEffect(
-        EffectType::HitSpark,
+        EffectType::HomingHit,
         object3d_->GetTranslation(),
-        Vector4{0.3f, 1.2f, 2.0f, 1.0f}
+        Vector4{0.6f, 2.5f, 4.0f, 1.0f}
     );
 
     Logger::Log("Homing Bullet Intercepted Target EnemyBullet!\n");
