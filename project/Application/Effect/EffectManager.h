@@ -11,7 +11,8 @@ class RailCamera;
 class ICamera;
 
 enum class EffectType {
-  HitSpark,          // 着弾ヒットスパーク（瞬間閃光＋火花散乱＋衝撃リング）
+  HitSpark,          // 着弾ヒットスパーク（通常弾・実弾用）
+  HomingHit,         // ホーミング専用着弾（太く鋭い十字グリント＋高速プラズマリング）
   EnemyDeath,        // 敵撃破（大爆発＋ショックウェーブ＋火花散乱）
   EnemyDeathSimple,  // 敵撃破・中（コア＋火花）
   MuzzleRing,        // 急発進・マズルリング（3重リング）
@@ -149,9 +150,11 @@ private:
   std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitCoreParticleGroups_;
   std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitFlareParticleGroups_;
   std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitRingParticleGroups_;
+  std::array<std::unique_ptr<BillboardParticleEmitter>, kMaxHitEffects> hitGlintParticleGroups_;
 
   std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathCoreEmitters_;
   std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathFlareEmitters_;
   std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> deathRingEmitters_;
+  std::array<std::unique_ptr<ParticleEmitter>, kMaxHitEffects> hitGlintEmitters_;
   int nextHitEffectIndex_ = 0;
 };

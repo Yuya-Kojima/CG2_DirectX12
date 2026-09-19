@@ -24,6 +24,31 @@
         },
         "enableShockwave": false
     },
+    "HomingHit": {
+        "core": {
+            "enable": true,
+            "scale": 32.0,
+            "scaleVelocity": -10.0,
+            "life": 0.2
+        },
+        "flare": {
+            "enable": true,
+            "count": 8,
+            "scale": 1.2,
+            "scaleVelocity": -1.5,
+            "speed": 40.0,
+            "lifeMin": 0.15,
+            "lifeMax": 0.25
+        },
+        "ring": {
+            "enable": true,
+            "count": 1,
+            "startScale": 0.5,
+            "expandSpeed": 90.0,
+            "life": 0.16
+        },
+        "enableShockwave": false
+    },
     "EnemyDeath": {
         "core": {
             "enable": true,
