@@ -2,9 +2,9 @@
     "sceneObjects": [
         {
             "modelPath": "plane.obj",
-            "translation": [0.0, -15.0, 500.0],
+            "translation": [0.0, -15.0, 2500.0],
             "rotation": [-1.5708, 0.0, 0.0],
-            "scale": [1000.0, 1000.0, 1.0]
+            "scale": [2000.0, 3000.0, 1.0]
         },
         {
             "modelPath": "Box/box.gltf",
@@ -53,6 +53,54 @@
             "translation": [-40.0, 20.0, 750.0],
             "rotation": [0.0, -0.5, 0.0],
             "scale": [10.0, 40.0, 10.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [85.0, -10.0, 1350.0],
+            "rotation": [0.0, 0.4, 0.0],
+            "scale": [20.0, 80.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-45.0, -10.0, 1650.0],
+            "rotation": [0.0, -0.2, 0.0],
+            "scale": [25.0, 60.0, 25.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-55.0, -10.0, 1850.0],
+            "rotation": [0.0, 0.5, 0.0],
+            "scale": [20.0, 60.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-18.0, -10.0, 2360.0],
+            "rotation": [0.0, 0.1, 0.0],
+            "scale": [20.0, 65.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [38.0, -10.0, 2380.0],
+            "rotation": [0.0, -0.1, 0.0],
+            "scale": [20.0, 65.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [-26.0, 0.0, 2980.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "scale": [20.0, 82.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [30.0, 0.0, 2980.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "scale": [20.0, 82.0, 20.0]
+        },
+        {
+            "modelPath": "Box/box.gltf",
+            "translation": [2.0, 65.0, 2960.0],
+            "rotation": [0.0, 0.0, 0.0],
+            "scale": [70.0, 10.0, 15.0]
         }
     ],
     "spawnEvents": [
@@ -61,8 +109,8 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [0.0, 5.0, 200.0],
-            "spawnTime": 0.5,
+            "spawnOffset": [0.0, 2.5, 150.0],
+            "spawnTime": 1.0,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -71,8 +119,8 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [-20.0, 5.0, 210.0],
-            "spawnTime": 0.5,
+            "spawnOffset": [-18.0, 2.5, 160.0],
+            "spawnTime": 1.0,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -81,38 +129,8 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [20.0, 5.0, 210.0],
-            "spawnTime": 0.5,
-            "splineDuration": 0.0,
-            "splineName": ""
-        },
-        {
-            "fireInterval": -1,
-            "isWorldSpaceSpline": false,
-            "moveType": 3,
-            "prefabName": "FastEnemy",
-            "spawnOffset": [-40.0, 5.0, 250.0],
-            "spawnTime": 1.5,
-            "splineDuration": 0.0,
-            "splineName": ""
-        },
-        {
-            "fireInterval": -1,
-            "isWorldSpaceSpline": false,
-            "moveType": 3,
-            "prefabName": "FastEnemy",
-            "spawnOffset": [40.0, 5.0, 250.0],
-            "spawnTime": 1.5,
-            "splineDuration": 0.0,
-            "splineName": ""
-        },
-        {
-            "fireInterval": -1,
-            "isWorldSpaceSpline": false,
-            "moveType": 0,
-            "prefabName": "TankEnemy",
-            "spawnOffset": [-15.0, -5.0, 100.0],
-            "spawnTime": 2.5,
+            "spawnOffset": [18.0, 2.5, 160.0],
+            "spawnTime": 1.0,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -121,8 +139,8 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [-10.0, 5.0, 250.0],
-            "spawnTime": 3.5,
+            "spawnOffset": [0.0, 4.0, 160.0],
+            "spawnTime": 3.15,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -131,38 +149,248 @@
             "isWorldSpaceSpline": false,
             "moveType": 0,
             "prefabName": "ZakoEnemy",
-            "spawnOffset": [10.0, 5.0, 250.0],
-            "spawnTime": 3.5,
+            "spawnOffset": [-15.0, 5.0, 175.0],
+            "spawnTime": 3.15,
             "splineDuration": 0.0,
             "splineName": ""
         },
         {
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
-            "moveType": 3,
-            "prefabName": "FastEnemy",
-            "spawnOffset": [0.0, -10.0, 200.0],
-            "spawnTime": 4.5,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [15.0, 5.0, 175.0],
+            "spawnTime": 3.15,
             "splineDuration": 0.0,
             "splineName": ""
         },
         {
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
-            "moveType": 3,
-            "prefabName": "FastEnemy",
-            "spawnOffset": [-30.0, 0.0, 250.0],
-            "spawnTime": 5.5,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-26.0, 6.0, 190.0],
+            "spawnTime": 3.15,
             "splineDuration": 0.0,
             "splineName": ""
         },
         {
             "fireInterval": -1,
             "isWorldSpaceSpline": false,
-            "moveType": 3,
-            "prefabName": "FastEnemy",
-            "spawnOffset": [30.0, 0.0, 250.0],
-            "spawnTime": 5.5,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [26.0, 6.0, 190.0],
+            "spawnTime": 3.15,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 8.0, 150.0],
+            "spawnTime": 4.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-14.0, 9.0, 160.0],
+            "spawnTime": 4.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [14.0, 9.0, 160.0],
+            "spawnTime": 4.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-130.0, 4.0, 150.0],
+            "spawnTime": 6.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-140.0, 4.5, 162.0],
+            "spawnTime": 6.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-150.0, 5.0, 174.0],
+            "spawnTime": 6.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [130.0, 4.0, 150.0],
+            "spawnTime": 8.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [140.0, 4.5, 162.0],
+            "spawnTime": 8.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [150.0, 5.0, 174.0],
+            "spawnTime": 8.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 2,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [160.0, 5.5, 186.0],
+            "spawnTime": 8.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 2.0, 150.0],
+            "spawnTime": 10.0,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-12.0, -1.0, 160.0],
+            "spawnTime": 10.0,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [12.0, 5.0, 160.0],
+            "spawnTime": 10.0,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-27.0, 0.0, 260.0],
+            "spawnTime": 11.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [29.0, 0.0, 280.0],
+            "spawnTime": 11.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-15.5, 35.0, 260.0],
+            "spawnTime": 14.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-44.0, 6.0, 280.0],
+            "spawnTime": 14.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 7,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [13.0, 6.0, 280.0],
+            "spawnTime": 14.5,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [0.0, 5.0, 140.0],
+            "spawnTime": 15.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [-15.0, 3.0, 150.0],
+            "spawnTime": 15.8,
+            "splineDuration": 0.0,
+            "splineName": ""
+        },
+        {
+            "fireInterval": -1,
+            "isWorldSpaceSpline": false,
+            "moveType": 0,
+            "prefabName": "ZakoEnemy",
+            "spawnOffset": [15.0, 3.0, 150.0],
+            "spawnTime": 15.8,
             "splineDuration": 0.0,
             "splineName": ""
         },
@@ -172,7 +400,7 @@
             "moveType": 0,
             "prefabName": "Boss",
             "spawnOffset": [0.0, 20.0, 250.0],
-            "spawnTime": 6.1,
+            "spawnTime": 17.5,
             "splineDuration": 0.0,
             "splineName": ""
         }

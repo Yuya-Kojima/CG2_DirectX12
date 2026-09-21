@@ -38,6 +38,12 @@ public:
   // ロックオン対象になるかどうか
   virtual bool IsLockOnTarget() const { return true; }
 
+  // ボスかどうかの判定（デスポーン除外等で使用）
+  virtual bool IsBoss() const { return false; }
+
+  // 画面内に映っているかどうかの判定（マージン付き）
+  bool IsInScreen(float margin = 0.0f) const;
+
   // 表示用の3Dモデルを外から渡してセットする
   virtual void SetModel(std::unique_ptr<Object3d> model) {
     model_ = std::move(model);
