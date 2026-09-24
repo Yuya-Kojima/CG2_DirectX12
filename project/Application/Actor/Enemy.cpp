@@ -67,8 +67,8 @@ void Enemy::Update() {
                       transform_.translate.z - basePos_.z};
       float forwardDist = diff.x * baseForward_.x + diff.y * baseForward_.y +
                           diff.z * baseForward_.z;
-      // 画面外かつカメラの後方（-10m以上後ろ）であれば安全にデスポーン
-      if (forwardDist < -10.0f) {
+      // 画面外かつカメラの後方（-10m以上後ろ）で、出現から2秒以上経過していれば安全にデスポーン
+      if (aliveTime_ > 2.0f && forwardDist < -10.0f) {
         if (collider_) {
           collider_->SetEnable(false);
         }

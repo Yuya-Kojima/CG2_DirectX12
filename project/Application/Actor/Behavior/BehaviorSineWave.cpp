@@ -31,9 +31,9 @@ void BehaviorSineWave::Update(Enemy* enemy) {
     // 出現位置のXオフセットに基づいて横断方向を決定（左から出たら右へ、右から出たら左へ横断）
     float crossDir = (enemy->GetSpawnOffset().x < 0.0f) ? 1.0f : -1.0f;
 
-    // 敵ごとの配置（Zオフセット）に基づくわずかな時間差（編隊の追従感）
-    float zOffset = enemy->GetSpawnOffset().z;
-    float phaseDelay = (zOffset - 150.0f) * 0.03f;
+    // 敵ごとの配置に基づくわずかな時間差（先頭機から順に0.36秒ずつ追従遅延）
+    float rankIndex = (std::max)(0.0f, (std::abs(enemy->GetSpawnOffset().x) - 130.0f) / 10.0f);
+    float phaseDelay = rankIndex * 0.36f;
     float t = (std::max)(0.0f, aliveTime - phaseDelay);
 
     // 画面外から出現し、画面中央を横断して反対側へ抜ける水平滑空移動

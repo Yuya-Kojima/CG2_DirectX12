@@ -34,6 +34,7 @@ struct SpawnEvent {
   int fireInterval = -1;           // -1なら撃たない。0以上なら指定フレーム間隔で射撃
   bool hasSpawned = false;         // 実行管理用フラグ
   MoveType moveType = MoveType::Straight;
+  Vector3 moveDirection = {0.0f, 0.0f, 1.0f}; // カメラ基準の移動方向ベクトル（デフォルトは前進）
 };
 
 enum class GameState { Play, Clear, GameOver };

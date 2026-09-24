@@ -509,6 +509,7 @@ void GamePlayScene::Update() {
         default: behavior = std::make_unique<BehaviorStraight>(); break;
         }
         enemyPtr->SetMoveType(ev.moveType);
+        enemyPtr->SetMoveDirection(ev.moveDirection);
         enemyPtr->SetBehavior(std::move(behavior));
 
         if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
@@ -1026,6 +1027,10 @@ void GamePlayScene::Update() {
     int currentMoveType = static_cast<int>(ev.moveType);
     if (ImGui::Combo("Move Type", &currentMoveType, moveTypes, IM_ARRAYSIZE(moveTypes))) {
       ev.moveType = static_cast<MoveType>(currentMoveType);
+      editFinished = true;
+    }
+
+    if (ImGui::DragFloat3("Move Direction", &ev.moveDirection.x, 0.05f)) {
       editFinished = true;
     }
 
@@ -1760,6 +1765,8 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
     evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
     evJson["fireInterval"] = ev.fireInterval;
     evJson["moveType"] = static_cast<int>(ev.moveType);
+    evJson["moveDirection"] = {ev.moveDirection.x, ev.moveDirection.y,
+                               ev.moveDirection.z};
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1857,6 +1864,13 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       }
       if (evJson.contains("fireInterval")) {
         ev.fireInterval = evJson["fireInterval"];
+      }
+      if (evJson.contains("moveDirection")) {
+        ev.moveDirection = {evJson["moveDirection"][0],
+                            evJson["moveDirection"][1],
+                            evJson["moveDirection"][2]};
+      } else {
+        ev.moveDirection = {0.0f, 0.0f, 1.0f}; // デフォルトは前進（互換性維持）
       }
 
       ev.hasSpawned = false;
