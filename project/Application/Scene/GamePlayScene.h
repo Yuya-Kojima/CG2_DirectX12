@@ -27,7 +27,8 @@ class MeshParticleEmitter;
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
-  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
+  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置、またはワールド絶対座標
+  bool isWorldSpace = false;        // trueならspawnOffsetをワールド絶対座標として扱う
   std::string splineName = "";     // 使用するレール名（空なら直線移動）
   float splineDuration = 5.0f;     // レールを走り切る秒数
   bool isWorldSpaceSpline = false; // ワールド空間か、カメラローカル空間か

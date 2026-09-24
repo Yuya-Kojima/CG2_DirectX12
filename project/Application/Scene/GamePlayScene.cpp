@@ -473,22 +473,29 @@ void GamePlayScene::Update() {
       if (t < ev.spawnTime) {
         ev.hasSpawned = false; // シークバック時にフラグをリセット
       } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
-        // スポーン (カメラの動的なブレを排除し、指定時間tの「レールの基準座標」を用いて計算)
-        Vector3 cameraPos = railCamera_->GetRailPosition();
-        Vector3 cameraRight = railCamera_->GetRailRight();
-        Vector3 cameraUp = railCamera_->GetRailUp();
-        Vector3 cameraForward = railCamera_->GetRailForward();
+        // スポーン位置の計算
+        Vector3 spawnWorldPos;
+        if (ev.isWorldSpace) {
+          // ワールド絶対座標指定（固定砲台・環境物など）
+          spawnWorldPos = ev.spawnOffset;
+        } else {
+          // カメラ相対座標指定（指定時間tの「レールの基準座標」を用いて計算）
+          Vector3 cameraPos = railCamera_->GetRailPosition();
+          Vector3 cameraRight = railCamera_->GetRailRight();
+          Vector3 cameraUp = railCamera_->GetRailUp();
+          Vector3 cameraForward = railCamera_->GetRailForward();
 
-        Vector3 spawnWorldPos = cameraPos +
-                                Vector3{cameraRight.x * ev.spawnOffset.x,
-                                        cameraRight.y * ev.spawnOffset.x,
-                                        cameraRight.z * ev.spawnOffset.x} +
-                                Vector3{cameraUp.x * ev.spawnOffset.y,
-                                        cameraUp.y * ev.spawnOffset.y,
-                                        cameraUp.z * ev.spawnOffset.y} +
-                                Vector3{cameraForward.x * ev.spawnOffset.z,
-                                        cameraForward.y * ev.spawnOffset.z,
-                                        cameraForward.z * ev.spawnOffset.z};
+          spawnWorldPos = cameraPos +
+                          Vector3{cameraRight.x * ev.spawnOffset.x,
+                                  cameraRight.y * ev.spawnOffset.x,
+                                  cameraRight.z * ev.spawnOffset.x} +
+                          Vector3{cameraUp.x * ev.spawnOffset.y,
+                                  cameraUp.y * ev.spawnOffset.y,
+                                  cameraUp.z * ev.spawnOffset.y} +
+                          Vector3{cameraForward.x * ev.spawnOffset.z,
+                                  cameraForward.y * ev.spawnOffset.z,
+                                  cameraForward.z * ev.spawnOffset.z};
+        }
 
         // 敵の生成
         auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(
@@ -1087,7 +1094,14 @@ void GamePlayScene::Update() {
       }
     }
 
-    if (railCamera_) {
+    if (ImGui::Checkbox("World Space Position", &ev.isWorldSpace)) {
+      editFinished = true;
+    }
+
+    Vector3 worldPos;
+    if (ev.isWorldSpace) {
+      worldPos = ev.spawnOffset;
+    } else if (railCamera_) {
       Vector3 rawCamPos = railCamera_->CalcPosition(ev.spawnTime);
       Vector3 tangent = railCamera_->CalcTangent(ev.spawnTime);
       Vector3 worldUp = {0.0f, 1.0f, 0.0f};
@@ -1098,7 +1112,7 @@ void GamePlayScene::Update() {
       Vector3 camActualPos = rawCamPos;
       camActualPos.y += 2.5f;
 
-      Vector3 worldPos =
+      worldPos =
           camActualPos +
           Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x,
                   right.z * ev.spawnOffset.x} +
@@ -1106,11 +1120,11 @@ void GamePlayScene::Update() {
                   up.z * ev.spawnOffset.y} +
           Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z,
                   forward.z * ev.spawnOffset.z};
-
-      ImGui::Spacing();
-      ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x,
-                          worldPos.y, worldPos.z);
     }
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x,
+                        worldPos.y, worldPos.z);
 
     // MoveType はプレハブ側の設定に移動したため、ここには表示しない
 
@@ -1762,6 +1776,7 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
                              ev.spawnOffset.z};
     evJson["splineName"] = ev.splineName;
     evJson["splineDuration"] = ev.splineDuration;
+    evJson["isWorldSpace"] = ev.isWorldSpace;
     evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
     evJson["fireInterval"] = ev.fireInterval;
     evJson["moveType"] = static_cast<int>(ev.moveType);
@@ -1858,6 +1873,9 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       }
       if (evJson.contains("splineDuration")) {
         ev.splineDuration = evJson["splineDuration"];
+      }
+      if (evJson.contains("isWorldSpace")) {
+        ev.isWorldSpace = evJson["isWorldSpace"];
       }
       if (evJson.contains("isWorldSpaceSpline")) {
         ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
