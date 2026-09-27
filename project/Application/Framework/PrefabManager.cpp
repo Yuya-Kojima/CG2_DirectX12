@@ -69,7 +69,7 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
     }
     newEnemy->Initialize();
 
-    std::string modelPath = "resources/suzanne.obj"; // デフォルト
+    std::string modelPath = (prefabName == "Boss") ? "__builtin_crystal" : "resources/suzanne.obj"; // デフォルト
 
     if (file.is_open()) {
         nlohmann::json root;
@@ -115,9 +115,10 @@ std::unique_ptr<Enemy> PrefabManager::InstantiateEnemy(const std::string& prefab
     auto dummyModel = std::make_unique<Object3d>();
     dummyModel->Initialize(object3dRenderer_);
     dummyModel->SetModel(modelPath);
-    dummyModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
+    Vector4 defaultColor = (prefabName == "Boss") ? Vector4{0.3f, 0.3f, 0.45f, 1.0f} : Vector4{1.0f, 0.2f, 0.2f, 1.0f};
+    dummyModel->SetColor(defaultColor);
     newEnemy->SetModel(std::move(dummyModel));
-    newEnemy->SetBaseColor({1.0f, 0.2f, 0.2f, 1.0f});
+    newEnemy->SetBaseColor(defaultColor);
 
     return newEnemy;
 }

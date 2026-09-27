@@ -151,6 +151,31 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   SoundManager::GetInstance()->Load("boss_explosion",
                                     "resources/Sounds/explosion.mp3");
+  SoundManager::GetInstance()->Load("laser_shot",
+                                    "resources/Sounds/laser_shot.wav");
+  SoundManager::GetInstance()->Load("lockon",
+                                    "resources/Sounds/lockon.wav");
+  SoundManager::GetInstance()->Load("lockon_fire",
+                                    "resources/Sounds/lockon_fire.wav");
+  SoundManager::GetInstance()->Load("enemy_hit",
+                                    "resources/Sounds/enemy_hit.wav");
+  SoundManager::GetInstance()->Load("enemy_destroy",
+                                    "resources/Sounds/enemy_destroy.mp3");
+  SoundManager::GetInstance()->Load("player_damage",
+                                    "resources/Sounds/player_damage.wav");
+  SoundManager::GetInstance()->Load("boss_charge",
+                                    "resources/Sounds/boss_charge.wav");
+  SoundManager::GetInstance()->Load("boss_counter",
+                                    "resources/Sounds/boss_counter.mp3");
+  SoundManager::GetInstance()->Load("ui_decide",
+                                    "resources/Sounds/ui_decide.wav");
+  SoundManager::GetInstance()->Load("stage_bgm",
+                                    "resources/Sounds/stage_bgm.mp3");
+  SoundManager::GetInstance()->Load("boss_bgm",
+                                    "resources/Sounds/boss_bgm.mp3");
+  SoundManager::GetInstance()->Load("victory_jingle",
+                                    "resources/Sounds/victory_jingle.mp3");
+  SoundManager::GetInstance()->PlayBGM("stage_bgm");
 
   EffectManager::GetInstance()->Initialize();
 
@@ -223,6 +248,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // プレイヤーの初期化
   //===========================
   ModelManager::GetInstance()->LoadModel("suzanne.obj");
+  ModelManager::GetInstance()->LoadModel("player_dragon.obj");
 
   player_ = std::make_unique<Player>(railCamera_.get());
   player_->SetSpriteRenderer(engine_->GetSpriteRenderer());
@@ -234,19 +260,10 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   player_->Initialize();
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
-  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
-  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f});
+  playerModel->SetModel("player_dragon.obj"); // 正式自機モデル
+  playerModel->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
   player_->SetModel(std::move(playerModel));
 
-  // 環境マッピングのテスト用オブジェクト（メタリックなモンスターボール）
-  ModelManager::GetInstance()->LoadModel("monsterBall.obj");
-  metallicObject_ = std::make_unique<Object3d>();
-  metallicObject_->Initialize(engine_->GetObject3dRenderer());
-  metallicObject_->SetModel("monsterBall.obj");
-  metallicObject_->SetEnvironmentCoefficient(1.0f);       // 100%反射
-  metallicObject_->SetTranslation({-30.0f, 5.0f, 50.0f}); // レール上の奥に配置
-  metallicObject_->SetScale({3.0f, 3.0f, 3.0f});          // 少し大きめに
-  metallicObject_->Update();
 
   cameraTransform_ = {
       {1.0f, 1.0f, 1.0f},
@@ -274,7 +291,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   TextureManager::GetInstance()->LoadTexture("resources/gradationLine.png");
 }
 
-void GamePlayScene::Finalize() {}
+void GamePlayScene::Finalize() {
+  SoundManager::GetInstance()->StopBGM();
+}
 
 void GamePlayScene::Update() {
 
@@ -410,6 +429,8 @@ void GamePlayScene::Update() {
 
       if (!isBossActive) {
         gameState_ = GameState::Clear;
+        SoundManager::GetInstance()->StopBGM();
+        SoundManager::GetInstance()->PlaySE("victory_jingle");
         if (railCamera_)
           railCamera_->SetAutoMove(false);
         UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
@@ -473,22 +494,29 @@ void GamePlayScene::Update() {
       if (t < ev.spawnTime) {
         ev.hasSpawned = false; // シークバック時にフラグをリセット
       } else if (shouldUpdateWorld && !ev.hasSpawned && t >= ev.spawnTime) {
-        // スポーン (カメラの動的なブレを排除し、指定時間tの「レールの基準座標」を用いて計算)
-        Vector3 cameraPos = railCamera_->GetRailPosition();
-        Vector3 cameraRight = railCamera_->GetRailRight();
-        Vector3 cameraUp = railCamera_->GetRailUp();
-        Vector3 cameraForward = railCamera_->GetRailForward();
+        // スポーン位置の計算
+        Vector3 spawnWorldPos;
+        if (ev.isWorldSpace) {
+          // ワールド絶対座標指定（固定砲台・環境物など）
+          spawnWorldPos = ev.spawnOffset;
+        } else {
+          // カメラ相対座標指定（指定時間tの「レールの基準座標」を用いて計算）
+          Vector3 cameraPos = railCamera_->GetRailPosition();
+          Vector3 cameraRight = railCamera_->GetRailRight();
+          Vector3 cameraUp = railCamera_->GetRailUp();
+          Vector3 cameraForward = railCamera_->GetRailForward();
 
-        Vector3 spawnWorldPos = cameraPos +
-                                Vector3{cameraRight.x * ev.spawnOffset.x,
-                                        cameraRight.y * ev.spawnOffset.x,
-                                        cameraRight.z * ev.spawnOffset.x} +
-                                Vector3{cameraUp.x * ev.spawnOffset.y,
-                                        cameraUp.y * ev.spawnOffset.y,
-                                        cameraUp.z * ev.spawnOffset.y} +
-                                Vector3{cameraForward.x * ev.spawnOffset.z,
-                                        cameraForward.y * ev.spawnOffset.z,
-                                        cameraForward.z * ev.spawnOffset.z};
+          spawnWorldPos = cameraPos +
+                          Vector3{cameraRight.x * ev.spawnOffset.x,
+                                  cameraRight.y * ev.spawnOffset.x,
+                                  cameraRight.z * ev.spawnOffset.x} +
+                          Vector3{cameraUp.x * ev.spawnOffset.y,
+                                  cameraUp.y * ev.spawnOffset.y,
+                                  cameraUp.z * ev.spawnOffset.y} +
+                          Vector3{cameraForward.x * ev.spawnOffset.z,
+                                  cameraForward.y * ev.spawnOffset.z,
+                                  cameraForward.z * ev.spawnOffset.z};
+        }
 
         // 敵の生成
         auto newEnemy = PrefabManager::GetInstance()->InstantiateEnemy(
@@ -509,6 +537,7 @@ void GamePlayScene::Update() {
         default: behavior = std::make_unique<BehaviorStraight>(); break;
         }
         enemyPtr->SetMoveType(ev.moveType);
+        enemyPtr->SetMoveDirection(ev.moveDirection);
         enemyPtr->SetBehavior(std::move(behavior));
 
         if (!ev.splineName.empty() && loadedSplines_.count(ev.splineName)) {
@@ -537,7 +566,8 @@ void GamePlayScene::Update() {
               bossDustEmitter_->Update();
             });
 
-            // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
+            // ボス戦開始: レールカメラを低速化し、ボスBGMへ切り替え
+            SoundManager::GetInstance()->PlayBGM("boss_bgm");
             if (railCamera_) {
               railCamera_->SetSpeed(0.05f);
             }
@@ -548,6 +578,8 @@ void GamePlayScene::Update() {
         if (ev.prefabName == "Boss") {
           newEnemy->SetOnDestroyedCallback([this](bool isSelfDestruct) {
             gameState_ = GameState::Clear;
+            SoundManager::GetInstance()->StopBGM();
+            SoundManager::GetInstance()->PlaySE("victory_jingle");
             if (railCamera_)
               railCamera_->SetAutoMove(false);
             UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
@@ -644,13 +676,6 @@ void GamePlayScene::Update() {
     skybox_->Update();
   }
 
-  if (metallicObject_) {
-    // ゆっくり回転させて環境マップの反射を分かりやすくする
-    Vector3 rot = metallicObject_->GetRotation();
-    rot.y += 0.01f;
-    metallicObject_->SetRotation(rot);
-    metallicObject_->Update();
-  }
 
   //===========================================
   // プレイヤーの更新
@@ -1029,6 +1054,10 @@ void GamePlayScene::Update() {
       editFinished = true;
     }
 
+    if (ImGui::DragFloat3("Move Direction", &ev.moveDirection.x, 0.05f)) {
+      editFinished = true;
+    }
+
     // レール選択コンボボックス
     if (ImGui::BeginCombo("Rail Spline", ev.splineName.empty()
                                              ? "None (Straight)"
@@ -1082,7 +1111,14 @@ void GamePlayScene::Update() {
       }
     }
 
-    if (railCamera_) {
+    if (ImGui::Checkbox("World Space Position", &ev.isWorldSpace)) {
+      editFinished = true;
+    }
+
+    Vector3 worldPos;
+    if (ev.isWorldSpace) {
+      worldPos = ev.spawnOffset;
+    } else if (railCamera_) {
       Vector3 rawCamPos = railCamera_->CalcPosition(ev.spawnTime);
       Vector3 tangent = railCamera_->CalcTangent(ev.spawnTime);
       Vector3 worldUp = {0.0f, 1.0f, 0.0f};
@@ -1093,7 +1129,7 @@ void GamePlayScene::Update() {
       Vector3 camActualPos = rawCamPos;
       camActualPos.y += 2.5f;
 
-      Vector3 worldPos =
+      worldPos =
           camActualPos +
           Vector3{right.x * ev.spawnOffset.x, right.y * ev.spawnOffset.x,
                   right.z * ev.spawnOffset.x} +
@@ -1101,11 +1137,11 @@ void GamePlayScene::Update() {
                   up.z * ev.spawnOffset.y} +
           Vector3{forward.x * ev.spawnOffset.z, forward.y * ev.spawnOffset.z,
                   forward.z * ev.spawnOffset.z};
-
-      ImGui::Spacing();
-      ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x,
-                          worldPos.y, worldPos.z);
     }
+
+    ImGui::Spacing();
+    ImGui::TextDisabled("World Pos: (%.1f, %.1f, %.1f)", worldPos.x,
+                        worldPos.y, worldPos.z);
 
     // MoveType はプレハブ側の設定に移動したため、ここには表示しない
 
@@ -1593,10 +1629,6 @@ void GamePlayScene::Draw3D() {
     previewObject_->Draw();
   }
 
-  // 環境マッピングオブジェクトの描画
-  if (metallicObject_) {
-    metallicObject_->Draw();
-  }
 
   if (player_) {
     player_->Draw3D();
@@ -1757,9 +1789,12 @@ void GamePlayScene::SaveLevel(const std::string &filename) {
                              ev.spawnOffset.z};
     evJson["splineName"] = ev.splineName;
     evJson["splineDuration"] = ev.splineDuration;
+    evJson["isWorldSpace"] = ev.isWorldSpace;
     evJson["isWorldSpaceSpline"] = ev.isWorldSpaceSpline;
     evJson["fireInterval"] = ev.fireInterval;
     evJson["moveType"] = static_cast<int>(ev.moveType);
+    evJson["moveDirection"] = {ev.moveDirection.x, ev.moveDirection.y,
+                               ev.moveDirection.z};
     spawnEventsArray.push_back(evJson);
   }
   root["spawnEvents"] = spawnEventsArray;
@@ -1852,11 +1887,21 @@ void GamePlayScene::LoadLevel(const std::string &filename) {
       if (evJson.contains("splineDuration")) {
         ev.splineDuration = evJson["splineDuration"];
       }
+      if (evJson.contains("isWorldSpace")) {
+        ev.isWorldSpace = evJson["isWorldSpace"];
+      }
       if (evJson.contains("isWorldSpaceSpline")) {
         ev.isWorldSpaceSpline = evJson["isWorldSpaceSpline"];
       }
       if (evJson.contains("fireInterval")) {
         ev.fireInterval = evJson["fireInterval"];
+      }
+      if (evJson.contains("moveDirection")) {
+        ev.moveDirection = {evJson["moveDirection"][0],
+                            evJson["moveDirection"][1],
+                            evJson["moveDirection"][2]};
+      } else {
+        ev.moveDirection = {0.0f, 0.0f, 1.0f}; // デフォルトは前進（互換性維持）
       }
 
       ev.hasSpawned = false;

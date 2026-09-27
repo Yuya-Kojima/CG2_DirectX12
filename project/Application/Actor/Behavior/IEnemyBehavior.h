@@ -13,4 +13,9 @@ public:
   /// </summary>
   /// <param name="enemy"> 操作対象となる敵本体のポインタ</param>
   virtual void Update(Enemy *enemy) = 0;
+
+  /// <summary>
+  /// ロックオン可能かどうか（デフォルトは常に可能）
+  /// </summary>
+  virtual bool IsLockOnTarget() const { return true; }
 };

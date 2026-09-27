@@ -1,4 +1,5 @@
 #include "LockOn.h"
+#include "Audio/SoundManager.h"
 #include "Math/MathUtil.h"
 #include "Framework/BaseActor.h"
 #include "Render/Object3d/Object3d.h"
@@ -120,6 +121,7 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
 
       if (dist <= lockOnRadius) {
         targetInfos_.push_back({target, 0.0f, TargetState::Locking});
+        SoundManager::GetInstance()->PlaySE("lockon");
         lockOnDelayTimer_ = kLockOnInterval; // ディレイを開始
         break; // 1フレームに1体ずつロックオンする
       }

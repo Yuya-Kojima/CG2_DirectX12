@@ -1,4 +1,5 @@
 #include "Actor/Player.h"
+#include "Audio/SoundManager.h"
 #include "../../externals/nlohmann/json.hpp"
 #include "Actor/Enemy.h"
 #include "Actor/HomingBullet.h"
@@ -42,6 +43,9 @@ void Player::Initialize() {
   recoilVelocity_ = 0.0f;
   flashIntensity_ = 0.0f;
   flashColor_ = {1.0f, 0.0f, 0.0f};
+
+  // 自機モデルのスケール設定
+  transform_.scale = {5.0f, 5.0f, 5.0f};
 
   // レティクルの初期位置化処理
   reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
@@ -486,6 +490,10 @@ void Player::FireHomingShot() {
                        playerPos.y + cameraForward.y * 2.0f,
                        playerPos.z + cameraForward.z * 2.0f};
 
+  if (!targets.empty()) {
+    SoundManager::GetInstance()->PlaySE("lockon_fire");
+  }
+
   // ロックオンしている敵すべてに対して弾を発射
   for (size_t i = 0; i < targets.size(); ++i) {
     auto bullet = std::make_unique<HomingBullet>();
@@ -603,6 +611,8 @@ void Player::FireNormalShot() {
   bullet->Initialize(object3dRenderer_, startPos, velocity);
   ActorManager::GetInstance()->AddActor(std::move(bullet));
 
+  SoundManager::GetInstance()->PlaySE("laser_shot");
+
   // 通常弾発射時の反動を発生させる
   recoilOffset_ += actionConfig_.recoilStrength;
 }
@@ -649,6 +659,7 @@ void Player::TakeDamage(int damage) {
 
   if (hp_ > 0) {
     hp_ -= damage;
+    SoundManager::GetInstance()->PlaySE("player_damage");
     flashColor_ = {1.0f, 0.0f, 0.0f}; // 被弾フラッシュ用カラー（赤）
     flashIntensity_ = 0.6f;           // フラッシュ強度設定
 

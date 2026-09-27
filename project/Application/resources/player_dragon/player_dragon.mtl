@@ -1,0 +1,6 @@
+newmtl tripo_material_1bdc5637_1f4d_46a0_8623_1f80fe39252c
+Kd 1.000000000 1.000000000 1.000000000
+d 1.000000000
+illum 2
+map_Kd player_dragon_basecolor.jpg
+

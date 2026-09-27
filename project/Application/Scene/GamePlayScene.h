@@ -27,13 +27,15 @@ class MeshParticleEmitter;
 struct SpawnEvent {
   float spawnTime = 0.0f;
   std::string prefabName = "ZakoEnemy";
-  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置（奥50）
+  Vector3 spawnOffset = {0.0f, 0.0f, 50.0f}; // カメラからの相対位置、またはワールド絶対座標
+  bool isWorldSpace = false;        // trueならspawnOffsetをワールド絶対座標として扱う
   std::string splineName = "";     // 使用するレール名（空なら直線移動）
   float splineDuration = 5.0f;     // レールを走り切る秒数
   bool isWorldSpaceSpline = false; // ワールド空間か、カメラローカル空間か
   int fireInterval = -1;           // -1なら撃たない。0以上なら指定フレーム間隔で射撃
   bool hasSpawned = false;         // 実行管理用フラグ
   MoveType moveType = MoveType::Straight;
+  Vector3 moveDirection = {0.0f, 0.0f, 1.0f}; // カメラ基準の移動方向ベクトル（デフォルトは前進）
 };
 
 enum class GameState { Play, Clear, GameOver };
@@ -92,8 +94,6 @@ private: // メンバ変数(ゲーム用)
   std::string previewModelPath_ = "";
   bool isPreviewHovering_ = false;
 
-  // 環境マッピング確認用オブジェクト
-  std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
   // ボス専用エミッター
   std::unique_ptr<BillboardParticleEmitter> bossExplosionParticleGroup_;

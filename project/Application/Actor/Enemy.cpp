@@ -1,4 +1,5 @@
 #include "Actor/Enemy.h"
+#include "Audio/SoundManager.h"
 #include "Actor/Player.h"
 #include "Behavior/IEnemyBehavior.h"
 #include "Camera/ICamera.h"
@@ -13,6 +14,7 @@
 #include "Render/Particle/ParticleEmitter.h"
 #include "Render/Particle/ParticleManager.h"
 #include <cmath>
+#include <numbers>
 
 Enemy::Enemy() = default;
 
@@ -57,6 +59,26 @@ void Enemy::Update() {
     }
   }
 
+  // 完全に画面外に出て、かつカメラ後方に取り残された場合のみ自動消滅（ボスは除く）
+  if (!IsBoss() && camera_) {
+    // 画面内に映っている間は絶対に消さない（視界内での急な消滅を防止）
+    if (!IsInScreen(80.0f)) {
+      Vector3 diff = {transform_.translate.x - basePos_.x,
+                      transform_.translate.y - basePos_.y,
+                      transform_.translate.z - basePos_.z};
+      float forwardDist = diff.x * baseForward_.x + diff.y * baseForward_.y +
+                          diff.z * baseForward_.z;
+      // 画面外かつカメラの後方（-10m以上後ろ）で、出現から2秒以上経過していれば安全にデスポーン
+      if (aliveTime_ > 2.0f && forwardDist < -10.0f) {
+        if (collider_) {
+          collider_->SetEnable(false);
+        }
+        Destroy();
+        return;
+      }
+    }
+  }
+
   aliveTime_ += 1.0f / 60.0f; // 簡易的に60FPS固定で時間計算
 
   if (behavior_) {
@@ -88,7 +110,18 @@ void Enemy::UpdateTransform() {
   if (model_) {
     model_->SetTranslation(transform_.translate);
     model_->SetRotation(transform_.rotate);
-    model_->SetScale(transform_.scale);
+
+    // 出現時ポップイン演出（スポーン直後の0.25秒間で 0.0 -> 1.0 へ拡大実体化）
+    Vector3 finalScale = transform_.scale;
+    if (aliveTime_ < 0.25f) {
+      float t = aliveTime_ / 0.25f;
+      float scaleFactor = std::sin(t * (std::numbers::pi_v<float> * 0.5f));
+      finalScale = {transform_.scale.x * scaleFactor,
+                    transform_.scale.y * scaleFactor,
+                    transform_.scale.z * scaleFactor};
+    }
+
+    model_->SetScale(finalScale);
     model_->Update();
   }
 }
@@ -126,6 +159,7 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
 
     // 自爆でない場合、自律的に爆発する
     if (!isSelfDestruct) {
+      SoundManager::GetInstance()->PlaySE("enemy_destroy");
       // 死亡時エフェクト
       EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(
           transform_.translate, baseColor_);
@@ -135,5 +169,25 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
       onDestroyedCallback_(isSelfDestruct);
     }
     Destroy();
+  } else {
+    SoundManager::GetInstance()->PlaySE_Once("enemy_hit");
   }
+}
+
+bool Enemy::IsInScreen(float margin) const {
+  if (!camera_) {
+    return false;
+  }
+  Vector2 screenPos = WorldToScreen(
+      transform_.translate, camera_->GetViewProjectionMatrix(), 1280.0f, 720.0f);
+  // カメラの後方にいる場合（透視投影除算のw <= 0）は画面外
+  if (screenPos.x < -5000.0f || screenPos.y < -5000.0f) {
+    return false;
+  }
+  // 画面枠（マージン付き）に入っているか判定
+  if (screenPos.x >= -margin && screenPos.x <= 1280.0f + margin &&
+      screenPos.y >= -margin && screenPos.y <= 720.0f + margin) {
+    return true;
+  }
+  return false;
 }

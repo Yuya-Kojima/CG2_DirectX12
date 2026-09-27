@@ -36,6 +36,13 @@ void StageSelectScene::Initialize(EngineBase *engine) {
 
   // UIのクリアとこのシーン用のUIの準備
   UIManager::GetInstance()->Load("resources/UI/StageSelectUI.json");
+
+  // オーディオ読み込み
+  SoundManager::GetInstance()->Load("ui_decide",
+                                    "resources/Sounds/ui_decide.wav");
+  SoundManager::GetInstance()->Load("title_bgm",
+                                    "resources/Sounds/title_bgm.mp3");
+  SoundManager::GetInstance()->PlayBGM("title_bgm");
 }
 
 void StageSelectScene::Finalize() {}
@@ -64,6 +71,7 @@ void StageSelectScene::Update() {
   if (GameManager::GetInstance()->IsGlobalPlayMode()) {
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN) ||
         engine_->GetInputManager()->IsPadTrigger(PadButton::A)) {
+      SoundManager::GetInstance()->PlaySE("ui_decide");
       std::string selectedName = UIManager::GetInstance()->GetFocusedNodeName();
 
       if (selectedName == "Stage1Text") {

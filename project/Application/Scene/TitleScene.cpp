@@ -36,6 +36,11 @@ void TitleScene::Initialize(EngineBase *engine) {
   //===========================
   // オーディオファイルの読み込み
   //===========================
+  SoundManager::GetInstance()->Load("ui_decide",
+                                    "resources/Sounds/ui_decide.wav");
+  SoundManager::GetInstance()->Load("title_bgm",
+                                    "resources/Sounds/title_bgm.mp3");
+  SoundManager::GetInstance()->PlayBGM("title_bgm");
 
   //===========================
   // スプライト関係の初期化
@@ -79,6 +84,7 @@ void TitleScene::Update() {
   // ステージセレクトシーンへ移行
   if (GameManager::GetInstance()->IsGlobalPlayMode()) {
     if (engine_->GetInputManager()->IsTriggerKey(DIK_RETURN)) {
+      SoundManager::GetInstance()->PlaySE("ui_decide");
       SceneManager::GetInstance()->SetNextTransitionFade(0.5f);
       SceneManager::GetInstance()->ChangeScene("STAGE_SELECT");
     }

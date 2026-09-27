@@ -36,6 +36,9 @@ public:
       return currentState_ == BossState::DashTelegraph || currentState_ == BossState::Dash;
   }
 
+  // ボスかどうかの判定
+  bool IsBoss() const override { return true; }
+
   // 死亡演出中または死亡済みかどうかの判定
   bool IsDyingOrDefeated() const {
       return phase_ == BossPhase::Dying || phase_ == BossPhase::Defeated;
