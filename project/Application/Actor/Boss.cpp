@@ -664,37 +664,40 @@ void Boss::UpdatePhase2() {
           ActorManager::GetInstance()->AddActor(std::move(bullet));
         };
 
-        // スウォーム弾幕（8発）をランダムに散らす
-        for (int i = 0; i < 8; ++i) {
-          // プレイヤー方向（dir）に対して垂直な「真横」のベクトルを計算
-          Vector3 rightDir = {dir.z, 0.0f, -dir.x};
+        // スウォーム弾幕（6発）をボスの周囲に円形展開（12時方向から時計回りに順次発射）
+        constexpr int kMissileCount = 6;
+        float deploySpeedX = 7.5f; 
+        float deploySpeedY = 3.8f; 
+        Vector3 rightDir = {dir.z, 0.0f, -dir.x};
+        Vector3 upDir = {0.0f, 1.0f, 0.0f};
+        if (camera_) {
+          upDir = camera_->GetUp();
+        }
 
-          // プレイヤーの逆方向「真後ろ」のベクトルを計算（XZ平面）
-          Vector3 backwardDir = {-dir.x, 0.0f, -dir.z};
-          float bLen = std::sqrt(backwardDir.x * backwardDir.x +
-                                 backwardDir.z * backwardDir.z);
-          if (bLen > 0.001f) {
-            backwardDir.x /= bLen;
-            backwardDir.z /= bLen;
-          }
+        Vector3 backwardDir = {-dir.x, 0.0f, -dir.z};
+        float bLen = std::sqrt(backwardDir.x * backwardDir.x +
+                               backwardDir.z * backwardDir.z);
+        if (bLen > 0.001f) {
+          backwardDir.x /= bLen;
+          backwardDir.z /= bLen;
+        }
 
-          // -1.0 ~ 1.0 のランダム
-          float randX = ((rand() % 200) / 100.0f) - 1.0f; 
-          float randY = ((rand() % 200) / 100.0f) - 1.0f;
-          float randZ = ((rand() % 100) / 100.0f); // 0.0 ~ 1.0
+        float backwardSpeed = 6.0f; // 本来の奥方向（ボスの背後）への展開速度
 
-          // 上下左右・後ろに大きく散らす（画面内に収まる程度に抑える）
-          float spreadX = randX * 15.0f; // 左右の散らばり（35.0 -> 15.0）
-          float spreadY = randY * 10.0f; // 上下の散らばり（20.0 -> 10.0）
-          float backwardSpeed = 2.0f + randZ * 8.0f; // 奥へ吹き飛ばす力（15.0 -> 8.0）
+        for (int i = 0; i < kMissileCount; ++i) {
+          // 12時方向（真上）を基準に、時計回りに60度ずつ配置
+          // i=0: 上, i=1: 右上, i=2: 右下, i=3: 真下, i=4: 左下, i=5: 左上
+          float angle = static_cast<float>(i) * (2.0f * std::numbers::pi_v<float> / static_cast<float>(kMissileCount));
+          float sinAngle = std::sin(angle);
+          float cosAngle = std::cos(angle);
 
-          // ディレイ（タメ時間）をランダムにばらけさせる（60F〜180F）
-          // 2回ロックオンする猶予を作るため全体的に長めに。
-          int waitFrames = 60 + (rand() % 120);
+          // 12時から時計回りに順番に発射
+          int waitFrames = 80 + (i * 20);
 
-          Vector3 vel = {rightDir.x * spreadX + backwardDir.x * backwardSpeed,
-                         spreadY,
-                         rightDir.z * spreadX + backwardDir.z * backwardSpeed};
+          Vector3 vel = {
+              rightDir.x * (sinAngle * deploySpeedX) + upDir.x * (cosAngle * deploySpeedY) + backwardDir.x * backwardSpeed,
+              rightDir.y * (sinAngle * deploySpeedX) + upDir.y * (cosAngle * deploySpeedY) + backwardDir.y * backwardSpeed,
+              rightDir.z * (sinAngle * deploySpeedX) + upDir.z * (cosAngle * deploySpeedY) + backwardDir.z * backwardSpeed};
 
           spawnBullet(vel, EnemyBulletType::LockOnDestructible, waitFrames);
         }
@@ -747,7 +750,7 @@ void Boss::UpdatePhase2() {
         // 次の攻撃パターンに応じて目標位置を変える
         if (attackPattern_ == 1) {
           // 次はミサイル攻撃：画面奥深く（突進と同じ距離200）へ移動
-          targetPos_ = cPos + cUp * 15.0f + cForward * 200.0f;
+          targetPos_ = cPos + cForward * 200.0f;
           float offsetX = ((rand() % 100) / 100.0f - 0.5f) * 40.0f;
           targetPos_.x += offsetX;
         } else if (attackPattern_ == 2) {
@@ -993,7 +996,7 @@ void Boss::ChangePhase(BossPhase nextPhase) {
         cForward = railCam->GetRailForward();
       }
       // 画面奥深くへ退避
-      targetPos_ = cPos + cUp * 15.0f + cForward * 200.0f;
+      targetPos_ = cPos + cForward * 200.0f;
     } else {
       targetPos_ = startPos_;
     }

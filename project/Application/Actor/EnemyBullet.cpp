@@ -161,18 +161,14 @@ void EnemyBullet::Update() {
           Vector3 diff = {currentPos.x - playerPos.x, currentPos.y - playerPos.y, currentPos.z - playerPos.z};
           float sideSign = (Dot(diff, camRight) >= 0.0f) ? 1.0f : -1.0f;
 
-          // プレイヤー方向を主軸（0.95）にし、左右（0.22）と上方（0.10）への散開角を約15度に抑えて画面外への飛び出しを防止
-          Vector3 spreadDir = Normalize(Vector3{
-              toPlayer.x * 0.95f + camRight.x * (sideSign * 0.22f) + camUp.x * 0.10f,
-              toPlayer.y * 0.95f + camRight.y * (sideSign * 0.22f) + camUp.y * 0.10f,
-              toPlayer.z * 0.95f + camRight.z * (sideSign * 0.22f) + camUp.z * 0.10f
-          });
+          // プレイヤー方向へまっすぐ発射し、画面外への飛び出しを完全に防止
+          Vector3 spreadDir = toPlayer;
 
-          float burstSpeed = 2.2f;
+          float burstSpeed = 2.0f;
           velocity_ = {spreadDir.x * burstSpeed, spreadDir.y * burstSpeed,
                        spreadDir.z * burstSpeed};
 
-          // 旋回開始の初期値を設定（外側に広がりすぎず即座に追尾姿勢へ移行）
+          // 旋回開始の初期値を設定
           homingStrength_ = 0.02f;
 
           // 発射時の衝撃波リングエフェクト（真っ白）を発生

@@ -94,8 +94,6 @@ private: // メンバ変数(ゲーム用)
   std::string previewModelPath_ = "";
   bool isPreviewHovering_ = false;
 
-  // 環境マッピング確認用オブジェクト
-  std::unique_ptr<Object3d> metallicObject_ = nullptr;
 
   // ボス専用エミッター
   std::unique_ptr<BillboardParticleEmitter> bossExplosionParticleGroup_;
