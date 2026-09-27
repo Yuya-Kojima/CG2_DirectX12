@@ -43,6 +43,9 @@ void Player::Initialize() {
   flashIntensity_ = 0.0f;
   flashColor_ = {1.0f, 0.0f, 0.0f};
 
+  // 自機モデルのスケール設定
+  transform_.scale = {5.0f, 5.0f, 5.0f};
+
   // レティクルの初期位置化処理
   reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
 

@@ -13,6 +13,7 @@ void BossWeakPoint::Initialize() {
     
     SetTag(ActorTag::LockOnTarget);
     baseColor_ = {1.0f, 0.2f, 0.2f, 1.0f}; // 赤く発光する的
+    transform_.scale = {3.0f, 3.0f, 3.0f};
     
     if (collider_) {
         collider_->SetRadius(1.5f); // 狙いやすいように少し大きめ
@@ -64,8 +65,7 @@ void BossWeakPoint::Update() {
         // 向きもボスに合わせる
         transform_.rotate = bossRot;
         
-        // 自身のスケール
-        transform_.scale = {1.5f, 1.5f, 1.5f};
+
     }
 
     Enemy::Update();

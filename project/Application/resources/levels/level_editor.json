@@ -1,7 +1,7 @@
 {
     "sceneObjects": [
         {
-            "modelPath": "plane.obj",
+            "modelPath": "sea_of_clouds.obj",
             "translation": [0.0, -15.0, 2500.0],
             "rotation": [-1.5708, 0.0, 0.0],
             "scale": [2000.0, 3000.0, 1.0]

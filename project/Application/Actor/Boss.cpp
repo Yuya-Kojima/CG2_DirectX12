@@ -70,9 +70,9 @@ void Boss::Initialize() {
     auto core = std::make_unique<BossCore>();
     auto coreModel = std::make_unique<Object3d>();
     coreModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
-    coreModel->SetModel("suzanne.obj"); // 仮
+    coreModel->SetModel("__builtin_sphere");
     coreModel->SetScale({0.4f, 0.4f, 0.4f});
-    coreModel->SetColor({1.0f, 0.2f, 0.2f, 1.0f}); // 赤色
+    coreModel->SetColor({1.0f, 0.1f, 0.2f, 1.0f}); // 赤色オーブ
     core->SetModel(std::move(coreModel));
 
     core->SetBoss(this);
@@ -85,9 +85,9 @@ void Boss::Initialize() {
     auto bit = std::make_unique<BossBit>();
     auto bitModel = std::make_unique<Object3d>();
     bitModel->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
-    bitModel->SetModel("suzanne.obj");
-    bitModel->SetScale({0.5f, 0.5f, 0.5f}); // ビットなので少し小さくする
-    bitModel->SetColor({0.2f, 0.4f, 0.8f, 1.0f});
+    bitModel->SetModel("__builtin_box");
+    bitModel->SetScale({0.8f, 1.2f, 0.15f}); // 薄型シールド装甲板
+    bitModel->SetColor({0.9f, 0.95f, 1.0f, 1.0f}); // 白銀シールド
     bit->SetModel(std::move(bitModel));
 
     bit->SetBoss(this);
@@ -1062,11 +1062,13 @@ void Boss::UpdateDashSequence() {
             auto wp = std::make_unique<BossWeakPoint>();
             auto model = std::make_unique<Object3d>();
             model->Initialize(PrefabManager::GetInstance()->GetObject3dRenderer());
-            model->SetModel("suzanne.obj"); // 仮
+            model->SetModel("__builtin_crystal");
+            model->SetColor({1.0f, 0.2f, 0.2f, 1.0f});
             wp->SetModel(std::move(model));
             wp->SetBoss(this);
             wp->SetOffset(wpOffsets[i]);
             wp->SetId(i);
+            wp->GetTransform().scale = {3.0f, 3.0f, 3.0f};
             
             BossWeakPoint* wpPtr = wp.get();
             wp->SetOnDestroyedCallback([this, wpPtr](bool) { this->OnWeakPointDestroyed(wpPtr); });

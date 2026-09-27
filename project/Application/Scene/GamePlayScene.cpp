@@ -223,6 +223,7 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   // プレイヤーの初期化
   //===========================
   ModelManager::GetInstance()->LoadModel("suzanne.obj");
+  ModelManager::GetInstance()->LoadModel("player_dragon.obj");
 
   player_ = std::make_unique<Player>(railCamera_.get());
   player_->SetSpriteRenderer(engine_->GetSpriteRenderer());
@@ -234,8 +235,8 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   player_->Initialize();
   auto playerModel = std::make_unique<Object3d>();
   playerModel->Initialize(engine_->GetObject3dRenderer());
-  playerModel->SetModel("suzanne.obj"); // 仮の自機モデル
-  playerModel->SetColor({0.0f, 0.5f, 1.0f, 1.0f});
+  playerModel->SetModel("player_dragon.obj"); // 正式自機モデル
+  playerModel->SetColor({1.0f, 1.0f, 1.0f, 1.0f});
   player_->SetModel(std::move(playerModel));
 
 
