@@ -1,4 +1,5 @@
 #include "Actor/Enemy.h"
+#include "Audio/SoundManager.h"
 #include "Actor/Player.h"
 #include "Behavior/IEnemyBehavior.h"
 #include "Camera/ICamera.h"
@@ -158,6 +159,7 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
 
     // 自爆でない場合、自律的に爆発する
     if (!isSelfDestruct) {
+      SoundManager::GetInstance()->PlaySE("enemy_destroy");
       // 死亡時エフェクト
       EffectManager::GetInstance()->PlayEnemyDeathSimpleEffect(
           transform_.translate, baseColor_);
@@ -167,6 +169,8 @@ void Enemy::TakeDamage(int damage, bool isSelfDestruct) {
       onDestroyedCallback_(isSelfDestruct);
     }
     Destroy();
+  } else {
+    SoundManager::GetInstance()->PlaySE_Once("enemy_hit");
   }
 }
 

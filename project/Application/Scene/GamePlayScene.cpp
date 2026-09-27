@@ -151,6 +151,31 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   //===========================
   SoundManager::GetInstance()->Load("boss_explosion",
                                     "resources/Sounds/explosion.mp3");
+  SoundManager::GetInstance()->Load("laser_shot",
+                                    "resources/Sounds/laser_shot.wav");
+  SoundManager::GetInstance()->Load("lockon",
+                                    "resources/Sounds/lockon.wav");
+  SoundManager::GetInstance()->Load("lockon_fire",
+                                    "resources/Sounds/lockon_fire.wav");
+  SoundManager::GetInstance()->Load("enemy_hit",
+                                    "resources/Sounds/enemy_hit.wav");
+  SoundManager::GetInstance()->Load("enemy_destroy",
+                                    "resources/Sounds/enemy_destroy.mp3");
+  SoundManager::GetInstance()->Load("player_damage",
+                                    "resources/Sounds/player_damage.wav");
+  SoundManager::GetInstance()->Load("boss_charge",
+                                    "resources/Sounds/boss_charge.wav");
+  SoundManager::GetInstance()->Load("boss_counter",
+                                    "resources/Sounds/boss_counter.mp3");
+  SoundManager::GetInstance()->Load("ui_decide",
+                                    "resources/Sounds/ui_decide.wav");
+  SoundManager::GetInstance()->Load("stage_bgm",
+                                    "resources/Sounds/stage_bgm.mp3");
+  SoundManager::GetInstance()->Load("boss_bgm",
+                                    "resources/Sounds/boss_bgm.mp3");
+  SoundManager::GetInstance()->Load("victory_jingle",
+                                    "resources/Sounds/victory_jingle.mp3");
+  SoundManager::GetInstance()->PlayBGM("stage_bgm");
 
   EffectManager::GetInstance()->Initialize();
 
@@ -266,7 +291,9 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   TextureManager::GetInstance()->LoadTexture("resources/gradationLine.png");
 }
 
-void GamePlayScene::Finalize() {}
+void GamePlayScene::Finalize() {
+  SoundManager::GetInstance()->StopBGM();
+}
 
 void GamePlayScene::Update() {
 
@@ -402,6 +429,8 @@ void GamePlayScene::Update() {
 
       if (!isBossActive) {
         gameState_ = GameState::Clear;
+        SoundManager::GetInstance()->StopBGM();
+        SoundManager::GetInstance()->PlaySE("victory_jingle");
         if (railCamera_)
           railCamera_->SetAutoMove(false);
         UIManager::GetInstance()->Load("resources/UI/ClearUI.json");
@@ -537,7 +566,8 @@ void GamePlayScene::Update() {
               bossDustEmitter_->Update();
             });
 
-            // ボス戦開始: レールカメラを低速化（完全停止ではなくゆっくり前進）
+            // ボス戦開始: レールカメラを低速化し、ボスBGMへ切り替え
+            SoundManager::GetInstance()->PlayBGM("boss_bgm");
             if (railCamera_) {
               railCamera_->SetSpeed(0.05f);
             }
@@ -548,6 +578,8 @@ void GamePlayScene::Update() {
         if (ev.prefabName == "Boss") {
           newEnemy->SetOnDestroyedCallback([this](bool isSelfDestruct) {
             gameState_ = GameState::Clear;
+            SoundManager::GetInstance()->StopBGM();
+            SoundManager::GetInstance()->PlaySE("victory_jingle");
             if (railCamera_)
               railCamera_->SetAutoMove(false);
             UIManager::GetInstance()->Load("resources/UI/ClearUI.json");

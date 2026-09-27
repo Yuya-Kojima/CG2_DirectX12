@@ -1,4 +1,5 @@
 #include "Actor/Boss.h"
+#include "Audio/SoundManager.h"
 #include "Actor/BossBit.h"
 #include "Actor/BossCore.h"
 #include "Actor/BossWeakPoint.h"
@@ -132,6 +133,7 @@ void Boss::OnWeakPointDestroyed(BossWeakPoint *wp) {
   if (activeWeakPoints_.empty() && (currentState_ == BossState::DashTelegraph || currentState_ == BossState::Dash)) {
       currentState_ = BossState::Stagger;
       stateTimer_ = 0.0f;
+      SoundManager::GetInstance()->PlaySE("boss_counter");
       
       // 装甲を元に戻す
       for (auto* bit : activeBits_) {
@@ -1049,6 +1051,7 @@ void Boss::UpdateDashSequence() {
   case BossState::DashTelegraph: {
     // 初回のみ：装甲退避と的のスポーン
     if (stateTimer_ <= 0.02f) {
+        SoundManager::GetInstance()->PlaySE("boss_charge");
         for (auto* bit : activeBits_) {
             bit->SpreadOut();
         }
