@@ -560,10 +560,15 @@ void Player::FireNormalShot() {
   if (!object3dRenderer_ || !object3d_)
     return;
 
-  // プレイヤーのワールド座標を弾の始点とする
+  // プレイヤーのワールド行列を取得
   Matrix4x4 playerWorld = object3d_->GetWorldMatrix();
-  Vector3 startPos = {playerWorld.m[3][0], playerWorld.m[3][1],
-                      playerWorld.m[3][2]};
+
+  // 口元のローカル座標（X, Y, Z）を作成
+  Vector3 localMuzzle = {actionConfig_.muzzleOffsetX, actionConfig_.muzzleOffsetY,
+                         actionConfig_.muzzleOffsetForward};
+
+  // ワールド行列を使って口元のワールド座標を算出（スケール・回転を自動適用）
+  Vector3 startPos = TransformPoint(localMuzzle, playerWorld);
 
   // レティクルのNDC座標を計算 (-1.0 ~ 1.0)
   float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
@@ -781,6 +786,9 @@ void Player::SaveActionConfig() {
   root["homingSpeedZ"] = actionConfig_.homingSpeedZ;
   root["normalShotSpeed"] = actionConfig_.normalShotSpeed;
   root["recoilStrength"] = actionConfig_.recoilStrength;
+  root["muzzleOffsetX"] = actionConfig_.muzzleOffsetX;
+  root["muzzleOffsetY"] = actionConfig_.muzzleOffsetY;
+  root["muzzleOffsetForward"] = actionConfig_.muzzleOffsetForward;
 
   if (!std::filesystem::exists("resources/config")) {
     std::filesystem::create_directories("resources/config");
@@ -847,6 +855,12 @@ void Player::LoadActionConfig() {
         actionConfig_.normalShotSpeed = root["normalShotSpeed"];
       if (root.contains("recoilStrength"))
         actionConfig_.recoilStrength = root["recoilStrength"];
+      if (root.contains("muzzleOffsetX"))
+        actionConfig_.muzzleOffsetX = root["muzzleOffsetX"];
+      if (root.contains("muzzleOffsetY"))
+        actionConfig_.muzzleOffsetY = root["muzzleOffsetY"];
+      if (root.contains("muzzleOffsetForward"))
+        actionConfig_.muzzleOffsetForward = root["muzzleOffsetForward"];
 
       isActionConfigDirty_ = false; // ロード成功時のみ未保存フラグをリセット
     } catch (...) {

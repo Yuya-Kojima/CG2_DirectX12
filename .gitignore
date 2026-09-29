@@ -408,3 +408,7 @@ project/externals/assimp/bin/
 *.blend1
 /project/Application/resources/levels/level_editor_temp.json
 /project/photos
+
+# AI Agent settings
+.agents/
+**/AGENTS.md

@@ -94,6 +94,9 @@ public:
     float homingSpeedZ = 0.8f;     // ホーミング弾の前方初速
     float normalShotSpeed = 10.0f; // 通常弾の弾速
     float recoilStrength = 0.0f;   // 射撃時の反動の強さ
+    float muzzleOffsetX = 0.0f;       // 口元の左右オフセット
+    float muzzleOffsetY = 0.5f;       // 口元の上方オフセット
+    float muzzleOffsetForward = 2.5f; // 口元の前方オフセット
   };
   ActionConfig &GetActionConfig() { return actionConfig_; }
 
