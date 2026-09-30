@@ -689,14 +689,7 @@ void GamePlayScene::Update() {
       player_->UpdateTransform();
     }
 
-    // ロックオン中は画面をグレースケールにする
-    if (postProcess_) {
-      if (player_->IsLockOnMode()) {
-        postProcess_->SetUseGrayscale(true);
-      } else {
-        postProcess_->SetUseGrayscale(false);
-      }
-    }
+
   }
 
   // アクター群の更新
@@ -916,6 +909,12 @@ void GamePlayScene::Update() {
                                     &config.normalShotSpeed, 1.0f, 50.0f);
       changed |= ImGui::SliderFloat((const char *)u8"射撃の反動の強さ",
                                     &config.recoilStrength, 0.0f, 1.0f);
+      changed |= ImGui::DragFloat((const char *)u8"口元の左右オフセット (X)",
+                                  &config.muzzleOffsetX, 0.05f, -10.0f, 10.0f);
+      changed |= ImGui::DragFloat((const char *)u8"口元の上方オフセット (Y)",
+                                  &config.muzzleOffsetY, 0.05f, -10.0f, 10.0f);
+      changed |= ImGui::DragFloat((const char *)u8"口元の前方オフセット (Z)",
+                                  &config.muzzleOffsetForward, 0.05f, -10.0f, 10.0f);
 
       if (changed) {
         player_->SetActionConfigDirty(true);

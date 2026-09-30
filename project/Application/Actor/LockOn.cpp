@@ -140,7 +140,7 @@ void LockOn::Update(const std::vector<BaseActor *> &inputTargets,
 
 void LockOn::Draw() {
   const float kBaseSize = 60.0f;         // 基本マーカーサイズ
-  const float kConvergeDuration = 0.15f; // 外側からの収束時間（秒）
+  const float kConvergeDuration = 0.4f; // 外側からの収束時間（秒）
 
   size_t drawCount = std::min(targetInfos_.size(), reticles_.size());
 
@@ -161,21 +161,35 @@ void LockOn::Draw() {
     float rotation = 0.0f;
 
     if (targetInfos_[i].state == TargetState::Locking) {
-      // --- 捕捉中（発射前）：シアンブルーで収束 ＋ 回転・脈動 ---
+      // --- 捕捉中（発射前）：画面手前から巨大マーカーが飛来し、激突（めり込み反発） ---
       if (elapsed < kConvergeDuration) {
         float t = elapsed / kConvergeDuration;
-        float easeOut = 1.0f - std::pow(1.0f - t, 3.0f);
-        currentSize = Lerp(kBaseSize * 2.4f, kBaseSize, easeOut);
-        alpha = Lerp(0.4f, 1.0f, easeOut);
-        rotation = (1.0f - easeOut) * 0.8f;
+
+        if (t < 0.7f) {
+          // 前半 (0%〜70%の時間)：15.0倍の超巨大サイズから 0.5倍 まで猛スピードで飛んできて潰れる
+          float t1 = t / 0.7f;
+          float easeIn = t1 * t1 * t1; // イージングイン（激突直前が最速）
+          currentSize = Lerp(kBaseSize * 15.0f, kBaseSize * 0.5f, easeIn);
+          alpha = Lerp(0.0f, 1.0f, easeIn);
+        } else {
+          // 後半 (70%〜100%の時間)：潰れた 0.5倍 から 1.0倍 に反発して戻る
+          float t2 = (t - 0.7f) / 0.3f;
+          float easeOut = 1.0f - std::pow(1.0f - t2, 2.0f);
+          currentSize = Lerp(kBaseSize * 0.5f, kBaseSize * 1.0f, easeOut);
+          alpha = 1.0f;
+        }
+        
+        rotation = (1.0f - t) * 3.0f; // 大きく回転しながら飛んでくる
+        reticles_[i]->SetColor({0.3f, 1.3f, 2.0f, alpha});
       } else {
+        // --- 捕捉中（発射前）：収束完了後のループ（待機） ---
         float loopTime = elapsed - kConvergeDuration;
         rotation = loopTime * 0.8f;
         float pulse = 1.0f + std::sin(loopTime * 8.0f) * 0.04f;
         currentSize = kBaseSize * pulse;
         alpha = 1.0f;
+        reticles_[i]->SetColor({0.3f, 1.3f, 2.0f, alpha});
       }
-      reticles_[i]->SetColor({0.3f, 1.3f, 2.0f, alpha});
     } else {
       // --- 追尾中（発射後）：オレンジレッドで敵に吸着・追尾中を明示 ---
       float pulse = 1.0f + std::sin(elapsed * 10.0f) * 0.03f;

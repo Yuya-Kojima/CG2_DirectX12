@@ -178,11 +178,47 @@ Matrix4x4 MakeOrthographicMatrix(float left, float top, float right,
 /// <returns>逆行列</returns>
 Matrix4x4 Inverse(Matrix4x4 matrix);
 
+// 座標の変換（回転・スケール・平行移動を適用）
+inline Vector3 TransformPoint(const Vector3 &v, const Matrix4x4 &m) {
+  Vector3 result;
+  result.x = v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + m.m[3][0];
+  result.y = v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + m.m[3][1];
+  result.z = v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + m.m[3][2];
+  float w = v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + m.m[3][3];
+  if (w != 0.0f && w != 1.0f) {
+    result.x /= w;
+    result.y /= w;
+    result.z /= w;
+  }
+  return result;
+}
+
 // 法線の変換（回転・スケールのみ適用／平行移動は無視）
 Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
 
 // ワールド座標からスクリーン座標への変換（ロックオンなどに使用）
 Vector2 WorldToScreen(const Vector3& worldPos, const Matrix4x4& viewProjMatrix, float screenWidth, float screenHeight);
+
+/// <summary>
+/// 2Dスクリーン上の2点間を結ぶスプライト設定データ
+/// </summary>
+struct Line2DTransform {
+  Vector2 position; // スプライトの中心位置
+  Vector2 size;     // スプライトのサイズ (X: 直線の長さ, Y: 線の太さ)
+  float rotation;   // 回転角度（ラジアン）
+};
+
+/// <summary>
+/// 2点 P1, P2 から直線のトランスフォーム（位置・サイズ・回転）を算出する
+/// </summary>
+inline Line2DTransform CalculateLine2DTransform(const Vector2& p1, const Vector2& p2, float thickness) {
+  Vector2 diff = { p2.x - p1.x, p2.y - p1.y };
+  float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+  float angle = std::atan2(diff.y, diff.x);
+  Vector2 center = { (p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f };
+
+  return Line2DTransform{ center, { length, thickness }, angle };
+}
 
 Matrix4x4 Transpose(Matrix4x4 matrix);
 
