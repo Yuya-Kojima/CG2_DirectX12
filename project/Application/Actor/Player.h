@@ -1,6 +1,7 @@
 #pragma once
 #include "Framework/BaseActor.h"
 #include "Math/Vector2.h"
+#include "ReticleTunnel.h"
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -134,9 +135,8 @@ private:
   void FireHomingShot();
   void FireNormalShot(); // 追加
 
-  // 照準用
-  Vector2 reticlePosition_;
-  Vector2 reticleVelocity_ = {0.0f, 0.0f}; // 照準の移動速度（慣性用）
+  // 3D視線トンネル照準
+  std::unique_ptr<ReticleTunnel> reticleTunnel_;
 
   float recoilOffset_ = 0.0f;   // 射撃時の反動量
   float recoilVelocity_ = 0.0f; // 射撃時の反動速度
@@ -149,13 +149,7 @@ private:
   std::function<void(int)> hitStopCallback_ =
       nullptr; // ヒットストップ要求コールバック
 
-  // 多重レティクル用スプライト群
-  std::vector<std::unique_ptr<Sprite>>
-      reticleOuterSprites_; // 外側の枠（線4本）
-  std::vector<std::unique_ptr<Sprite>>
-      reticleInnerSprites_;      // 内側の枠（線4本）
-  float reticleOuterRot_ = 0.0f; // 外枠の回転角
-  float reticleInnerRot_ = 0.0f; // 内枠の回転角
+
 
   // 自機の3Dモデル
   std::unique_ptr<Object3d> object3d_;

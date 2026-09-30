@@ -199,6 +199,27 @@ Vector3 TransformNormal(const Vector3 &v, const Matrix4x4 &m);
 // ワールド座標からスクリーン座標への変換（ロックオンなどに使用）
 Vector2 WorldToScreen(const Vector3& worldPos, const Matrix4x4& viewProjMatrix, float screenWidth, float screenHeight);
 
+/// <summary>
+/// 2Dスクリーン上の2点間を結ぶスプライト設定データ
+/// </summary>
+struct Line2DTransform {
+  Vector2 position; // スプライトの中心位置
+  Vector2 size;     // スプライトのサイズ (X: 直線の長さ, Y: 線の太さ)
+  float rotation;   // 回転角度（ラジアン）
+};
+
+/// <summary>
+/// 2点 P1, P2 から直線のトランスフォーム（位置・サイズ・回転）を算出する
+/// </summary>
+inline Line2DTransform CalculateLine2DTransform(const Vector2& p1, const Vector2& p2, float thickness) {
+  Vector2 diff = { p2.x - p1.x, p2.y - p1.y };
+  float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+  float angle = std::atan2(diff.y, diff.x);
+  Vector2 center = { (p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f };
+
+  return Line2DTransform{ center, { length, thickness }, angle };
+}
+
 Matrix4x4 Transpose(Matrix4x4 matrix);
 
 static float DegToRad(float deg) { return deg * 3.14159265f / 180.0f; }

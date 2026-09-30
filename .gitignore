@@ -412,3 +412,5 @@ project/externals/assimp/bin/
 # AI Agent settings
 .agents/
 **/AGENTS.md
+/project/create_presentation.py
+/project/PR1_Presentation.pptx

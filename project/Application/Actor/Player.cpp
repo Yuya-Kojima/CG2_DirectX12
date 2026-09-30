@@ -47,36 +47,16 @@ void Player::Initialize() {
   // 自機モデルのスケール設定
   transform_.scale = {5.0f, 5.0f, 5.0f};
 
-  // レティクルの初期位置化処理
-  reticlePosition_ = {1280.0f / 2.0f, 720.0f / 2.0f};
+  // 3D視線トンネル照準の生成と初期化
+  if (spriteRenderer_) {
+    reticleTunnel_ = std::make_unique<ReticleTunnel>();
+    reticleTunnel_->Initialize(spriteRenderer_);
+  }
 
   // ロックオン機能の生成と初期化
   if (spriteRenderer_) {
     lockOn_ = std::make_unique<LockOn>();
     lockOn_->Initialize(spriteRenderer_);
-
-    // メイン照準カーソル
-    reticleOuterSprites_.clear();
-    // 外枠
-    for (int i = 0; i < 4; ++i) {
-      auto line = std::make_unique<Sprite>();
-      line->Initialize(spriteRenderer_, "resources/white1x1.png");
-      line->SetSize({40.0f, 2.0f});             // 長さ40、太さ2
-      line->SetColor({1.0f, 0.5f, 0.0f, 0.8f}); // オレンジ
-      line->SetAnchorPoint({0.5f, 0.5f});       // 中心をアンカーに
-      reticleOuterSprites_.push_back(std::move(line));
-    }
-
-    reticleInnerSprites_.clear();
-    // 内枠
-    for (int i = 0; i < 4; ++i) {
-      auto line = std::make_unique<Sprite>();
-      line->Initialize(spriteRenderer_, "resources/white1x1.png");
-      line->SetSize({25.0f, 2.0f});             // 長さ25、太さ2
-      line->SetColor({1.0f, 1.0f, 0.0f, 0.9f}); // 黄色
-      line->SetAnchorPoint({0.5f, 0.5f});       // 中心をアンカーに
-      reticleInnerSprites_.push_back(std::move(line));
-    }
   }
 
   // コライダーの初期化
@@ -125,136 +105,20 @@ void Player::Update() {
 
   // プレイヤー自身の更新処理
 
-  // 照準の移動操作
-  if (input_) {
-#ifdef USE_IMGUI
-    // デバッグキー：Kキーでダメージを受ける
-    if (input_->IsTriggerKey(DIK_K)) {
-      TakeDamage(1);
-    }
-#endif
-
-    float acceleration =
-        actionConfig_
-            .reticleAcceleration; // 加速度（入力を続けた時のスピードの上がり方）
-    float friction =
-        actionConfig_
-            .reticleFriction; // 摩擦（数値を小さくすると急ブレーキ、大きくすると滑る）
-
-    // 1. 入力方向の取得
-    Vector2 inputDir = {0.0f, 0.0f};
-    if (input_->IsPressKey(DIK_W) || input_->IsPadPress(PadButton::DPadUp)) {
-      inputDir.y -= 1.0f;
-    }
-    if (input_->IsPressKey(DIK_S) || input_->IsPadPress(PadButton::DPadDown)) {
-      inputDir.y += 1.0f;
-    }
-    if (input_->IsPressKey(DIK_A) || input_->IsPadPress(PadButton::DPadLeft)) {
-      inputDir.x -= 1.0f;
-    }
-    if (input_->IsPressKey(DIK_D) || input_->IsPadPress(PadButton::DPadRight)) {
-      inputDir.x += 1.0f;
-    }
-
-    // アナログスティック入力の合成 (上が+Yなので画面座標系に合わせて反転)
-    float stickX = input_->Pad().GetLeftX();
-    float stickY = -input_->Pad().GetLeftY();
-
-    // デッドゾーン処理 (0.1以下の入力を無視)
-    if (std::abs(stickX) < 0.1f)
-      stickX = 0.0f;
-    if (std::abs(stickY) < 0.1f)
-      stickY = 0.0f;
-
-    inputDir.x += stickX;
-    inputDir.y += stickY;
-
-    // 2. 速度ベクトルに加速度を加算
-    reticleVelocity_.x += inputDir.x * acceleration;
-    reticleVelocity_.y += inputDir.y * acceleration;
-
-    // 3. 速度ベクトルに摩擦を掛けて減速
-    reticleVelocity_.x *= friction;
-    reticleVelocity_.y *= friction;
-
-    // 最高速度の制限 (クランプ)
-    float speed = std::sqrt(reticleVelocity_.x * reticleVelocity_.x +
-                            reticleVelocity_.y * reticleVelocity_.y);
-    if (speed > actionConfig_.reticleMaxSpeed && speed > 0.0f) {
-      reticleVelocity_.x =
-          (reticleVelocity_.x / speed) * actionConfig_.reticleMaxSpeed;
-      reticleVelocity_.y =
-          (reticleVelocity_.y / speed) * actionConfig_.reticleMaxSpeed;
-    }
-
-    // 4. 座標の更新
-    reticlePosition_.x += reticleVelocity_.x;
-    reticlePosition_.y += reticleVelocity_.y;
-
-    // 画面外に出ないようにクランプ
-    reticlePosition_.x = std::clamp(reticlePosition_.x, 0.0f, 1280.0f);
-    reticlePosition_.y = std::clamp(reticlePosition_.y, 0.0f, 720.0f);
-  }
-
-  // 照準スプライト（多重レティクル）の更新
-  reticleOuterRot_ += 0.03f; // 外枠はゆっくり右回転
-
-  Transform defaultUV;
-  defaultUV.scale = {1.0f, 1.0f, 1.0f};
-  defaultUV.rotate = {0.0f, 0.0f, 0.0f};
-  defaultUV.translate = {0.0f, 0.0f, 0.0f};
-
-  // 視界行列と投影行列の取得
-  Matrix4x4 viewProj =
-      Multiply(camera_->GetViewMatrix(), camera_->GetProjectionMatrix());
-
-  // 自機のワールド座標を取得してスクリーン座標に変換
-  Matrix4x4 playerWorld = object3d_->GetWorldMatrix();
-  Vector3 playerPos = {playerWorld.m[3][0], playerWorld.m[3][1],
-                       playerWorld.m[3][2]};
-  Vector2 playerScreenPos = WorldToScreen(playerPos, viewProj, 1280.0f, 720.0f);
-
-  float ix = reticlePosition_.x;
-  float iy = reticlePosition_.y;
-
-  float t = 0.85f;
-  float ox = Lerp(playerScreenPos.x, ix, t);
-  float oy = Lerp(playerScreenPos.y, iy, t);
-
-  // 外枠のサイズを大幅に大きくし、分離しても重なるようにする
-  float outerSize = 50.0f;
-
-  for (int i = 0; i < 4; ++i) {
-    float angle = reticleOuterRot_ + (i * 3.14159265f / 2.0f);
-
-    float posX = ox + std::sin(angle) * outerSize;
-    float posY = oy - std::cos(angle) * outerSize;
-
-    reticleOuterSprites_[i]->SetPosition({posX, posY});
-    reticleOuterSprites_[i]->SetRotation(angle);
-    reticleOuterSprites_[i]->Update(defaultUV);
-  }
-
-  // 内枠の更新（十字キー型）
-  float innerSize = 15.0f;
-
-  reticleInnerSprites_[0]->SetPosition({ix, iy - innerSize}); // 上
-  reticleInnerSprites_[0]->SetRotation(3.141592f / 2.0f);
-  reticleInnerSprites_[1]->SetPosition({ix, iy + innerSize}); // 下
-  reticleInnerSprites_[1]->SetRotation(3.141592f / 2.0f);
-  reticleInnerSprites_[2]->SetPosition({ix - innerSize, iy}); // 左
-  reticleInnerSprites_[2]->SetRotation(0.0f);
-  reticleInnerSprites_[3]->SetPosition({ix + innerSize, iy}); // 右
-  reticleInnerSprites_[3]->SetRotation(0.0f);
-
-  for (int i = 0; i < 4; ++i) {
-    reticleInnerSprites_[i]->Update(defaultUV);
+  // 照準の移動操作と3Dパース更新
+  if (reticleTunnel_) {
+    reticleTunnel_->GetConfig().reticleMaxSpeed = actionConfig_.reticleMaxSpeed;
+    reticleTunnel_->Update(input_, camera_, transform_.translate, IsLockOnMode());
   }
 
   // 自機の追従と姿勢制御
   // レティクルのNDCを計算
-  float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
-  float ndcY = 1.0f - (reticlePosition_.y / 720.0f) * 2.0f;
+  float ndcX = 0.0f;
+  float ndcY = 0.0f;
+  if (reticleTunnel_) {
+    ndcX = (reticleTunnel_->Get2DPosition().x / 1280.0f) * 2.0f - 1.0f;
+    ndcY = 1.0f - (reticleTunnel_->Get2DPosition().y / 720.0f) * 2.0f;
+  }
 
   // カメラ空間のベクトルを取得
   Matrix4x4 viewMatrix = camera_->GetViewMatrix();
@@ -452,8 +316,9 @@ void Player::Update() {
   // ロックオンの更新処理
   if (lockOn_) {
     bool isLockOnMode = (attackState_ == AttackState::LockOn);
+    Vector2 rPos = reticleTunnel_ ? reticleTunnel_->Get2DPosition() : Vector2{640.0f, 360.0f};
     lockOn_->Update(lockOnTargets_, camera_->GetViewProjectionMatrix(),
-                    reticlePosition_, isLockOnMode, actionConfig_.lockOnRadius);
+                    rPos, isLockOnMode, actionConfig_.lockOnRadius);
   }
 
   // 連続衝突判定用に速度を計算してコライダーに渡す
@@ -571,8 +436,12 @@ void Player::FireNormalShot() {
   Vector3 startPos = TransformPoint(localMuzzle, playerWorld);
 
   // レティクルのNDC座標を計算 (-1.0 ~ 1.0)
-  float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
-  float ndcY = 1.0f - (reticlePosition_.y / 720.0f) * 2.0f;
+  float ndcX = 0.0f;
+  float ndcY = 0.0f;
+  if (reticleTunnel_) {
+    ndcX = (reticleTunnel_->Get2DPosition().x / 1280.0f) * 2.0f - 1.0f;
+    ndcY = 1.0f - (reticleTunnel_->Get2DPosition().y / 720.0f) * 2.0f;
+  }
 
   // カメラ空間のベクトルを取得
   Matrix4x4 viewMatrix = camera_->GetViewMatrix();
@@ -636,11 +505,8 @@ void Player::Draw3D() {
 
 void Player::Draw2D() {
   // メイン照準の描画
-  for (auto &sprite : reticleOuterSprites_) {
-    sprite->Draw();
-  }
-  for (auto &sprite : reticleInnerSprites_) {
-    sprite->Draw();
+  if (reticleTunnel_) {
+    reticleTunnel_->Draw();
   }
 
   // ロックオン照準の描画
@@ -714,8 +580,12 @@ void Player::UpdateTransform() {
 
 void Player::ForceSnapToCamera() {
 
-  float ndcX = (reticlePosition_.x / 1280.0f) * 2.0f - 1.0f;
-  float ndcY = 1.0f - (reticlePosition_.y / 720.0f) * 2.0f;
+  float ndcX = 0.0f;
+  float ndcY = 0.0f;
+  if (reticleTunnel_) {
+    ndcX = (reticleTunnel_->Get2DPosition().x / 1280.0f) * 2.0f - 1.0f;
+    ndcY = 1.0f - (reticleTunnel_->Get2DPosition().y / 720.0f) * 2.0f;
+  }
 
   Matrix4x4 viewMatrix = camera_->GetViewMatrix();
   Matrix4x4 cameraWorld = Inverse(viewMatrix);

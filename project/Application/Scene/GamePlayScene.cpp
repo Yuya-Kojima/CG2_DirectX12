@@ -689,14 +689,7 @@ void GamePlayScene::Update() {
       player_->UpdateTransform();
     }
 
-    // ロックオン中は画面をグレースケールにする
-    if (postProcess_) {
-      if (player_->IsLockOnMode()) {
-        postProcess_->SetUseGrayscale(true);
-      } else {
-        postProcess_->SetUseGrayscale(false);
-      }
-    }
+
   }
 
   // アクター群の更新
