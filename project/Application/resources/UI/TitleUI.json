@@ -13,20 +13,20 @@
             "color": [
                 1.0,
                 1.0,
-                0.0,
-                1.0
+                1.0,
+                0.95
             ],
             "fontName": "MPLUS1p-Black",
             "name": "TitleText",
             "position": [
-                350.99542236328125,
-                241.19448852539063
+                460.0,
+                70.0
             ],
             "scale": [
-                2.0,
-                2.0
+                1.1,
+                1.1
             ],
-            "textString": "TitleScene",
+            "textString": "Azure Ascent",
             "textureName": "",
             "type": 1
         },
@@ -37,20 +37,20 @@
             ],
             "children": [],
             "color": [
-                1.0,
-                1.0,
-                1.0,
+                0.05,
+                0.45,
+                0.95,
                 1.0
             ],
             "fontName": "MPLUS1p-Black",
             "name": "StartText",
             "position": [
-                465.68145751953125,
-                428.4379577636719
+                520.0,
+                660.0
             ],
             "scale": [
-                0.5,
-                0.5
+                0.45,
+                0.45
             ],
             "textString": "Press ENTER to Start",
             "textureName": "",
