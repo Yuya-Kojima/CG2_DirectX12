@@ -414,7 +414,7 @@ void Player::FireHomingShot() {
     ActorManager::GetInstance()->AddActor(std::move(bullet));
   }
 
-  // 発射完了後、捕捉中の敵をすべて追尾中（Tracking）マーカーへ昇格
+  // 発射完了後、捕捉中の敵をすべて追尾中（Tracking）マーカーへ昇格（ここで targets が clear される）
   lockOn_->OnHomingFired();
 
   // ホーミング弾発射時の反動を発生させる

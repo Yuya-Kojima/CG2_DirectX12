@@ -48,7 +48,7 @@ public:
   }
   float GetFov() const { return fov_; }
   void SetFov(float fov) { fov_ = fov; }
-  
+
   // 自動進行フラグ
   void SetAutoMove(bool autoMove) { isAutoMove_ = autoMove; }
   bool GetAutoMove() const { return isAutoMove_; }
