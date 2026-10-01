@@ -170,21 +170,6 @@ void ReticleTunnel::Update(Input* input, const ICamera* camera, const Vector3& p
   ApplySquareLines(nearScreen, config_.lineThickness);
   ApplySquareLines(midScreen, config_.lineThickness * 0.6f);
   ApplySquareLines(farScreen, config_.lineThickness * 0.3f);
-
-  static bool s_logged = false;
-  if (!s_logged) {
-    s_logged = true;
-    std::string msg = "=== ReticleTunnel Debug ===\n";
-    msg += "cameraRight: " + std::to_string(cameraRight.x) + ", " + std::to_string(cameraRight.y) + ", " + std::to_string(cameraRight.z) + "\n";
-    msg += "cameraUp: " + std::to_string(cameraUp.x) + ", " + std::to_string(cameraUp.y) + ", " + std::to_string(cameraUp.z) + "\n";
-    msg += "nearScreen[0]: " + std::to_string(nearScreen[0].x) + ", " + std::to_string(nearScreen[0].y) + "\n";
-    msg += "nearScreen[1]: " + std::to_string(nearScreen[1].x) + ", " + std::to_string(nearScreen[1].y) + "\n";
-    msg += "nearScreen[2]: " + std::to_string(nearScreen[2].x) + ", " + std::to_string(nearScreen[2].y) + "\n";
-    msg += "===========================\n";
-    
-    std::ofstream ofs("reticle_debug.txt");
-    ofs << msg;
-  }
 }
 
 void ReticleTunnel::UpdateLineSprite(size_t index, const Vector2& p1, const Vector2& p2, float thickness, const Vector4& color) {

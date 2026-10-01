@@ -2,13 +2,14 @@
 #include "Math/MathUtil.h"
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 RailCamera::RailCamera() {
   transform_.scale = {1.0f, 1.0f, 1.0f};
   transform_.rotate = {0.0f, 0.0f, 0.0f};
   transform_.translate = {0.0f, 0.0f, 0.0f};
 
-  fov_ = 45.0f * (3.14159265f / 180.0f);
+  fov_ = 45.0f * (std::numbers::pi_v<float> / 180.0f);
   aspectRatio_ = 1280.0f / 720.0f;
   nearClip_ = 0.1f;
   farClip_ = 1000.0f;
