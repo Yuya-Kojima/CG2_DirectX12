@@ -32,8 +32,34 @@
         },
         {
             "anchorPoint": [
+                0.5,
+                0.5
+            ],
+            "children": [],
+            "color": [
                 0.0,
-                0.0
+                0.0,
+                0.0,
+                0.85
+            ],
+            "fontName": "MPLUS1p-Black",
+            "name": "StartTextShadow",
+            "position": [
+                642.0,
+                657.0
+            ],
+            "scale": [
+                0.75,
+                0.75
+            ],
+            "textString": "PRESS ENTER TO START",
+            "textureName": "",
+            "type": 1
+        },
+        {
+            "anchorPoint": [
+                0.5,
+                0.5
             ],
             "children": [],
             "color": [
@@ -45,14 +71,14 @@
             "fontName": "MPLUS1p-Black",
             "name": "StartText",
             "position": [
-                520.0,
-                660.0
+                640.0,
+                655.0
             ],
             "scale": [
-                0.45,
-                0.45
+                0.75,
+                0.75
             ],
-            "textString": "Press ENTER to Start",
+            "textString": "PRESS ENTER TO START",
             "textureName": "",
             "type": 1
         }

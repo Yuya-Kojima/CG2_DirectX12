@@ -64,7 +64,7 @@ void WindowSystem::Initialize() {
   hwnd = CreateWindow(
 
       wc.lpszClassName,     // 利用するクラス名
-      L"CG2",               // タイトルバーの文字
+      L"Azure Ascent",      // タイトルバーの文字
       WS_OVERLAPPEDWINDOW,  // よく見るウィンドウスタイル
       CW_USEDEFAULT,        // 表示X座標
       CW_USEDEFAULT,        // 表示Y座標
@@ -97,7 +97,7 @@ bool WindowSystem::ProcessMessage() {
   while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
     TranslateMessage(&msg);
     DispatchMessage(&msg);
-    
+
     if (msg.message == WM_QUIT) {
       return true;
     }

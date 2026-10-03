@@ -66,12 +66,19 @@ void TrailRenderer::AddTrail(const std::vector<TrailNode>& nodes, const Vector3&
         // 進行方向とカメラ視線の外積で、カメラに正対する「帯の横方向ベクトル（Right）」を計算
         Vector3 side = Cross(dir, toCamera);
         float sideLen = std::sqrt(side.x * side.x + side.y * side.y + side.z * side.z);
-        if (sideLen > 0.0001f) {
+        if (sideLen > 0.10f) {
             side = {side.x / sideLen, side.y / sideLen, side.z / sideLen};
             prevRight = side;
         } else {
-            // 平行に近い場合は前回のRightを使用
-            side = prevRight;
+            // 視線と進行方向が平行（真後ろ・真正面から見る場合）のフォールバック
+            Vector3 fallbackSide = Cross(Vector3{0.0f, 1.0f, 0.0f}, toCamera);
+            float fallbackLen = std::sqrt(fallbackSide.x * fallbackSide.x + fallbackSide.y * fallbackSide.y + fallbackSide.z * fallbackSide.z);
+            if (fallbackLen > 0.0001f) {
+                side = {fallbackSide.x / fallbackLen, fallbackSide.y / fallbackLen, fallbackSide.z / fallbackLen};
+                prevRight = side;
+            } else {
+                side = prevRight;
+            }
         }
 
         float halfW = nodes[i].width * 0.5f;

@@ -142,6 +142,13 @@ void GamePlayScene::Initialize(EngineBase *engine) {
   fog.enabled = 1.0f;
   engine_->GetObject3dRenderer()->SetFog(fog);
 
+  // ディレクショナルライト設定
+  if (auto *dl = engine->GetObject3dRenderer()->GetDirectionalLightData()) {
+    dl->color = {1.0f, 1.0f, 1.0f, 1.0f};
+    dl->direction = Normalize(Vector3{0.0f, -1.0f, 0.0f});
+    dl->intensity = 1.0f;
+  }
+
   //===========================
   // テクスチャファイルの読み込み
   //===========================
